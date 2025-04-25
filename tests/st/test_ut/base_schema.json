@@ -206,10 +206,10 @@
     "mindformers.core.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.EvalCallBack.epoch_end": {
+    "mindformers.core.EvalCallBack.on_train_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.EvalCallBack.step_end": {
+    "mindformers.core.EvalCallBack.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.EvalCallBack._execute_eval": {
@@ -230,23 +230,20 @@
     "mindformers.core.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.MFLossMonitor.epoch_begin": {
+    "mindformers.core.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.MFLossMonitor.epoch_end": {
+    "mindformers.core.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.MFLossMonitor.step_end": {
+    "mindformers.core.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.MFLossMonitor._fix_loss_for_parallel": {
         "signature": "(self, loss)"
     },
     "mindformers.core.MFLossMonitor._get_pipeline_group": {
-        "signature": "(self)"
+        "signature": "()"
     },
     "mindformers.core.MFLossMonitor._can_calculate_model_flops": {
         "signature": "(self, cb_params)"
@@ -281,10 +278,10 @@
     "mindformers.core.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.ProfileMonitor.step_begin": {
+    "mindformers.core.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.ProfileMonitor.step_end": {
+    "mindformers.core.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.ProfileMonitor._record_metadata": {
@@ -365,16 +362,13 @@
     "mindformers.core.TrainingStateMonitor": {
         "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
-    "mindformers.core.TrainingStateMonitor.epoch_begin": {
+    "mindformers.core.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.TrainingStateMonitor.epoch_end": {
+    "mindformers.core.TrainingStateMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.TrainingStateMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.TrainingStateMonitor.step_end": {
+    "mindformers.core.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.TrainingStateMonitor._init_config": {
@@ -455,10 +449,10 @@
     "mindformers.core.callback.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.callback.EvalCallBack.epoch_end": {
+    "mindformers.core.callback.EvalCallBack.on_train_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.EvalCallBack.step_end": {
+    "mindformers.core.callback.EvalCallBack.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.EvalCallBack._execute_eval": {
@@ -467,23 +461,20 @@
     "mindformers.core.callback.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.callback.MFLossMonitor.epoch_begin": {
+    "mindformers.core.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.MFLossMonitor.epoch_end": {
+    "mindformers.core.callback.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.MFLossMonitor.step_end": {
+    "mindformers.core.callback.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.MFLossMonitor._fix_loss_for_parallel": {
         "signature": "(self, loss)"
     },
     "mindformers.core.callback.MFLossMonitor._get_pipeline_group": {
-        "signature": "(self)"
+        "signature": "()"
     },
     "mindformers.core.callback.MFLossMonitor._can_calculate_model_flops": {
         "signature": "(self, cb_params)"
@@ -500,10 +491,10 @@
     "mindformers.core.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.callback.ProfileMonitor.step_begin": {
+    "mindformers.core.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.ProfileMonitor.step_end": {
+    "mindformers.core.callback.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.ProfileMonitor._record_metadata": {
@@ -521,16 +512,13 @@
     "mindformers.core.callback.TrainingStateMonitor": {
         "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.epoch_begin": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.epoch_end": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.TrainingStateMonitor.step_end": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.TrainingStateMonitor._init_config": {
@@ -599,10 +587,10 @@
     "mindformers.core.callback.callback.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.callback.callback.EvalCallBack.epoch_end": {
+    "mindformers.core.callback.callback.EvalCallBack.on_train_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.EvalCallBack.step_end": {
+    "mindformers.core.callback.callback.EvalCallBack.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.EvalCallBack._execute_eval": {
@@ -611,23 +599,20 @@
     "mindformers.core.callback.callback.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.epoch_begin": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.epoch_end": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.callback.MFLossMonitor.step_end": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.MFLossMonitor._fix_loss_for_parallel": {
         "signature": "(self, loss)"
     },
     "mindformers.core.callback.callback.MFLossMonitor._get_pipeline_group": {
-        "signature": "(self)"
+        "signature": "()"
     },
     "mindformers.core.callback.callback.MFLossMonitor._can_calculate_model_flops": {
         "signature": "(self, cb_params)"
@@ -647,10 +632,10 @@
     "mindformers.core.callback.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.callback.callback.ProfileMonitor.step_begin": {
+    "mindformers.core.callback.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.ProfileMonitor.step_end": {
+    "mindformers.core.callback.callback.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.ProfileMonitor._record_metadata": {
@@ -2330,6 +2315,9 @@
     "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
     },
+    "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
@@ -2368,6 +2356,9 @@
     },
     "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
@@ -3555,7 +3546,7 @@
         "signature": "(self, batch_size, seq_length)"
     },
     "mindformers.generation.GenerationMixin._prepare_inputs_for_prefill_flatten": {
-        "signature": "(self, input_ids, batch_valid_length, slot_mapping, model_inputs)"
+        "signature": "(input_ids, batch_valid_length, slot_mapping, model_inputs)"
     },
     "mindformers.generation.GenerationMixin.prepare_inputs_for_generation": {
         "signature": "(self, input_ids, **kwargs)"
@@ -3567,25 +3558,25 @@
         "signature": "(self, is_prefill)"
     },
     "mindformers.generation.GenerationMixin.update_model_kwargs_before_generate": {
-        "signature": "(self, input_ids, model_kwargs: dict)"
+        "signature": "(input_ids, model_kwargs: dict)"
     },
     "mindformers.generation.GenerationMixin.slice_incremental_inputs": {
-        "signature": "(self, model_inputs: dict, current_index)"
+        "signature": "(model_inputs: dict, current_index)"
     },
     "mindformers.generation.GenerationMixin.process_logits": {
-        "signature": "(self, logits, current_index=None, keep_all=False)"
+        "signature": "(logits, current_index=None, keep_all=False)"
     },
     "mindformers.generation.GenerationMixin.get_logits_processor": {
         "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig, input_ids_seq_length: int, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList])"
     },
     "mindformers.generation.GenerationMixin._merge_processor_list": {
-        "signature": "(self, default_list: mindformers.generation.logits_process.LogitsProcessorList, custom_list: mindformers.generation.logits_process.LogitsProcessorList)"
+        "signature": "(default_list: mindformers.generation.logits_process.LogitsProcessorList, custom_list: mindformers.generation.logits_process.LogitsProcessorList)"
     },
     "mindformers.generation.GenerationMixin.get_logits_warper": {
-        "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig)"
+        "signature": "(generation_config: mindformers.generation.generation_config.GenerationConfig)"
     },
     "mindformers.generation.GenerationMixin._get_generation_mode": {
-        "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig)"
+        "signature": "(generation_config: mindformers.generation.generation_config.GenerationConfig)"
     },
     "mindformers.generation.GenerationMixin._prepare_model_inputs_for_decoder": {
         "signature": "(self, input_ids, input_mask)"
@@ -3621,7 +3612,7 @@
         "signature": "(self, input_ids: Union[List[List[int]], List[int]], valid_length_each_example: numpy.ndarray, generation_config: mindformers.generation.generation_config.GenerationConfig = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, logits_warper: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, **model_kwargs)"
     },
     "mindformers.generation.GenerationMixin._prepare_inputs_for_flatten": {
-        "signature": "(self, input_ids, valid_length_each_example, slot_mapping, prefill=True)"
+        "signature": "(input_ids, valid_length_each_example, slot_mapping, prefill=True)"
     },
     "mindformers.generation.GenerationMixin.chunk_prefill_infer": {
         "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], batch_valid_length: numpy.ndarray, block_tables: numpy.ndarray, slot_mapping: numpy.ndarray, attention_mask: Optional[numpy.ndarray] = None, **model_kwargs)"
@@ -3822,7 +3813,7 @@
         "signature": "(self, batch_size, seq_length)"
     },
     "mindformers.generation.text_generator.GenerationMixin._prepare_inputs_for_prefill_flatten": {
-        "signature": "(self, input_ids, batch_valid_length, slot_mapping, model_inputs)"
+        "signature": "(input_ids, batch_valid_length, slot_mapping, model_inputs)"
     },
     "mindformers.generation.text_generator.GenerationMixin.prepare_inputs_for_generation": {
         "signature": "(self, input_ids, **kwargs)"
@@ -3834,25 +3825,25 @@
         "signature": "(self, is_prefill)"
     },
     "mindformers.generation.text_generator.GenerationMixin.update_model_kwargs_before_generate": {
-        "signature": "(self, input_ids, model_kwargs: dict)"
+        "signature": "(input_ids, model_kwargs: dict)"
     },
     "mindformers.generation.text_generator.GenerationMixin.slice_incremental_inputs": {
-        "signature": "(self, model_inputs: dict, current_index)"
+        "signature": "(model_inputs: dict, current_index)"
     },
     "mindformers.generation.text_generator.GenerationMixin.process_logits": {
-        "signature": "(self, logits, current_index=None, keep_all=False)"
+        "signature": "(logits, current_index=None, keep_all=False)"
     },
     "mindformers.generation.text_generator.GenerationMixin.get_logits_processor": {
         "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig, input_ids_seq_length: int, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList])"
     },
     "mindformers.generation.text_generator.GenerationMixin._merge_processor_list": {
-        "signature": "(self, default_list: mindformers.generation.logits_process.LogitsProcessorList, custom_list: mindformers.generation.logits_process.LogitsProcessorList)"
+        "signature": "(default_list: mindformers.generation.logits_process.LogitsProcessorList, custom_list: mindformers.generation.logits_process.LogitsProcessorList)"
     },
     "mindformers.generation.text_generator.GenerationMixin.get_logits_warper": {
-        "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig)"
+        "signature": "(generation_config: mindformers.generation.generation_config.GenerationConfig)"
     },
     "mindformers.generation.text_generator.GenerationMixin._get_generation_mode": {
-        "signature": "(self, generation_config: mindformers.generation.generation_config.GenerationConfig)"
+        "signature": "(generation_config: mindformers.generation.generation_config.GenerationConfig)"
     },
     "mindformers.generation.text_generator.GenerationMixin._prepare_model_inputs_for_decoder": {
         "signature": "(self, input_ids, input_mask)"
@@ -3888,7 +3879,7 @@
         "signature": "(self, input_ids: Union[List[List[int]], List[int]], valid_length_each_example: numpy.ndarray, generation_config: mindformers.generation.generation_config.GenerationConfig = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, logits_warper: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, **model_kwargs)"
     },
     "mindformers.generation.text_generator.GenerationMixin._prepare_inputs_for_flatten": {
-        "signature": "(self, input_ids, valid_length_each_example, slot_mapping, prefill=True)"
+        "signature": "(input_ids, valid_length_each_example, slot_mapping, prefill=True)"
     },
     "mindformers.generation.text_generator.GenerationMixin.chunk_prefill_infer": {
         "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], batch_valid_length: numpy.ndarray, block_tables: numpy.ndarray, slot_mapping: numpy.ndarray, attention_mask: Optional[numpy.ndarray] = None, **model_kwargs)"
@@ -3999,7 +3990,7 @@
         "signature": "(cls)"
     },
     "mindformers.models.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, post_self_attn_layernorm: bool = False, post_mlp_layernorm: bool = False, **kwargs)"
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
@@ -4015,6 +4006,21 @@
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
+    },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.convert_name": {
+        "signature": "(weight_name)"
+    },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.convert_weight_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.convert_map_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.obtain_qkv_ffn_concat_keys": {
+        "signature": "()"
+    },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
         "signature": "(self)"
@@ -4109,6 +4115,9 @@
     "mindformers.models.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
     },
+    "mindformers.models.GLMProcessor": {
+        "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
+    },
     "mindformers.models.LlamaConfig": {
         "signature": "(batch_size: int = 1, seq_length: int = 2048, hidden_size: int = 4096, num_layers: int = 32, num_heads: int = 32, n_kv_heads: Optional[int] = None, max_position_embedding: Optional[int] = None, intermediate_size: Optional[int] = None, vocab_size: int = 32000, multiple_of: int = 256, ffn_dim_multiplier: Optional[int] = None, rms_norm_eps: float = 1e-05, bos_token_id: int = 1, eos_token_id: int = 2, pad_token_id: int = 0, ignore_token_id: int = -100, theta: float = 10000.0, compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', rotary_dtype: str = 'float32', param_init_type: str = 'float16', residual_dtype: str = None, embedding_init_type=None, qkv_has_bias: bool = False, qkv_concat: bool = False, attn_proj_has_bias: bool = False, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, use_past: bool = False, extend_method: str = 'None', scaling_factor: float = 1.0, is_dynamic: bool = False, use_rope_slice: bool = False, use_flash_attention: bool = False, use_ring_attention: bool = False, use_attn_mask_compression: bool = False, use_eod_attn_mask_compression: bool = False, parallel_optimizer: bool = False, fine_grain_interleave: int = 1, pp_interleave_num: int = 1, offset: int = 0, init_method_std: float = 0.01, checkpoint_name_or_path: str = '', repetition_penalty: float = 1.0, max_decode_length: int = 1024, block_size: int = 16, num_blocks: int = 512, top_k: int = 5, top_p: float = 1.0, do_sample: bool = True, quant_config: dict = None, tie_word_embeddings: bool = False, llm_backend: str = '', fused_rms_norm: bool = True, input_sliced_sig: bool = False, rmsnorm_compute_2d: bool = False, chunk_prefill: bool = False, calculate_per_token_loss: bool = False, pipeline_stage: dict = None, return_hidden_states: bool = False, **kwargs)"
     },
@@ -4147,6 +4156,9 @@
     },
     "mindformers.models.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.models.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
@@ -4227,7 +4239,7 @@
         "signature": "(self, tokenizer)"
     },
     "mindformers.models.ModalContentTransformTemplate.get_need_update_output_items": {
-        "signature": "(self, result: mindformers.models.multi_modal.utils.DataRecord) -> Dict[str, Any]"
+        "signature": "(result: mindformers.models.multi_modal.utils.DataRecord) -> Dict[str, Any]"
     },
     "mindformers.models.ModalContentTransformTemplate.batch_input_ids": {
         "signature": "(self, input_ids_list, max_length)"
@@ -5144,89 +5156,8 @@
     "mindformers.models.eva02.eva_config.EVA02Config": {
         "signature": "(image_size: int = 224, patch_size: int = 16, num_channels: int = 3, hidden_size: int = 768, num_hidden_layers: int = 12, num_attention_heads: int = 12, intermediate_size: int = 2048, ref_feat_shape: int = 16, num_classes: int = 512, offset: int = 0, hidden_dropout_prob: float = 0.0, attention_dropout_prob: float = 0.0, drop_path_rate: float = 0.0, drop_rate: float = 0.0, layer_norm: str = 'layernorm', layer_norm_eps: float = 1e-06, class_token: bool = True, use_abs_pos_emb: bool = True, use_rot_pos_emb: bool = True, qkv_bias: bool = True, use_swiglu: bool = True, use_scale_mlp: bool = True, use_qkv_fused: bool = False, use_qkv_simple: bool = False, use_attn_norm: bool = True, use_post_norm: bool = False, post_norm: bool = False, with_cls_token: bool = False, checkpoint_name_or_path: str = '', compute_dtype: mindspore.common.dtype = mindspore.float16, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, init_values=None, pipeline_stage=None, **kwargs)"
     },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer": {
-        "signature": "(vocab_file, do_lower_case=False, remove_space=False, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>', num_image_tokens=0, **kwargs) -> None"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.get_vocab": {
-        "signature": "(self)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.preprocess_text": {
-        "signature": "(self, inputs)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._tokenize": {
-        "signature": "(self, text, **kwargs)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._decode": {
-        "signature": "(self, token_ids, skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[List[str], str]) -> Union[List[int], int]"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[List[str], str]) -> Union[List[int], int]"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_token_to_id_with_added_voc": {
-        "signature": "(self, token)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_token_to_id": {
-        "signature": "(self, token)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_id_to_token": {
-        "signature": "(self, index)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.build_inputs_with_special_tokens": {
-        "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.save_vocabulary": {
-        "signature": "(self, save_directory, filename_prefix=None)"
-    },
-    "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.create_token_type_ids_from_sequences": {
-        "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
-    },
-    "mindformers.models.glm.glm.GLMChatModel": {
-        "signature": "(config: mindformers.models.glm.glm_config.GLMConfig)"
-    },
-    "mindformers.models.glm.glm.GLMChatModel.sample": {
-        "signature": "(self, log_probs)"
-    },
-    "mindformers.models.glm.glm.GLMChatModel.construct": {
-        "signature": "(self, input_ids, position_ids=None, attention_mask=None, init_reset=True, batch_valid_length=None, labels=None, input_position=None, input_embeds=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining": {
-        "signature": "(config: mindformers.models.glm.glm_config.GLMConfig)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.get_masks_np": {
-        "signature": "(self, input_ids)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.get_position_ids_np": {
-        "signature": "(self, input_ids, mask_positions, use_gmasks=None)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.create_position_ids_np": {
-        "signature": "(self, input_ids)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.update_model_kwargs_before_generate": {
-        "signature": "(self, input_ids, model_kwargs: dict)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.prepare_inputs_for_generation": {
-        "signature": "(self, input_ids, **kwargs)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.slice_incremental_inputs": {
-        "signature": "(self, model_inputs: dict, current_index)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.add_flags_custom": {
-        "signature": "(self, is_first_iteration)"
-    },
-    "mindformers.models.glm.glm.GLMForPreTraining.construct": {
-        "signature": "(self, input_ids, labels=None, position_ids=None, attention_mask=None, input_position=None, input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None)"
-    },
-    "mindformers.models.glm.glm_config.GLMConfig": {
-        "signature": "(batch_size: int = 1, vocab_size: int = 130528, hidden_size: int = 4096, num_layers: int = 28, num_heads: int = 32, inner_hidden_size: int = 16384, seq_length: int = 512, embedding_dropout_prob: float = 0.0, attention_dropout_rate: float = 0.0, hidden_dropout_rate: float = 0.0, hidden_size_per_attention_head: int = None, layernorm_order: str = 'post', layernorm_epsilon: float = 1e-05, use_final_layernorm: bool = True, op_parallel_config: Union[dict, mindformers.modules.transformer.op_parallel_config.OpParallelConfig] = <mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, embed_parallel_config: Union[dict, mindformers.modules.transformer.transformer.EmbeddingOpParallelConfig] = <mindformers.modules.transformer.transformer.EmbeddingOpParallelConfig object>, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, use_past: bool = False, activation_func: str = 'GELU', position_encoding_2d: bool = True, param_init_type: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', compute_dtype: str = 'float16', bos_token_id: int = 130004, eos_token_id: int = 130005, mask_token_id: int = 130000, gmask_token_id: int = 130001, pad_token_id: int = 3, is_enhanced_encoder: bool = True, is_sample_acceleration: bool = False, checkpoint_name_or_path: str = '', max_decode_length: int = 2048, top_k: int = 1, top_p: float = 1, repetition_penalty: float = 1.0, do_sample: bool = True, ignore_index: int = -100, ignore_token_id=None, **kwargs)"
-    },
-    "mindformers.models.glm.glm_processor.GLMProcessor": {
-        "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
-    },
     "mindformers.models.glm2.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, post_self_attn_layernorm: bool = False, post_mlp_layernorm: bool = False, **kwargs)"
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
@@ -5242,6 +5173,21 @@
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
+    },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.convert_name": {
+        "signature": "(weight_name)"
+    },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.convert_weight_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.convert_map_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.obtain_qkv_ffn_concat_keys": {
+        "signature": "()"
+    },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
         "signature": "(self)"
@@ -5336,6 +5282,9 @@
     "mindformers.models.glm2.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
     },
+    "mindformers.models.glm2.GLMProcessor": {
+        "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
+    },
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
     },
@@ -5350,6 +5299,21 @@
     },
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.convert_name": {
+        "signature": "(weight_name)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.convert_weight_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.convert_map_dict": {
+        "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.obtain_qkv_ffn_concat_keys": {
+        "signature": "()"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
         "signature": "(self)"
@@ -5379,7 +5343,7 @@
         "signature": "(self, layer_idx)"
     },
     "mindformers.models.glm2.glm2_config.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, post_self_attn_layernorm: bool = False, post_mlp_layernorm: bool = False, **kwargs)"
     },
     "mindformers.models.glm2.glm2_tokenizer.ChatGLM2Tokenizer": {
         "signature": "(vocab_file, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>', **kwargs)"
@@ -5513,6 +5477,9 @@
     "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
     },
+    "mindformers.models.glm2.glm_processor.GLMProcessor": {
+        "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
+    },
     "mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification": {
         "signature": "(config: mindformers.models.gpt2.gpt2_config.GPT2Config = None)"
     },
@@ -5636,6 +5603,9 @@
     "mindformers.models.llama.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
+    "mindformers.models.llama.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.models.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
@@ -5725,6 +5695,9 @@
     },
     "mindformers.models.llama.llama.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.models.llama.llama.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.llama.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
@@ -6120,7 +6093,7 @@
         "signature": "(self, tokenizer)"
     },
     "mindformers.models.multi_modal.ModalContentTransformTemplate.get_need_update_output_items": {
-        "signature": "(self, result: mindformers.models.multi_modal.utils.DataRecord) -> Dict[str, Any]"
+        "signature": "(result: mindformers.models.multi_modal.utils.DataRecord) -> Dict[str, Any]"
     },
     "mindformers.models.multi_modal.ModalContentTransformTemplate.batch_input_ids": {
         "signature": "(self, input_ids_list, max_length)"
@@ -6136,69 +6109,6 @@
     },
     "mindformers.models.multi_modal.ModalContentTransformTemplate.post_process": {
         "signature": "(self, output_ids, **kwargs)"
-    },
-    "mindformers.models.sam.sam_utils.MaskData": {
-        "signature": "(**kwargs) -> None"
-    },
-    "mindformers.models.sam.sam_utils.MaskData.items": {
-        "signature": "(self) -> ItemsView[str, Any]"
-    },
-    "mindformers.models.sam.sam_utils.MaskData.filter": {
-        "signature": "(self, keep: numpy.ndarray) -> None"
-    },
-    "mindformers.models.sam.sam_utils.MaskData.cat": {
-        "signature": "(self, new_stats: 'MaskData') -> None"
-    },
-    "mindformers.models.sam.sam_utils.area_from_rle": {
-        "signature": "(rle: Dict[str, Any]) -> int"
-    },
-    "mindformers.models.sam.sam_utils.batch_iterator": {
-        "signature": "(batch_size: int, *args) -> Generator[List[Any], NoneType, NoneType]"
-    },
-    "mindformers.models.sam.sam_utils.batched_mask_to_box": {
-        "signature": "(masks)"
-    },
-    "mindformers.models.sam.sam_utils.box_area": {
-        "signature": "(boxes)"
-    },
-    "mindformers.models.sam.sam_utils.box_xyxy_to_xywh": {
-        "signature": "(box_xyxy: numpy.ndarray) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.build_all_layer_point_grids": {
-        "signature": "(n_per_side: int, n_layers: int, scale_per_layer: int) -> List[numpy.ndarray]"
-    },
-    "mindformers.models.sam.sam_utils.calculate_stability_score": {
-        "signature": "(masks: numpy.ndarray, mask_threshold: float, threshold_offset: float) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.coco_encode_rle": {
-        "signature": "(uncompressed_rle: Dict[str, Any]) -> Dict[str, Any]"
-    },
-    "mindformers.models.sam.sam_utils.generate_crop_boxes": {
-        "signature": "(im_size: Tuple[int, ...], n_layers: int, overlap_ratio: float) -> Tuple[List[List[int]], List[int]]"
-    },
-    "mindformers.models.sam.sam_utils.is_box_near_crop_edge": {
-        "signature": "(boxes: numpy.ndarray, crop_box: List[int], orig_box: List[int], atol: float = 20.0) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.mask_to_rle": {
-        "signature": "(tensor: numpy.ndarray) -> List[Dict[str, Any]]"
-    },
-    "mindformers.models.sam.sam_utils.nms": {
-        "signature": "(boxes: numpy.ndarray, scores: numpy.ndarray, iou_threshold: float)"
-    },
-    "mindformers.models.sam.sam_utils.remove_small_regions": {
-        "signature": "(mask: numpy.ndarray, area_thresh: float, mode: str) -> Tuple[numpy.ndarray, bool]"
-    },
-    "mindformers.models.sam.sam_utils.rle_to_mask": {
-        "signature": "(rle: Dict[str, Any]) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.uncrop_boxes_xyxy": {
-        "signature": "(boxes: numpy.ndarray, crop_box: List[int]) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.uncrop_masks": {
-        "signature": "(masks: numpy.ndarray, crop_box: List[int], orig_h: int, orig_w: int) -> numpy.ndarray"
-    },
-    "mindformers.models.sam.sam_utils.uncrop_points": {
-        "signature": "(points: numpy.ndarray, crop_box: List[int]) -> numpy.ndarray"
     },
     "mindformers.models.swin.swin.SwinForImageClassification": {
         "signature": "(config: mindformers.models.configuration_utils.PretrainedConfig = None)"
@@ -7371,13 +7281,13 @@
         "signature": "(self, src_checkpoint, dst_checkpoint_dir, src_strategy=None, dst_strategy=None, prefix='checkpoint_')"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.transform_checkpoints": {
-        "signature": "(self, src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
+        "signature": "(src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.transform_checkpoint_by_rank": {
         "signature": "(self, src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.build_soft_link_of_checkpoint": {
-        "signature": "(self, checkpoint, soft_link_dir)"
+        "signature": "(checkpoint, soft_link_dir)"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.clear_cache": {
         "signature": "(self)"
@@ -7389,7 +7299,7 @@
         "signature": "(self, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.check_src_checkpoint_and_strategy": {
-        "signature": "(self, src_checkpoint, src_strategy)"
+        "signature": "(src_checkpoint, src_strategy)"
     },
     "mindformers.tools.ckpt_transform.TransformCkpt.send_strategy_to_obs": {
         "signature": "(self, strategy)"
@@ -7410,13 +7320,13 @@
         "signature": "(self, src_checkpoint, dst_checkpoint_dir, src_strategy=None, dst_strategy=None, prefix='checkpoint_')"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.transform_checkpoints": {
-        "signature": "(self, src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
+        "signature": "(src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.transform_checkpoint_by_rank": {
         "signature": "(self, src_checkpoint, dst_checkpoint, prefix, src_strategy, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.build_soft_link_of_checkpoint": {
-        "signature": "(self, checkpoint, soft_link_dir)"
+        "signature": "(checkpoint, soft_link_dir)"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.clear_cache": {
         "signature": "(self)"
@@ -7428,7 +7338,7 @@
         "signature": "(self, dst_strategy)"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.check_src_checkpoint_and_strategy": {
-        "signature": "(self, src_checkpoint, src_strategy)"
+        "signature": "(src_checkpoint, src_strategy)"
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.send_strategy_to_obs": {
         "signature": "(self, strategy)"
@@ -7445,10 +7355,10 @@
     "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor": {
         "signature": "(src_dir, target_dir, step_upload_frequence: int = 100, epoch_upload_frequence: int = -1, keep_last=True, retry=3, retry_time=5, log=<class 'mindformers.tools.logger.logger'>)"
     },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.step_end": {
+    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.epoch_end": {
+    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_epoch_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.upload": {
@@ -7566,10 +7476,10 @@
         "signature": "(self)"
     },
     "mindformers.trainer.Trainer.get_load_checkpoint": {
-        "signature": "(self, checkpoint)"
+        "signature": "(checkpoint)"
     },
     "mindformers.trainer.Trainer._config_init": {
-        "signature": "(self, args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
+        "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
     },
     "mindformers.trainer.Trainer._build_profile_cb": {
         "signature": "(self)"
@@ -7887,10 +7797,10 @@
         "signature": "(self)"
     },
     "mindformers.trainer.trainer.Trainer.get_load_checkpoint": {
-        "signature": "(self, checkpoint)"
+        "signature": "(checkpoint)"
     },
     "mindformers.trainer.trainer.Trainer._config_init": {
-        "signature": "(self, args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
+        "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
     },
     "mindformers.trainer.trainer.Trainer._build_profile_cb": {
         "signature": "(self)"

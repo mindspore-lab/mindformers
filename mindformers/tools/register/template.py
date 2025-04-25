@@ -541,6 +541,9 @@ class MonitorConfig(Config):
     weight_state_format = None
     throughput_baseline = None
     print_struct = False
+    check_for_global_norm = False
+    global_norm_record_path = ""
+    global_norm_error_threshold = 3.0
 
     _name = "monitor_config"
 

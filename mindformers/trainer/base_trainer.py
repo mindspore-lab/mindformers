@@ -44,7 +44,6 @@ except ImportError:
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
-from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, \
     check_dataset_iterable, BaseDataset
@@ -57,10 +56,11 @@ from mindformers.wrapper.wrapper import DataOrderWrapperCell
 from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer, \
     write_args_to_tensorboard, update_tensorboard_args
+from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resume_checkpoint
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
-from mindformers.core.callback.callback import ColdHotExpertMonitor
+from mindformers.core.callback.callback import EvalCallBack, MFLossMonitor, TrainingStateMonitor, CheckpointMonitor, ColdHotExpertMonitor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
@@ -75,7 +75,7 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
-from ..version_control import check_delay_init_valid, check_tft_valid
+from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -84,6 +84,7 @@ SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_l
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer", "WhisperTokenizer"]
+CALLBACK_HAS_SORT = [MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, CheckpointMonitor]
 
 
 class BaseTrainer:
@@ -1055,7 +1056,8 @@ class BaseTrainer:
                     "dataset_size": config.data_size,
                     "initial_epoch": config.runner_config.initial_epoch,
                     "initial_step": config.runner_config.initial_step,
-                    "global_batch_size": self.global_batch_size
+                    "global_batch_size": self.global_batch_size,
+                    "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
@@ -1076,7 +1078,7 @@ class BaseTrainer:
                 }
             default_callbacks.append(build_callback(callback, default_args=default_args))
 
-        if check_tft_valid():
+        if check_tft_valid() or check_tre_valid():
             if ckpt_config is None:
                 raise ValueError("You must set CheckpointMonitor callback for TFT training!")
             ckpt_config[1]["async_save"] = False
@@ -1091,10 +1093,20 @@ class BaseTrainer:
                     ckpt_cb_obj._prefix = prefix + "_" + ckpt_cb_obj._prefix
                 ckpt_cb_obj._save_ckpt(cb_params, True)
 
+            def ckpt_load_func():
+                logger.info(f'Begin to load ckpt')
+                ckpt_file = get_resume_checkpoint(f'{self.config.output_dir}/checkpoint', True,
+                                                  self.config.load_ckpt_format)
+                remove_redundancy = False if config.remove_redundancy is None else config.remove_redundancy
+                param_dict = load_resume_checkpoint(ckpt_file, remove_redundancy, self.config.load_ckpt_format)
+                logger.info(f'End to load ckpt, param_dict.size={len(param_dict)}')
+                return param_dict, remove_redundancy
+
             default_args = {
                 "ckpt_save_fn": ckpt_save_func,
                 "initial_epoch": config.runner_config.initial_epoch,
                 "initial_step": config.runner_config.initial_step,
+                "ckpt_load_fn": ckpt_load_func
             }
             default_callbacks.append(build_callback({"type": "TrainFaultTolerance"}, default_args=default_args))
 
@@ -1103,7 +1115,7 @@ class BaseTrainer:
                 default_callbacks.extend(callbacks)
             if isinstance(callbacks, Callback):
                 default_callbacks.append(callbacks)
-        callbacks = default_callbacks
+        callbacks = self.sort_callbacks(default_callbacks)
 
         # define compute metrics for evaluate in training
         if config.do_eval:
@@ -1375,3 +1387,18 @@ class BaseTrainer:
         )
         model.eval_network.set_train(origin_phase)
         return output
+
+    def sort_callbacks(self, default_callbacks):
+        """Sort by execution order."""
+        callbacks = [None] * len(CALLBACK_HAS_SORT)
+
+        for callback in default_callbacks:
+            flag = False
+            for index, callback_ in enumerate(CALLBACK_HAS_SORT):
+                if isinstance(callback, callback_):
+                    callbacks[index] = callback
+                    flag = True
+            if not flag:
+                callbacks.append(callback)
+
+        return list(filter(lambda x: x is not None, callbacks))
