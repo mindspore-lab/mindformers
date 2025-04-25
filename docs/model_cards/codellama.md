@@ -1,5 +1,11 @@
 # Code Llama
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模型中提供了最先进的性能、填充能力、对大型输入上下文的支持以及zero-shot指令跟随能力，用于编程任务。现有多种不同版本来覆盖广泛的应用领域：基础模型（Code Llama）、Python专业化模型（Code Llama - Python）和指令跟随模型（Code Llama - Instruct），每个模型分别具有7B、13B和34B个参数。所有模型都是在16k标记序列上进行训练，并对高达100k标记的输入显示出改进效果。7B和13B版本的Code Llama以及Code Llama - Instruct变体支持基于周围内容的填充功能。Code Llama是通过对Llama 2进行更高比例的代码取样进行微调而开发的。

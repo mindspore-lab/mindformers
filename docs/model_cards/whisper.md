@@ -1,5 +1,11 @@
 # whisper-large-v3
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 Whisper 是一种最先进的自动语音识别 (ASR) 和语音翻译模型，该模型由 OpenAI 的 Alec Radford 等人在论文[《Robust Speech Recognition via Large-Scale Weak Supervision》](https://huggingface.co/papers/2212.04356)中提出。Whisper 在超过 500 万小时的标注数据上进行了训练，在零样本设置下表现出对多种数据集和领域的强泛化能力。

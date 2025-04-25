@@ -1,5 +1,11 @@
 # Llava1.5
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 LLaVA 1.5是一个端到端训练的大型多模态模型，连接视觉编码器和大语言模型，以实现通用视觉和语言理解，通过在 GPT 生成的多模式指令跟踪数据上微调 LLaMA/Vicuna 进行训练。它是一种基于 Transformer 架构的自回归语言模型。

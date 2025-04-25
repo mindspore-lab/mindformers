@@ -1,5 +1,11 @@
 # CogVLM2-Image
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 CogVLM2 是智谱开发的多模态理解系列大模型，该系列中包含了图文理解以及视频理解大模型。**cogvlm2-llama3-chat-19B** 作为图片理解大模型，在诸如 TextVQA、DocVQA 等多个基准测试中取得了显著的提升。目前该模型支持**8K序列长度**、**支持最高 1344 * 1344 的图像分辨率**以及**提供支持中英文的开源模型版本**等功能。
