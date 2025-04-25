@@ -1125,6 +1125,10 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.config = config
         self.save_network_params = save_network_params
+        logger.warning(
+            "The default value of save_network_params is True and checkpoint_network will be saved."
+            "Start from r1.6.0, it will be changed to False.")
+        logger.info(f'save_network_params is:{save_network_params}')
         self.save_trainable_params = save_trainable_params
         self.rank_id = get_real_rank()
         prefix = prefix + "_rank_{}".format(self.rank_id)
