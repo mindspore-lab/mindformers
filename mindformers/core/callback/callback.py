@@ -65,7 +65,8 @@ from mindformers.tools.utils import (
     check_in_modelarts,
     get_real_rank,
     get_real_group_size,
-    get_pipeline_rank_ids
+    get_pipeline_rank_ids,
+    barrier_world
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
@@ -358,7 +359,8 @@ class MFLossMonitor(Callback):
         # compute percent
         percent = ((cur_epoch_num - 1) * steps_per_epoch + cur_step_num) / origin_epochs / steps_per_epoch * 100
 
-        if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
+        step_diff = cb_params.cur_step_num - self.last_print_time
+        if step_diff >= self.per_print_times or step_diff <= 0:
             self.last_print_time = cb_params.cur_step_num
             self.print_output_info(cb_params, cur_epoch_num, origin_epochs, throughput,
                                    cur_step_num, steps_per_epoch, loss, per_step_seconds,
@@ -697,6 +699,7 @@ class TrainingStateMonitor(Callback):
         initial_epoch (int, optional): The beginning epoch. Default: ``0``.
         initial_step (int, optional): The beginning step. Default: ``0``.
         global_batch_size (int, optional): The total batch size. Default: ``0``.
+        check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
     """
     def __init__(self,
                  origin_epochs: int,
@@ -705,7 +708,8 @@ class TrainingStateMonitor(Callback):
                  dataset_size: int = None,
                  initial_epoch: int = 0,
                  initial_step: int = 0,
-                 global_batch_size: int = 0):
+                 global_batch_size: int = 0,
+                 check_for_nan_in_loss_and_grad: bool = False):
         super(TrainingStateMonitor, self).__init__()
         if not (isinstance(step_interval, int) and step_interval > 0):
             logger.warning(f"The value of 'monitor_config.step_interval' should be positive integer, "
@@ -726,6 +730,7 @@ class TrainingStateMonitor(Callback):
         self.outputer = {'tensorboard': self._to_tensorboard, 'log': self._to_log}
         self._init_config(config)
         self.dump_path = None
+        self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
         if get_auto_parallel_context("dump_local_norm_path"):
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
             self.dump_key = {0: -1}
@@ -792,7 +797,8 @@ class TrainingStateMonitor(Callback):
         else:
             self.steps_per_epoch = cb_params.batch_num
             per_step_seconds = step_seconds
-        if (cb_params.cur_step_num - self.last_print_time) >= self.step_interval:
+        step_diff = cb_params.cur_step_num - self.last_print_time
+        if step_diff >= self.step_interval or step_diff <= 0:
             self.last_print_time = cb_params.cur_step_num
             if get_auto_parallel_context("dump_local_norm_path"):
                 self._dump_data_in_step(cb_params.cur_step_num)
@@ -813,6 +819,40 @@ class TrainingStateMonitor(Callback):
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
+        if cb_params.dataset_sink_mode:
+            steps_per_epoch = self.steps_per_epoch
+            cur_epoch_num = (cb_params.cur_step_num + self.initial_step - 1) // steps_per_epoch + 1
+            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
+        else:
+            steps_per_epoch = cb_params.batch_num
+            cur_epoch_num = cb_params.cur_epoch_num
+            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
+        net_outputs = cb_params.net_outputs
+        global_norm = _get_loss_output(net_outputs, self.check_for_nan_in_loss_and_grad)[-1]
+        if self.check_for_global_norm and global_norm >= self.global_norm_error_threshold:
+            global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+            if str(global_step) not in self.abnormal_global_norms:
+                # Because json cannot use number as key, so we convert it to string
+                self.abnormal_global_norms[str(global_step)] = [global_norm.item()]
+                if get_rank() == 0:
+                    if self.global_norm_record_path is None:
+                        raise ValueError("You should set the value for global_norm_record_path.")
+                    parent_dirs = os.path.dirname(self.global_norm_record_path)
+                    if not os.path.exists(parent_dirs):
+                        os.makedirs(parent_dirs)
+                    with open(self.global_norm_record_path, 'w') as file:
+                        json.dump(self.abnormal_global_norms, file)
+                logger.info(f"Current global norm {global_norm} is greater equal than "
+                            f"threshold {self.global_norm_error_threshold}, stop training...")
+                barrier_world()
+                logger.info(f"Call barrier before throw TREError.")
+                ms.runtime.synchronize()
+                logger.info(f"All stream execution completed.")
+                raise RuntimeError("TREError occurred......")
+            self.abnormal_global_norms[str(global_step)].append(global_norm.item())
+            logger.info(f"The global norm {global_norm} of step {global_step} is still greater or equal "
+                        f"than threshold {self.global_norm_error_threshold}, continue training.")
+
     def _init_config(self, config):
         """Initialize members from config"""
         if config is None:
@@ -832,6 +872,12 @@ class TrainingStateMonitor(Callback):
         self.weight_state_format = config.get('weight_state_format', None)
         self.throughput_baseline = config.get('throughput_baseline', None)
         self.print_struct = config.get('print_struct')
+
+        self.check_for_global_norm = config.get('check_for_global_norm')
+        self.global_norm_record_path = config.get('global_norm_record_path')
+        self.global_norm_error_threshold = config.get('global_norm_error_threshold')
+        self.abnormal_global_norms: dict[str, list[float]] = {}
+
         if self.print_struct is None:
             self.print_struct = False
         if not (isinstance(self.target, list) and self.target and all([isinstance(i, str) for i in self.target])):
@@ -847,6 +893,11 @@ class TrainingStateMonitor(Callback):
                  'optimizer_state_format', 'weight_state_format']
         for attr in attrs:
             self._check_attr_formats(attr)
+        if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
+            # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
+            # because json cannot use number as key, we convert it to string
+            with open(self.global_norm_record_path, 'r') as file:
+                self.abnormal_global_norms = json.load(file)
 
     def _check_attr_formats(self, attr):
         """Check the validation of formats in config"""
