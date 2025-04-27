@@ -16,15 +16,13 @@ The following is the changelog for the MindSpore Transformers suite version 1.5.
 
 The following new models are supported:
 
-| Models                                                                                                                                                                | Specifications                                                                              |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [DeepSeek-V3/R1](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek3)                                                                              | DeepSeek-V3-671B (pre-training, fine-tuning, inference), DeepSeek-R1-671B (inference)       |
-| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)                                                                          | Llama3.2-3B (inference), Llama3.2-Vision-11B (fine-tuning, inference)                       |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)                                                                                       | Qwen2.5-0.5B/1.5B (inference) /7B/14B/32B/72B (fine-tuning, inference)                      |
-| [TeleChat](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat)/[TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2) | TeleChat-7B/12B/52B (fine-tuning, inference), TeleChat2-7B/35B/115 (fine-tuning, inference) |
-| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                                                                                         | YiZhao-12B (pre-training, fine-tuning, inference)                                           |
-
-Where Llama3.2-Vision, TeleChat, YiZhao are only supported in version 1.5.x and do not follow the evolution of MindSpore Transformers backbone version.
+| Models                                                                                       | Specifications                                                                        |
+|----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| [DeepSeek-V3/R1](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek3)     | DeepSeek-V3-671B (pre-training, fine-tuning, inference), DeepSeek-R1-671B (inference) |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) | Llama3.2-3B (inference), Llama3.2-Vision-11B (fine-tuning, inference)                 |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)              | Qwen2.5-0.5B/1.5B (inference) /7B/14B/32B/72B (fine-tuning, inference)                |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2)          | TeleChat2-7B/35B/115 (fine-tuning, inference)                                         |
+| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B (pre-training, fine-tuning, inference)                                     |
 
 ### Bugfix
 

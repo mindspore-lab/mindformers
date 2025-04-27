@@ -16,15 +16,13 @@
 
 以下为新支持模型：
 
-| 模型                                                                                                                                                                    | 规格                                                     |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| [DeepSeek-V3/R1](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek3)                                                                              | DeepSeek-V3-671B（预训练、微调、推理）、DeepSeek-R1-671B（推理）       |
-| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)                                                                          | Llama3.2-3B（推理）、Llama3.2-Vision-11B （微调、推理）            |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)                                                                                       | Qwen2.5-0.5B/1.5B（推理）/7B/14B/32B/72B (微调、推理)           |
-| [TeleChat](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat)/[TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2) | TeleChat-7B/12B/52B（微调、推理）、TeleChat2-7B/35B/115（微调、推理） |
-| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                                                                                         | YiZhao-12B（预训练、微调、推理）                                  |
-
-其中Llama3.2-Vision、TeleChat、YiZhao仅在1.5.x版本支持，不跟随MindSpore Transformers主干版本进行演进。
+| 模型                                                                                           | 规格                                               |
+|----------------------------------------------------------------------------------------------|--------------------------------------------------|
+| [DeepSeek-V3/R1](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek3)     | DeepSeek-V3-671B（预训练、微调、推理）、DeepSeek-R1-671B（推理） |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) | Llama3.2-3B（推理）、Llama3.2-Vision-11B （微调、推理）      |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)              | Qwen2.5-0.5B/1.5B（推理）/7B/14B/32B/72B (微调、推理)     |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2)          | TeleChat2-7B/35B/115（微调、推理）                      |
+| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B（预训练、微调、推理）                            |
 
 ### Bugfix
 

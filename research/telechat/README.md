@@ -1,5 +1,11 @@
 # 星辰语义大模型 Telechat
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 星辰语义大模型Telechat是由中电信人工智能科技有限公司研发训练的大语言模型，采用3万亿Tokens中英文高质量语料进行训练。目前开源模型：Telechat-7B，Telechat-12B, Telechat-52B模型，本仓库已支持7B、12B和52B模型的微调权重，权重文件来源于中电信人工智能科技有限公司。
