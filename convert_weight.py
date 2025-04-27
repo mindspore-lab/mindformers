@@ -129,6 +129,7 @@ if __name__ == '__main__':
     convert_func = getattr(importlib.import_module(model_name), func_name)
 
     if args.model == "qwen2_5":
-        convert_func(args)
+        merged_args = argparse.Namespace(**{**vars(args), **extra_kwargs})
+        convert_func(merged_args)
     else:
         convert_func(input_path=args.input_path, output_path=args.output_path, dtype=dtype, **extra_kwargs)

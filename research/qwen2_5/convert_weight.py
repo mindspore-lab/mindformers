@@ -177,7 +177,7 @@ def convert_lora_config(input_path):
         print(f"JSON file modified successfully!")
 
     except FileNotFoundError:
-        print(f"Error: File {file_path} does not exist")
+        print(f"Error: File {config_path} does not exist")
     except KeyError:
         print("Error: The specified key does not exist in the JSON")
     except json.JSONDecodeError:
@@ -303,7 +303,7 @@ def convert_weight(para):
         if not hasattr(para, 'pre_ckpt_path'):
             para.pre_ckpt_path = para.input_path
         if not hasattr(para, 'config_path'):
-            para.config_path = para.config_path
+            raise ValueError("config_path should be provided when qkv_concat is True.")
         convert_to_qkv_concat(para.pre_ckpt_path, para.mindspore_ckpt_path, para.config_path)
     else:
         dtype = dtype_map.get(para.dtype)
