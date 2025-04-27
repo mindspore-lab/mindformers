@@ -51,6 +51,8 @@ class LayerNorm(nn.Cell):
         self.beta = Parameter(initializer('zeros', normalized_shape, compute_type), name="beta",
                               parallel_optimizer=False)
 
+        self.cast = P.Cast()
+
     def construct(self, x):
         """construct method"""
         original_type = x.dtype

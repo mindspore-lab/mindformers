@@ -33,6 +33,7 @@ class AttnMaskFill(nn.Cell):
         self.mul = P.Mul()
         self.mul2 = P.Mul()
         self.add = P.Add()
+        self.cast = P.Cast()
         self.shard(config)
 
     def construct(self, attention_scores: Tensor, attention_mask, fill_value=-10000.0):
