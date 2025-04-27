@@ -19,6 +19,7 @@ Fused softmax for transformer.
 from typing import Callable
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import Cast, Ones, Softmax
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
@@ -71,10 +72,10 @@ class FusedScaleMaskSoftmax(nn.Cell):
                 and (self.softmax_compute_dtype is not None and self.softmax_compute_dtype != dtype.float32)):
             raise ValueError("softmax_compute_dtype should be float32 when softmax_in_fp32 is True")
         self.causal_attn_mask_type = attn_mask_type == AttnMaskType.causal
-        self.softmax = P.Softmax()
-        self.cast = P.Cast()
+        self.softmax = Softmax()
+        self.cast = Cast()
         self.triu = P.Triu(1)
-        self.ones = P.Ones()
+        self.ones = Ones()
 
         if self.scale is not None and not self.softmax_in_fp32:
             raise ValueError("softmax should be in fp32 when scaled")
