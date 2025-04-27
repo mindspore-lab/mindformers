@@ -351,7 +351,8 @@ class CausalLanguageModelDataset(BaseDataset):
                 if input_arg in CAST_TO_INT_COLUMNS:
                     dataset = get_dataset_map(dataset, type_cast_op,
                                               input_columns=input_arg)
-        dataset = dataset.repeat(dataset_config.repeat)
+        if dataset_config.get('repeat', 1) > 1:
+            dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 
     @classmethod
