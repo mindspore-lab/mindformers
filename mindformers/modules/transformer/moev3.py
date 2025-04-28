@@ -235,7 +235,8 @@ class MoEV3(Cell):
             router_coeff = expert_gate
         router_coeff = self.mul(self.moe_config.routed_scaling_factor, router_coeff)
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
-        router_aux_loss = self._expert_load_balancing(router_prob_for_aux, expert_index, self.aux_loss_factor,
+        _, expert_index_for_aux = self.topk(router_prob_for_aux, self.num_experts_chosen)
+        router_aux_loss = self._expert_load_balancing(router_prob_for_aux, expert_index_for_aux, self.aux_loss_factor,
                                                       seq_chunk=seq_chunk)
 
         if self.enable_deredundency or self.use_3d_tensor_parallel:
