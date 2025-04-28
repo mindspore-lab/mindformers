@@ -205,6 +205,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
+    # disable jit for llm boost
+    os.environ["FORCE_EAGER"] = "True"
+
     main(
         config_path=args.config_path,
         use_parallel=args.use_parallel,
