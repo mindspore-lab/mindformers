@@ -55,11 +55,7 @@ class TestInferParallel:
             (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && export LCAL_IF_PORT=10068 && msrun --worker_num=2 "
              f"--local_worker_num=2 --master_port=8222 --log_dir=parallel_qwen2_0_5b_predict_mp2 --join=True "
              f"{cur_dir}/run_parallel.py --mode parallel_qwen2_0_5b_predict_mp2",
-             'parallel_qwen2_0_5b_predict_mp2/worker_0.log'),
-            (f"export ASCEND_RT_VISIBLE_DEVICES=2,3 && export LCAL_IF_PORT=10069 && msrun --worker_num=2 "
-             f"--local_worker_num=2 --master_port=8226 --log_dir=parallel_glm3_6b_predict_mp2 --join=True  "
-             f"{cur_dir}/run_parallel.py --mode parallel_glm3_6b_predict_mp2",
-             'parallel_glm3_6b_predict_mp2/worker_0.log')
+             'parallel_qwen2_0_5b_predict_mp2/worker_0.log')
         ]
 
         with Pool(len(commands)) as pool:

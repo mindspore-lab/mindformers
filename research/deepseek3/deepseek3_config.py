@@ -233,3 +233,10 @@ class DeepseekV3Config(DeepseekV2Config):
         self.npu_mem_size = 2
         self.num_nextn_predict_layers = num_nextn_predict_layers
         self.is_mtp_model = is_mtp_model
+        self.attn_reduce_scatter = False
+        self.attn_allgather = False
+        self.attn_allreduce = True
+        self.ffn_reduce_scatter = False
+        self.ffn_allgather = False
+        self.ffn_allreduce = True
+        self.use_alltoall = False

@@ -14,8 +14,8 @@ trainer:
 
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
-  model_parallel: 16
+  data_parallel: 4
+  model_parallel: 4
   pipeline_stage: 1
   expert_parallel: 1
   vocab_emb_dp: False
@@ -107,8 +107,8 @@ moe_config:
   moe_intermediate_size: 2048
   topk_group: 4
   n_group: 8
-  moe_tensor_parallel: 16
-  moe_expert_parallel: 1
+  moe_tensor_parallel: 1
+  moe_expert_parallel: 16
 
 processor:
   return_tensors: ms

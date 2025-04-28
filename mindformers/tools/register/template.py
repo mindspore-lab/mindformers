@@ -364,6 +364,8 @@ class MoEConfig(Config):
     use_gating_sigmoid = False
     use_gmm = False
     enable_gmm_safe_tokens = False
+    moe_tensor_parallel = None
+    moe_expert_parallel = None
 
     _name = "moe_config"
 

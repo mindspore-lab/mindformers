@@ -1809,7 +1809,7 @@
         "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None, q_seq_lens=None)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear": {
-        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, moe_delay_allreduce=False)"
+        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, delay_allreduce=False)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear.construct": {
         "signature": "(self, input_, group_list=None)"
@@ -1851,7 +1851,7 @@
         "signature": "(self)"
     },
     "mindformers.experimental.infer.core.layers.RowParallelLinear": {
-        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, moe_delay_allreduce=False)"
+        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, delay_allreduce=False)"
     },
     "mindformers.experimental.infer.core.layers.RowParallelLinear.construct": {
         "signature": "(self, input_, group_list=None)"
@@ -3282,7 +3282,7 @@
         "signature": "(self, origin_inputs, pad_token_id=0)"
     },
     "mindformers.generation.GenerationMixin._incremental_infer": {
-        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None)"
+        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None, need_flatten=False)"
     },
     "mindformers.generation.GenerationMixin._beam_search": {
         "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
@@ -3531,7 +3531,7 @@
         "signature": "(self, origin_inputs, pad_token_id=0)"
     },
     "mindformers.generation.text_generator.GenerationMixin._incremental_infer": {
-        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None)"
+        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None, need_flatten=False)"
     },
     "mindformers.generation.text_generator.GenerationMixin._beam_search": {
         "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
@@ -6630,7 +6630,7 @@
         "signature": "(self, q, k, v, attention_mask=None)"
     },
     "mindformers.modules.transformer.moe.MoEConfig": {
-        "signature": "(expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1, expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2, save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000, hot_expert_num=0, cold_token_percent=1.0, moe_module_name='', routing_policy='TopkRouterV1', norm_topk_prob=True, enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type='float32', shared_expert_num=0, use_shared_expert_gating=False, max_router_load=131072, topk_method='greedy', topk_group=None, n_group=None, first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0, aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0.0, balance_via_topk_bias=False, topk_bias_update_rate=0.0, use_allgather_dispatcher=False, moe_shared_expert_overlap=False, expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False)"
+        "signature": "(expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1, expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2, save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000, hot_expert_num=0, cold_token_percent=1.0, moe_module_name='', routing_policy='TopkRouterV1', norm_topk_prob=True, enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type='float32', shared_expert_num=0, use_shared_expert_gating=False, max_router_load=131072, topk_method='greedy', topk_group=None, n_group=None, first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0, aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0.0, balance_via_topk_bias=False, topk_bias_update_rate=0.0, use_allgather_dispatcher=False, moe_shared_expert_overlap=False, expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False, moe_tensor_parallel=None, moe_expert_parallel=None)"
     },
     "mindformers.modules.transformer.moe.MoEConfig.to_diff_dict": {
         "signature": "(self)"
