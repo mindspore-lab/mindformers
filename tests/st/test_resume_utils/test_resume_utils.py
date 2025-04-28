@@ -19,17 +19,14 @@ How to run this:
 """
 import os
 import json
-import tempfile
 import pytest
-
-import mindspore as ms
 
 from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint
 
-ms.set_context(mode=0)
+cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 @pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
+@pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_get_resume_checkpoint():
     """
@@ -37,31 +34,29 @@ def test_get_resume_checkpoint():
     Description: While resume the checkpoint to train.
     Expectation: success.
     """
-    temp_dir = tempfile.TemporaryDirectory()
-    checkpoint_dir = temp_dir.name
-    os.makedirs(os.path.join(checkpoint_dir, "rank_0"), exist_ok=True)
-    resume_training = os.path.join(checkpoint_dir, "rank_0", "test_rank_0-1_1.ckpt")
+    os.makedirs(os.path.join(cur_dir, "rank_0"), exist_ok=True)
+    resume_training = os.path.join(cur_dir, "rank_0", "test_rank_0-1_1.ckpt")
     with open(resume_training, 'w') as file:
         pass
-    resume_ckpt_ = get_resume_checkpoint(checkpoint_dir, resume_training, "ckpt")
+    resume_ckpt_ = get_resume_checkpoint(cur_dir, resume_training, "ckpt")
     assert resume_ckpt_ == resume_training
 
-    hyper_param_file = os.path.join(checkpoint_dir, "hyper_param.safetensors")
+    hyper_param_file = os.path.join(cur_dir, "hyper_param.safetensors")
     with open(hyper_param_file, 'w') as file:
         pass
-    resume_ckpt_ = get_resume_checkpoint(checkpoint_dir, True, "safetensors")
-    assert resume_ckpt_ == checkpoint_dir
+    resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "safetensors")
+    assert resume_ckpt_ == cur_dir
 
-    resume_ckpt_ = get_resume_checkpoint(checkpoint_dir, False, "ckpt")
+    resume_ckpt_ = get_resume_checkpoint(cur_dir, False, "ckpt")
     assert resume_ckpt_ is None
 
-    last_checkpoint = os.path.join(checkpoint_dir, "rank_0", "test_rank_0-1_2.ckpt")
+    last_checkpoint = os.path.join(cur_dir, "rank_0", "test_rank_0-1_2.ckpt")
     with open(last_checkpoint, 'w') as file:
         pass
-    resume_ckpt_ = get_resume_checkpoint(checkpoint_dir, True, "ckpt")
+    resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "ckpt")
     assert resume_ckpt_ == last_checkpoint
 
-    meta_json = os.path.join(checkpoint_dir, "rank_0", "meta.json")
+    meta_json = os.path.join(cur_dir, "rank_0", "meta.json")
     with open(meta_json, 'w') as file:
         meta_data = {
             'last_epoch': 1,
@@ -69,5 +64,5 @@ def test_get_resume_checkpoint():
             'last_ckpt_file': 'test_rank_0-1_1.ckpt',
         }
         json.dump(meta_data, file, indent=4)
-    resume_ckpt_ = get_resume_checkpoint(checkpoint_dir, True, "ckpt")
+    resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "ckpt")
     assert resume_ckpt_ == resume_training
