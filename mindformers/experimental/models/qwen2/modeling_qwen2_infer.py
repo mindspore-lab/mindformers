@@ -33,7 +33,7 @@ from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.transformer.self_attention import (
-    CoreAttention,
+    DotProductAttention,
     SelfAttention,
     SelfAttentionSubmodules,
 )
@@ -41,7 +41,7 @@ from mindformers.experimental.infer.transformer.flash_attention import FlashAtte
 from mindformers.experimental.infer.core.gpt_model import GPTModel
 from mindformers.experimental.models.qwen2.utils import Qwen2PreTrainedModel
 
-__all__ = ["InferenceQwen2ForCausalLM"]
+__all__ = ['InferenceQwen2ForCausalLM', 'get_gpt_layer_spec']
 
 
 def get_gpt_layer_spec(config) -> ModuleSpec:
@@ -59,12 +59,9 @@ def get_gpt_layer_spec(config) -> ModuleSpec:
     self_attn = ModuleSpec(
         module=SelfAttention,
         submodules=SelfAttentionSubmodules(
-            core_attention=FlashAttention if config.use_flash_attention else CoreAttention,
+            core_attention=FlashAttention if config.use_flash_attention else DotProductAttention,
             linear_proj=RowParallelLinear,
-            linear_qkv=ColumnParallelLinear if config.qkv_concat else None,
-            linear_q=ColumnParallelLinear if not config.qkv_concat else None,
-            linear_k=ColumnParallelLinear if not config.qkv_concat else None,
-            linear_v=ColumnParallelLinear if not config.qkv_concat else None
+            linear_qkv=ColumnParallelLinear
         )
     )
     return ModuleSpec(

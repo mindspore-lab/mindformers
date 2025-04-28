@@ -22,7 +22,6 @@ from safetensors import safe_open
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.experimental.models.qwen2.configuration_qwen2 import Qwen2Config
-from mindformers.utils.convert_utils import qkv_concat_hf2mg
 from mindformers.utils.convert_utils import ffn_concat_hf2mg
 
 
@@ -206,9 +205,8 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condit
     Returns:
 
     """
-    num_heads = model_config.num_heads
-    n_kv_heads = model_config.n_kv_heads or num_heads
-    hidden_size = model_config.hidden_size
+    if model_config is not None:
+        pass
 
     # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
     for wk_key in wk_keys:
@@ -244,9 +242,7 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condit
 
         w_qkv_key = wq_key.replace('linear_q', 'linear_qkv')
         w_qkv_value = np.concatenate((wq_value, wk_value, wv_value), 0)
-        # qkv weight format: hf -> mg
-        w_qkv_value_mg = qkv_concat_hf2mg(w_qkv_value, num_heads, n_kv_heads, hidden_size)
-        target_dict.update({w_qkv_key: w_qkv_value_mg})
+        target_dict.update({w_qkv_key: w_qkv_value})
 
 
 def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict):

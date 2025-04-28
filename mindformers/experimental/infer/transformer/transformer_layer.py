@@ -100,7 +100,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         - context_lens_tensor (Tensor): Tensor of context lengths.
         - block_tables (Tensor): Block tables for memory optimization.
         - slot_mapping (Tensor): Slot mapping for memory optimization.
-        - prefix_keys_values (List[Tensor], optional): Prefix key-value pairs.
         - attention_bias (Tensor): Default: None.
         - packed_seq_params (Tensor): Default: None.
         - kv_cache (List[Tensor], optional): Key-value cache for incremental inference.
@@ -167,7 +166,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
-            prefix_keys_values=None,
             attention_bias=None,
             packed_seq_params=None,
             kv_cache=None
@@ -216,7 +214,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             attn_mask=attention_mask,
             actual_seq_qlen=batch_valid_length,
             actual_seq_kvlen=batch_valid_length,
-            prefix_keys_values=prefix_keys_values,
             kv_cache=kv_cache
         )
 

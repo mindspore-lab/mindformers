@@ -80,7 +80,7 @@ class FlashAttention(Cell):
     ):
         super().__init__()
         self.head_num = head_num
-        self.head_dim = head_dim
+        self.hidden_size_per_attention_head = head_dim
         self.kv_head_num = kv_head_num
         self.enable_dropout = keep_prob < 1.0
         self.sparse_mode = sparse_mode
@@ -136,6 +136,7 @@ class FlashAttention(Cell):
                   prefix=None):
         """Forward process of the FlashAttention."""
 
+        bs, seq_len, _ = query.shape
         key_cache = self.key_cache
         value_cache = self.value_cache
         self.reshape_and_cache(key, value, self.key_cache, self.value_cache,
@@ -151,22 +152,28 @@ class FlashAttention(Cell):
                 alibi_mask = None
 
             if self.input_layout == "TH":
-                query = query.reshape((-1, self.head_num * self.head_dim))
-                key = key.reshape((-1, self.kv_head_num * self.head_dim))
-                value = value.reshape((-1, self.kv_head_num * self.head_dim))
+                query = query.reshape((-1, self.head_num * self.hidden_size_per_attention_head))
+                key = key.reshape((-1, self.kv_head_num * self.hidden_size_per_attention_head))
+                value = value.reshape((-1, self.kv_head_num * self.hidden_size_per_attention_head))
 
-            if self.input_layout == "TNH":
-                query = query.reshape((-1, self.head_num, self.head_dim))
-                key = key.reshape((-1, self.kv_head_num, self.head_dim))
-                value = value.reshape((-1, self.kv_head_num, self.head_dim))
+            if self.input_layout == "TND":
+                query = query.reshape((-1, self.head_num, self.hidden_size_per_attention_head))
+                key = key.reshape((-1, self.kv_head_num, self.hidden_size_per_attention_head))
+                value = value.reshape((-1, self.kv_head_num, self.hidden_size_per_attention_head))
 
             _, _, _, output = self.flash_attention(query, key, value,
                                                    alibi_mask, None,
                                                    padding_mask, attn_mask,
                                                    prefix, actual_seq_qlen,
                                                    actual_seq_kvlen)
-            return output
-        return self.paged_attention(query, key_cache, value_cache,
-                                    block_tables, batch_valid_length, None,
-                                    None, attn_mask,
-                                    q_seq_lens)
+            context_layer = output
+        else:
+            context_layer = self.paged_attention(query, key_cache, value_cache,
+                                                 block_tables, batch_valid_length, None,
+                                                 None, attn_mask,
+                                                 q_seq_lens)
+
+        core_attn_out = context_layer.reshape(
+            (bs, seq_len, self.head_num * self.hidden_size_per_attention_head))
+
+        return core_attn_out

@@ -17,46 +17,11 @@ import mindspore.nn as nn
 from mindspore import Tensor
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.infer.transformer.norm import get_norm
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
-from mindformers.experimental.infer.transformer.self_attention import SelfAttention, CoreAttention, SelfAttentionSubmodules
-from mindformers.experimental.infer.transformer.flash_attention import FlashAttention
 from mindformers.experimental.infer.core.gpt_model import LowerTriangularMaskWithDynamic
 from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
-from mindformers.experimental.infer.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
-from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
-from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
-
-
-def get_transformer_layer_spec(config) -> ModuleSpec:
-    """Generate module specification for a Transformer Layer based on transformer configuration."""
-    self_attn = ModuleSpec(
-        module=SelfAttention,
-        submodules=SelfAttentionSubmodules(
-            core_attention=FlashAttention if config.use_flash_attention else CoreAttention,
-            linear_proj=RowParallelLinear,
-            linear_qkv=ColumnParallelLinear if config.qkv_concat else None,
-            linear_q=ColumnParallelLinear if not config.qkv_concat else None,
-            linear_k=ColumnParallelLinear if not config.qkv_concat else None,
-            linear_v=ColumnParallelLinear if not config.qkv_concat else None
-        )
-    )
-    return ModuleSpec(
-        module=TransformerLayer,
-        submodules=TransformerLayerSubmodules(
-            input_layernorm=get_norm(config),
-            self_attention=self_attn,
-            pre_mlp_layernorm=get_norm(config),
-            mlp=ModuleSpec(
-                module=MLP,
-                submodules=MLPSubmodules(
-                    linear_fc1=ColumnParallelLinear,
-                    linear_fc2=RowParallelLinear
-                )
-            )
-        )
-    )
+from mindformers.experimental.graph.transformer.spec_utils import build_module
+from mindformers.experimental.models.qwen2.modeling_qwen2_infer import get_gpt_layer_spec
 
 
 class MyTransformerLayerNet(nn.Cell):
@@ -72,7 +37,7 @@ class MyTransformerLayerNet(nn.Cell):
         self.rotary_embedding = RotaryEmbedding(kv_channels=config.hidden_size // config.num_attention_heads,
                                                 rotary_cos_format=2,
                                                 rotary_dtype=config.rotary_dtype)
-        self.layer = build_module(get_transformer_layer_spec(config),
+        self.layer = build_module(get_gpt_layer_spec(config),
                                   config=config)
 
     def construct(self,
@@ -124,7 +89,7 @@ class MyTransformerBlockNet(nn.Cell):
         self.rotary_embedding = RotaryEmbedding(kv_channels=config.hidden_size // config.num_attention_heads,
                                                 rotary_cos_format=2,
                                                 rotary_dtype=config.rotary_dtype)
-        self.decode = TransformerBlock(config, spec=get_transformer_layer_spec(config))
+        self.decode = TransformerBlock(config, spec=get_gpt_layer_spec(config))
 
     def construct(self,
                   hidden_states: Tensor,

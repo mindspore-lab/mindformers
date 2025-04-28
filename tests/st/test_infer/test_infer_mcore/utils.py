@@ -40,7 +40,7 @@ QWEN2_CONFIG = {
     "use_flash_attention": True,
     "block_size": 32,
     "num_blocks": 1024,
-    "qkv_concat": False,
+    "qkv_concat": True,
     "repetition_penalty": 1.1,
     "max_decode_length": 512,
     "temperature": 0.7,

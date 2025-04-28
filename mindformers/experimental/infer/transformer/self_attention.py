@@ -13,12 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """SelfAttention."""
+from abc import abstractmethod
 import math
 from typing import Union
-import mindspore.common.dtype as mstype
 from mindspore import Tensor, mint, nn, ops
 
 from mindformers.experimental.infer.core import get_attn_mask_func
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.spec_utils import (
@@ -31,29 +32,29 @@ from mindformers.experimental.parallel_core.pynative.utils import divide
 
 __all__ = [
     'SelfAttentionSubmodules',
-    'CoreAttention',
+    'DotProductAttention',
+    'Attention',
     'SelfAttention'
 ]
 
 
 class SelfAttentionSubmodules:
     """Configuration class for specifying the submodules of a self-attention."""
+
     def __init__(self,
                  linear_qkv: Union[ModuleSpec, type] = None,
                  core_attention: Union[ModuleSpec, type] = None,
                  linear_proj: Union[ModuleSpec, type] = None,
-                 linear_q: Union[ModuleSpec, type] = None,
-                 linear_k: Union[ModuleSpec, type] = None,
-                 linear_v: Union[ModuleSpec, type] = None):
+                 q_layernorm: Union[ModuleSpec, type] = None,
+                 k_layernorm: Union[ModuleSpec, type] = None):
         self.linear_qkv = linear_qkv
         self.core_attention = core_attention
         self.linear_proj = linear_proj
-        self.linear_q = linear_q
-        self.linear_k = linear_k
-        self.linear_v = linear_v
+        self.q_layernorm = q_layernorm
+        self.k_layernorm = k_layernorm
 
 
-class CoreAttention(nn.Cell):
+class DotProductAttention(nn.Cell):
     """
     Get the weighted score along the seq_length.
 
@@ -75,29 +76,45 @@ class CoreAttention(nn.Cell):
     Supported Platforms:
         ``Ascend``
     """
-    def __init__(self, layer_number, config, attn_mask_type=None):
+
+    def __init__(self, config: TransformerConfig, layer_number, attn_mask_type=None):
         super().__init__()
         if attn_mask_type:
             raise NotImplementedError(
                 "For CoreAttention, `attn_mask_type` is not supported for now."
             )
+        if config.context_parallel > 1:
+            raise NotImplementedError(
+                "For CoreAttention, cp is not supported for now."
+            )
+
         self.config = config
-        self.layer_index = max(1, layer_number)
+        self.layer_number = max(1, layer_number)
         self.compute_dtype = self.config.compute_dtype
         self.softmax_compute_dtype = self.config.softmax_compute_dtype
-        self.sequence_parallel = self.config.sequence_parallel
+
         self.apply_query_key_layer_scaling = self.config.apply_query_key_layer_scaling
         self.num_heads = self.config.num_attention_heads
-        self.hidden_size = self.config.hidden_size
-        self.head_dim = divide(self.hidden_size, self.num_heads)
+        self.query_projection_size = self.config.hidden_size
+        self.hidden_size_per_attention_head = getattr(config, 'kv_channels', divide(
+            self.query_projection_size, self.num_heads
+        ))
+        self.num_query_groups = (self.num_heads
+                                 if config.num_query_groups is None else
+                                 config.num_query_groups)
+        self.use_gqa = (self.num_heads != self.num_query_groups)
+        if self.use_gqa:
+            self.repeat_num = divide(self.num_heads, self.num_query_groups)
+
+        self.tp_group_size = get_tp_world_size()
+        self.hidden_size_per_partition = divide(self.query_projection_size,
+                                                self.tp_group_size)
 
         coeff = None
-        norm_factor = math.sqrt(self.head_dim)
+        self.softmax_scale = Tensor(1.0 / math.sqrt(self.hidden_size_per_attention_head), dtype=self.compute_dtype)
         if self.apply_query_key_layer_scaling:
-            coeff = self.layer_index
-            norm_factor *= coeff
-        self.inv_norm_factor = Tensor(1.0 / norm_factor,
-                                      dtype=self.compute_dtype)
+            coeff = self.layer_number
+            self.softmax_scale /= coeff
 
         self.mask_func = get_attn_mask_func(self.config.mask_func_type)
         self.scale_mask_softmax = ScaleMaskSoftmax(
@@ -108,22 +125,237 @@ class CoreAttention(nn.Cell):
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """Forward process of the CoreAttention."""
-        # score: [B, N, S_q, S_k]
-        score = ops.bmm(query_layer, key_layer.transpose(0, 1, 3, 2))
-        score = mint.mul(score, self.inv_norm_factor)
+        bs, seq_len, _ = query_layer.shape
+        # [B, S, H] --> [B, S, N, D]
+        query_layer = query_layer.reshape(bs, seq_len, -1, self.hidden_size_per_attention_head)
+        key_layer = key_layer.reshape(bs, seq_len, -1, self.hidden_size_per_attention_head)
+        value_layer = value_layer.reshape(bs, seq_len, -1, self.hidden_size_per_attention_head)
+        # [B, S, N_kv, D] --> [B, S, N, D]
+        if self.use_gqa:
+            key_layer = mint.repeat_interleave(key_layer,
+                                               repeats=self.repeat_num,
+                                               dim=2)
+            value_layer = mint.repeat_interleave(value_layer,
+                                                 repeats=self.repeat_num,
+                                                 dim=2)
+        # [B, S, N, D] --> [B, N, S, D]
+        query_layer = mint.transpose(query_layer, -3, -2)
+        key_layer = mint.transpose(key_layer, -3, -2)
+        value_layer = mint.transpose(value_layer, -3, -2)
+        # [B, N, S, D] --> [B * N, S, D]
+        query_layer = query_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
+        key_layer = key_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
+        value_layer = value_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
 
-        # attention scores and attention mask [B, N, S_q, S_k]
+        # score: [B * N, S_q, S_k]
+        score = mint.bmm(query_layer, mint.transpose(key_layer, -2, -1))
+        score = mint.mul(score, self.softmax_scale)
+
+        # attention scores and attention mask [B * N, S_q, S_k]
         attention_probs = self.scale_mask_softmax(score, attention_mask)
 
         attention_probs = self.attention_dropout(attention_probs)
 
-        # [B, N, S_q, S_k] * [B, N, S_v, D] -> [B, N, S_q, D]
-        weighted_values = ops.bmm(attention_probs, value_layer)
+        # [B * N, S_q, S_k] * [B * N, S_v, D] -> [B * N, S_q, D]
+        core_attn_out = mint.bmm(attention_probs, value_layer)
+        # [B * N, S_q, D] -> [B, N, S_q, D]
+        core_attn_out = core_attn_out.reshape(bs, -1, seq_len, self.hidden_size_per_attention_head)
 
-        return weighted_values
+        core_attn_out = mint.transpose(core_attn_out, -3, -2).reshape(
+            bs, seq_len, self.hidden_size_per_partition)
+        return core_attn_out
 
 
-class SelfAttention(nn.Cell):
+class Attention(nn.Cell):
+    """
+    Attention block.
+
+    Args:
+        layer_index (int): Number which indicates the index of this transformer layer in the
+            whole transformer block.
+        submodules (SelfAttentionSubmodules): submodules of SelfAttention
+        config (TransformerConfig): Configuration.
+
+    Inputs:
+        - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **attention_mask** (Tensor) - Tensor of attention mask.
+        - **encoder_output** (Tensor) - Tensor of encoder output used for cross attention. Default: None.
+        - **rotary_pos_emb** (Tensor) - Tensor of rotary position embedding. Default: None.
+
+    Outputs:
+        - **output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(
+            self,
+            config,
+            submodules: Union[SelfAttentionSubmodules],
+            layer_number: int,
+            attn_mask_type: str = None,
+            attention_type: str = None,
+            cp_comm_type: str = None
+    ):
+        super().__init__(config)
+
+        if attn_mask_type:
+            raise NotImplementedError(
+                "For Attention, 'attn_mask_type' is not supported for now."
+            )
+        if attention_type:
+            raise NotImplementedError(
+                "For Attention, 'attention_type' is not supported for now."
+            )
+        if cp_comm_type:
+            raise NotImplementedError(
+                "For Attention, 'cp_comm_type' is not supported for now."
+            )
+
+        self.config = config
+        self.submodules = submodules
+        self.layer_number = max(1, layer_number)
+        self.attn_mask_type = attn_mask_type
+
+        self.param_init_type = self.config.param_init_type
+        self.compute_dtype = self.config.compute_dtype
+        self.is_prefill = True
+
+        self.num_heads = self.config.num_attention_heads
+        self.num_query_groups = (self.num_heads
+                                 if config.num_query_groups is None else
+                                 config.num_query_groups)
+        self.query_projection_size = self.config.hidden_size
+        self.hidden_size_per_attention_head = getattr(config, 'kv_channels', divide(
+            self.query_projection_size, self.num_heads
+        ))
+        self.kv_projection_size = self.hidden_size_per_attention_head * self.num_query_groups
+        self.n_rep = divide(self.num_heads, self.num_query_groups)
+
+        self.use_flash_attention = self.config.use_flash_attention
+        self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
+
+        self.tp_group_size = get_tp_world_size()
+
+        self.cast = ops.Cast()
+
+        self.key_hidden_size = self.hidden_size_per_attention_head
+        self.val_hidden_size = self.hidden_size_per_attention_head
+
+        self.num_attention_heads_per_partition = divide(self.num_heads,
+                                                        self.tp_group_size)
+
+        self.use_gqa = (self.num_heads != self.num_query_groups)
+
+        if self.use_gqa:
+            self._check_gqa_valid()
+            self.num_query_groups_per_partition = divide(self.num_query_groups,
+                                                         self.tp_group_size)
+            self.repeat_num = divide(self.num_heads, self.num_query_groups)
+        else:
+            self.num_query_groups_per_partition = self.num_attention_heads_per_partition
+
+        self.hidden_size_per_partition = divide(self.query_projection_size,
+                                                self.tp_group_size)
+        self.kv_hidden_size_per_partition = divide(self.kv_projection_size,
+                                                   self.tp_group_size)
+
+        if self.use_flash_attention:
+            kv_cache_shape = (self.config.num_blocks, self.config.block_size,
+                              self.num_query_groups_per_partition, self.hidden_size_per_attention_head)
+            self.flash_attention = build_module(
+                submodules.core_attention,
+                head_num=self.num_attention_heads_per_partition,
+                kv_cache_shape=kv_cache_shape,
+                head_dim=self.hidden_size_per_attention_head,
+                kv_head_num=self.num_query_groups_per_partition,
+                scale_value=1.0 / self.norm_factor,
+                next_tokens=0,
+                compute_dtype=self.compute_dtype,
+            )
+        else:
+            self.core_attention = build_module(submodules.core_attention,
+                                               config=self.config,
+                                               layer_number=self.layer_number)
+
+        self.rotary_embedding = RotaryEmbedding(kv_channels=self.hidden_size_per_attention_head,
+                                                rotary_cos_format=2)
+
+        # submodules.linear_proj: RowParallelLinear
+        self.linear_proj = build_module(
+            submodules.linear_proj,
+            self.query_projection_size,
+            self.query_projection_size,
+            input_is_parallel=True,
+            config=self.config,
+            bias=self.config.out_proj_has_bias,
+            transpose_b=True,
+            param_init_type=self.param_init_type,
+            compute_dtype=self.compute_dtype,
+        )
+
+    def _check_gqa_valid(self):
+        """check whether the config is valid for grouped-query-attention"""
+        if self.num_heads % self.num_query_groups != 0:
+            raise ValueError(f"num_heads must be divisible by kv_num_heads, "
+                             f"but got num_heads {self.num_heads} "
+                             f"and kv_num_heads {self.num_query_groups}")
+        if self.num_query_groups % self.tp_group_size != 0:
+            raise ValueError(
+                f"kv_num_heads must be divisible by tp_group_size, "
+                f"but got kv_num_heads {self.num_query_groups} "
+                f"and kv_num_heads {self.tp_group_size}")
+
+    def construct(self,
+                  x,
+                  batch_valid_length=None,
+                  kv_cache=None,
+                  block_tables=None,
+                  slot_mapping=None,
+                  rotary_pos_cos=None,
+                  rotary_pos_sin=None,
+                  actual_seq_qlen=None,
+                  actual_seq_kvlen=None,
+                  context_lens_tensor=None,
+                  q_seq_lens=None,
+                  attn_mask=None,
+                  alibi_mask=None):
+        """Forward process of the SelfAttention."""
+        # hidden_states: [B, S, H]
+        ori_dtype = x.dtype
+
+        # apply query, key, value projection
+        query, key, value = self.get_query_key_value_tensors(x)
+
+        # [B, S, H]
+        if rotary_pos_cos is not None and rotary_pos_sin is not None:
+            query, key = self.rotary_embedding(query, key, rotary_pos_cos,
+                                               rotary_pos_sin,
+                                               batch_valid_length)
+
+        if self.use_flash_attention:
+            core_attn_out = self.flash_attention(
+                query, key, value, kv_cache, slot_mapping, block_tables,
+                batch_valid_length, context_lens_tensor, q_seq_lens,
+                actual_seq_qlen, actual_seq_kvlen, attn_mask, alibi_mask)
+        else:
+            core_attn_out = self.core_attention(query, key, value, attn_mask)
+
+        # apply output projection
+        output = self.linear_proj(core_attn_out)
+        output = self.cast(output, ori_dtype)
+        return output
+
+    @abstractmethod
+    def get_query_key_value_tensors(self, x):
+        """
+        This method needs to be implemented based on whether the derived class
+        is "self-attn" or "cross-attn".
+        """
+
+
+class SelfAttention(Attention):
     """
     SelfAttention block.
 
@@ -150,262 +382,74 @@ class SelfAttention(nn.Cell):
                  config,
                  submodules: SelfAttentionSubmodules,
                  layer_number,
-                 attn_mask_type=None):
-        super().__init__(config)
+                 attn_mask_type=None,
+                 cp_comm_type: str = None):
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            attn_mask_type=attn_mask_type,
+            attention_type=None,
+            cp_comm_type=cp_comm_type
+        )
         if attn_mask_type:
             raise NotImplementedError(
                 "For SelfAttention, `attn_mask_type` is not supported for now."
             )
-        self.config = config
-        self.submodules = submodules
-        self.layer_index = max(1, layer_number)
-        self.param_init_type = self.config.param_init_type
-        self.compute_dtype = self.config.compute_dtype
-        self.is_prefill = True
-        self.qkv_concat = self.config.qkv_concat
+        if cp_comm_type:
+            raise NotImplementedError(
+                "For SelfAttention, 'cp_comm_type' is not supported for now."
+            )
 
-        self.num_heads = self.config.num_attention_heads
-        self.kv_num_heads = (self.num_attention_heads
-                             if config.num_query_groups is None else
-                             config.num_query_groups)
-        self.hidden_size = self.config.hidden_size
-        self.head_dim = divide(self.hidden_size, self.num_heads)
-        self.kv_hidden_size = self.head_dim * self.kv_num_heads
-        self.n_rep = divide(self.num_heads, self.kv_num_heads)
-
-        self.sequence_parallel = self.config.sequence_parallel
-        self.use_flash_attention = self.config.use_flash_attention
-        self.norm_factor = math.sqrt(self.head_dim)
-
-        self.tp_group_size = get_tp_world_size()
-        self.num_heads_per_partition = divide(self.num_heads,
-                                              self.tp_group_size)
-
-        self.use_gqa = (self.num_heads != self.kv_num_heads)
-
-        if self.use_gqa:
-            self._check_gqa_valid()
-            self.kv_num_heads_per_partition = divide(self.kv_num_heads,
-                                                     self.tp_group_size)
-            self.repeat_num = divide(self.num_heads, self.kv_num_heads)
-        else:
-            self.kv_num_heads_per_partition = self.num_heads_per_partition
-
-        self._init_self_attn()
-
-        self.cast = ops.Cast()
-        self.reshape = ops.Reshape()
-
-        # submodules.linear_proj: RowParallelLinear
-        self.linear_proj = build_module(
-            submodules.linear_proj,
-            self.hidden_size,
-            self.hidden_size,
-            input_is_parallel=True,
+        self.linear_qkv = build_module(
+            self.submodules.linear_qkv,
+            self.query_projection_size,
+            self.query_projection_size + 2 * self.kv_projection_size,
             config=self.config,
-            bias=self.config.out_proj_has_bias,
+            bias=self.config.qkv_has_bias,
+            gather_output=False,
             transpose_b=True,
             param_init_type=self.param_init_type,
             compute_dtype=self.compute_dtype,
         )
 
-        if self.use_flash_attention:
-            kv_cache_shape = (self.config.num_blocks, self.config.block_size,
-                              self.kv_num_heads_per_partition, self.head_dim)
-            self.flash_attention = build_module(
-                submodules.core_attention,
-                head_num=self.num_heads_per_partition,
-                kv_cache_shape=kv_cache_shape,
-                head_dim=self.head_dim,
-                kv_head_num=self.kv_num_heads_per_partition,
-                scale_value=1.0 / self.norm_factor,
-                next_tokens=0,
-                compute_dtype=self.compute_dtype,
+        if submodules.q_layernorm is not None:
+            self.q_layernorm = build_module(
+                self.submodules.q_layernorm,
+                self.hidden_size_per_attention_head,
+                eps=self.config.layernorm_epsilon,
+                compute_type=self.config.layernorm_compute_type,
             )
         else:
-            self.core_attention = build_module(submodules.core_attention,
-                                               config=self.config,
-                                               layer_number=self.layer_index)
+            self.q_layernorm = None
 
-        self.rotary_embedding = RotaryEmbedding(kv_channels=self.head_dim,
-                                                rotary_cos_format=2)
-
-    def construct(self,
-                  x,
-                  batch_valid_length=None,
-                  kv_cache=None,
-                  block_tables=None,
-                  slot_mapping=None,
-                  rotary_pos_cos=None,
-                  rotary_pos_sin=None,
-                  actual_seq_qlen=None,
-                  actual_seq_kvlen=None,
-                  context_lens_tensor=None,
-                  q_seq_lens=None,
-                  attn_mask=None,
-                  alibi_mask=None,
-                  prefix_keys_values=None):
-        """Forward process of the SelfAttention."""
-        # hidden_states: [B, S, H]
-        ori_dtype = x.dtype
-        bs, seq_len, _ = x.shape
-
-        # apply query, key, value projection
-        if self.sequence_parallel:
-            seq_len = seq_len * self.tp_group_size
-        if self.qkv_concat:
-            qkv = self.cast(self.linear_qkv(x), self.compute_dtype)
-            # [B, S, H] --> [B, S, N, D]
-            reshape_qkv = self.reshape(
-                qkv, (bs, seq_len, self.kv_num_heads_per_partition,
-                      (self.n_rep + 2) * self.head_dim))
-            query, key, value = mint.split(
-                reshape_qkv,
-                (self.head_dim * self.n_rep, self.head_dim, self.head_dim), -1)
-            # [B, S, N, D] --> [B, S, H] ReshapeAndCache only supports 'BSH'
-            query = self.reshape(query,
-                                 (bs, seq_len, self.hidden_size_per_partition))
-            key = self.reshape(
-                key, (bs, seq_len, self.kv_hidden_size_per_partition))
-            value = self.reshape(
-                value, (bs, seq_len, self.kv_hidden_size_per_partition))
+        if submodules.k_layernorm is not None:
+            self.k_layernorm = build_module(
+                self.submodules.k_layernorm,
+                self.hidden_size_per_attention_head,
+                eps=self.config.layernorm_epsilon,
+                compute_type=self.config.layernorm_compute_type,
+            )
         else:
-            query = self.cast(self.linear_q(x), self.compute_dtype)
-            key = self.cast(self.linear_k(x), self.compute_dtype)
-            value = self.cast(self.linear_v(x), self.compute_dtype)
+            self.k_layernorm = None
 
-        # [B, S, H]
-        if rotary_pos_cos is not None and rotary_pos_sin is not None:
-            query, key = self.rotary_embedding(query, key, rotary_pos_cos,
-                                               rotary_pos_sin,
-                                               batch_valid_length)
+        self.cast = ops.Cast()
 
-        if prefix_keys_values is not None:
-            prefix_len = prefix_keys_values.shape[2]
-            slot_mapping = slot_mapping + self.cast(mint.ne(slot_mapping, -1),
-                                                    mstype.int32) * prefix_len
-            if self.is_first_iteration:
-                key, value = self._cat_prefix(key, value, prefix_keys_values)
+    def get_query_key_value_tensors(self, x):
+        qkv = self.cast(self.linear_qkv(x), self.compute_dtype)
+        query, key, value = mint.split(qkv,
+                                       (self.hidden_size_per_partition,
+                                        self.kv_hidden_size_per_partition,
+                                        self.kv_hidden_size_per_partition), -1)
 
-        if self.use_flash_attention:
-            bs, seq_len, _ = query.shape
-            context_layer = self.flash_attention(
-                query, key, value, kv_cache, slot_mapping, block_tables,
-                batch_valid_length, context_lens_tensor, q_seq_lens,
-                actual_seq_qlen, actual_seq_kvlen, attn_mask, alibi_mask)
-            context_layer = self.reshape(
-                context_layer,
-                (bs, seq_len, self.num_heads_per_partition * self.head_dim))
-        else:
-            # [B, S, H] --> [B, S, N, D]
-            query = query.reshape(bs, seq_len, -1, self.head_dim)
-            key = key.reshape(bs, seq_len, -1, self.head_dim)
-            value = value.reshape(bs, seq_len, -1, self.head_dim)
-            # [B, S, N_kv, D] --> [B, S, N, D]
-            if self.use_gqa:
-                key = mint.repeat_interleave(key,
-                                             repeats=self.repeat_num,
-                                             dim=2)
-                value = mint.repeat_interleave(value,
-                                               repeats=self.repeat_num,
-                                               dim=2)
-            # [B, S, N, D] --> [B, N, S, D]
-            query = query.transpose(0, 2, 1, 3)
-            key = key.transpose(0, 2, 1, 3)
-            value = value.transpose(0, 2, 1, 3)
-            context_layer = self.core_attention(query, key, value, attn_mask)
-            # [B, N, S, D] --> [B, S, H]
-            context_layer = context_layer.transpose(0, 2, 1, 3).reshape(
-                bs, seq_len, self.hidden_size_per_partition)
+        if self.q_layernorm is not None:
+            orig_query_shape = query.shape
+            query = self.q_layernorm(query.reshape(x.shape[:-1] + (-1, self.hidden_size_per_attention_head,)))
+            query = query.reshape(orig_query_shape)
 
-        # apply output projection
-        output = self.linear_proj(context_layer)
-        output = self.cast(output, ori_dtype)
-        return output
+        if self.k_layernorm is not None:
+            orig_query_shape = key.shape
+            key = self.k_layernorm(key.reshape(x.shape[:-1] + (-1, self.hidden_size_per_attention_head,)))
+            key = key.reshape(orig_query_shape)
 
-    def _cat_prefix(self, key, value, prefix_keys_values):
-        """
-        concat prefix_keys_values to key and value
-        prefix_keys_values: shape(2, bs, pre_len, num_heads * kv_channels)
-        """
-        if prefix_keys_values is not None:
-            past_key = prefix_keys_values[0]
-            past_value = prefix_keys_values[1]
-            past_key = self.cast(past_key, key.dtype)
-            past_value = self.cast(past_value, value.dtype)
-            key = ops.concat((past_key, key), 1)
-            value = ops.concat((past_value, value), 1)
-        return key, value
-
-    def _check_gqa_valid(self):
-        """check whether the config is valid for grouped-query-attention"""
-        if self.num_heads % self.kv_num_heads != 0:
-            raise ValueError(f"num_heads must be divisible by kv_num_heads, "
-                             f"but got num_heads {self.num_heads} "
-                             f"and kv_num_heads {self.kv_num_heads}")
-        if self.kv_num_heads % self.tp_group_size != 0:
-            raise ValueError(
-                f"kv_num_heads must be divisible by tp_group_size, "
-                f"but got kv_num_heads {self.kv_num_heads} "
-                f"and kv_num_heads {self.tp_group_size}")
-
-    def _init_self_attn(self):
-        """init qkv linears of self-attention"""
-        self.hidden_size_per_partition = divide(self.hidden_size,
-                                                self.tp_group_size)
-        self.kv_hidden_size_per_partition = divide(self.kv_hidden_size,
-                                                   self.tp_group_size)
-        if self.qkv_concat:
-            if self.submodules.linear_qkv is not None:
-                # ColumnParallelLinear
-                self.linear_qkv = build_module(
-                    self.submodules.linear_qkv,
-                    self.hidden_size,
-                    self.hidden_size + 2 * self.kv_hidden_size,
-                    config=self.config,
-                    bias=self.config.qkv_has_bias,
-                    gather_output=False,
-                    transpose_b=True,
-                    param_init_type=self.param_init_type,
-                    compute_dtype=self.compute_dtype,
-                )
-        else:
-            if self.submodules.linear_q is not None:
-                # ColumnParallelLinear
-                self.linear_q = build_module(
-                    self.submodules.linear_q,
-                    self.hidden_size,
-                    self.hidden_size,
-                    config=self.config,
-                    bias=self.config.qkv_has_bias,
-                    gather_output=False,
-                    transpose_b=True,
-                    param_init_type=self.param_init_type,
-                    compute_dtype=self.compute_dtype,
-                )
-            if self.submodules.linear_k is not None:
-                # ColumnParallelLinear
-                self.linear_k = build_module(
-                    self.submodules.linear_k,
-                    self.hidden_size,
-                    self.kv_hidden_size,
-                    config=self.config,
-                    bias=self.config.qkv_has_bias,
-                    gather_output=False,
-                    transpose_b=True,
-                    param_init_type=self.param_init_type,
-                    compute_dtype=self.compute_dtype,
-                )
-            if self.submodules.linear_v is not None:
-                # ColumnParallelLinear
-                self.linear_v = build_module(
-                    self.submodules.linear_v,
-                    self.hidden_size,
-                    self.kv_hidden_size,
-                    config=self.config,
-                    bias=self.config.qkv_has_bias,
-                    gather_output=False,
-                    transpose_b=True,
-                    param_init_type=self.param_init_type,
-                    compute_dtype=self.compute_dtype,
-                )
+        return query, key, value
