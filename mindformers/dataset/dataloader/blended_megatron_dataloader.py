@@ -191,6 +191,7 @@ class MegatronDatasetBuilder:
             eod_mask_loss=self.config.get("eod_mask_loss", False),
             create_attention_mask=self.config.get("create_attention_mask", True),
             create_compressed_eod_mask=self.config.get("create_compressed_eod_mask", False),
+            eod_pad_length=self.config.get("eod_pad_length", False),
             s3_cache_path=self.config.get("s3_cache_path", None),
             drop_last_partial_validation_sequence=self.config.get("drop_last_partial_validation_sequence", True),
             add_extra_token_to_sequence=self.config.get("add_extra_token_to_sequence", True),
