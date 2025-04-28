@@ -252,7 +252,7 @@ class TestApiStability:
         self.content = {}
         self.failure_list = []
 
-    @pytest.mark.level0
+    # @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_modules(self):

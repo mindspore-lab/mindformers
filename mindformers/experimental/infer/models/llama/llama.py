@@ -30,8 +30,9 @@ from mindformers.parallel_core.inference.parallel_state import get_group_info, i
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode, is_pynative
+from mindformers.tools.utils import get_predict_run_mode
 from mindformers.tools.logger import logger
+from mindformers.models.utils import jit
 
 from .utils import convert_model_config
 
@@ -61,7 +62,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
-        self.is_pynative = is_pynative()
 
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
@@ -71,7 +71,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.mul = ops.Mul()
         self.add = ops.Add()
         self.ones = ops.Ones()
-        self.gather = ops.Gather(1) if self.is_pynative else ops.Gather()
+        self.gather = ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
         self.model = ParallelTransformer(config=config)
         if config.parallel_config.vocab_emb_dp:
@@ -121,20 +121,13 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         batch_valid_length = kwargs.get("valid_length_each_example")
         prefill = kwargs.get("prefill")
 
-        if self.is_pynative:
-            model_inputs = {}
-            if self.config.is_dynamic and "origin_inputs" in kwargs and self.use_past:
-                input_ids = kwargs["origin_inputs"]
-            model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
-        else:
-            if self.config.is_dynamic:
-                if prefill and "origin_inputs" in kwargs:
-                    origin_inputs = kwargs["origin_inputs"]
-                    slot_mapping = kwargs.get("slot_mapping")
-                    model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
-                                                                            batch_valid_length,
-                                                                            slot_mapping,
-                                                                            model_inputs)
+        if self.config.is_dynamic and prefill and "origin_inputs" in kwargs:
+            origin_inputs = kwargs["origin_inputs"]
+            slot_mapping = kwargs.get("slot_mapping")
+            model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
+                                                                    batch_valid_length,
+                                                                    slot_mapping,
+                                                                    model_inputs)
         position_ids = batch_valid_length - 1
         model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
 
@@ -145,13 +138,14 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
 
         model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
+        model_inputs["need_flatten"] = True
         return model_inputs
 
 
     def set_dynamic_inputs(self, **kwargs):
         """Prepare inputs for dynamic shape."""
-        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
@@ -188,6 +182,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             layer.attention.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
+    @jit
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
@@ -196,20 +191,13 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         """
         Forward of llama model.
         """
-        bsz, _ = self.shape(input_ids)
-        if self.use_past:
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bsz,), mstype.int32)
-            else:
-                batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache,
                             position_ids=position_ids, attention_mask=attention_mask, q_seq_lens=q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            if not self.is_pynative:
-                batch_valid_length = mint.cumsum(batch_valid_length, 0)
-            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 0)
         logits = self.lm_head(output)
 
         logits = self.cast(logits, mstype.float32)

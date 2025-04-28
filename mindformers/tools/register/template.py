@@ -382,6 +382,7 @@ class MoEConfig(Config):
     enable_gmm_safe_tokens = False
     use_fused_ops_permute = False
     callback_moe_droprate = False
+    dispatch_global_max_bs = 0
 
     _name = "moe_config"
 

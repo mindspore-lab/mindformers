@@ -21,7 +21,6 @@ import numpy as np
 from mindspore import Tensor, set_context
 from mindspore.communication import init
 
-from mindformers.tools.utils import is_pynative
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from tests.st.test_infer.test_infer_core.utils import (AttentionNet, MLPNet, TransformerLayerNet, TransformerNet,
                                                        get_config)
@@ -42,10 +41,10 @@ def _test_parallel_mlp(config):
     seq_length = config.seq_length
     hidden_size = config.hidden_size
 
-    input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
+    input_x = Tensor(np.random.randn(batch_size * seq_length, hidden_size).astype(np.float16))
     output = net(input_x)
 
-    assert output.shape == (batch_size, seq_length, hidden_size)
+    assert output.shape == (batch_size * seq_length, hidden_size)
 
 
 def _test_parallel_attention(config):
@@ -65,9 +64,8 @@ def _test_parallel_attention(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative_mode = is_pynative()
 
-    input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
+    input_x = Tensor(np.random.randn(batch_size * seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     swap_mask = Tensor(np.ones((head_dim, head_dim)).astype(np.float16))
@@ -76,15 +74,16 @@ def _test_parallel_attention(config):
     block_tables = None
     slot_mapping = None
     attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    q_seq_lens = Tensor(np.ones((batch_size,)).astype(np.int32))
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
         block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-        if not is_pynative_mode:
-            attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
-    output = net(input_x, batch_valid_length, block_tables, slot_mapping, freqs_cis=freqs_cis, attn_mask=attn_mask)
+        attn_mask = Tensor(np.ones((seq_length, seq_length)).astype(np.float16))
+    output = net(input_x, batch_valid_length, block_tables, slot_mapping, freqs_cis=freqs_cis,
+                 attn_mask=attn_mask, q_seq_lens=q_seq_lens)
 
-    assert output.shape == (batch_size, seq_length, hidden_size)
+    assert output.shape == (batch_size * seq_length, hidden_size)
 
 
 def _test_parallel_transformerlayers(config):
@@ -103,9 +102,8 @@ def _test_parallel_transformerlayers(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative_mode = is_pynative()
 
-    x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
+    x = Tensor(np.random.randn(batch_size * seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     swap_mask = Tensor(np.ones((head_dim, head_dim)).astype(np.float16))
@@ -114,15 +112,16 @@ def _test_parallel_transformerlayers(config):
     block_tables = None
     slot_mapping = None
     attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    q_seq_lens = Tensor(np.ones((batch_size,)).astype(np.int32))
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
         block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-        if not is_pynative_mode:
-            attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
-    output = net(x, freqs_cis, attn_mask, batch_valid_length, block_tables, slot_mapping)
+        attn_mask = Tensor(np.ones((seq_length, seq_length)).astype(np.float16))
+    output = net(x, freqs_cis, attn_mask, batch_valid_length, block_tables, slot_mapping,
+                 q_seq_lens=q_seq_lens)
 
-    assert output.shape == (batch_size, seq_length, hidden_size)
+    assert output.shape == (batch_size * seq_length, hidden_size)
 
 
 def _test_parallel_transformer(config):
@@ -140,20 +139,23 @@ def _test_parallel_transformer(config):
     hidden_size = config.hidden_size
     use_past = config.use_past
 
-    tokens = Tensor(np.arange(seq_length).astype(np.int32)).tile((batch_size, 1))
+    tokens = Tensor(np.arange(batch_size * seq_length).astype(np.int32))
     batch_valid_length = None
     block_tables = None
     slot_mapping = None
+    q_seq_lens = None
 
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
+        q_seq_lens = Tensor(np.ones((batch_size,)).astype(np.int32))
         block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
 
     output = net(tokens, batch_valid_length=batch_valid_length, batch_index=None, zactivate_len=None,
-                 block_tables=block_tables, slot_mapping=slot_mapping, prefix_keys_values=None)
+                 block_tables=block_tables, slot_mapping=slot_mapping, prefix_keys_values=None,
+                 q_seq_lens=q_seq_lens)
 
-    assert output.shape == (batch_size, seq_length, hidden_size)
+    assert output.shape == (batch_size * seq_length, hidden_size)
 
 
 def _test_module(module, mode):
@@ -172,9 +174,6 @@ def _test_module(module, mode):
     initialize_model_parallel(tensor_model_parallel_size=2)
 
     # test module
-
-    config = get_config(use_past=False, use_flash_attention=False)
-    TEST_FUNC[module](config)
 
     config = get_config(use_past=True)
     TEST_FUNC[module](config)

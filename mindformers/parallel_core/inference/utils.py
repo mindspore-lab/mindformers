@@ -18,7 +18,11 @@ __all__ = ["get_attn_mask_func", "generate_state_dict"]
 from contextlib import contextmanager
 
 from mindspore import Tensor, ops, Parameter, mint
-from mindformers.parallel_core.inference.parallel_state import get_group_size, get_tensor_model_parallel_world_size
+from mindspore.communication import get_group_size
+from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
+                                                                get_data_parallel_world_size,
+                                                                get_moe_expert_parallel_world_size,
+                                                                get_moe_tensor_parallel_world_size)
 
 
 def attn_mask_fill(attention_scores: Tensor, attention_mask, fill_value=-10000.0):
@@ -100,6 +104,21 @@ def generate_state_dict(network):
 def get_tp_world_size():
     tp_size = get_tensor_model_parallel_world_size()
     return tp_size if tp_size else 1
+
+
+def get_moe_tp_world_size():
+    moe_tp_size = get_moe_tensor_parallel_world_size()
+    return moe_tp_size if moe_tp_size else 1
+
+
+def get_moe_ep_world_size():
+    moe_ep_size = get_moe_expert_parallel_world_size()
+    return moe_ep_size if moe_ep_size else 1
+
+
+def get_dp_world_size():
+    dp_size = get_data_parallel_world_size()
+    return dp_size if dp_size else 1
 
 
 def create_empty_parameter(shape, *, dtype=None, device=None, **kwargs):
