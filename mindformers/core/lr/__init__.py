@@ -23,7 +23,8 @@ from .lr_schedule import (
     CosineWithWarmUpLR,
     LearningRateWiseLayer,
     LinearWithWarmUpLR,
-    PolynomialWithWarmUpLR
+    PolynomialWithWarmUpLR,
+    WarmUpStableDecayLR
 )
 
 __all__ = []
