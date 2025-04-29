@@ -84,7 +84,7 @@ Historical Version Supporting Relationships:
 Currently, MindSpore Transformers can be compiled and installed using the source code. You can run the following commands to install MindSpore Transformers:
 
 ```shell
-git clone -v 1.5.0 https://gitee.com/mindspore/mindformers.git
+git clone -b v1.5.0 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
