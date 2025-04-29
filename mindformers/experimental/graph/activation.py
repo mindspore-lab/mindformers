@@ -18,6 +18,8 @@ Activation functions for transformer.
 """
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import Mul, AddExt, GeLU, Erf, Sqrt, Div, Cast
+from mindspore.ops.auto_generate import SiLU as SiLU_op
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.transformer_config import ModelParallelConfig
@@ -44,9 +46,9 @@ class SwiGlu(nn.Cell):
         super(SwiGlu, self).__init__()
         self.slice = P.StridedSlice()
         # pylint: disable=W0212
-        self.silu = P._inner_ops.SiLU()
-        self.mul = P.Mul()
-        self.add = P.Add()
+        self.silu = SiLU_op()
+        self.mul = Mul()
+        self.add = AddExt()
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
@@ -95,20 +97,20 @@ class GELU(nn.Cell):
     def __init__(self, config: ModelParallelConfig = None, approximate: bool = True):
         super(GELU, self).__init__()
         self.approximate = approximate
-        self.add_bias = P.Add()
+        self.add_bias = AddExt()
         if self.approximate:
-            self.gelu = P.GeLU()
+            self.gelu = GeLU()
         else:
-            self.erf = P.Erf()
-            self.sqrt = P.Sqrt()
-            self.mul_tensor = P.Mul()
-            self.mul_const = P.Mul()
-            self.add_erf = P.Add()
-            self.div = P.Div()
+            self.erf = Erf()
+            self.sqrt = Sqrt()
+            self.mul_tensor = Mul()
+            self.mul_const = Mul()
+            self.add_erf = AddExt()
+            self.div = Div()
             self.const0 = Tensor(0.5, dtype.float32)
             self.const1 = Tensor(1.0, dtype.float32)
             self.const2 = Tensor(2.0, dtype.float32)
-            self.cast = P.Cast()
+            self.cast = Cast()
 
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -177,8 +179,8 @@ class SiLU(nn.Cell):
     def __init__(self, config: ModelParallelConfig = None):
         super(SiLU, self).__init__()
         # pylint: disable=W0212
-        self.silu = P._inner_ops.SiLU()
-        self.add = P.Add()
+        self.silu = SiLU_op()
+        self.add = AddExt()
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
