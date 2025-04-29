@@ -338,6 +338,10 @@ class MFLossMonitor(Callback):
             self._calculate_model_flops()
 
         origin_epochs = self.origin_epochs
+
+        if cb_params.get('initial_step', None) is not None:
+            self.initial_step = cb_params.initial_step
+
         if cb_params.dataset_sink_mode:
             per_step_seconds = step_seconds / cb_params.batch_num
             steps_per_epoch = self.steps_per_epoch
@@ -818,6 +822,13 @@ class TrainingStateMonitor(Callback):
 
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
+
+        self.abnormal_global_norm_check(cb_params)
+
+    def abnormal_global_norm_check(self, cb_params):
+        """Check the abnormal global_norm and raise error"""
+        if cb_params.get('initial_step', None) is not None:
+            self.initial_step = cb_params.initial_step
 
         if cb_params.dataset_sink_mode:
             steps_per_epoch = self.steps_per_epoch
