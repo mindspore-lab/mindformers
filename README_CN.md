@@ -84,7 +84,7 @@ MindSpore Transformers当前版本支持的模型列表如下：
 MindFormers目前支持源码编译安装，用户可以执行如下命令进行安装。
 
 ```shell
-git clone -v 1.5.0 https://gitee.com/mindspore/mindformers.git
+git clone -b v1.5.0 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
