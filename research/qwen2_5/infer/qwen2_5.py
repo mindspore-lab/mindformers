@@ -163,8 +163,8 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
 
     def set_dynamic_inputs(self, **kwargs):
         """Prepare inputs for dynamic shape."""
-        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
@@ -211,17 +211,10 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         """
         Forward of qwen model.
         """
-        bsz, _ = self.shape(input_ids)
-        if self.use_past:
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bsz,), mstype.int32)
-            else:
-                batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values, position_ids=position_ids, attention_mask=attention_mask,
                             q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache)
         if self.return_hidden_states:
-            output = self.reshape(output, (-1, output.shape[-1]))
             return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:

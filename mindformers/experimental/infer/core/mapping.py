@@ -15,21 +15,26 @@
 """mapping"""
 
 from mindspore import nn, ops
+from mindspore.communication import get_group_size, GlobalComm, get_rank
+from mindformers.experimental.infer.core.utils import get_moe_tp_world_size, get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import (get_moe_tensor_parallel_group,
+                                                                            get_tensor_model_parallel_group,
+                                                                            get_tensor_model_parallel_rank,
+                                                                            get_moe_tensor_parallel_rank,
+                                                                            get_data_parallel_rank)
 
-from mindformers.experimental.infer.core.utils import get_tp_world_size
-from mindformers.experimental.parallel_core.pynative.parallel_state import (get_tensor_model_parallel_group,
-                                                                            get_tensor_model_parallel_rank)
-
-
-class GatherFromModelParallelRegion(nn.Cell):
-    "Gather the input from model parallel region and concatinate."
+class GatherFromWorldParallelRegionV1(nn.Cell):
+    """
+    Gather the input from world parallel region and concatinate, simultaneously perform
+    transpose operation on input.
+    """
 
     def __init__(self):
         super().__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_group_size()
         if self.world_size > 1:
-            self.tp_group = get_tensor_model_parallel_group()
-            self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
+            self.world_group = GlobalComm.WORLD_COMM_GROUP
+            self.all_gather_into_tensor = ops.AllGather(group=self.world_group)
 
     def construct(self, input_):
         """construct."""
@@ -47,7 +52,48 @@ class GatherFromModelParallelRegion(nn.Cell):
         return output
 
 
-class GatherFromSequenceParallelRegion(nn.Cell):
+class GatherFromModelParallelRegion(GatherFromWorldParallelRegionV1):
+    "Gather the input from model parallel region and concatinate."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_tp_world_size()
+        if self.world_size > 1:
+            self.tp_group = get_tensor_model_parallel_group()
+            self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
+
+
+class GatherFromMoeTensorParallelRegion(GatherFromWorldParallelRegionV1):
+    """
+    Gather the input from moe tensor parallel region and concatinate, simultaneously perform
+    transpose operation on input.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_moe_tp_world_size()
+        if self.world_size > 1:
+            self.moe_tp_group = get_moe_tensor_parallel_group()
+            self.all_gather_into_tensor = ops.AllGather(group=self.moe_tp_group)
+
+
+class GatherFromWorldParallelRegionV2(nn.Cell):
+    "Gather the input from world parallel region and concatinate."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_group_size()
+        if self.world_size > 1:
+            self.world_group = GlobalComm.WORLD_COMM_GROUP
+            self.all_gather_into_tensor = ops.AllGather(group=self.world_group)
+
+    def construct(self, input_):
+        if self.world_size == 1:
+            return input_
+        return self.all_gather_into_tensor(input_)
+
+
+class GatherFromSequenceParallelRegion(GatherFromWorldParallelRegionV2):
     """
     Class for gathering sequences in a parallel region across multiple devices.
 
@@ -62,13 +108,38 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             self.tp_group = get_tensor_model_parallel_group()
             self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
 
+
+class GatherFromMoeTensorParallelRegionV2(GatherFromWorldParallelRegionV2):
+    """
+    Class for gathering sequences in moe tensor parallel region across multiple devices.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_moe_tp_world_size()
+        if self.world_size > 1:
+            self.moe_tp_group = get_moe_tensor_parallel_group()
+            self.all_gather_into_tensor = ops.AllGather(group=self.moe_tp_group)
+
+
+class ReduceFromWorldParallelRegion(nn.Cell):
+    "All reduce the input from the world parallel region."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_group_size()
+        if self.world_size > 1:
+            self.world_group = GlobalComm.WORLD_COMM_GROUP
+            self.all_reduce = ops.AllReduce(group=self.world_group)
+
     def construct(self, input_):
         if self.world_size == 1:
             return input_
-        return self.all_gather_into_tensor(input_)
+        output = self.all_reduce(input_)
+        return output
 
 
-class ReduceFromModelParallelRegion(nn.Cell):
+class ReduceFromModelParallelRegion(ReduceFromWorldParallelRegion):
     "All reduce the input from the model parallel region."
 
     def __init__(self):
@@ -78,14 +149,36 @@ class ReduceFromModelParallelRegion(nn.Cell):
             self.tp_group = get_tensor_model_parallel_group()
             self.all_reduce = ops.AllReduce(group=self.tp_group)
 
+
+class ReduceFromMoeTensorParallelRegion(ReduceFromWorldParallelRegion):
+    "All reduce the input from the moe tensor parallel region."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_moe_tp_world_size()
+        if self.world_size > 1:
+            self.moe_tp_group = get_moe_tensor_parallel_group()
+            self.all_reduce = ops.AllReduce(group=self.moe_tp_group)
+
+
+class ReduceScatterToWorldParallelRegion(nn.Cell):
+    "Reduce scatter the input from the world parallel region."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_group_size()
+        if self.world_size > 1:
+            self.world_group = GlobalComm.WORLD_COMM_GROUP
+            self.reduce_scatter_tensor = ops.ReduceScatter(group=self.world_group)
+
     def construct(self, input_):
         if self.world_size == 1:
             return input_
-        output = self.all_reduce(input_)
+        output = self.reduce_scatter_tensor(input_)
         return output
 
 
-class ReduceScatterToSequenceParallelRegion(nn.Cell):
+class ReduceScatterToSequenceParallelRegion(ReduceScatterToWorldParallelRegion):
     "Reduce scatter the input from the model parallel region."
 
     def __init__(self):
@@ -95,22 +188,26 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
             self.tp_group = get_tensor_model_parallel_group()
             self.reduce_scatter_tensor = ops.ReduceScatter(group=self.tp_group)
 
-    def construct(self, input_):
-        if self.world_size == 1:
-            return input_
-        output = self.reduce_scatter_tensor(input_)
-        return output
 
-
-class ScatterToModelParallelRegion(nn.Cell):
-    "Split the input and keep only the corresponding chuck to the rank."
-
+class ReduceScatterToMoeTensorParallelRegion(ReduceScatterToWorldParallelRegion):
+    "Reduce scatter the input from the moe tensor parallel region."
     def __init__(self):
         super().__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_moe_tp_world_size()
         if self.world_size > 1:
-            self.rank = get_tensor_model_parallel_rank()
-            self.split = ops.Split(axis=-1, output_num=self.world_size)
+            self.moe_tp_group = get_moe_tensor_parallel_group()
+            self.reduce_scatter_tensor = ops.ReduceScatter(group=self.moe_tp_group)
+
+
+class ScatterToWorldParallelRegion(nn.Cell):
+    "Split the input and keep only the corresponding chuck to the rank in world parallel region."
+
+    def __init__(self, axis=-1):
+        super().__init__()
+        self.world_size = get_group_size()
+        if self.world_size > 1:
+            self.rank = get_rank()
+            self.split = ops.Split(axis=axis, output_num=self.world_size)
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -118,3 +215,36 @@ class ScatterToModelParallelRegion(nn.Cell):
         tensor_tuple = self.split(input_)
         output = tensor_tuple[self.rank]
         return output
+
+
+class ScatterToModelParallelRegion(ScatterToWorldParallelRegion):
+    "Split the input and keep only the corresponding chuck to the rank in model parallel region."
+
+    def __init__(self, axis=-1):
+        super().__init__(axis)
+        self.world_size = get_tp_world_size()
+        if self.world_size > 1:
+            self.rank = get_tensor_model_parallel_rank()
+            self.split = ops.Split(axis=axis, output_num=self.world_size)
+
+
+class ScatterToMoeTensorParallelRegion(ScatterToWorldParallelRegion):
+    "Split the input and keep only the corresponding chuck to the rank in moe tensor parallel region."
+
+    def __init__(self, axis=-1):
+        super().__init__(axis)
+        self.world_size = get_moe_tp_world_size()
+        if self.world_size > 1:
+            self.rank = get_moe_tensor_parallel_rank()
+            self.split = ops.Split(axis=axis, output_num=self.world_size)
+
+
+class ScatterToDataParallelRegion(ScatterToWorldParallelRegion):
+    "Split the input and keep only the corresponding chuck to the rank in data parallel region."
+
+    def __init__(self, axis=-1):
+        super().__init__()
+        self.world_size = get_dp_world_size()
+        if self.world_size > 1:
+            self.rank = get_data_parallel_rank()
+            self.split = ops.Split(axis=axis, output_num=self.world_size)

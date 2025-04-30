@@ -30,7 +30,8 @@ group_info_maps = {}
 
 # special_groups has a different initialization process compared to normal_groups
 normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 'tp-cp']
-special_groups = ['ep', 'tp-ep', 'tp-ep-pp', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
+special_groups = ['ep', 'tp-ep', 'tp-ep-pp', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding',
+                  'moe_tp', 'moe_ep']
 valid_groups = normal_groups + special_groups
 
 # A list of global ranks for pipeline group
@@ -187,6 +188,35 @@ class CreateCommGroups():
                 position_embedding_group.group = group
                 position_embedding_group.global_ranks = position_embedding_ranks
 
+    def init_moe_group(self, moe_tensor_parallel_size, moe_expert_parallel_size):
+        """Init special group for MOE."""
+        if moe_tensor_parallel_size * moe_expert_parallel_size != self.world_size:
+            raise ValueError(f'moe_tensor_parallel_size * moe_expert_parallel_size must be equal to world_size, '
+                             f'but got moe_tensor_parallel_size: {moe_tensor_parallel_size}, '
+                             f'moe_expert_parallel_size: {moe_expert_parallel_size}, '
+                             f'and world_size: {self.world_size}.')
+
+        moe_tp_group = get_group_info("moe_tp")
+        moe_ep_group = get_group_info("moe_ep")
+        if moe_tp_group.group is not None:
+            raise RuntimeError('moe tensor parallel group is already initialized.')
+        if moe_ep_group.group is not None:
+            raise RuntimeError('moe tensor expert group is already initialized.')
+
+        def set_group_info(token, group_info, group_prefix):
+            mask = self.get_mask('tp-ep', token)
+            parallel_size = [moe_tensor_parallel_size, moe_expert_parallel_size]
+            group_ranks = self._dispatch_comm_ranks(self.world_size, parallel_size, mask)
+            for ranks_of_this_group in group_ranks:
+                if self.rank in ranks_of_this_group:
+                    group = group_prefix + '-' + '-'.join([str(i) for i in ranks_of_this_group])
+                    group_info.group = group
+                    group_info.global_ranks = ranks_of_this_group
+                    group_info.world_size = len(ranks_of_this_group)
+
+        set_group_info('tp', moe_tp_group, 'moe_tp')
+        set_group_info('ep', moe_ep_group, 'moe_ep')
+
     def _dispatch_comm_ranks(self, world_size, parallel_size, mask):
         """dispatch comm ranks"""
         def prefix_product(a, init=1):
@@ -240,6 +270,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
                               expert_model_parallel_size=1,
                               order="tp-cp-ep-dp-pp",
                               communicator_config_path=None,
+                              moe_tensor_parallel_size=None,
+                              moe_expert_parallel_size=None,
                               **kwargs):
     """Initialize model data parallel groups.
     """
@@ -309,6 +341,9 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
 
     # Build the pipeline-parallel related groups.
     rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
+    if moe_tensor_parallel_size is not None and moe_expert_parallel_size is not None:
+        rank_generator.init_moe_group(moe_tensor_parallel_size, moe_expert_parallel_size)
+
     global _PIPELINE_GLOBAL_RANKS
     all_pp_ranks = rank_generator.get_ranks('pp')
     for pp_ranks in all_pp_ranks:
@@ -431,6 +466,14 @@ def get_tensor_and_context_parallel_group():
     return _get_group_helper('tp-cp')
 
 
+def get_moe_tensor_parallel_group():
+    return _get_group_helper('moe_tp')
+
+
+def get_moe_expert_parallel_group():
+    return _get_group_helper('moe_ep')
+
+
 ### get global ranks
 def _get_global_ranks_helper(mode, check_initialized=True):
     comm_group = get_group_info(mode)
@@ -500,6 +543,14 @@ def get_data_modulo_expert_parallel_world_size():
     return _get_world_size_helper('dp-independent_ep')
 
 
+def get_moe_tensor_parallel_world_size():
+    return _get_world_size_helper('moe_tp')
+
+
+def get_moe_expert_parallel_world_size():
+    return _get_world_size_helper('moe_ep')
+
+
 ### get rank
 def _get_rank_helper(mode):
     comm_group = get_group_info(mode)
@@ -533,6 +584,16 @@ def get_data_parallel_rank(with_context_parallel=False):
 def get_pipeline_model_parallel_rank():
     """Return my rank for the pipeline model parallel group."""
     return _get_rank_helper('pp')
+
+
+def get_moe_tensor_parallel_rank():
+    """Return my rank for the MOE tensor parallel group."""
+    return _get_rank_helper('moe_tp')
+
+
+def get_moe_expert_parallel_rank(rank):
+    """Return my rank for the MOE expert parallel group."""
+    return _get_rank_helper('moe_tp')
 
 
 def get_pipeline_model_parallel_first_rank():
