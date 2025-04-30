@@ -86,16 +86,17 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
-| 数据集名称        |   适用模型   |   适用阶段   |                                            下载链接                                            |
-|:-------------|:--------:|:--------:|:------------------------------------------------------------------------------------------:|
-| alpaca       | qwen2-7b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
+| 数据集名称  | 适用模型  |   适用阶段   |                                      下载链接                                       |
+|:-------|:-----:|:--------:|:-------------------------------------------------------------------------------:|
+| alpaca | qwen2 | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json) |
 
 数据预处理中所用的`vocab.json`和`merges.txt`可以参考[模型权重下载](#模型权重下载)进行下载。
 
 - **alpaca 数据预处理**
 
-  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。(静态shape)
-  2. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。(动态shape)
+- 静态shape数据集处理流程：
+
+  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。
 
   ```shell
   python alpaca_converter.py \
@@ -107,7 +108,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
   output_path: 输出文件的保存路径
   ```
 
-  执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+  2. 执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
   ```shell
   python qwen2_preprocess.py \
@@ -125,6 +126,20 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
   merges_file:  merges.txt文件路径
   seq_length:   输出数据的序列长度
   output_file:  输出文件的保存路径
+  ```
+
+- 动态shape数据集处理流程：
+
+  1. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。
+
+  ```shell
+  python alpaca_converter_json.py \
+   --data_path path/alpaca_data.json \
+   --output_path /path/alpaca-data-messages.json
+
+  # 参数说明
+  data_path:   输入下载的文件路径
+  output_path: 输出文件的保存路径
   ```
 
 #### 模型权重下载
