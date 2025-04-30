@@ -31,6 +31,7 @@ from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools import logger
 from mindformers.tools.register import MindFormerConfig
 
+
 ROLE_MAPPING = {"human": "<|user|>", "gpt": "<|assistant|>", "system": "<|system|>"}
 SCHEMA = {
     "chosen_input_ids": {"type": "int32", "shape": [-1]},
@@ -40,6 +41,7 @@ SCHEMA = {
     "chosen_loss_mask": {"type": "int32", "shape": [-1]},
     "chosen_attention_mask": {"type": "int32", "shape": [-1]},
     "chosen_index_packed": {"type": "int32", "shape": [-1]},
+    "chosen_actual_sequence_length": {"type": "int32", "shape": [-1]},
     "rejected_input_ids": {"type": "int32", "shape": [-1]},
     "rejected_labels": {"type": "int32", "shape": [-1]},
     "rejected_lens": {"type": "int32", "shape": [-1]},
@@ -47,6 +49,7 @@ SCHEMA = {
     "rejected_loss_mask": {"type": "int32", "shape": [-1]},
     "rejected_attention_mask": {"type": "int32", "shape": [-1]},
     "rejected_index_packed": {"type": "int32", "shape": [-1]},
+    "rejected_actual_sequence_length": {"type": "int32", "shape": [-1]},
 }
 
 
@@ -99,12 +102,23 @@ def build_message(tokenizer, messages, metadata=""):
 
 def build_message_cvalues(tokenizer, prompt, ans):
     """Build message cvalues"""
-    msg = f"<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n"
+    msg = f"<|im_start|>user\n{prompt}<|im_end|>\n"
     msg += "<|im_start|>assistant\n"
     prompt_ids = tokenizer.encode(msg)
     msg = f"{ans}<|im_end|>"
     answer_ids = tokenizer.encode(msg)
     return prompt_ids, answer_ids
+
+def load_hf_datasets(data_path: str):
+    from datasets import load_from_disk
+    cache_dir = os.path.join(".", ".cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ['TRANSFORMERS_CACHE'] = "./.cache"
+    os.environ['HF_DATASETS_CACHE'] = "./.cache"
+
+    ds = load_from_disk(data_path)
+    print(f"Loaded {len(ds)} samples from hf datasets: {data_path}")
+    return ds
 
 
 def _process_sample(pair, tokenizer, input_sliced_sig, seq_len, dataset_type):
@@ -152,6 +166,10 @@ def _process_sample(pair, tokenizer, input_sliced_sig, seq_len, dataset_type):
         loss_mask = np.array(loss_mask, dtype=np.int32)
         return input_ids, labels, attention_mask, loss_mask
 
+    if len(prompt_ids) >= seq_len:
+        print(f"{pair['prompt']} ### processd prompt_ids length > seq_len, skip")
+        return {}
+
     chosen_input_ids, chosen_labels, chosen_attention_mask, chosen_loss_mask = (
         _build_sample(prompt_ids, chosen_ids)
     )
@@ -185,7 +203,13 @@ def preprocess(config: PreprocessConfig):
         pairs = []
         with open(config.data_path, "r", encoding="utf-8") as file:
             for line in file:
-                pairs.append(json.loads(line))
+                sample = json.loads(line)
+                prompt_len = len(sample['prompt'])
+                pos_len = len(sample['pos_resp'])
+                neg_len = len(sample['neg_resp'])
+                if prompt_len * pos_len * neg_len == 0:
+                    continue
+                pairs.append(sample)
     else:
         raise ValueError(f"Unsupported dataset type: {config.dataset_type}")
 
@@ -224,6 +248,9 @@ def preprocess(config: PreprocessConfig):
         "rejected_attention_mask": {"type": "int32", "shape": [-1]},
         "rejected_loss_mask": {"type": "int32", "shape": [-1]},
     }
+
+    samples = filter(bool, samples)
+    samples = list(samples)
 
     # Write to MindRecord file
     writer = FileWriter(file_name=config.dst_file, shard_num=config.file_partition)
@@ -302,6 +329,8 @@ def _initialize_transformer_lists():
         "sample_lens": [],
         "chosen_lens": [],
         "rejected_lens": [],
+        "chosen_actual_sequence_length": [],
+        "rejected_actual_sequence_length": [],
     }
 
 
@@ -352,11 +381,14 @@ def _process_transformer_samples(
     # 从config中获取配置
     pad_token_id = config["pad_token_id"]
     input_sliced_sig = config["input_sliced_sig"]
+    seq_len = config["seq_len"]
 
     for i in range(len(sources)):
         prompt_ids = prompt_ids_list[i]
         chosen_ids = pos_resp_ids_list[i]
         rejected_ids = neg_resp_ids_list[i]
+        if len(prompt_ids) >= seq_len:
+            continue
 
         # 构建序列
         (
@@ -375,28 +407,10 @@ def _process_transformer_samples(
         ) = _build(prompt_ids, rejected_ids, input_sliced_sig, pad_token_id)
 
         # Pad to max length
-        max_length = max(len(chosen_input_ids), len(rejected_input_ids))
         result_lists["chosen_lens"].append(chosen_length)
         result_lists["rejected_lens"].append(rejected_length)
-
-        chosen_input_ids = pad_sequence_to_length(
-            chosen_input_ids, max_length, pad_token_id
-        )
-        rejected_input_ids = pad_sequence_to_length(
-            rejected_input_ids, max_length, pad_token_id
-        )
-        chosen_labels = pad_sequence_to_length(chosen_labels, max_length, pad_token_id)
-        rejected_labels = pad_sequence_to_length(
-            rejected_labels, max_length, pad_token_id
-        )
-        chosen_attention_mask = pad_sequence_to_length(
-            chosen_attention_mask, max_length, 0
-        )
-        rejected_attention_mask = pad_sequence_to_length(
-            rejected_attention_mask, max_length, 0
-        )
-        chosen_loss_mask = pad_sequence_to_length(chosen_loss_mask, max_length, 0)
-        rejected_loss_mask = pad_sequence_to_length(rejected_loss_mask, max_length, 0)
+        result_lists["chosen_actual_sequence_length"].append(len(chosen_input_ids))
+        result_lists["rejected_actual_sequence_length"].append(len(rejected_input_ids))
 
         # Collect results
         result_lists["chosen_input_ids_lst"].append(chosen_input_ids)
@@ -407,10 +421,9 @@ def _process_transformer_samples(
         result_lists["rejected_attention_masks_lst"].append(rejected_attention_mask)
         result_lists["chosen_loss_masks_lst"].append(chosen_loss_mask)
         result_lists["rejected_loss_masks_lst"].append(rejected_loss_mask)
-        result_lists["sample_lens"].append(max_length)
 
 
-def transformer(sources, tokenizer, input_sliced_sig=False):
+def transformer(sources, tokenizer, seq_len, input_sliced_sig=False):
     """Transform alpaca dataset to tokenized MindRecord format using batch encoding and multiprocessing."""
     # Initialize result lists
     result_lists = _initialize_transformer_lists()
@@ -444,7 +457,7 @@ def transformer(sources, tokenizer, input_sliced_sig=False):
             "pos_resp_ids": pos_resp_ids_list,
             "neg_resp_ids": neg_resp_ids_list,
         },
-        {"pad_token_id": pad_token_id, "input_sliced_sig": input_sliced_sig},
+        {"pad_token_id": pad_token_id, "input_sliced_sig": input_sliced_sig, "seq_len": seq_len},
         result_lists,
     )
 
@@ -492,15 +505,28 @@ def read_json_or_jsonl(
         raise ValueError("Error reading file") from e
 
 
-def group_and_pack(token_lengths, pack_num):
+def group_and_pack(chosen_token_lengths, rejected_token_lengths, pack_num, seq_len):
     """Group and pack token lengths into batches."""
     pack_group, each_group = [], []
-
-    for token_length in token_lengths:
-        each_group.append(token_lengths[token_length])
-        if len(each_group) >= pack_num:
+    chosen_current_group_length = 0
+    rejected_current_group_length = 0
+    for token_length in chosen_token_lengths:
+        _, chosen_sample_length = chosen_token_lengths[token_length]
+        _, rejected_sample_length = rejected_token_lengths[token_length]
+        chosen_needed_length = chosen_current_group_length + chosen_sample_length + (pack_num - len(each_group) - 1)
+        rejected_needed_length = rejected_current_group_length + rejected_sample_length + \
+                                 (pack_num - len(each_group) - 1)
+        if len(each_group) >= pack_num or chosen_needed_length > seq_len or rejected_needed_length > seq_len:
             pack_group.append(each_group)
-            each_group = [token_lengths[token_length]]
+            if len(each_group) == 1 and each_group[0][1] > seq_len:
+                pack_group.pop()
+            each_group = []
+            chosen_current_group_length = 0
+            rejected_current_group_length = 0
+        each_group.append(chosen_token_lengths[token_length])
+        chosen_current_group_length += chosen_sample_length
+        rejected_current_group_length += rejected_sample_length
+
     if each_group:
         pack_group.append(each_group)
     return pack_group
@@ -511,8 +537,10 @@ def _analyze_data_lengths(metas, config):
     len_data = len(metas["chosen_input_ids_lst"])
 
     logger.info("Constructing token lengths...")
-    lengths_dict = {idx: (idx, metas["sample_lens"][idx]) for idx in range(len_data)}
-    mean_length = sum(metas["sample_lens"]) / len_data
+    chosen_lengths_dict = {idx: (idx, metas["chosen_actual_sequence_length"][idx]) for idx in range(len_data)}
+    rejected_lengths_dict = {idx: (idx, metas["rejected_actual_sequence_length"][idx]) for idx in range(len_data)}
+
+    mean_length = sum(metas["chosen_actual_sequence_length"]) / len_data
     logger.info(f"Mean length: {mean_length}")
 
     pack_num = config.pack_num
@@ -520,22 +548,121 @@ def _analyze_data_lengths(metas, config):
         pack_num = max(int(config.seq_len / mean_length), 1)
     logger.info(f"Pack number: {pack_num}")
 
-    one_data_max_length = int(config.seq_len / pack_num)
-    logger.info(f"One data max length: {one_data_max_length}")
-    logger.info(f"Actual sample length: {one_data_max_length * pack_num}")
+    return chosen_lengths_dict, rejected_lengths_dict, pack_num
 
-    if one_data_max_length % config.mp != 0:
-        one_data_max_length = (one_data_max_length // config.mp) * config.mp
-        logger.warning(
-            f"one_data_max_length adjusted to: {one_data_max_length}, since it should be divisible by mp: {config.mp}"
+
+def process_sample(index, metas, pad_token_id, pad_to_length, i, chosen_occupied_length,
+                   rejected_occupied_length, real_sample_num):
+    """Extract sample data from metas."""
+    sample_data = {
+        "sample_chosen_input_ids_lst": metas["chosen_input_ids_lst"][index],
+        "sample_chosen_labels_lst": metas["chosen_labels_lst"][index],
+        "sample_chosen_loss_mask": metas["chosen_loss_masks_lst"][index],
+        "sample_chosen_attention_masks_lst": metas["chosen_attention_masks_lst"][index],
+        "sample_chosen_lens": metas["chosen_lens"][index],
+        "sample_chosen_position_id": np.arange(metas["chosen_actual_sequence_length"][index]),
+        "sample_chosen_actual_sequence_length": chosen_occupied_length + metas["chosen_actual_sequence_length"][index],
+        "sample_rejected_input_ids_lst": metas["rejected_input_ids_lst"][index],
+        "sample_rejected_labels_ids_lst": metas["rejected_labels_ids_lst"][index],
+        "sample_rejected_loss_mask": metas["rejected_loss_masks_lst"][index],
+        "sample_rejected_attention_masks_lst": metas["rejected_attention_masks_lst"][index],
+        "sample_rejected_lens": metas["rejected_lens"][index],
+        "sample_rejected_position_id": np.arange(metas["rejected_actual_sequence_length"][index]),
+        "sample_rejected_actual_sequence_length": rejected_occupied_length + \
+                                                  metas["rejected_actual_sequence_length"][index],
+    }
+
+    # Pad and process sample data
+    processed_sample = process_and_pad_sample(index, metas, sample_data, pad_token_id, pad_to_length, i,
+                                              chosen_occupied_length, rejected_occupied_length, real_sample_num)
+
+    return processed_sample
+
+def process_and_pad_sample(index, metas, sample_data, pad_token_id, pad_to_length, i,
+                           chosen_occupied_length, rejected_occupied_length, real_sample_num):
+    """Pad sample data."""
+    sample_data["sample_chosen_input_ids_lst"] = np.pad(
+        sample_data["sample_chosen_input_ids_lst"], (0, 1), mode="constant", constant_values=pad_token_id,
+    )
+    sample_data["sample_chosen_labels_lst"] = np.pad(
+        sample_data["sample_chosen_labels_lst"], (0, 1), mode="constant", constant_values=pad_token_id,
+    )
+    sample_data["sample_chosen_loss_mask"] = np.pad(
+        sample_data["sample_chosen_loss_mask"], (0, 1), mode="constant", constant_values=0,
+    )
+    sample_data["sample_chosen_attention_masks_lst"] = np.pad(
+        sample_data["sample_chosen_attention_masks_lst"], (0, 1), mode="constant", constant_values=0,
+    )
+    sample_data["sample_chosen_position_id"] = np.pad(
+        sample_data["sample_chosen_position_id"], (0, 1), mode="constant", constant_values=-1,
+    )
+    sample_data["sample_chosen_index_packed"] = np.array([i] * metas["chosen_actual_sequence_length"][index])
+    sample_data["sample_rejected_input_ids_lst"] = np.pad(
+        sample_data["sample_rejected_input_ids_lst"], (0, 1), mode="constant", constant_values=pad_token_id,
+    )
+    sample_data["sample_rejected_labels_ids_lst"] = np.pad(
+        sample_data["sample_rejected_labels_ids_lst"], (0, 1), mode="constant", constant_values=pad_token_id,
+    )
+    sample_data["sample_rejected_loss_mask"] = np.pad(
+        sample_data["sample_rejected_loss_mask"], (0, 1), mode="constant", constant_values=0,
+    )
+    sample_data["sample_rejected_attention_masks_lst"] = np.pad(
+        sample_data["sample_rejected_attention_masks_lst"], (0, 1), mode="constant", constant_values=0,
+    )
+    sample_data["sample_rejected_position_id"] = np.pad(
+        sample_data["sample_rejected_position_id"], (0, 1), mode="constant", constant_values=-1,
+    )
+    sample_data["sample_rejected_index_packed"] = np.array([i] * metas["rejected_actual_sequence_length"][index])
+
+    if i == real_sample_num - 1:
+        # Special padding for the last sample
+        sample_data["sample_chosen_input_ids_lst"] = pad_sequence_to_length(
+            sample_data["sample_chosen_input_ids_lst"], pad_to_length - chosen_occupied_length, pad_token_id
         )
+        sample_data["sample_chosen_labels_lst"] = pad_sequence_to_length(
+            sample_data["sample_chosen_labels_lst"], pad_to_length - chosen_occupied_length, pad_token_id
+        )
+        sample_data["sample_chosen_loss_mask"] = pad_sequence_to_length(
+            sample_data["sample_chosen_loss_mask"], pad_to_length - chosen_occupied_length, 0
+        )
+        sample_data["sample_chosen_attention_masks_lst"] = pad_sequence_to_length(
+            sample_data["sample_chosen_attention_masks_lst"], pad_to_length - chosen_occupied_length, 0
+        )
+        sample_data["sample_chosen_position_id"] = pad_sequence_to_length(
+            sample_data["sample_chosen_position_id"], pad_to_length - chosen_occupied_length, -1
+        )
+        sample_data["sample_chosen_index_packed"] = pad_sequence_to_length(
+            sample_data["sample_chosen_index_packed"], pad_to_length - chosen_occupied_length, i
+        )
+        sample_data["sample_chosen_actual_sequence_length"] = pad_to_length - 1
+        sample_data["sample_rejected_input_ids_lst"] = pad_sequence_to_length(
+            sample_data["sample_rejected_input_ids_lst"], pad_to_length - rejected_occupied_length, pad_token_id
+        )
+        sample_data["sample_rejected_labels_ids_lst"] = pad_sequence_to_length(
+            sample_data["sample_rejected_labels_ids_lst"], pad_to_length - rejected_occupied_length, pad_token_id
+        )
+        sample_data["sample_rejected_loss_mask"] = pad_sequence_to_length(
+            sample_data["sample_rejected_loss_mask"], pad_to_length - rejected_occupied_length, 0
+        )
+        sample_data["sample_rejected_attention_masks_lst"] = pad_sequence_to_length(
+            sample_data["sample_rejected_attention_masks_lst"], pad_to_length - rejected_occupied_length, 0
+        )
+        sample_data["sample_rejected_position_id"] = pad_sequence_to_length(
+            sample_data["sample_rejected_position_id"], pad_to_length - rejected_occupied_length, -1
+        )
+        sample_data["sample_rejected_index_packed"] = pad_sequence_to_length(
+            sample_data["sample_rejected_index_packed"], pad_to_length - rejected_occupied_length, i
+        )
+        sample_data["sample_rejected_actual_sequence_length"] = pad_to_length - 1
 
-    return lengths_dict, pack_num, one_data_max_length
+    return sample_data
 
-
-def _process_data_group(group, metas, config, one_data_max_length, pack_num):
+def _process_data_group(group, metas, config, pack_num):
     """Process a single data group and prepare arrays for packing."""
-    tokenizer = config.tokenizer
+    real_sample_num = len(group)
+    dummy_sample_num = pack_num - real_sample_num
+    pad_to_length = config.seq_len - dummy_sample_num
+    pad_token_id = config.tokenizer.pad_token_id
 
     # Initialize arrays for this group
     chosen_input_ids_lst, chosen_labels_lst = [], []
@@ -545,70 +672,77 @@ def _process_data_group(group, metas, config, one_data_max_length, pack_num):
     chosen_lens, rejected_lens = [], []
     chosen_position_id, rejected_position_id = [], []
     chosen_index_packed, rejected_index_packed = [], []
+    chosen_actual_sequence_length, rejected_actual_sequence_length = [], []
+    chosen_occupied_length = 0
+    rejected_occupied_length = 0
 
-    # Process each item in the group
-    for idx, g in enumerate(group):
-        index, length = g
-        if metas["sample_lens"][index] != length:
-            logger.warning(f"Length mismatch for index {index}")
-            continue
+    for i, g in enumerate(group):
+        index, _ = g
+        processed_sample = process_sample(index, metas, config.tokenizer.pad_token_id, pad_to_length, i,
+                                          chosen_occupied_length, rejected_occupied_length, real_sample_num)
 
         # Add chosen data
-        chosen_input_ids_lst.append(
-            pad_sequence_to_length(metas["chosen_input_ids_lst"][index], one_data_max_length, tokenizer.pad_token_id))
-        chosen_labels_lst.append(
-            pad_sequence_to_length(metas["chosen_labels_lst"][index], one_data_max_length, tokenizer.pad_token_id))
-        chosen_loss_mask.append(pad_sequence_to_length(metas["chosen_loss_masks_lst"][index], one_data_max_length, 0))
-        chosen_attention_masks_lst.append(
-            pad_sequence_to_length(metas["chosen_attention_masks_lst"][index] * (idx + 1), one_data_max_length, 0))
-        chosen_index_packed.append([idx] * one_data_max_length)
-        chosen_lens.append(metas["chosen_lens"][index])
-        chosen_position_id.append(
-            pad_sequence_to_length(np.arange(metas["chosen_lens"][index]), one_data_max_length, -1))
+        chosen_input_ids_lst.append(processed_sample["sample_chosen_input_ids_lst"])
+        chosen_labels_lst.append(processed_sample["sample_chosen_labels_lst"])
+        chosen_loss_mask.append(processed_sample["sample_chosen_loss_mask"])
+        chosen_attention_masks_lst.append(processed_sample["sample_chosen_attention_masks_lst"])
+        chosen_index_packed.append(processed_sample["sample_chosen_index_packed"])
+        chosen_lens.append(processed_sample["sample_chosen_lens"])
+        chosen_position_id.append(processed_sample["sample_chosen_position_id"])
+        chosen_actual_sequence_length.append(processed_sample["sample_chosen_actual_sequence_length"])
 
-      # Add rejected data
-        rejected_input_ids_lst.append(
-            pad_sequence_to_length(metas["rejected_input_ids_lst"][index], one_data_max_length, tokenizer.pad_token_id))
-        rejected_labels_ids_lst.append(
-            pad_sequence_to_length(
-                metas["rejected_labels_ids_lst"][index], one_data_max_length, tokenizer.pad_token_id))
-        rejected_loss_mask.append(
-            pad_sequence_to_length(metas["rejected_loss_masks_lst"][index], one_data_max_length, 0))
-        rejected_attention_masks_lst.append(
-            pad_sequence_to_length(metas["rejected_attention_masks_lst"][index] * (idx + 1), one_data_max_length, 0))
-        rejected_index_packed.append([idx] * one_data_max_length)
-        rejected_lens.append(metas["rejected_lens"][index])
-        rejected_position_id.append(
-            pad_sequence_to_length(np.arange(metas["rejected_lens"][index]), one_data_max_length, -1))
+        # Add rejected data
+        rejected_input_ids_lst.append(processed_sample["sample_rejected_input_ids_lst"])
+        rejected_labels_ids_lst.append(processed_sample["sample_rejected_labels_ids_lst"])
+        rejected_loss_mask.append(processed_sample["sample_rejected_loss_mask"])
+        rejected_attention_masks_lst.append(processed_sample["sample_rejected_attention_masks_lst"])
+        rejected_index_packed.append(processed_sample["sample_rejected_index_packed"])
+        rejected_lens.append(processed_sample["sample_rejected_lens"])
+        rejected_position_id.append(processed_sample["sample_rejected_position_id"])
+        rejected_actual_sequence_length.append(processed_sample["sample_rejected_actual_sequence_length"])
+
+        # Update occupied lengths
+        chosen_occupied_length += metas['chosen_actual_sequence_length'][index]
+        rejected_occupied_length += metas['rejected_actual_sequence_length'][index]
+
+    for i in range(dummy_sample_num):
+        chosen_input_ids_lst.append(np.array([pad_token_id]))
+        chosen_labels_lst.append(np.array([pad_token_id]))
+        chosen_loss_mask.append(np.array([0]))
+        chosen_attention_masks_lst.append(np.array([0]))
+        chosen_index_packed.append(np.array([real_sample_num + i]))
+        chosen_lens.append(1)
+        chosen_position_id.append(np.array([-1]))
+        chosen_actual_sequence_length.append(chosen_actual_sequence_length[-1] + 1)
+
+        rejected_input_ids_lst.append(np.array([pad_token_id]))
+        rejected_labels_ids_lst.append(np.array([pad_token_id]))
+        rejected_loss_mask.append(np.array([0]))
+        rejected_attention_masks_lst.append(np.array([0]))
+        rejected_index_packed.append(np.array([real_sample_num + i]))
+        rejected_lens.append(1)
+        rejected_position_id.append(np.array([-1]))
+        rejected_actual_sequence_length.append(rejected_actual_sequence_length[-1] + 1)
 
     # Concatenate all arrays in this group
     result = {
-        "chosen_input_ids": np.concatenate(chosen_input_ids_lst),
-        "chosen_labels": np.concatenate(chosen_labels_lst),
-        "chosen_loss_mask": np.concatenate(chosen_loss_mask),
-        "chosen_attention_mask": np.concatenate(chosen_attention_masks_lst),
-        "chosen_index_packed": np.concatenate(chosen_index_packed),
-        "chosen_position_id": np.concatenate(chosen_position_id),
-        "rejected_input_ids": np.concatenate(rejected_input_ids_lst),
-        "rejected_labels": np.concatenate(rejected_labels_ids_lst),
-        "rejected_loss_mask": np.concatenate(rejected_loss_mask),
-        "rejected_attention_mask": np.concatenate(rejected_attention_masks_lst),
-        "rejected_index_packed": np.concatenate(rejected_index_packed),
-        "rejected_position_id": np.concatenate(rejected_position_id),
+        "chosen_input_ids": np.concatenate(chosen_input_ids_lst).astype(np.int32),
+        "chosen_labels": np.concatenate(chosen_labels_lst).astype(np.int32),
+        "chosen_loss_mask": np.concatenate(chosen_loss_mask).astype(np.int32),
+        "chosen_attention_mask": np.concatenate(chosen_attention_masks_lst).astype(np.int32),
+        "chosen_index_packed": np.concatenate(chosen_index_packed).astype(np.int32),
+        "chosen_lens": np.array(chosen_lens).astype(np.int32),
+        "chosen_position_id": np.concatenate(chosen_position_id).astype(np.int32),
+        "chosen_actual_sequence_length": np.array(chosen_actual_sequence_length).astype(np.int32),
+        "rejected_input_ids": np.concatenate(rejected_input_ids_lst).astype(np.int32),
+        "rejected_labels": np.concatenate(rejected_labels_ids_lst).astype(np.int32),
+        "rejected_loss_mask": np.concatenate(rejected_loss_mask).astype(np.int32),
+        "rejected_attention_mask": np.concatenate(rejected_attention_masks_lst).astype(np.int32),
+        "rejected_index_packed": np.concatenate(rejected_index_packed).astype(np.int32),
+        "rejected_lens": np.array(rejected_lens).astype(np.int32),
+        "rejected_position_id": np.concatenate(rejected_position_id).astype(np.int32),
+        "rejected_actual_sequence_length": np.array(rejected_actual_sequence_length).astype(np.int32),
     }
-
-    # Pad lens if needed
-    if len(chosen_lens) < pack_num:
-        pad_length = pack_num - len(chosen_lens)
-        result["chosen_lens"] = np.pad(
-            chosen_lens, (0, pad_length), mode="constant", constant_values=0
-        )
-        result["rejected_lens"] = np.pad(
-            rejected_lens, (0, pad_length), mode="constant", constant_values=0
-        )
-    else:
-        result["chosen_lens"] = np.array(chosen_lens)
-        result["rejected_lens"] = np.array(rejected_lens)
 
     return result
 
@@ -650,6 +784,8 @@ def _write_to_mindrecord(packed_data, config):
             "chosen_index_packed": pad_sequence_to_length(
                 item["chosen_index_packed"], seq_length, pack_num - 1
             ).astype(np.int32),
+            "chosen_actual_sequence_length": np.array(
+                item["chosen_actual_sequence_length"], dtype=np.int32),
             "rejected_input_ids": pad_sequence_to_length(
                 item["rejected_input_ids"], seq_length, tokenizer.pad_token_id
             ),
@@ -669,29 +805,32 @@ def _write_to_mindrecord(packed_data, config):
             "rejected_index_packed": pad_sequence_to_length(
                 item["rejected_index_packed"], seq_length, pack_num - 1
             ).astype(np.int32),
+            "rejected_actual_sequence_length": np.array(
+                item["rejected_actual_sequence_length"], dtype=np.int32),
         }
         write_data.append(x)
 
-    writer.write_raw_data(write_data, parallel_writer=True)
+    writer.write_raw_data(write_data, parallel_writer=False)
     writer.commit()
 
 
 def pack_data(metas, config: PreprocessConfig):
     """Pack data into MindRecord file."""
     # Analyze data and determine packing parameters
-    lengths_dict, pack_num, one_data_max_length = _analyze_data_lengths(metas, config)
+    chosen_lengths_dict, rejected_lengths_dict, pack_num = _analyze_data_lengths(metas, config)
 
     # Update pack_num in config for later use
     config.pack_num = pack_num
 
     # Group and pack the data
-    pack_group = group_and_pack(lengths_dict, pack_num)
+    seq_len = config.seq_len
+    pack_group = group_and_pack(chosen_lengths_dict, rejected_lengths_dict, pack_num, seq_len)
 
     # Process each group
     packed_data = []
     for group in tqdm(pack_group, desc="Packing data groups"):
         group_result = _process_data_group(
-            group, metas, config, one_data_max_length, pack_num
+            group, metas, config, pack_num
         )
         packed_data.append(group_result)
 
@@ -778,6 +917,8 @@ def _setup_environment(args):
     # Create tokenizer config
     config_path = args.config
     config = MindFormerConfig(config_path)
+    logger.info("tokenizer config is ", config)
+    logger.info("tokenizer is ", config.processor.tokenizer)
     tokenizer = build_tokenizer(config.processor.tokenizer)
     return tokenizer
 
@@ -804,10 +945,24 @@ def main():
     # Choose processing path based on args
     if args.pack:
         logger.info("Reading original JSON...")
-        metas = read_json_or_jsonl(args.src)
+        if args.dataset_type == 'hf_datasets':
+            pairs = load_hf_datasets(args.src)
+            metas = [{'prompt': meta["prompt"], 'pos_resp': meta["chosen"],
+                      'neg_resp': meta["rejected"]} for meta in pairs]
+        else:
+            metas = read_json_or_jsonl(args.src)
+        # 去除无效数据
+        new_metas = []
+        for sample in metas:
+            prompt_len = len(sample['prompt'])
+            pos_len = len(sample['pos_resp'])
+            neg_len = len(sample['neg_resp'])
+            if prompt_len * pos_len * neg_len == 0:
+                continue
+            new_metas.append(sample)
 
         logger.info("Tokenizing JSON...")
-        metas = transformer(metas, tokenizer, config.input_sliced_sig)
+        metas = transformer(new_metas, tokenizer, config.seq_len, config.input_sliced_sig)
         pack_data(metas, config)
     else:
         preprocess(config)

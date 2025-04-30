@@ -47,11 +47,16 @@ class DPOModel(PreTrainedModel):
         self.add = P.Add()
 
         config = base_model.config
-        dp = config.parallel_config.data_parallel
-        mp = config.parallel_config.model_parallel
+        self.dp = config.parallel_config.data_parallel
+        self.mp = config.parallel_config.model_parallel
+        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
+        self.seq_length = config.seq_length
         self.use_data_packing = config.dataset_config.use_data_packing
         if self.use_data_packing:
             self.packed_num = config.dataset_config.packed_num
+        else:
+            self.packed_num = None
+
         self.input_sliced_sig = config.input_sliced_sig
         self.dpo_model = base_model
         self.ref_model = ref_model
@@ -61,16 +66,16 @@ class DPOModel(PreTrainedModel):
         self.end_stage_id = 1
 
         self.use_past = config.use_past
-        if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
+        if config.parallel_config.vocab_emb_dp or (config.vocab_size % self.mp != 0):
             self.dpo_loss = DPOLossV2(config)
         else:
             loss_parallel_config = copy.deepcopy(config)
             # total mp
-            loss_parallel_config.parallel_config.model_parallel = dp * mp
+            loss_parallel_config.parallel_config.model_parallel = self.dp * self.mp
             loss_parallel_config.parallel_config.data_parallel = 1
-            if dp >= 32 and dp % 8 == 0:  # For large scale training
+            if self.dp >= 32 and self.dp % 8 == 0:  # For large scale training
                 loss_parallel_config.parallel_config.model_parallel = 8
-                loss_parallel_config.parallel_config.data_parallel = dp * mp // 8
+                loss_parallel_config.parallel_config.data_parallel = self.dp * self.mp // 8
             self.dpo_loss = DPOLossV2(loss_parallel_config)
 
         self.alpha = config.rl_config.dpo_alpha
@@ -134,10 +139,20 @@ class DPOModel(PreTrainedModel):
         attention_mask = get_attention_mask(eod_vec)
         return attention_mask
 
+    def offset_actual_seq_length(self, chose_data, reject_data, offset):
+        bs = chose_data.shape[0] // self.dp
+        n = chose_data.shape[1]
+        chose_data = chose_data.reshape((self.dp, bs, n))
+        reject_data = reject_data.reshape((self.dp, bs, n))
+        tmp = ops.concat((chose_data, reject_data), axis=1)
+        offsets = self.cast(ops.range(0, 2 * bs * offset, offset).reshape((1, 2 * bs, 1)), chose_data.dtype)
+        tmp = tmp + offsets
+        actual_seq_lenth = self.cast(ops.reshape(tmp, (-1,)), chose_data.dtype)
+        return actual_seq_lenth
 
-    def construct(self, chosen_attention_mask=None, chosen_index_packed=None,
-                  chosen_input_ids=None, chosen_labels=None, chosen_lens=None,
-                  chosen_loss_mask=None, chosen_position_id=None, rejected_attention_mask=None,
+    def construct(self, chosen_actual_sequence_length=None, chosen_attention_mask=None, chosen_index_packed=None,
+                  chosen_input_ids=None, chosen_labels=None, chosen_lens=None, chosen_loss_mask=None,
+                  chosen_position_id=None, rejected_actual_sequence_length=None, rejected_attention_mask=None,
                   rejected_index_packed=None, rejected_input_ids=None, rejected_labels=None,
                   rejected_lens=None, rejected_loss_mask=None, rejected_position_id=None,
                   input_position=None, position_ids=None, attention_mask=None, input_embeds=None,
@@ -207,10 +222,21 @@ class DPOModel(PreTrainedModel):
                 index_packed = self.slice(index_packed, (0, 1), (bsz, ori_seqlen), (1, 1))
             loss_mask = self.slice(loss_mask, (0, 1), (bsz, ori_seqlen), (1, 1))
 
-        if self.use_data_packing and attention_mask is not None:
-            attention_mask = self.make_attention_mask(attention_mask)  # 运行时制作attention_mask
+        if self.use_data_packing and not self.use_eod_attn_mask_compression:
+            attention_mask = self.make_attention_mask(attention_mask)
         else:
             attention_mask = None
+
+        if self.use_eod_attn_mask_compression and chosen_actual_sequence_length is not None:
+            bs = chosen_actual_sequence_length.shape[0]
+            if bs > 1:
+                actual_seq_len = self.offset_actual_seq_length(chosen_actual_sequence_length,
+                                                               rejected_actual_sequence_length, self.seq_length)
+            else:
+                rejected_actual_sequence_length = chosen_actual_sequence_length + self.seq_length
+                actual_seq_len = ops.concat((chosen_actual_sequence_length, rejected_actual_sequence_length), axis=1)
+        else:
+            actual_seq_len = None
 
         logits = self.dpo_model(
             input_ids=input_ids,
@@ -224,7 +250,8 @@ class DPOModel(PreTrainedModel):
             batch_index=batch_index,
             zactivate_len=zactivate_len,
             block_tables=block_tables,
-            slot_mapping=slot_mapping
+            slot_mapping=slot_mapping,
+            actual_seq_len=actual_seq_len
         )
 
         ref_logits = self.ref_model(
@@ -239,28 +266,25 @@ class DPOModel(PreTrainedModel):
             batch_index=batch_index,
             zactivate_len=zactivate_len,
             block_tables=block_tables,
-            slot_mapping=slot_mapping
+            slot_mapping=slot_mapping,
+            actual_seq_len=actual_seq_len
         )
 
         if not self.input_sliced_sig:
             labels = self.slice(labels, (0, 1), (bsz, ori_seqlen), (1, 1))
             tokens = self.slice(input_ids, (0, 0), (bsz, ori_seqlen - 1), (1, 1))
 
-        if logits.ndim <= 2:
-            logits = self.reshape(logits, (bsz, tokens.shape[1], logits.shape[-1]))
-            ref_logits = self.reshape(ref_logits, (bsz, tokens.shape[1], ref_logits.shape[-1]))
+        if logits.ndim > 2:
+            logits = self.reshape(logits, (bsz * tokens.shape[1], logits.shape[-1]))
+            ref_logits = self.reshape(ref_logits, (bsz * tokens.shape[1], ref_logits.shape[-1]))
 
-        if self.use_data_packing:
-            packed_num = self.packed_num
-        else:
-            packed_num = None
         dpo_loss, sft_loss = self.dpo_loss(
             policy_logits=logits,
             labels=labels,
             loss_mask=loss_mask,
             ref_logits=ref_logits,
             index_packed=index_packed,
-            packed_num=packed_num,
+            packed_num=self.packed_num,
             combined_lens=combined_lens
         )
 
@@ -313,7 +337,7 @@ class DPOLossV2(nn.Cell):
         self.log_softmax = P.LogSoftmax().shard(((dp * cp * mp, 1),))
         self.expand = P.ExpandDims().shard(((dp, mp),))
         self.label_pad_token_id = config.pad_token_id
-        self.average_log_prob = True
+        self.average_log_prob = False
         self.reference_free = False
         self.log_sigmoid = nn.LogSigmoid()
         self.not_equal = P.NotEqual()
@@ -351,8 +375,7 @@ class DPOLossV2(nn.Cell):
             loss_mask = self.not_equal(labels, self.label_pad_token_id)
         # [bs, seq_len] -> [bs, seq_len]
         labels = self.mul(labels, loss_mask)
-        bs, seq_len, _ = logits.shape  # [bs, seq_len, vocab_size]
-        logits = logits.reshape(bs * seq_len, -1)  # [bs * seq_len, vocab_size]
+        bs, seq_len = labels.shape  # [bs, seq_len]
 
         log_probs = self.log_softmax(logits)
 
@@ -391,9 +414,10 @@ class DPOLossV2(nn.Cell):
             shape (batch_size, num_segments)
         """
         bs, seq_len = input_ids.shape
-        output = ops.zeros((bs, num_segments), input_ids.dtype)
+        output = ops.zeros((bs, num_segments), ms.float32)
         for b in range(bs):
             current_input = self.slice(input_ids, (b, 0), (b + 1, seq_len), (1, 1))
+            current_input = self.cast(current_input, ms.float32)
             current_segment = self.slice(segments_ids, (b, 0), (b + 1, seq_len), (1, 1))
             seg_sum = ops.unsorted_segment_sum(current_input, current_segment, num_segments)
             output[b] = seg_sum
@@ -440,8 +464,13 @@ class DPOLossV2(nn.Cell):
         chosen_rewards = self.beta * (policy_chosen_logps - ref_chosen_logps)
         rejected_rewards = self.beta * (policy_rejected_logps - ref_rejected_logps)
         if self.use_data_packing:
-            losses = losses.mean()
-            policy_chosen_logps_avg = policy_chosen_logps_avg.mean()
+            chosen_lens = self.slice(combined_lens, (0, 0), (bs // 2, combined_lens.shape[1]), (1, 1))
+            real_sample_num = ops.sum(chosen_lens.not_equal(1), dtype=mstype.int32)
+            pack_loss_mask = self.cast(chosen_lens.not_equal(1), ms.int32)
+            losses = losses * pack_loss_mask
+            policy_chosen_logps_avg = policy_chosen_logps_avg * pack_loss_mask
+            losses = ops.sum(losses) / real_sample_num
+            policy_chosen_logps_avg = ops.sum(policy_chosen_logps_avg) / real_sample_num
 
         return losses, chosen_rewards, rejected_rewards, policy_chosen_logps_avg
 
@@ -464,7 +493,7 @@ class DPOLossV2(nn.Cell):
                                sequences in calculations.
         """
 
-        bs = policy_logits.shape[0] // 2  # a sample has two bs responses (chosen and rejected)
+        bs = labels.shape[0] // 2  # a sample has two bs responses (chosen and rejected)
 
         policy_logps = self._get_batch_logps(policy_logits,
                                              labels,

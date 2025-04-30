@@ -55,10 +55,12 @@ def get_input_data_batch_slice_map(chosen_input_ids, chosen_labels,
         rejected_input_ids, rejected_labels, rejected_attention_mask, rejected_loss_mask, rejected_ref_logps
 
 
-def get_input_packing_data_batch_slice_map(chosen_attention_mask, chosen_index_packed, chosen_input_ids, chosen_labels,
-                                           chosen_lens, chosen_loss_mask, chosen_position_id, rejected_attention_mask,
-                                           rejected_index_packed, rejected_input_ids, rejected_labels, rejected_lens,
-                                           rejected_loss_mask, rejected_position_id, dis: int = 0, rank_id: int = 0):
+def get_input_packing_data_batch_slice_map(chosen_actual_sequence_length, chosen_attention_mask, chosen_index_packed,
+                                           chosen_input_ids, chosen_labels, chosen_lens, chosen_loss_mask,
+                                           chosen_position_id, rejected_actual_sequence_length,
+                                           rejected_attention_mask, rejected_index_packed, rejected_input_ids,
+                                           rejected_labels, rejected_lens, rejected_loss_mask, rejected_position_id,
+                                           dis: int = 0, rank_id: int = 0):
     """
     Generate position_id and attention_mask according to input_ids considering eod reset
     """
@@ -69,18 +71,21 @@ def get_input_packing_data_batch_slice_map(chosen_attention_mask, chosen_index_p
     rejected_labels = rejected_labels[rank * dis: (rank + 1) * dis]
     chosen_attention_mask = chosen_attention_mask[rank * dis: (rank + 1) * dis]
     rejected_attention_mask = rejected_attention_mask[rank * dis: (rank + 1) * dis]
+    chosen_actual_sequence_length = chosen_actual_sequence_length[rank * dis: (rank + 1) * dis]
     chosen_index_packed = chosen_index_packed[rank * dis: (rank + 1) * dis]
     chosen_lens = chosen_lens[rank * dis: (rank + 1) * dis]
     chosen_loss_mask = chosen_loss_mask[rank * dis: (rank + 1) * dis]
     chosen_position_id = chosen_position_id[rank * dis: (rank + 1) * dis]
+    rejected_actual_sequence_length = rejected_actual_sequence_length[rank * dis: (rank + 1) * dis]
     rejected_index_packed = rejected_index_packed[rank * dis: (rank + 1) * dis]
     rejected_lens = rejected_lens[rank * dis: (rank + 1) * dis]
     rejected_loss_mask = rejected_loss_mask[rank * dis: (rank + 1) * dis]
     rejected_position_id = rejected_position_id[rank * dis: (rank + 1) * dis]
 
-    return chosen_attention_mask, chosen_index_packed, chosen_input_ids, chosen_labels, chosen_lens, \
-            chosen_loss_mask, chosen_position_id, rejected_attention_mask, rejected_index_packed, \
-            rejected_input_ids, rejected_labels, rejected_lens, rejected_loss_mask, rejected_position_id
+    return  chosen_actual_sequence_length, chosen_attention_mask, chosen_index_packed, chosen_input_ids, \
+            chosen_labels, chosen_lens, chosen_loss_mask, chosen_position_id, rejected_actual_sequence_length, \
+            rejected_attention_mask, rejected_index_packed, rejected_input_ids, rejected_labels, rejected_lens, \
+            rejected_loss_mask, rejected_position_id
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
@@ -143,6 +148,9 @@ class DPODataset(BaseDataset):
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = CausalLanguageModelDataset(config.train_dataset_task.dataset_config)
