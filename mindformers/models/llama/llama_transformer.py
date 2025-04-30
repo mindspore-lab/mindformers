@@ -349,14 +349,15 @@ class LLamaAttention(nn.Cell):
             self.softmax = P.Softmax()
             self.cast_attn = P.Cast()
             self.tile_kv = P.Tile()
-
+            use_tnd_layout = self.use_eod_attn_mask_compression and not self.use_ring_attention
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim,
                                                     rotary_dtype,
                                                     use_rope_slice=use_rope_slice,
                                                     use_3d_tensor_parallel=use_3d_tensor_parallel,
                                                     tp_x=tp_x,
                                                     tp_y=tp_y,
-                                                    tp_z=tp_z)
+                                                    tp_z=tp_z,
+                                                    use_tnd_layout=use_tnd_layout)
 
             # ulysses context parallel, initial related ops
             if self.cp_ds > 1:
@@ -418,7 +419,7 @@ class LLamaAttention(nn.Cell):
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
                 if self.use_eod_attn_mask_compression and not self.use_ring_attention:
-                    self.sparse_mode = 8
+                    self.sparse_mode = 3
                     self.input_layout = "TND"
                 elif self.use_attn_mask_compression and not self.use_ring_attention:
                     self.sparse_mode = 2
@@ -498,13 +499,15 @@ class LLamaAttention(nn.Cell):
                                                  freqs_cis, mask, prefix_keys_values=prefix_keys_values,
                                                  q_seq_lens=q_seq_lens)
         else:
-            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            if self.input_layout == 'TND':
+                query = self.reshape(query, (bs * seq_len, self.n_head, self.head_dim))
+                key = self.reshape(key, (bs * seq_len, self.n_kv_head, self.head_dim))
+            else:
+                query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+                key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
             query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, cp, 1
             # with ulysses context parallel, insert all to all before FA
             if self.input_layout == 'TND':
-                query = self._merge_seq_len(query)
-                key = self._merge_seq_len(key)
                 value = self.reshape(value, (bs * seq_len, self.n_kv_head, self.head_dim))
             elif self.context_parallel > 1 and self.cp_ds > 1:
                 # for query & key, transpose from BNSD back to BSND
@@ -601,24 +604,6 @@ class LLamaAttention(nn.Cell):
         x = self.tile_kv(x, (1, 1, rep, 1))
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
-
-    def _merge_seq_len(self, x):
-        """
-        convert a bhsd input to a tnd output
-
-        Inputs:
-            x: input tensor
-
-        Output:
-            x_merge: the tnd output
-        """
-        # [bs, n_head, seq/1, head_dim]
-        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
-        bs, seq_len, n_head, head_dim = self.shape(x)
-        new_shape = (bs * seq_len, n_head, head_dim)
-        x_merge = self.reshape(x, new_shape)
-        return x_merge
 
     def _merge_heads(self, x):
         """

@@ -194,6 +194,16 @@ class FlashAttention(Cell):
             cp = cp_co
             mp = cp_ds * mp
 
+        if self.input_layout == "TND" and cp > 1:
+            layout = Layout(device_matrix=(dp, cp, mp), alias_name=("dp", "cp", "mp"))
+            fa_strategies = (layout(("dp", "cp"), "mp", "None"),
+                             layout("dp", "mp", "None"),
+                             layout("dp", "mp", "None"),
+                             layout("None", "None"),
+                             layout("dp"),
+                             layout("dp"))
+            return fa_strategies
+
         kv_head_split_num = 1 if self.use_mqa else mp
         if self.input_layout == "BSH":
             if self.use_ring_attention:
@@ -236,7 +246,7 @@ class FlashAttention(Cell):
                     fa_strategies += ((dp, 1, cp, 1),)
                 else:
                     fa_strategies += ((1, 1),)
-            elif self.sparse_mode in [2, 8]:
+            elif self.sparse_mode in [2, 3, 8]:
                 fa_strategies += ((1, 1),)
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")

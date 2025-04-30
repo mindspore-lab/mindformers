@@ -116,7 +116,7 @@ class LlamaEmbedding(Cell):
     @_args_type_validator_check(vocab_table_size=Validator.check_positive_int,
                                 embedding_size=Validator.check_positive_int)
     def __init__(self, vocab_table_size, embedding_size, init_method_std=0.01, param_init_type=mstype.float32,
-                 param_init='normal', parallel_optimizer=False, rmsnorm_compute_2d=False):
+                 param_init='normal', parallel_optimizer=False, rmsnorm_compute_2d=False, rl_config=None):
         super().__init__()
         self.vocab_table_size = vocab_table_size
         self.embedding_size = embedding_size
@@ -128,13 +128,16 @@ class LlamaEmbedding(Cell):
             name='embedding_weight', parallel_optimizer=parallel_optimizer)
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
         self.gather = P.Gather()
+        self.rl_config = rl_config
 
     def construct(self, input_ids):
         """Forward of vocab embedding."""
         _check_input_dtype(F.dtype(input_ids), "input_ids", [mstype.int32, mstype.int64], self.cls_name)
-        if self.rmsnorm_compute_2d:
+        if self.rmsnorm_compute_2d and not self.rl_config:
             input_ids = input_ids.reshape(-1)
         output = self.gather(self.embedding_weight, input_ids, 0)
+        if self.rmsnorm_compute_2d and self.rl_config is not None:
+            output = output.reshape(-1, self.embedding_size)
         return output
 
     def shard(self, parallel_config):
@@ -143,7 +146,10 @@ class LlamaEmbedding(Cell):
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
         if parallel_config.vocab_emb_dp:
-            if not self.rmsnorm_compute_2d:
+            if self.rl_config is not None:
+                self.gather.shard(((mp, 1), (1, 1)))
+                logger.info(f"Using {mp} data parallel for the embedding lookup.")
+            elif not self.rmsnorm_compute_2d:
                 self.gather.shard(((1, 1), (dp, cp)))
                 logger.info(f"Using {dp*cp} data parallel for the embedding lookup.")
             else:
@@ -155,12 +161,15 @@ class LlamaEmbedding(Cell):
                                "model_parallel: %s * context_parallel: %s.",
                                self.vocab_table_size, mp, cp)
                 logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
-                if not self.rmsnorm_compute_2d:
+                if not self.rmsnorm_compute_2d or self.rl_config is not None:
                     self.gather.shard(((1, 1), (dp, cp)))
                 else:
                     self.gather.shard(((1, 1), (dp * cp,)))
             else:
-                if not self.rmsnorm_compute_2d:
+                if self.rl_config is not None:
+                    self.gather.shard(((mp, 1), (1, 1)))
+                    logger.info(f"Using {mp} data parallel for the embedding lookup.")
+                elif not self.rmsnorm_compute_2d:
                     self.gather.shard(((mp * cp, 1), (dp, 1)))
                     logger.info(f"Using {dp} data parallel, {cp} context parallel and {mp} "
                                 f"model parallel for the embedding lookup.")
