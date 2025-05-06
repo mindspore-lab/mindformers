@@ -163,7 +163,7 @@ class DistributedDataParallel(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -256,8 +256,8 @@ class DistributedDataParallel(Module):
         self.zero3_param = []
         if ddp_config.use_zero3:
             if get_pipeline_model_parallel_world_size() > 1:
-                raise RuntimeError(f"DDP ZeRO3 is not compatible with pipeline parallel. "
-                                   f"Please check the configuration.")
+                raise RuntimeError("DDP ZeRO3 is not compatible with pipeline parallel. "
+                                   "Please check the configuration.")
             set_model_fw_bw_hook(self.module, \
                                  self.ddp_config.grad_reduce_in_fp32, \
                                  self.ddp_config.average_in_collective)

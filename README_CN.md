@@ -22,7 +22,7 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 - 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/pre_training.html)
 - 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/sft_tuning.html)
 - 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/evaluation.html)
-- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/mindie_deployment.html)
+- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/deployment.html)
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 

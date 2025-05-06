@@ -76,7 +76,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -303,7 +303,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     else:
                         raise TypeError("Invalid parameter dtype. Supported parameter dtypes are"
                                         "`mindspore.float16`, `mindspore.bfloat16` and `mindspore.float32`,"
-                                        " but got {}.".format(param.dtype))
+                                        f" but got {param.dtype}.")
 
                 else:
                     buffer_idx, bucket_idx = param_to_bucket_map[param]
@@ -339,7 +339,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     else:
                         raise TypeError("Invalid parameter dtype. Supported parameter dtypes are"
                                         "`mindspore.float16`, `mindspore.bfloat16` and `mindspore.float32`,"
-                                        " but got {}.".format(param.dtype))
+                                        f" but got {param.dtype}.")
             param_fp16_groups.append(param_fp16_this_group)
             param_fp32_groups.append(param_fp32_this_group)
             sharded_param_fp16_groups.append(sharded_param_fp16_this_group)
@@ -530,7 +530,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         param_type = ["", "exp_avg.", "exp_avg_sq."]
         for buffer_index, bucket_index, _, _ in self.param_buffer_dp_views:
             param_range_map_this_bucket = self.param_ranges_map[buffer_index][bucket_index]
-            shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
+            shard_name = f'buffer_{buffer_index}_bucket_{bucket_index}'
             for param, range_map in param_range_map_this_bucket.items():
                 start_idx, end_idx = range_map['range_in_shard']
                 param_id_in_opt = self.param_idx_in_opt[param.name]
@@ -570,7 +570,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         elif sharding_type == 'fully_sharded_model_space':
             self._load_state_from_fs_model_space(state_dict)
         else:
-            raise NotImplementedError('Unknow sharding_type: {}'.format(sharding_type))
+            raise NotImplementedError(f'Unknow sharding_type: {sharding_type}')
 
         if 'state_step' in state_dict.keys():
             self.optimizer.state_step.assign_value(state_dict['state_step'].value())
@@ -828,7 +828,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 param_shard[start_idx:end_idx] = self.optimizer.parameters[param_id_in_opt].contiguous().asnumpy()
                 exp_avg_shard[start_idx:end_idx] = self.optimizer.exp_avg[param_id_in_opt].contiguous().asnumpy()
                 exp_avg_sq_shard[start_idx:end_idx] = self.optimizer.exp_avg_sq[param_id_in_opt].contiguous().asnumpy()
-            shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
+            shard_name = f'buffer_{buffer_index}_bucket_{bucket_index}'
             param_dict[shard_name] = ms.Parameter(
                 ms.Tensor(param_shard),
                 name=shard_name,

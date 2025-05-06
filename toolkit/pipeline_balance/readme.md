@@ -267,7 +267,7 @@ profile_stop_step: 4 # 在某个step结束
 
 如果想要得到第一个stage的信息就打开rank0的profiling，最后一个rank的profiling可以代表最后一个stage的信息。查看profiling是为了获得init文件中需要的head、body和tail时间。其中head的时间一般体现为embedding算子所占的时间，body的时间是一层decode layer的时间，tail的时间是最后lm_head和loss所占的时间。只要在profiling中查找对应的算子即可。
 
-详细文档也可见[mindspore的profiling指南](https://www.mindspore.cn/docs/zh-CN/master/model_train/optimize/profiler.html)。
+详细文档也可见[mindspore的profiling指南](https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html)。
 
 ### 使用DryRun获取内存数据
 
