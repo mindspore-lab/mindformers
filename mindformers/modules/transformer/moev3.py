@@ -48,6 +48,11 @@ from mindformers.version_control import check_moveto_op_support
 if check_moveto_op_support():
     D2H = ops.MoveTo().add_prim_attr("recompute", False)
 
+_EP_GROUP_NAME = {}
+_IEP_GROUP_NAME = {}
+_OEP_GROUP_NAME = {}
+_TP_GROUP_NAME = {}
+
 
 class MoEV3(Cell):
     """
@@ -111,10 +116,11 @@ class MoEV3(Cell):
             if moe_config.enable_gmm_safe_tokens:
                 raise ValueError(f"When the use_3d_tensor_parallel = True, the enable_gmm_safe_tokens is not needed ")
             if tp_x * tp_y * tp_z > parallel_config.data_parallel * parallel_config.model_parallel or \
-                parallel_config.data_parallel * parallel_config.model_parallel % (tp_x * tp_y * tp_z) != 0:
+                    parallel_config.data_parallel * parallel_config.model_parallel % (tp_x * tp_y * tp_z) != 0:
                 raise ValueError("data_parallel  * parallel_config must be divisible by tp_x * tp_y * tp_z, but got "
-                                 "tp_x={}, tp_y={}, tp_z={}, data_parallel={} and model_parallel={}.".format(
-                                     tp_x, tp_y, tp_z, parallel_config.data_parallel, parallel_config.model_parallel))
+                                 "tp_x={}, tp_y={}, tp_z={}, data_parallel={} "
+                                 "and model_parallel={}.".format(tp_x, tp_y, tp_z, parallel_config.data_parallel,
+                                                                 parallel_config.model_parallel))
             self.dp = int(parallel_config.data_parallel * parallel_config.model_parallel / self.tp_x / self.tp_y)
         else:
             self.tp_x = 1
@@ -133,7 +139,7 @@ class MoEV3(Cell):
         self.cast = Cast()
         self.gating_activation = Softmax(axis=-1).shard(
             ((self.dp, self.tp_x * self.tp_y, 1,),)) if not moe_config.use_gating_sigmoid else \
-                P.Sigmoid().shard(((self.dp, self.tp_x * self.tp_y, 1,),))
+            P.Sigmoid().shard(((self.dp, self.tp_x * self.tp_y, 1,),))
         self.topk = TopkExt().shard(((self.dp, self.tp_x * self.tp_y, 1),))
         self.topk.recompute(False)
         self.mul = Mul().shard(((), (self.dp, self.tp_x * self.tp_y, 1)))
@@ -776,28 +782,28 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, t
     # [N/tp_x*tp_y, k] -- > [Nk/tp_x*tp_y] -- > [Nk/tp_x*tp_y, E]
     excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
                            Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32))
-    excounter = excounter.sum(axis=0) # [Nk/tp_x_group*tp_y_group, E] -- > [E] (partilly sum)
+    excounter = excounter.sum(axis=0)  # [Nk/tp_x_group*tp_y_group, E] -- > [E] (partilly sum)
     if tp_y_group:
-        excounter = ops.AllReduce(group=tp_y_group)(excounter) # [E] (partilly sum x, y) --> [E] (partilly sum x)
+        excounter = ops.AllReduce(group=tp_y_group)(excounter)  # [E] (partilly sum x, y) --> [E] (partilly sum x)
     if tp_x_group:
-        excounter = ops.AllReduce(group=tp_x_group)(excounter) # [E] (partilly sum x) --> [E]
+        excounter = ops.AllReduce(group=tp_x_group)(excounter)  # [E] (partilly sum x) --> [E]
     gl = ops.cast(ops.cumsum(excounter, 0, ms.int32), ms.int64)
 
     # 2. tp allgather
     if tp_y_group:
-        expert_id = ops.AllGather(group=tp_y_group)(expert_id) # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
-        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff) # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
+        expert_id = ops.AllGather(group=tp_y_group)(expert_id)  # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
+        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff)  # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
     if tp_x_group:
         # [N/tp_x, k] -- > [N, k]
         expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums)
         # [N/tp_x, k] -- > [N, k]
         router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums)
-        x = ops.AllGather(group=tp_x_group)(x) # x [BS/tp_x, h] -- > [BS, h]
+        x = ops.AllGather(group=tp_x_group)(x)  # x [BS/tp_x, h] -- > [BS, h]
 
     if tp_z_group:
         w1 = ops.AllGather(group=tp_z_group)(w1)
         # w1 AllGather overlap with _ffn_sort
-        expert_id = ops.Depend()(expert_id, w1) # w1 AllGather overlap with _ffn_sort
+        expert_id = ops.Depend()(expert_id, w1)  # w1 AllGather overlap with _ffn_sort
 
     # 3. sort
     # (Nk, h) bf16, (Nk) int32  <-- (N, h) bf16, (N, k) int32
@@ -805,11 +811,11 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, t
 
     # 4.FFN
     if tp_z_group:
-        x = ops.Depend()(x, w1) # w1 AllGather overlap with _ffn_sort
+        x = ops.Depend()(x, w1)  # w1 AllGather overlap with _ffn_sort
 
         x = ops.Depend()(x, w2)
         w2 = ops.AllGather(group=tp_z_group)(w2)
-        w2 = ops.Depend()(w2, x) # w2 AllGather overlap with GMM w1
+        w2 = ops.Depend()(w2, x)  # w2 AllGather overlap with GMM w1
 
     gate = GroupedMatmul(split_item=3, group_type=0)(
         [x], [w1], None, None, None, None, None, gl)[0]
@@ -854,6 +860,7 @@ class FFN(nn.Cell):
     - init_method_std (float, optional): Standard deviation for the initialization method used for the weights.
         Defaults to 0.01.
     """
+
     def __init__(self,
                  hidden_size,
                  intermediate_size,
@@ -941,7 +948,7 @@ class FFN(nn.Cell):
                     self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
                 ),
                 out_strategy=(
-                    self.layout(("outer_dp", "inner_dp"), "sp", "mp0"), # output [dp, N, k]
+                    self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output [dp, N, k]
                 )
             )
             node_expert_num = self.expert_num // self.oep
@@ -965,7 +972,7 @@ class FFN(nn.Cell):
                     layout("tp_z", "tp_x", "tp_y"),  # w2 [E, H, h]
                 ),
                 out_strategy=(
-                    layout(("outer_dp", "tp_z"), "tp_x", "tp_y"), # output [dp, N, k]
+                    layout(("outer_dp", "tp_z"), "tp_x", "tp_y"),  # output [dp, N, k]
                 )
             )
         else:
@@ -982,8 +989,8 @@ class FFN(nn.Cell):
                 ),
                 out_strategy=(
                     self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output [B, S, h]
-                    )
                 )
+            )
 
     def construct(self, x, expert_id, counter):
         """
@@ -1096,9 +1103,13 @@ class FFN(nn.Cell):
         rank_list = [i for i in range(rank_start, rand_end)]
 
         rank_list_str = "-".join([str(i) for i in range(rank_start, rand_end)])
+        if rank_list_str in _EP_GROUP_NAME:
+            return _EP_GROUP_NAME[rank_list_str]
+
         hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
         ep_group_name = str(hashed)
         create_group(ep_group_name, rank_list)
+        _EP_GROUP_NAME[rank_list_str] = ep_group_name
         return ep_group_name
 
     def _get_iep_group_name(self):
@@ -1114,9 +1125,13 @@ class FFN(nn.Cell):
         rank_list = [i for i in range(rank_start, rand_end)]
 
         rank_list_str = "-".join([str(i) for i in rank_list])
+        if rank_list_str in _IEP_GROUP_NAME:
+            return _IEP_GROUP_NAME[rank_list_str]
+
         hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
         iep_group_name = str(hashed)
         create_group(iep_group_name, rank_list)
+        _IEP_GROUP_NAME[rank_list_str] = iep_group_name
         return iep_group_name
 
     def _get_oep_group_name(self):
@@ -1133,9 +1148,13 @@ class FFN(nn.Cell):
         rank_list = [i for i in range(rank_start, rand_end, self.iep)]
 
         rank_list_str = "-".join([str(i) for i in rank_list])
+        if rank_list_str in _OEP_GROUP_NAME:
+            return _OEP_GROUP_NAME[rank_list_str]
+
         hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
         oep_group_name = str(hashed)
         create_group(oep_group_name, rank_list)
+        _OEP_GROUP_NAME[rank_list_str] = oep_group_name
         return oep_group_name
 
     def _get_group_name_list_by_dev_matrix(self, dev_matrix: tuple):
@@ -1158,9 +1177,13 @@ class FFN(nn.Cell):
             rank_end = rank_start + period
             rank_list = [i for i in range(rank_start, rank_end, step)]
             rank_list_str = "-".join([str(id) for id in rank_list])
-            hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
-            tp_group_name = str(hashed)
-            create_group(tp_group_name, rank_list)
+            if rank_list_str in _TP_GROUP_NAME:
+                tp_group_name = _TP_GROUP_NAME[rank_list_str]
+            else:
+                hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+                tp_group_name = str(hashed)
+                create_group(tp_group_name, rank_list)
+                _TP_GROUP_NAME[rank_list_str] = tp_group_name
             group_name_list.append(tp_group_name)
         return tuple(group_name_list)
 
