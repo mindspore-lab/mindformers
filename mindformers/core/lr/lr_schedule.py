@@ -30,7 +30,7 @@ __all__ = [
     'LearningRateWiseLayer', 'ConstantWarmUpLR',
     'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
     'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR',
-    'CosineAnnealingLR', 'CosineAnnealingWarmRestarts']
+    'CosineAnnealingLR', 'CosineAnnealingWarmRestarts', 'WarmUpStableDecayLR']
 
 
 def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
@@ -814,6 +814,65 @@ class LearningRateWiseLayer(LearningRateSchedule):
 
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
+class WarmUpStableDecayLR(LearningRateSchedule):
+    r"""
+    Warm Up Stable Decay Learning Rate.
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        lr_end (float, optional): Final value of learning rate. Default: ``0.``.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
+        total_steps (int, optional): The number of total steps. Default: ``None``.
+        decay_start_steps (int, optional): The start step of decay. Default: ``None``.
+        decay_start_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    """
+
+    @args_type_check(
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int
+    )
+    def __init__(self, learning_rate: float, lr_end: float = 1e-7, warmup_steps: int = None, warmup_lr_init: float = 0.,
+                 warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None,
+                 decay_start_ratio: float = None, **kwargs):
+        super().__init__()
+        warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
+        decay_start_steps = _get_warmup_steps(decay_start_steps, decay_start_ratio, total_steps)
+        self.learning_rate = learning_rate
+        if not learning_rate > lr_end:
+            raise ValueError(f"lr_end ({lr_end}) must be be smaller than initial lr ({learning_rate})")
+        self.warmup_lr_init = warmup_lr_init
+        self.decay_start_steps = Tensor(decay_start_steps, mstype.float32)
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.decay_steps = total_steps - self.decay_start_steps
+        self.learning_rate = learning_rate
+        self.warmup_lr_init = warmup_lr_init
+        self.lr_end = Tensor(lr_end, mstype.float32)
+        self.one_constant = Tensor(1.0, mstype.float32)
+        self.greater = P.Greater()
+        self.kwargs = kwargs
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+            learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
+        elif self.greater(self.decay_start_steps, global_step):
+            learning_rate = self.learning_rate * global_step / global_step
+        else:
+            percent = (global_step - self.decay_start_steps) / self.decay_steps
+            learning_rate = self.learning_rate - (self.learning_rate - self.lr_end) * percent
+        return learning_rate
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineAnnealingLR(LearningRateSchedule):
     r"""
     It has been proposed in `SGDR: Stochastic Gradient Descent with Warm Restarts <https://arxiv.org/abs/1608.03983>`_ .
@@ -873,7 +932,7 @@ class CosineAnnealingLR(LearningRateSchedule):
     def __init__(self, base_lr: float, t_max: int, eta_min: float = 0., **kwargs):
         super(CosineAnnealingLR, self).__init__()
         if t_max < 1 or not isinstance(t_max, int):
-            raise ValueError("Expected positive integer T_max, but got {}".format(t_max))
+            raise ValueError(f"Expected positive integer T_max, but got {t_max}")
         self.kwargs = kwargs
         self.base_lr = base_lr
         self.t_max = t_max
@@ -945,9 +1004,9 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
     def __init__(self, base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0., **kwargs):
         super(CosineAnnealingWarmRestarts, self).__init__()
         if t_0 < 1 or not isinstance(t_0, int):
-            raise ValueError("Expected positive integer t_0, but got {}".format(t_0))
+            raise ValueError(f"Expected positive integer t_0, but got {t_0}")
         if t_mult < 1 or not isinstance(t_mult, int):
-            raise ValueError("Expected positive integer t_mult, but got {}".format(t_mult))
+            raise ValueError(f"Expected positive integer t_mult, but got {t_mult}")
         self.kwargs = kwargs
         self.base_lr = base_lr
         self.t_0 = t_0

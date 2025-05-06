@@ -19,7 +19,7 @@ from mindspore import Tensor
 from mindformers.core.lr import (
     LinearWithWarmUpLR, CosineWithWarmUpLR, PolynomialWithWarmUpLR,
     CosineWithRestartsAndWarmUpLR, ConstantWarmUpLR, ConstantWithCoolDownLR,
-    CosineAnnealingLR, CosineAnnealingWarmRestarts)
+    CosineAnnealingLR, CosineAnnealingWarmRestarts, WarmUpStableDecayLR)
 
 ms.set_context(mode=1, device_target='CPU')
 
@@ -50,6 +50,7 @@ def test_lr_schedule():
     polynomial_lr_std = [0.0005, 0.005, 0.00050009]
     cosine_annealing_lr_std = [0.00487764, 0.0000001, 0.00487764]
     cosine_annealing_warm_restarts_lr_std = [0.00487764, 0.005, 0.00289113]
+    warmup_stable_decay_lr_std = [0.0005, 0.005, 0.00100008]
 
     constant_warmup = ConstantWarmUpLR(learning_rate=learning_rate,
                                        warmup_steps=warmup_steps,
@@ -81,6 +82,11 @@ def test_lr_schedule():
                                                                  t_0=t_0,
                                                                  t_mult=t_mult,
                                                                  eta_min=lr_end)
+    warmup_stable_decay = WarmUpStableDecayLR(learning_rate=learning_rate,
+                                              lr_end=lr_end,
+                                              warmup_steps=warmup_steps,
+                                              total_steps=total_steps,
+                                              decay_start_steps=15)
 
     constant_warmup_lr = []
     constant_cooldown_lr = []
@@ -90,6 +96,7 @@ def test_lr_schedule():
     polynomial_warmup_lr = []
     cosine_annealing_lr = []
     cosine_annealing_warm_restarts_lr = []
+    warmup_stable_decay_lr = []
 
     assert_steps = [1, 10, 19]
 
@@ -103,6 +110,7 @@ def test_lr_schedule():
             polynomial_warmup_lr.append(polynomial_warmup(step).asnumpy())
             cosine_annealing_lr.append(cosine_annealing(step).asnumpy())
             cosine_annealing_warm_restarts_lr.append(cosine_annealing_warm_restarts(step).asnumpy())
+            warmup_stable_decay_lr.append(warmup_stable_decay(step).asnumpy())
 
     constant_cooldown_lr.extend([constant_cooldown(Tensor(step, ms.int32)).asnumpy() for step in [1, 15, 29, 35, 45]])
 
@@ -115,6 +123,7 @@ def test_lr_schedule():
         assert abs(polynomial_warmup_lr[i] - polynomial_lr_std[i]) < error
         assert abs(cosine_annealing_lr[i] - cosine_annealing_lr_std[i]) < error
         assert abs(cosine_annealing_warm_restarts_lr[i] - cosine_annealing_warm_restarts_lr_std[i]) < error
+        assert abs(warmup_stable_decay_lr[i] - warmup_stable_decay_lr_std[i]) < error
 
     for i in range(5):
         assert abs(constant_cooldown_lr[i] - constant_with_cooldown_lr_std[i]) < error
