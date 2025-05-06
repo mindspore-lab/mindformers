@@ -64,6 +64,10 @@ mindformers.core.AdamW
           - ``"int"``：固定的权重衰减值。必须等于或大于 0。将被转换为浮点数。
           - ``"Cell"``：权重衰减是动态的。在训练过程中，优化器将调用 `Cell` 实例，并以步数为输入来获取当前步的权重衰减值。
 
+        - **use_fused** (bool, 可选) - 是否启用融合算子。默认值： ``False`` 。
+        - **amsgrad** (bool, 可选) - 是否使用 Adam 算法的 AMSGrad 变体。该变体会保留历史梯度平方的最大值，而非使用指数移动平均值。在某些情况下，这有助于改善模型的收敛性。为 `True` 时使用 AMSGrad 变体，仅支持 `use_fused=True` 的场景。默认值： ``False`` 。
+        - **maximize** (bool, 可选) - 是否对目标函数执行最大化（而非最小化）操作。该选项适用于需要最大化奖励函数或效用函数的场景。为 `True` 时最大化目标函数，仅支持 `use_fused=True` 的场景。默认值： ``False`` 。
+
     输入：
         - **gradients** (tuple[Tensor]) - `params` 的梯度，shape与 `params` 相同。
 
