@@ -53,7 +53,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - loss_scale_value: 缩放系数
 - use_parallel: 是否开启并行
 - parallel: 自动并行配置，可以参考：[mindspore.set_auto_parallel_context](https://www.mindspore.cn/docs/zh-CN/r2.3.0/api_python/mindspore/mindspore.set_auto_parallel_context.html)
-    - parallel_mode: 并行模式，0-dataset数据并行, 1-semi半自动并行, 2-auto自动并行, 3-hybrid手工实现并行。auto自动并行相关说明参考[自动并行](../docs/feature_cards/Auto_Parallel.md)
+    - parallel_mode: 并行模式，0-dataset数据并行, 1-semi半自动并行, 2-auto自动并行, 3-hybrid手工实现并行。
     - gradients_mean: 是否在梯度AllReduce后执行平均算子。通常半自动并行模式下为False，数据并行模式下为True
     - enable_alltoall: 允许在通信期间生成AllToAll通信算子的开关。通常仅在MOE场景下打开，默认False
     - full_batch: 在auto_parallel模式下加载整个batch数据集时为True。半自动并行模式通常设置为True，数据并行模式必须设置为False，否则会报错

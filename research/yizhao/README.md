@@ -266,13 +266,13 @@ MindFormers提供`Wikitext-103`作为[预训练](#预训练)数据集，`alpaca`
   - dtype:              转换后权重文件格式
   - reversed:           mindspore转为pt权重的标志
 
-- **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
+- **[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)**
 
   从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)
 
 ## 预训练
 

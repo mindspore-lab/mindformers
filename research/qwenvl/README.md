@@ -240,10 +240,10 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
    多机训练需要分别在不同节点执行命令，以下为2机16卡训练过程，参数说明以及使用更多节点参考[msrun方式启动](../../README_CN.md#方式一使用已有脚本启动)
    多机多卡部分进行配置。
 
-   > 注：如果各节点间使用共享存储存放工程文件，则可以使用[自动权重转换功能](../../docs/feature_cards/Transform_Ckpt.md#自动权重转换)
+   > 注：如果各节点间使用共享存储存放工程文件，则可以使用[自动权重转换功能](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)
    ，在Qwen-VL中可通过在配置文件中设置`auto_trans_ckpt=True`或在运行命令时设置`--auto_trans_ckpt True`
    ；如果不能满足共享存储条件，需要修改配置文件`auto_trans_ckpt=False`或在运行命令时设置`--auto_trans_ckpt False`，
-   此时，预训练权重可以使用[离线权重转换工具](../../docs/feature_cards/Transform_Ckpt.md#离线权重转换)
+   此时，预训练权重可以使用[离线权重转换工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)
    进行转换得到切分后的分布式权重，以避免每张卡加载完整权重，导致host侧内存占用过高。
 
 - 在节点0执行如下命令，其中192.168.1.1需要改为节点0的实际ip，将节点0作为主节点，2机共16卡且每个节点8卡。

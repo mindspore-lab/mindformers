@@ -101,8 +101,6 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         >>> tokenizer = AutoTokenizer.from_pretrained("clip_vit_b_32")
         >>> # Note:
         >>> #     `"/dir/to/dataset"` should be replaced with the real directory of dataset.
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
         >>> data_loader = Flickr8kDataLoader(dataset_dir="/dir/to/dataset", stage="train",
         ...                                  column_names=["image", "text"])
         >>> text_transforms = RandomChoiceTokenizerForward(max_length=77, padding="max_length", random_seed=2022,
