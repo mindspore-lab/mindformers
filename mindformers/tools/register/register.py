@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# This file was refer to project
-# https://gitee.com/mindspore/vision/blob/master/mindvision/engine/class_factory.py
 # ============================================================================
 """ Class Register Module For MindFormers."""
 
@@ -248,12 +246,11 @@ class MindFormerRegister:
             ValueError: Can't find type `module_type` in the registry.
         """
         if not cls.is_exist(module_type, class_name):
-            raise ValueError("Can't find class type {} class name {} \
-            in class registry".format(module_type, class_name))
+            raise ValueError(f"Can't find class type {module_type} class name {class_name} in class registry")
 
         if not class_name:
             raise ValueError(
-                "Can't find class. class type = {}".format(class_name))
+                f"Can't find class. class type = {class_name}")
         register_class = cls.registry.get(module_type).get(class_name)
         return register_class
 
@@ -279,7 +276,7 @@ class MindFormerRegister:
         """
         if not isinstance(cfg, dict):
             raise TypeError(
-                "Cfg must be a Config, but got {}".format(type(cfg))
+                f"Cfg must be a Config, but got {type(cfg)}"
             )
 
         if 'auto_register' in cfg:
@@ -288,12 +285,12 @@ class MindFormerRegister:
         if 'type' not in cfg:
             raise KeyError(
                 '`cfg` or `default_args` must contain the key "type",'
-                'but got {}\n{}'.format(cfg, default_args)
+                f'but got {cfg}\n{default_args}'
             )
         if not (isinstance(default_args, dict) or default_args is None):
             raise TypeError(
                 'default_args must be a dict or None'
-                'but got {}'.format(type(default_args)))
+                f'but got {type(default_args)}')
 
         args = cfg.copy()
         if default_args is not None:
@@ -309,8 +306,7 @@ class MindFormerRegister:
         elif inspect.isclass(obj_type):
             obj_cls = obj_type
         else:
-            raise ValueError("Can't find class type {} class name {} \
-            in class registry".format(type, obj_type))
+            raise ValueError(f"Can't find class type {type} class name {obj_type} in class registry")
 
         try:
             if module_type == MindFormerModuleType.OPTIMIZER:
@@ -319,7 +315,7 @@ class MindFormerRegister:
                     obj_cls = TrainFaultTolerance.get_optimizer_wrapper(obj_cls)
             return obj_cls(**args)
         except Exception as e:
-            raise type(e)('{}: {}'.format(obj_cls.__name__, e))
+            raise type(e)(f'{obj_cls.__name__}: {e}')
 
     @classmethod
     def get_instance(cls, module_type=MindFormerModuleType.TOOLS, class_name=None, **kwargs):
@@ -347,13 +343,12 @@ class MindFormerRegister:
         elif inspect.isclass(class_name):
             obj_cls = class_name
         else:
-            raise ValueError("Can't find class type {} class name {} \
-            in class registry.".format(type, class_name))
+            raise ValueError(f"Can't find class type {type} class name {class_name} in class registry.")
 
         try:
             return obj_cls(**kwargs)
         except Exception as e:
-            raise type(e)('{}: {}'.format(obj_cls.__name__, e))
+            raise type(e)(f'{obj_cls.__name__}: {e}')
 
     @classmethod
     def auto_register(cls, class_reference: str, module_type=MindFormerModuleType.TOOLS):

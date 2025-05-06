@@ -104,7 +104,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import mindspore as ms
@@ -312,7 +312,7 @@ class LinearWithFrozenWeight(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os
@@ -428,7 +428,7 @@ class ColumnParallelLinear(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -510,7 +510,7 @@ class ColumnParallelLinear(nn.Cell):
         super(ColumnParallelLinear, self).__init__()
         if stride > 1:
             raise NotImplementedError("`stride > 1` is not supported for now, "
-                                      "but got `stride={}`".format(stride))
+                                      f"but got `stride={stride}`")
         if keep_master_weight_for_test:
             raise NotImplementedError("`keep_master_weight_for_test=True` "
                                       "is not supported for now.")
@@ -644,7 +644,7 @@ class ColumnParallelLinear(nn.Cell):
                              " weight should be passed to construct(), but got None.")
         if weight is not None and not self.skip_weight_param_allocation:
             raise ValueError("when skip_weight_param_allocation=False,"
-                             "weight should not be passed to construct(), but got {}".format(weight))
+                             f"weight should not be passed to construct(), but got {weight}")
 
         if (
                 self.sequence_parallel
@@ -772,7 +772,7 @@ class RowParallelLinear(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -850,7 +850,7 @@ class RowParallelLinear(nn.Cell):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
             raise NotImplementedError("`stride > 1` is not supported for now, "
-                                      "but got `stride={}`".format(stride))
+                                      f"but got `stride={stride}`")
         if keep_master_weight_for_test:
             raise NotImplementedError("`keep_master_weight_for_test=True` "
                                       "is not supported for now.")
@@ -1054,7 +1054,7 @@ class VocabParallelEmbedding(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/en/master/parallel/msrun_launcher.html>`_
             for more details.
 
             This example should be run with 4 devices.

@@ -22,7 +22,7 @@ For details about MindSpore Transformers tutorials and API documents, see **[Min
 - 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/pre_training.html)
 - 📝 [Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/sft_tuning.html)
 - 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/evaluation.html)
-- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/mindie_deployment.html)
+- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/deployment.html)
 
 If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
 
@@ -32,7 +32,7 @@ The list of models supported in the current version of MindSpore Transformers is
 
 | Model                                                                                                  | Specifications                |    Model Type    |
 |:-------------------------------------------------------------------------------------------------------|:------------------------------|:----------------:|
-| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/1.5.0/docs/model_cards/codellama.md)          | 34B                           |    Dense LLM     |
+| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md)         | 34B                           |    Dense LLM     |
 | [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md) | 19B                           |        MM        |
 | [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md) | 13B                           |        MM        |
 | [DeepSeek-V3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek3)                  | 671B                          |    Sparse LLM    |

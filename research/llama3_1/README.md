@@ -243,7 +243,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/mindie_deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 
