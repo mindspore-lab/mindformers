@@ -17,7 +17,7 @@
 
 | Config                                           |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
 |:-------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
-| [internlm2-20b](./finetune_internlm2_20b.yaml) | text_generation |    alpaca     |   4096    | Finetune  |  867.923 tokens/s/p  |
+| [internlm2-20b](./internlm2_20b/finetune_internlm2_20b.yaml) | text_generation |    alpaca     |   4096    | Finetune  |  867.923 tokens/s/p  |
 
 ## 模型文件
 
