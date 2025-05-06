@@ -153,6 +153,7 @@ if __name__ == '__main__':
                                       '../configs/**/*.yml',
                                       '../configs/**/*.md',
                                       './*.json',
+                                      './dataset/blended_datasets/*',
                                       '.commit_id']},
         cmdclass={
             'egg_info': EggInfo,
