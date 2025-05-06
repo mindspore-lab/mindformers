@@ -156,7 +156,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=self.config.compute_dtype)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
