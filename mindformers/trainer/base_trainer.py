@@ -777,6 +777,10 @@ class BaseTrainer:
 
     def _process_megatron_dataset(self, dataset, config):
         """Dataset processing for Megatron Dataset."""
+        if ms.context.get_context("dataset_broadcast_opt_level") < 3:
+            raise ValueError("If using `BlendedMegatronDatasetDataLoader`, please set "
+                             "`dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file.")
+
         dataset_info = config.train_dataset.data_loader
         # reset dataset size to remove redundant data
         ori_ds = dataset.get_dataset_size()
@@ -799,6 +803,15 @@ class BaseTrainer:
         return dataset, config
 
     @staticmethod
+    def _check_sink_mode_with_ds_broadcast(config):
+        """Check sink_mode with dataset_broadcast_opt_level."""
+        ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+        if ds_broadcast_level > 0 and not config.runner_config.sink_mode:
+            raise ValueError(
+                f"Current `dataset_broadcast_opt_level` is {ds_broadcast_level}, "
+                f"if set larger than 0, then sink_mode should be set to be 'True'")
+
+    @staticmethod
     def _check_input_sliced_sig(config, usage_info='special'):
         """Check input_sliced_sig in model config."""
         input_sliced_sig = config.model.model_config.get("input_sliced_sig")
@@ -811,6 +824,9 @@ class BaseTrainer:
         dataloader_info = config.train_dataset.get('data_loader')
         if not dataloader_info:
             return dataset, config
+
+        # check sink_mode for dataset_broadcast_opt_level
+        self._check_sink_mode_with_ds_broadcast(config)
 
         dataloader_type = dataloader_info.get('type')
         # postprocess for BlendedMegatronDatasetDataLoader
