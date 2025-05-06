@@ -52,15 +52,18 @@ class TestInferParallel:
         Expectation: AssertionError
         """
         commands = [
-            (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && export LCAL_IF_PORT=10068 && msrun --worker_num=2 "
+            (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && export LCAL_IF_PORT=10068 && "
+             f"export HCCL_IF_BASE_PORT=61000 && msrun --worker_num=2 "
              f"--local_worker_num=2 --master_port=8222 --log_dir=parallel_qwen2_0_5b_predict_mp2 --join=True "
              f"{cur_dir}/run_parallel.py --mode parallel_qwen2_0_5b_predict_mp2",
              'parallel_qwen2_0_5b_predict_mp2/worker_0.log'),
-            (f"export ASCEND_RT_VISIBLE_DEVICES=2,3 && export LCAL_IF_PORT=10069 && msrun --worker_num=2 "
+            (f"export ASCEND_RT_VISIBLE_DEVICES=2,3 && export LCAL_IF_PORT=10069 && "
+             f"export HCCL_IF_BASE_PORT=61100 && msrun --worker_num=2 "
              f"--local_worker_num=2 --master_port=8226 --log_dir=parallel_glm3_6b_predict_mp2 --join=True  "
              f"{cur_dir}/run_parallel.py --mode parallel_glm3_6b_predict_mp2",
              'parallel_glm3_6b_predict_mp2/worker_0.log'),
-            (f"export ASCEND_RT_VISIBLE_DEVICES=4,5 && export LCAL_IF_PORT=10070 && msrun --worker_num=2 "
+            (f"export ASCEND_RT_VISIBLE_DEVICES=4,5 && export LCAL_IF_PORT=10070 && "
+             f"export HCCL_IF_BASE_PORT=61200 && msrun --worker_num=2 "
              f"--local_worker_num=2 --master_port=8228 --log_dir=parallel_shared_expert_predict_mp2 --join=True  "
              f"{cur_dir}/run_parallel.py --mode parallel_shared_expert_predict_mp2",
              'parallel_shared_expert_predict_mp2/worker_0.log')
