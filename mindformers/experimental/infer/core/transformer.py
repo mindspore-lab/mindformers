@@ -358,6 +358,7 @@ class ParallelAttention(nn.Cell):
             raise NotImplementedError(
                 f"attention_type(str) should be 'self_attn' or 'cross_attn', but got {self.attn_type}")
         self.reshape = ops.Reshape()
+        self.cast = ops.Cast()
         self.wo = RowParallelLinear(
             self.hidden_size,
             self.hidden_size,

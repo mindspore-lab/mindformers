@@ -164,8 +164,9 @@ class ColumnParallelLinear(nn.Cell):
             )
             self.bias_add = P.Add()
 
-        self.shape = ops.Shape()
-        self.reshape = ops.Reshape()
+        self.cast = P.Cast()
+        self.shape = P.Shape()
+        self.reshape = P.Reshape()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
         if self.sequence_parallel:
             self.gather_from_sp_region = GatherFromSequenceParallelRegion()
