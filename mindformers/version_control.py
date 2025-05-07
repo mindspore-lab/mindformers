@@ -408,6 +408,20 @@ def check_arf_status(cb_params):
     return False
 
 
+def check_skip_barrier():
+    """Reboot node skip execute barrier when enable arf"""
+    version_valid = is_version_ge(ms.__version__, "2.6.0")
+    if not version_valid:
+        logger.warning(
+            "Current MindSpore version does not support skip barrier, please upgrade to 2.6.0 or later version.")
+        return False
+    env_enable = os.getenv("MS_ENABLE_TFT", "")
+    if "ARF:1" in env_enable:
+        from mindspore._c_expression import is_reboot_node
+        return is_reboot_node()
+    return False
+
+
 def check_swiglu_valid():
     """check mindspore version is valid for swiglu"""
     version_valid = is_version_ge(ms.__version__, "2.5.0")

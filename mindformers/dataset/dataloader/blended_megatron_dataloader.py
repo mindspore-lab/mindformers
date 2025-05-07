@@ -29,6 +29,7 @@ from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_dp_from_dataset_strategy, get_real_group_size, get_real_rank
+from mindformers.version_control import check_skip_barrier
 
 
 def is_dataset_built_on_rank() -> bool:
@@ -156,11 +157,12 @@ class MegatronDatasetBuilder:
                             pipeline stage = {global_rank_id//(dp *tp )}, this rank will build empty data.")
                 source = FakeGptDataset(blended_config)
                 gen_dataset = GeneratorDataset(source, column_names=source.cols(), shuffle=False)
-                logger.info("barrier 1 start")
-                barrier()
-                logger.info("barrier 2 start")
-                barrier()
-                logger.info("barrier 2 completed")
+                if not check_skip_barrier():
+                    logger.info("barrier 1 start")
+                    barrier()
+                    logger.info("barrier 2 start")
+                    barrier()
+                    logger.info("barrier 2 completed")
         else:
             gen_dataset = build_gpt_dataset()
         return gen_dataset

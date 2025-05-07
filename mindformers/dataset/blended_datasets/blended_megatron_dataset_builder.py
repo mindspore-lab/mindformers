@@ -14,6 +14,7 @@ from mindformers.dataset.blended_datasets.megatron_dataset import LowLevelDatase
 from mindformers.dataset.blended_datasets.utils import Split, normalize
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_group_size, get_real_rank
+from mindformers.version_control import check_skip_barrier
 
 MidLevelDataset = MegatronDataset
 
@@ -353,7 +354,8 @@ class BlendedMegatronDatasetBuilder(object):
                     sizes_per_dataset,
                 )
 
-            barrier()
+            if not check_skip_barrier():
+                barrier()
 
             # Then, build on other ranks; guaranteed to be data_cache hit
             if rank != 0:
@@ -471,7 +473,7 @@ class BlendedMegatronDatasetBuilder(object):
                     )
                     raise Exception(log) from err
 
-            if synchronize_ranks:
+            if synchronize_ranks and not check_skip_barrier():
                 barrier()
 
             # After, build on other ranks
