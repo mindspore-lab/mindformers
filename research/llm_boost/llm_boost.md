@@ -119,7 +119,7 @@ dtype:       转换权重的精度
 
 **场景一**：从完整模型权重切分至分布式权重
 
-通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)，将完整权重转换为目标切分权重。
+通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)，将完整权重转换为目标切分权重。
 
 以`Qwen2-7b`2卡推理为例, 生成目标strategy。
 
@@ -139,7 +139,7 @@ dtype:       转换权重的精度
 **场景二**：从分布式训练获得的已切分权重转化为另一策略的分布式权重
 
 通常是在分布式训练完成后获取了按训练切分策略进行切分的权重，在推理阶段模型需要转换为另一切分策略；
-同样需要生成目标strategy，参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)，与原有切分startegy一同，转换模型切分策略
+同样需要生成目标strategy，参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)，与原有切分startegy一同，转换模型切分策略
 
 ## 推理
 

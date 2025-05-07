@@ -102,8 +102,6 @@ model:
     type: LlamaForCausalLM
 ```
 
-FA的模型支持度可参见 [模型能力表格](../model_support_list.md#llm大模型能力支持一览)
-
 ## Adaptive loss scaling
 
 ### Adaptive loss scaling 基本介绍

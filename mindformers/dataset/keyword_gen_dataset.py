@@ -121,8 +121,6 @@ class KeyWordGenDataset(BaseDataset):
         >>> from mindformers import AutoTokenizer
         >>> # Note:
         >>> #     `"/path/to/train.json"` should be replaced with the real path of the dataset file.
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md
         >>> data_loader = ADGenDataLoader(dataset_dir="/path/to/train.json", shuffle=True, phase='train',
         ...                               origin_columns=['content', 'summary'])
         >>> tokenizer = AutoTokenizer.from_pretrained('glm_6b')

@@ -404,7 +404,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)和[离线权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)进行分布式模型权重转换。
 
 ## 推理
 
@@ -558,7 +558,7 @@ processor:
 
 1. 切分模型权重
 
-   可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md#离线转换案例一完整权重转换为分布式权重)中的推理案例三进行完整权重切分以用于分布式评测。
+   可参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E5%8D%95%E5%8D%A1%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%BA%E5%A4%9A%E5%8D%A1%E6%9D%83%E9%87%8D)中的"单卡权重切分为多卡权重"进行完整权重切分以用于分布式评测。
 
    修改权重文件夹目录结构如下，将模型权重放入`rank_0`的文件夹中。
 

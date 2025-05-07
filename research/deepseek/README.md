@@ -144,7 +144,7 @@ mindspore_ckpt_path: 转换后的MindSpore权重文件保存路径
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)
 
 ## 预训练
 
@@ -192,7 +192,7 @@ MindFormers提供`deepseek-33b`多机多卡微调示例，使用`code_alpaca`数
 
    如果使用共享存储，可以将模型完整权重放在共享存储内，同时设置配置文件或脚本参数`auto_trans_ckpt=True`，使用权重自动转换功能。
 
-   如果不使用共享存储，可以参考[多机多卡权重转换](../../docs/feature_cards/Transform_Ckpt.md#物理机多机多卡训练)完成分布式权重转换后拉起预训练任务。
+   如果不使用共享存储，可以参考[多卡权重之间的转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E5%9C%BA%E6%99%AF%E4%BA%8C-%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%B9%8B%E9%97%B4%E6%97%A0%E5%85%B1%E4%BA%AB%E7%9B%98)完成分布式权重转换后拉起预训练任务。
 
 2. 执行命令启动2机16卡微调任务，以使用共享存储为例
 

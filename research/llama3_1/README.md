@@ -179,7 +179,7 @@ train_data:      训练数据集路径
 
 #### 多机训练
 
-以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
+以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
 
 多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[使用指南](../../README_CN.md#三使用指南)。
 
@@ -228,7 +228,7 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ### 多卡推理
 
-以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
+以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)。
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
