@@ -33,7 +33,7 @@ except ImportError:
 import mindspore as ms
 from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
-from mindspore.communication import get_group_size, get_rank, comm_func
+from mindspore.communication import get_group_size, get_rank, comm_func, get_local_rank
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -457,6 +457,14 @@ def get_real_rank():
         return get_rank()
     except RuntimeError:
         return int(os.getenv("RANK_ID", "0"))
+
+
+def get_real_local_rank():
+    """Get local rank id from current collective communication group."""
+    try:
+        return get_local_rank()
+    except RuntimeError:
+        return 0
 
 
 def get_dp_from_dataset_strategy():

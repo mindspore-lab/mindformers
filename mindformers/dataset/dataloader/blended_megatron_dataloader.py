@@ -14,6 +14,7 @@
 # ============================================================================
 """megatron blended dataloader."""
 
+import os
 from enum import Enum
 from typing import Callable, List, Union
 
@@ -24,12 +25,18 @@ from mindspore.communication.comm_func import barrier
 
 from mindformers.dataset.blended_datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
 from mindformers.dataset.blended_datasets.gpt_dataset import GPTDataset, GPTDatasetConfig
-from mindformers.dataset.blended_datasets.utils import get_blend_from_list
+from mindformers.dataset.blended_datasets.utils import get_blend_from_list, compile_helpers
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_dp_from_dataset_strategy, get_real_group_size, get_real_rank
 from mindformers.version_control import check_skip_barrier
+from mindformers.tools.utils import (
+    get_dp_from_dataset_strategy,
+    get_real_group_size,
+    get_real_rank,
+    get_real_local_rank,
+    is_publicly_accessible_path
+)
 
 
 def is_dataset_built_on_rank() -> bool:
@@ -54,6 +61,22 @@ def is_dataset_built_on_rank() -> bool:
     return True
 
 
+def is_compile_runtime():
+    """check which rank need to compile dataset helper."""
+    compile_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+        'blended_datasets'
+    )
+    is_shared_dir = is_publicly_accessible_path(compile_dir)
+    if is_shared_dir and get_real_rank() == 0:
+        # compile in shared memory
+        return True
+    if not is_shared_dir and get_real_local_rank() == 0:
+        # compile at local first rank
+        return True
+    return False
+
+
 class DatasetPhaseType(str, Enum):
     r"""
         The enum of dataset phase.
@@ -70,7 +93,7 @@ class MegatronDatasetBuilder:
     Args:
         datasets_type(str): megatron dataset types, e.g. GptDataset
         config (dict): configurations dict.
-        tokenzier(Union[dict, Callable]): tokenizer config or tokenizer instance.
+        tokenizer(Union[dict, Callable]): tokenizer config or tokenizer instance.
 
     Returns:
         MegatronDataset instance or Fakedataset instance.
@@ -244,7 +267,7 @@ class FakeGptDataset:
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
-class BlendedMegatronDatasetDataLoader():
+class BlendedMegatronDatasetDataLoader:
     """Blended Megatron Dataset DataLoader."""
     _default_column_names = ['input_ids']
 
@@ -264,9 +287,8 @@ class BlendedMegatronDatasetDataLoader():
         Args:
             datasets_type(str): megatron dataset types, e.g. GptDataset
             sizes(List[int]): datasize of each data.
-            tokenzier(Union[dict, Callable]): tokenizer config or tokenizer instance.
+            tokenizer(Union[dict, Callable]): tokenizer config or tokenizer instance.
             config (dict): configurations dict.
-            tokenizer (optional): tokenizer obj. Defaults to None.
             column_names(list): Column names contained in the created dataset.
             shuffle (bool): Whether to perform shuffle on the dataset.
                 Random accessible input is required.
@@ -283,6 +305,12 @@ class BlendedMegatronDatasetDataLoader():
         # init tokenizer
         if isinstance(tokenizer, dict):
             tokenizer = build_tokenizer(tokenizer)
+
+        if is_compile_runtime():
+            # auto make megatron dataset helper
+            compile_helpers()
+        if get_real_group_size() > 1 and not check_skip_barrier():  # use multi cards
+            barrier()
 
         column_names = cls._default_column_names if column_names is None else column_names
 
