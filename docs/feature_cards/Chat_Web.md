@@ -80,7 +80,7 @@ cd chat_web
 
 1. 准备模型分布式权重
 
-    > 注：推理服务不支持权重自动切分，需要先将权重切好。推荐使用`scripts/run_distribute.sh`拉起多卡推理并进行权重自动切分。具体权重切分方法请参考[权重转换文档](Transform_Ckpt.md)
+    > 注：推理服务不支持权重自动切分，需要先将权重切好。推荐使用`scripts/run_distribute.sh`拉起多卡推理并进行权重自动切分。具体权重切分方法请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)。
 
     分布式权重目录结构如下：
 
@@ -480,7 +480,7 @@ python ../mindformers/tools/hccl_tools.py --device_num [0,2]
 
 下载[LLaMA2 13B权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2-13b-fp16.ckpt)
 
-参考[权重转换文档](Transform_Ckpt.md)，将分布式权重目录命名为`"llama2_13b_ckpt"`，目录格式如下：
+参考[分布式权重切分与合并文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%88%86%E5%B8%83%E5%BC%8F%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将分布式权重目录命名为`"llama2_13b_ckpt"`，目录格式如下：
 
 ```text
 llama2_13b_ckpt
@@ -773,7 +773,7 @@ python ../mindformers/tools/hccl_tools.py --device_num [0,2]
 
 下载[Baichuan2-13B-Chat权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2-13B-Chat.ckpt)
 
-参考[权重转换文档](Transform_Ckpt.md)，将分布式权重目录命名为`"baichuan2_13b_ckpt"`，目录格式如下：
+参考[分布式权重切分与合并文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%88%86%E5%B8%83%E5%BC%8F%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将分布式权重目录命名为`"baichuan2_13b_ckpt"`，目录格式如下：
 
 ```text
 baichuan2_13b_ckpt

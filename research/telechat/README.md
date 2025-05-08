@@ -132,11 +132,11 @@ mp: 目标切分个数，比如指定为8时，得到的完整权重适用于mp=
 - [telechat-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/mindspore.ckpt)
 - [telechat-12b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/mindspore_12B.ckpt)
 
-### [分布式训练/微调权重合并](../../docs/feature_cards/Transform_Ckpt.md)
+### [分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%88%86%E5%B8%83%E5%BC%8F%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
 
 ## 微调
 

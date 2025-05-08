@@ -82,7 +82,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 下载链接：
 
 1. [Longbench数据集](https://huggingface.co/datasets/THUDM/LongBench/blob/main/data.zip)
-2. [Longbench prompt file](https://github.com/THUDM/LongBench/blob/main/config/dataset2prompt.json)
+2. [Longbench prompt file](https://github.com/THUDM/LongBench/blob/main/LongBench/config/dataset2prompt.json)
 3. Longbench数据集介绍请参见[官网地址](https://github.com/THUDM/LongBench)
 
 ```shell
@@ -161,7 +161,7 @@ MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`�
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../../docs/feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../../docs/feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)和[离线权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)进行分布式模型权重转换。
 
 ## 推理
 
