@@ -193,12 +193,12 @@ RANK_TABLE_FILE 单机8卡参考样例:
 
 **场景一**：从完整模型权重切分至分布式权重
 
-通常是已有完整权重，但目标切分策略存在mp切分，需要将权重切分为对应mp策略份，此时可参考[权重转换文档](./Transform_Ckpt.md)，生成目标strategy，将完整权重转换为目标切分权重
+通常是已有完整权重，但目标切分策略存在mp切分，需要将权重切分为对应mp策略份，此时可参考[生成分布式策略](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E7%94%9F%E6%88%90%E5%88%86%E5%B8%83%E5%BC%8F%E7%AD%96%E7%95%A5)，生成目标strategy，将完整权重转换为目标切分权重。
 
 **场景二**：从分布式训练获得的已切分权重转化为另一策略的分布式权重
 
 通常是在分布式训练完成后获取了按训练切分策略进行切分的权重，在推理阶段模型需要转换为另一切分策略；
-同样可参考[权重转换文档](./Transform_Ckpt.md)，生成目标strategy，与原有切分startegy一同，转换模型切分策略
+同样可参考[生成分布式策略](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E7%94%9F%E6%88%90%E5%88%86%E5%B8%83%E5%BC%8F%E7%AD%96%E7%95%A5)，生成目标strategy，与原有切分startegy一同，转换模型切分策略。
 
 ### 分布式推理脚本
 

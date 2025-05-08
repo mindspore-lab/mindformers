@@ -224,7 +224,7 @@ MindFormers提供`Code Llama 34b`的微调示例，使用`code-alpaca`数据集�
 
    如果使用共享存储，可以将模型完整权重放在共享存储内，同时设置配置文件或脚本参数`auto_trans_ckpt=True`，使用权重自动转换功能。
 
-   如果不使用共享存储，可以参考[多机多卡权重转换](../../docs/feature_cards/Transform_Ckpt.md#物理机多机多卡训练)完成分布式权重转换后拉起预训练任务。
+   如果不使用共享存储，可以参考[多卡权重之间的转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%9C%BA%E6%99%AF%E4%BA%8C-%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%B9%8B%E9%97%B4%E6%97%A0%E5%85%B1%E4%BA%AB%E7%9B%98)完成分布式权重转换后拉起预训练任务。
 
 2. 修改配置文件`config/codellama/finetune_codellama_34b_16p.yaml`
 
@@ -278,7 +278,7 @@ MindFormers提供`Code Llama 34b`的微调示例，使用`code-alpaca`数据集�
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)和[离线权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)进行分布式模型权重转换。
 
 ## 推理
 

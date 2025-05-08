@@ -164,7 +164,7 @@ MindFormers提供`llama3_70b`多机多卡的预训练示例，请参照[数据�
 
 ### 多机训练
 
-以llama3_70b为例，使用`pretrain_llama3_70b.yaml`配置文件，执行8机64卡预训练。需要先对权重进行切分，切分权重可以参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
+以llama3_70b为例，使用`pretrain_llama3_70b.yaml`配置文件，执行8机64卡预训练。需要先对权重进行切分，切分权重可以参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%88%86%E5%B8%83%E5%BC%8F%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
 
 多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[使用指南](../../README_CN.md#三使用指南)。
 
