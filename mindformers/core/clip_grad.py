@@ -18,6 +18,7 @@ from mindspore.nn.cell import Cell
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import SumExt
 from mindspore.common.tensor import Tensor
 from mindspore.common import dtype as mstype
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
@@ -38,7 +39,7 @@ apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
 @get_square_sum.register("Tensor")
 def _get_square_sum(x):
     """get square summation for a Tensor."""
-    norm = P.ReduceSum(False)(F.square(x), ())
+    norm = SumExt()(F.square(x), ())
     norm = expand_dims(F.cast(norm, mstype.float32), 0)
     return norm
 
