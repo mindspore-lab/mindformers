@@ -22,6 +22,7 @@ import time
 import json
 from io import StringIO
 from pathlib import Path
+from packaging.version import parse
 
 import numpy as np
 import mindspore as ms
@@ -168,11 +169,9 @@ class MFCheck(BaseCheck):
             self._error(error_flag='Pretrain')
             version_checker = VersionCheck(self.start, error_flag='Pretrain')
             version_checker.check()
-            raise RuntimeError("The run check failed, please see more information above. "
-                               "Exception is {}".format(e))
+            raise RuntimeError(f"Run check failed: {e}") from e
 
-        else:
-            self._success(test='Pretrain')
+        self._success(test='Pretrain')
 
         logger.info('------------------------------Starting Predict Test------------------------------')
         try:
@@ -267,13 +266,13 @@ class VersionCheck(BaseCheck):
         """
         if self.error_flag:
             logger.error(f"The run check failed in {end - self.start:.2f} "
-                         f"seconds, It's recommended to install cann-toolkit=={cann_version} "
-                         f"driver=={driver_version} mindspore=={ms_version} mindformers=={mf_version}")
+                         f"seconds, It's recommended to install mindformers=={mf_version} mindspore=={ms_version} "
+                         f"cann-toolkit=={cann_version} driver=={driver_version}")
         else:
             logger.warning(f'The installed software are unmatched '
                            f'but all checks passed in {end - self.start:.2f} seconds')
-            logger.info(f"It's recommended to install cann-toolkit=={cann_version} "
-                        f"driver=={driver_version} mindspore=={ms_version} mindformers=={mf_version}")
+            logger.info(f"It's recommended to install mindformers=={mf_version} mindspore=={ms_version} "
+                        f"cann-toolkit=={cann_version} driver=={driver_version}")
 
     def check(self):
         """Check whether the software versions are matched."""
@@ -283,6 +282,7 @@ class VersionCheck(BaseCheck):
             ms_version = ms.__version__
             logger.info(f'MindFormers version: {mf_version}')
             logger.info(f'MindSpore version: {ms_version}')
+            ms_version = parse(ms_version).base_version  # e.g. 2.6.0rc1 will be transformed to 2.6.0
 
             # one of ['aarch64', 'x86_64']
             arch = platform.machine()
@@ -305,7 +305,7 @@ class VersionCheck(BaseCheck):
                 logger.warning('The environment variable "ASCEND_HOME_PATH" is not set, please check whether the CANN '
                                'Toolkit is installed. Try to execute "source ${HOME}/Ascend/ascend-toolkit/set_env.sh".'
                                ' For installation manual, please refer to '
-                               'https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit')
+                               'https://www.hiascend.com/document/detail/zh/canncommercial/')
 
             if is_driver_info_file_exist:
                 driver_info = subprocess.run(["cat", driver_info_file], shell=False, capture_output=True,
@@ -313,8 +313,8 @@ class VersionCheck(BaseCheck):
                 driver_version = re.search(r'=(\d[\d.\w]+)', driver_info).group(1)
                 logger.info(f'Ascend driver version: {driver_version}')
             else:
-                logger.warning(f'Cannot find driver info file under default path, please check whether the driver is '
-                               f'installed properly. Please run infer to https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit')
+                logger.warning('Cannot find driver info file under default path, please check whether the driver is '
+                               'installed properly. Please refer to https://www.hiascend.com/document/detail/zh/canncommercial/')
 
             if not is_cann_info_file_exist or not is_driver_info_file_exist:
                 raise RuntimeError
@@ -351,12 +351,15 @@ class VersionCheck(BaseCheck):
                 )
 
     def version_match_check(self, ms_version, cann_version, driver_version, recommend_version_dict):
-        ms_version_is_valid = \
-            ms_version == recommend_version_dict['ms_version'] \
-            or ms_version in self.version_mapping['mf'][mf.__version__]['support']
-        cann_version_is_valid = cann_version == self.version_mapping['ms'][ms_version]['prefer']
-        driver_version_is_valid = driver_version == self.version_mapping['cann'][cann_version]['prefer']
-        return ms_version_is_valid and cann_version_is_valid and driver_version_is_valid
+        """Check whether the given versions are valid."""
+        if not (ms_version == recommend_version_dict['ms_version'] or ms_version in
+                self.version_mapping['mf'][mf.__version__]['support']):
+            return False
+        if not cann_version == self.version_mapping['ms'][ms_version]['prefer']:
+            return False
+        if not driver_version == self.version_mapping['cann'][cann_version]['prefer']:
+            return False
+        return True
 
 
 def run_check():
