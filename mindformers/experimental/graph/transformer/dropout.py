@@ -19,46 +19,33 @@ import mindspore.common.dtype as mstype
 from mindspore.common.generator import default_generator
 from mindspore.common.tensor import Tensor
 
-# MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
-try:
-    from mindspore._checkparam import Validator
-except ImportError:
-    import mindspore._checkparam as Validator
-
 __all__ = ['Dropout']
 
 
 class Dropout(nn.Cell):
     r"""
-        A Dropout Implements with P.Dropout and  P.DropoutDoMask for parallel training.
+        A Dropout Implements for parallel training.
     """
 
-    def __init__(self, drop_prob=0.5, dtype=mstype.float32):
+    def __init__(self):
         super(Dropout, self).__init__()
-        if drop_prob < 0 or drop_prob >= 1:
-            raise ValueError(
-                "dropout probability should be a number in range [0, 1), but got {}".format(drop_prob))
-        Validator.check_subclass("dtype", dtype, mstype.number_type, self.cls_name)
-        Validator.check_value_type('drop_prob', drop_prob, [float], self.cls_name)
-        keep_prob = 1.0 - drop_prob
-        self.keep_prob = keep_prob
         self.generator_step = Tensor(1, mstype.int64)
-        self.seed, self.offset = default_generator._step(self.generator_step) # pylint: disable=protected-access
+        self.seed, self.offset = default_generator._step(self.generator_step)  # pylint: disable=protected-access
         self.dropout = ms.ops.auto_generate.DropoutExt().add_prim_attr("side_effect_hidden", True)
 
-    def construct(self, x):
+    def construct(self, x, p: float = 0.5, training: bool = True):
         r"""
-           Input: a tensor
+           Input:
+               x: a tensor
+               p: probability of an element to be zeroed. Default: 0.5
+               training: apply dropout if is `True`. Default: `True`
            Returns: a tensor
         """
-        if not self.training:
+        if not training:
             return x
 
-        out, _ = self.dropout(input=x, p=self.keep_prob, seed=self.seed, offset=self.offset)
+        out, _ = self.dropout(input=x, p=p, seed=self.seed, offset=self.offset)
         return out
-
-    def extend_repr(self):
-        return 'keep_prob={}'.format(self.keep_prob)
 
     def shard(self, strategy):
         self.dropout.shard((strategy,))
