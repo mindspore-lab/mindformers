@@ -28,8 +28,6 @@ __all__ = [
     "GELU",
     "SwiGlu",
     "SiLU",
-    "bias_gelu_impl",
-    "bias_swiglu_impl",
     "get_activation"
 ]
 
@@ -48,19 +46,16 @@ class SwiGlu(nn.Cell):
         # pylint: disable=W0212
         self.silu = SiLU_op()
         self.mul = Mul()
-        self.add = AddExt()
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
             else:
                 self.shard(config)
 
-    def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
-        if bias is not None:
-            x = self.add(x, bias)
-        bs, seq_len, hidden_size = x.shape
-        x_1 = self.slice(x, (0, 0, 0), (bs, seq_len, hidden_size // 2), (1, 1, 1))
-        x_2 = self.slice(x, (0, 0, hidden_size // 2), (bs, seq_len, hidden_size), (1, 1, 1))
+    def construct(self, x: Tensor) -> Tensor:
+        seq_len, bs, hidden_size = x.shape
+        x_1 = self.slice(x, (0, 0, 0), (seq_len, bs, hidden_size // 2), (1, 1, 1))
+        x_2 = self.slice(x, (0, 0, hidden_size // 2), (seq_len, bs, hidden_size), (1, 1, 1))
         return self.mul(self.silu(x_1), x_2)
 
     def shard(self, config: ModelParallelConfig):
@@ -74,11 +69,11 @@ class SwiGlu(nn.Cell):
         cp = config.context_parallel if config and config.context_parallel is not None else 1
         compute_2d = config.sequence_parallel and cp == 1
 
-        silu_in_strategy = ((dp, cp, 1),) if not compute_2d else ((dp, 1),)
+        silu_in_strategy = ((cp, dp, 1),) if not compute_2d else ((dp, 1),)
         self.silu.shard(silu_in_strategy)
-        slice_in_strategy = ((dp, cp, 1),) if not compute_2d else ((dp, 1),)
+        slice_in_strategy = ((cp, dp, 1),) if not compute_2d else ((dp, 1),)
         self.slice.shard(slice_in_strategy)
-        mul_in_strategy = ((dp, cp, 1), (dp, cp, 1)) if not compute_2d else ((dp, 1), (dp, 1))
+        mul_in_strategy = ((cp, dp, 1), (cp, dp, 1)) if not compute_2d else ((dp, 1), (dp, 1))
         self.mul.shard(mul_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):
@@ -97,7 +92,6 @@ class GELU(nn.Cell):
     def __init__(self, config: ModelParallelConfig = None, approximate: bool = True):
         super(GELU, self).__init__()
         self.approximate = approximate
-        self.add_bias = AddExt()
         if self.approximate:
             self.gelu = GeLU()
         else:
@@ -118,17 +112,14 @@ class GELU(nn.Cell):
             else:
                 self.shard(config)
 
-    def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
+    def construct(self, x: Tensor) -> Tensor:
         """
         Apply GELU activation function.
 
         Args:
             x (Tensor): The input tensor.
-            bias (Tensor): The bias tensor.
         """
-        if bias is not None:
-            x = self.add_bias(x, bias)
-        # [bs, seq_len, hidden_size]
+
         if self.approximate:
             return self.gelu(x)
 
@@ -150,18 +141,18 @@ class GELU(nn.Cell):
         tp = config.tensor_parallel if config and config.tensor_parallel is not None else 1
         compute_2d = config.sequence_parallel and cp == 1
         if self.approximate:
-            gelu_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp),)
+            gelu_in_strategy = ((cp, dp, tp),) if not compute_2d else ((dp, tp),)
             self.gelu.shard(gelu_in_strategy)
         else:
-            div_in_strategy = ((dp, cp, tp), ()) if not compute_2d else ((dp, tp), ())
+            div_in_strategy = ((cp, dp, tp), ()) if not compute_2d else ((dp, tp), ())
             self.div.shard(div_in_strategy)
-            erf_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp), ())
+            erf_in_strategy = ((cp, dp, tp),) if not compute_2d else ((dp, tp), ())
             self.erf.shard(erf_in_strategy)
-            add_erf_in_strategy = ((), (dp, cp, tp)) if not compute_2d else ((), (dp, tp))
+            add_erf_in_strategy = ((), (cp, dp, tp)) if not compute_2d else ((), (dp, tp))
             self.add_erf.shard(add_erf_in_strategy)
-            mul_const_in_strategy = ((dp, cp, tp), ()) if not compute_2d else ((dp, tp), ())
+            mul_const_in_strategy = ((cp, dp, tp), ()) if not compute_2d else ((dp, tp), ())
             self.mul_const.shard(mul_const_in_strategy)
-            mul_tensor_in_strategy = ((dp, cp, tp), (dp, cp, tp)) if not compute_2d else ((dp, tp), (dp, tp))
+            mul_tensor_in_strategy = ((cp, dp, tp), (cp, dp, tp)) if not compute_2d else ((dp, tp), (dp, tp))
             self.mul_tensor.shard(mul_tensor_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):
@@ -180,16 +171,13 @@ class SiLU(nn.Cell):
         super(SiLU, self).__init__()
         # pylint: disable=W0212
         self.silu = SiLU_op()
-        self.add = AddExt()
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
             else:
                 self.shard(config)
 
-    def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
-        if bias is not None:
-            x = self.add(x, bias)
+    def construct(self, x: Tensor) -> Tensor:
         return self.silu(x)
 
     def shard(self, config: ModelParallelConfig):
@@ -203,7 +191,7 @@ class SiLU(nn.Cell):
         cp = config.context_parallel if config and config.context_parallel is not None else 1
         tp = config.tensor_parallel if config and config.tensor_parallel is not None else 1
         compute_2d = config.sequence_parallel and cp == 1
-        silu_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp),)
+        silu_in_strategy = ((cp, dp, tp),) if not compute_2d else ((dp, tp),)
         self.silu.shard(silu_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):
@@ -225,16 +213,3 @@ def get_activation(activation_name, *args, **kwargs):
     # activation should be a Cell in Static
     activation = ACTIVATION_MAP[activation_name]
     return activation(*args, **kwargs)
-
-
-def bias_gelu_impl(x: Tensor, bias: Tensor = None, config: ModelParallelConfig = None) -> Tensor:
-    apply_func = GELU(config)
-    return apply_func(x, bias)
-
-
-def bias_swiglu_impl(x: Tensor, bias: Tensor = None, fp8_input_store: bool = False,
-                     config: ModelParallelConfig = None) -> Tensor:
-    if fp8_input_store:
-        raise NotImplementedError("For SwiGlu, fp8 input store is not supported for now.")
-    apply_func = SwiGlu(config)
-    return apply_func(x, bias)
