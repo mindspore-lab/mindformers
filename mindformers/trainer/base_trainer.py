@@ -877,6 +877,8 @@ class BaseTrainer:
                     resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
                 else:
                     resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
+            else:
+                resume_dict["loss_scale"] = 1
             append_info = [resume_dict]
         else:
             config.runner_config.initial_epoch = 0
