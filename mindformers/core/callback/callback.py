@@ -69,6 +69,7 @@ from mindformers.tools.utils import (
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
+from mindformers.checkpoint.checkpoint import AsyncSaveManager, save_checkpoint_from_callback
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -1179,6 +1180,7 @@ class CheckpointMonitor(ModelCheckpoint):
             self.last_step_num_in_epoch = None
             self.last_ckpoint_file = None
             self.meta_updated = True
+            self.async_save_manager = AsyncSaveManager(self._config.async_save)
 
         if self.save_network_params:
             self._network_manager = CheckpointManager(config_ck.format)
@@ -1235,11 +1237,18 @@ class CheckpointMonitor(ModelCheckpoint):
             self.meta_updated = True
 
         if save_ckpt:
+            # NOTE: origin checkpoint processes are remained here
             self.save_checkpoint(cb_params)
             self.save_checkpoint_network(cb_params)
+
+            logger.info(">>> save_checkpoint_from_callback...")
+            save_checkpoint_from_callback(self, cb_params)
+
             # if async_save is False, output the time cost directly
             if not self._config.async_save:
                 self.print_savetime(cb_params.cur_step_num, cb_params.batch_num)
+
+            self._last_triggered_step = cb_params.cur_step_num
 
     def save_checkpoint(self, cb_params):
         """save checkpoint suitable for resume training."""
@@ -1485,8 +1494,6 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.need_remove_extra_ckpt = False
 
-
-
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
         meta_data = {
@@ -1498,6 +1505,20 @@ class CheckpointMonitor(ModelCheckpoint):
             json.dump(meta_data, temp_file)
             temp_file_path = temp_file.name
         os.replace(temp_file_path, self.meta_json)
+
+    def on_train_step_begin(self, run_context):
+        """Called before each training step."""
+        super().on_train_step_begin(run_context)
+        if self._config.async_save:
+            logger.info("(on_train_step_begin)try to execute finalize func")
+            self.async_save_manager.maybe_finalize(wait_finish=False)
+
+    def on_train_end(self, run_context):
+        """Called after the end of training."""
+        super().on_train_end(run_context)
+        if self._config.async_save:
+            logger.info("(on_train_end)wait all ranks and execute finalize func")
+            self.async_save_manager.maybe_finalize(wait_finish=True)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
