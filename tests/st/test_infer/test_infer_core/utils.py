@@ -88,7 +88,7 @@ MODULES = {
 }
 
 
-def get_config(use_past):
+def get_config(use_past, use_flash_attention=True):
     """get config of testcase"""
     base_config = LlamaConfig(
         param_init_dtype=mstype.float16,
@@ -97,7 +97,7 @@ def get_config(use_past):
         qkv_concat=True,
         num_heads=16,
         hidden_size=1024,
-        use_flash_attention=True,
+        use_flash_attention=use_flash_attention,
         qkv_has_bias=False,
         rotary_dtype=mstype.float16,
         num_blocks=16,

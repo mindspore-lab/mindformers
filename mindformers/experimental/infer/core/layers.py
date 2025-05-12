@@ -30,6 +30,7 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
                                                                                     get_rng_tracer)
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.version_control import check_valid_gmm_op
+from mindformers.models.utils import jit
 
 __all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
 
@@ -171,6 +172,7 @@ class ColumnParallelLinear(nn.Cell):
         if self.sequence_parallel:
             self.gather_from_sp_region = GatherFromSequenceParallelRegion()
 
+    @jit
     def construct(self, input_parallel, weight=None, group_list=None):
         """
         Forward of ColumnParallelLinear.

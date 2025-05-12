@@ -31,8 +31,6 @@ class ParallelPagedAttentionMgr(nn.Cell):
                  kv_shape,
                  seq_length=-1,
                  compute_dtype=mstype.float16,
-                 parallel_decoding=False,
-                 chunk_prefill=False,
                  npu_mem_size=2):
         super().__init__()
         self.n_heads = n_heads
@@ -67,8 +65,6 @@ class ParallelPagedAttentionMgr(nn.Cell):
         self.paged_attention_with_alibi = P.auto_generate.PagedAttentionMask(self.n_heads,
                                                                              self.scale_value,
                                                                              self.n_kv_heads)
-        self.parallel_decoding = parallel_decoding
-        self.chunk_prefill = chunk_prefill
 
     # pylint: disable=W0613
     def construct(self, key, value, slot_mapping, _, key_cache=None, value_cache=None):
@@ -88,8 +84,5 @@ class ParallelPagedAttentionMgr(nn.Cell):
     def _paged_attn(self, query, batch_valid_length, block_tables, attn_mask=None, q_seq_lens=None,
                     key_cache=None, value_cache=None):
         """The forward compute of Paged Attention."""
-        if self.parallel_decoding or self.chunk_prefill:
-            attn_mask = attn_mask.astype(mstype.bool_).astype(query.dtype) * -10000
-            return self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length,
-                                        None, None, attn_mask, q_seq_lens)
-        return self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length)
+        return self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length,
+                                    None, None, attn_mask, q_seq_lens)

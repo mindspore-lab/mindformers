@@ -158,11 +158,13 @@ def _test_parallel_transformer(config):
 
 def _test_module(module, mode):
     """main"""
+    os.environ["RUN_MODE"] = "predict"
     # set_context
     jit_level = "O0"
     infer_boost = "on"
     if mode == 1:
         os.environ["FORCE_EAGER"] = "True"
+
     set_context(mode=mode, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
 
     # init communication
@@ -170,10 +172,11 @@ def _test_module(module, mode):
     initialize_model_parallel(tensor_model_parallel_size=2)
 
     # test module
-    config = get_config(use_past=True)
+
+    config = get_config(use_past=False, use_flash_attention=False)
     TEST_FUNC[module](config)
 
-    config = get_config(use_past=False)
+    config = get_config(use_past=True)
     TEST_FUNC[module](config)
 
 
