@@ -19,9 +19,27 @@ from mindspore import nn
 from mindspore.nn.optim import AdaFactor, AdamWeightDecay, SGD, Adagrad, Adam
 
 from mindformers.core.lr import build_lr
+from mindformers.version_control import check_tft_valid
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+from mindformers.tools import logger
 from .optim import FusedAdamWeightDecay, FP32StateAdamWeightDecay
 
+
+def get_tft_wrapped_cls(class_name, config):
+    """get_tft_wrapped_cls"""
+    optim_cls = MindFormerRegister.get_cls('optimizer', class_name)
+
+    if class_name == 'AdamW':
+        use_fused = config.pop('use_fused', False)
+        optim_cls = optim_cls.get_actual_adamw_cls(use_fused)
+
+    if check_tft_valid():
+        from mindspore.train.callback import TrainFaultTolerance
+        optim_cls = TrainFaultTolerance.get_optimizer_wrapper(optim_cls)
+    else:
+        logger.info("tft is not valid")
+
+    return optim_cls, config
 
 def build_optim(
         config: dict = None, default_args: dict = None,
@@ -55,18 +73,29 @@ def build_optim(
     """
     if config is None and class_name is None:
         return None
+
     if config is not None:
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
+
+        if 'auto_register' in config:
+            MindFormerRegister.auto_register(class_reference=config.pop('auto_register'), module_type=module_type)
+
         if config.learning_rate is not None and isinstance(config.learning_rate, dict):
             if config.learning_rate.type is None:
                 raise ValueError("optimizer's learning rate must be LearningRateSchedule type, "
                                  "but the type is not specified, it is None")
             lr_schedule = build_lr(config.learning_rate)
             config.learning_rate = lr_schedule
-        return MindFormerRegister.get_instance_from_cfg(
-            config, MindFormerModuleType.OPTIMIZER, default_args=default_args)
-    return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
+
+        if default_args is not None:
+            config.update(default_args)
+
+        optim_cls, config = get_tft_wrapped_cls(config.pop('type'), config)
+    else:
+        optim_cls, config = get_tft_wrapped_cls(class_name, kwargs)
+
+    return MindFormerRegister.get_instance(module_type, optim_cls, **config)
 
 
 def register_ms_optim():
