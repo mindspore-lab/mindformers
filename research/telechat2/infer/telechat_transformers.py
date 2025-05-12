@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """ For transformer """
+import os
 import numpy as np
 
 import mindspore.common.dtype as mstype
@@ -204,11 +205,10 @@ class TelechatParallelAttention(ParallelAttention):
     """
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
-                  key_cache=None, value_cache=None):
+                  attn_mask=None, alibi_mask=None, encoder_output=None, prefix_keys_values=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """Construct function of attention block."""
         # hidden_states shape: [B, S, H]
-        ori_dtype = x.dtype
         bs, seq_len, _ = x.shape
         # apply query, key, value projection
         if self.attn_type == "self_attn":
@@ -226,8 +226,6 @@ class TelechatParallelAttention(ParallelAttention):
                 key_value = self.cast(self.wk_v(x), self.compute_dtype)
                 key_value = key_value.reshape(-1, self.kv_num_heads_per_partition, self.head_dim * 2)
                 key, value = mint.split(key_value, (self.head_dim, self.head_dim), -1)
-                key = key.reshape(bs, seq_len, -1)
-                value = value.reshape(bs, seq_len, -1)
         else:
             query = self.cast(self.wq(x), self.compute_dtype)
             if self.qkv_concat:
@@ -253,57 +251,59 @@ class TelechatParallelAttention(ParallelAttention):
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
-                    if self.is_pynative:
-                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
-                    else:
-                        bs, seq_len, _ = query.shape
-                        # [1, actual_seq_len, H] -> [actual_seq_len, H]
-                        query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
-                        key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
-                        value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
-                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
-                                                             batch_valid_length, batch_valid_length)
-                        context_layer = self.reshape(context_layer, (bs, seq_len,
-                                                                     self.num_heads_per_partition * self.head_dim))
+                    query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
+                    key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                    value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                    context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
+                                                         q_seq_lens, batch_valid_length)
                 else:
-                    # [B, S, H] -> [B, N, S, D]
-                    query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
-                    # [B, S, H] -> [B, S, N, D]
+                    # [B, S, H] --> [B, S, N, D]
+                    query = query.reshape(bs, seq_len, -1, self.head_dim)
                     key = key.reshape(bs, seq_len, -1, self.head_dim)
                     value = value.reshape(bs, seq_len, -1, self.head_dim)
-                    # key_layer, value_layer shape: [B, S, kv_N_per_tp, D] --> [B, S, N_per_tp, D]
+                    # [B, S, N_kv, D] --> [B, S, N, D]
                     if self.use_gqa:
-                        repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
-                        key = self._repeat_kv(key, repeat_num)
-                        value = self._repeat_kv(value, repeat_num)
-                    else:
-                        key = key.transpose((0, 2, 1, 3))
-                        value = value.transpose((0, 2, 1, 3))
+                        key = mint.repeat_interleave(key, repeats=self.repeat_num, dim=2)
+                        value = mint.repeat_interleave(value, repeats=self.repeat_num, dim=2)
+                    # [B, S, N, D] --> [B, N, S, D]
+                    query = query.transpose(0, 2, 1, 3)
+                    key = key.transpose(0, 2, 1, 3)
+                    value = value.transpose(0, 2, 1, 3)
                     context_layer = self.core_attention(query, key, value, attn_mask)
+                    # [B, N, S, D] --> [B, S, H]
+                    context_layer = context_layer.transpose(0, 2, 1, 3).reshape(
+                        bs, seq_len, self.hidden_size_per_partition)
             else:
                 context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
-                                                                    key_cache=key_cache, value_cache=value_cache)
+                                                                    attn_mask, q_seq_lens, key_cache, value_cache)
         else:
-            # [B, S, H] -> [B, N, S, D]
-            query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
-            # [B, S, H] -> [B, S, N, D]
-            key = key.reshape(bs, seq_len, -1, self.head_dim)
-            value = value.reshape(bs, seq_len, -1, self.head_dim)
-            # key_layer, value_layer shape: [B, S, kv_N_per_tp, D] --> [B, S, N_per_tp, D]
-            if self.use_gqa:
-                repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
-                key = self._repeat_kv(key, repeat_num)
-                value = self._repeat_kv(value, repeat_num)
-            else:
-                key = key.transpose((0, 2, 1, 3))
-                value = value.transpose((0, 2, 1, 3))
+            query = self.reshape(query, (bs, seq_len, self.num_heads_per_partition, self.head_dim))
+            key = self.reshape(key, (bs, seq_len, self.kv_num_heads_per_partition, self.head_dim))
+            value = self.reshape(value, (bs, seq_len, self.kv_num_heads_per_partition, self.head_dim))
+            query = query.transpose(0, 2, 1, 3)
+            key = key.transpose(0, 2, 1, 3)
+            value = value.transpose(0, 2, 1, 3)
             if freqs_cis is not None:
                 query, key = self.apply_rotary_emb(query, key, freqs_cis)
-            context_layer = self.core_attention(query, key, value, attn_mask)
+            if self.use_flash_attention:
+                if os.getenv('RUN_MODE') == 'predict':
+                    raise NotImplementedError(
+                        "Conflict detected in predict mode: "
+                        "Flash Attention is incompatible when use_past=False")
+                context_layer = self.flash_attention(query, key, value, attn_mask)
+            else:
+                # [B, N_kv, S, D] --> [B, N, S, D]
+                if self.use_gqa:
+                    key = mint.repeat_interleave(key, repeats=self.repeat_num, axis=1)
+                    value = mint.repeat_interleave(value, repeats=self.repeat_num, axis=1)
+                context_layer = self.core_attention(query, key, value, attn_mask)
+            # [B, N, S, D] --> [B, S, H]
+            context_layer = context_layer.transpose(0, 2, 1, 3).reshape(
+                bs, seq_len, self.hidden_size_per_partition)
 
         # apply output projection
         output = self.wo(context_layer)
-        output = self.cast(output, ori_dtype)
+        output = self.cast(output, x.dtype)
 
         return output
 
@@ -388,8 +388,8 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
         # MLP
         self.expert_num = 1 if config.moe_config is None else config.moe_config.expert_num
         self.use_moe_infer = config.use_past and self.expert_num > 1
-        config.moe_config.router_dense_type = config.router_dense_type
         if self.use_moe_infer:
+            config.moe_config.router_dense_type = config.router_dense_type
             self.feed_forward = TelechatParallelMoE(
                 ffn=TelechatRoutedParallelMLP(config),
                 hidden_size=config.hidden_size,
@@ -434,8 +434,11 @@ class TelechatParallelTransformer(ParallelTransformer):
         self.enable_dynamic_ntk = False
         if config.extend_method == 'DYNAMIC_NTK':
             self.enable_dynamic_ntk = True
+            base_seqlen = config.base_seqlen \
+                if hasattr(config, "base_seqlen") and config.base_seqlen else None
             self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
                                                 max_position_embedding=config.max_position_embedding,
+                                                base_seqlen=base_seqlen,
                                                 rotary_dtype=config.rotary_dtype,
                                                 theta=config.theta,
                                                 parallel_config=config.parallel_config,
@@ -449,7 +452,8 @@ class TelechatParallelTransformer(ParallelTransformer):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """
         Forward of ParallelTransformer.
 
@@ -464,18 +468,13 @@ class TelechatParallelTransformer(ParallelTransformer):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        mask = None
+        mask = attention_mask
         if self.use_past:
             if self.is_first_iteration:
                 if self.enable_dynamic_ntk:
                     freqs_cis = self.freqs_mgr.prefill(bs, batch_valid_length.max())
                 else:
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
-                if self.is_pynative:
-                    mask = self.casual_mask(tokens)
-                else:
-                    mask = self.casual_mask.prefill()
 
                 if prefix_keys_values is not None:
                     if mask is None:
@@ -502,7 +501,7 @@ class TelechatParallelTransformer(ParallelTransformer):
             value_cache_i = value_cache[i] if value_cache is not None else None
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv,
+                                           prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
                                            key_cache=key_cache_i, value_cache=value_cache_i)
 
         if self.post_norm:

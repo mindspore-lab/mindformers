@@ -66,7 +66,12 @@ class TestInferParallel:
              f"export HCCL_IF_BASE_PORT=61200 && msrun --worker_num=2 "
              f"--local_worker_num=2 --master_port=8228 --log_dir=parallel_shared_expert_predict_mp2 --join=True  "
              f"{cur_dir}/run_parallel.py --mode parallel_shared_expert_predict_mp2",
-             'parallel_shared_expert_predict_mp2/worker_0.log')
+             'parallel_shared_expert_predict_mp2/worker_0.log'),
+            (f"export ASCEND_RT_VISIBLE_DEVICES=6,7 && export LCAL_COMM_ID=127.0.0.1:10071 && "
+             f"export HCCL_IF_BASE_PORT=61300 && msrun --worker_num=2 "
+             f"--local_worker_num=2 --master_port=8230 --log_dir=parallel_telechat2_predict_mp2 --join=True  "
+             f"{cur_dir}/run_parallel.py --mode parallel_telechat2_predict_mp2",
+             'parallel_telechat2_predict_mp2/worker_0.log')
         ]
 
         with Pool(len(commands)) as pool:

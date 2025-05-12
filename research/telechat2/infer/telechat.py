@@ -15,19 +15,25 @@
 """Telechat models' APIs."""
 import numpy as np
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, ops, mint
-from mindspore.communication import get_group_size
+from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication._comm_helper import _is_initialized
 
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.experimental.infer.models.llama.utils import convert_model_config
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import Linear
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode
 from mindformers.tools.logger import logger
+from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.utils import get_predict_run_mode, is_pynative
+from mindformers.parallel_core.inference.parallel_state import (
+    get_group_info,
+    initialize_model_parallel,
+    get_data_parallel_group,
+    get_tensor_model_parallel_group,
+)
+from mindformers.models.utils import jit
 
 from research.telechat2.infer.telechat_transformers import TelechatParallelTransformer
 from research.telechat2.telechat_config import TelechatConfig
@@ -49,7 +55,7 @@ class TelechatPreTrainedModel(PreTrainedModel):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
     r"""
-    Provide llama training loss or logits through network.
+    Provide telechat training loss or logits through network.
 
     Args:
         config (TelechatConfig): The config of llama model.
@@ -61,15 +67,24 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
-        if get_group_info('tp').group is None and _is_initialized():
-            initialize_model_parallel(get_group_size(), order='tp')
         self.config = convert_model_config(config)
         self.config.out_proj_has_bias = True
+        tp_group = get_group_info('tp').group is None
+        dp_group = get_group_info('dp').group is None
+        logger.info(f"tp_group is:{tp_group}")
+        logger.info(f"dp_group is:{dp_group}")
+        all_groups_initialized = tp_group and dp_group
+        if all_groups_initialized and _is_initialized():
+            initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
+                                      order='tp-dp')
+        logger.info(f"data_parallel_group:{get_data_parallel_group()}")
+        logger.info(f"tensor_model_parallel_group:{get_tensor_model_parallel_group()}")
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.is_pynative = is_pynative()
 
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
@@ -79,7 +94,7 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         self.mul = ops.Mul()
         self.add = ops.Add()
         self.ones = ops.Ones()
-        self.gather = ops.Gather()
+        self.gather = ops.Gather(1) if self.is_pynative else ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
         self.model = TelechatParallelTransformer(config=config)
         if config.parallel_config.vocab_emb_dp:
@@ -106,6 +121,8 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         self.use_past = config.use_past
+        self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
+        self.return_hidden_states = config.return_hidden_states
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -117,22 +134,73 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """
+        prepare inputs for generation.
+        A model class needs to define a `prepare_inputs_for_generation` method
+        in order to use `.generate()`
+
+        """
+        model_inputs = {"input_ids": Tensor.from_numpy(input_ids.astype(np.int32))}
+        batch_valid_length = kwargs.get("valid_length_each_example")
+        prefill = kwargs.get("prefill")
+
+        if self.is_pynative:
+            model_inputs = {}
+            if self.config.is_dynamic and "origin_inputs" in kwargs and self.use_past:
+                input_ids = kwargs["origin_inputs"]
+            model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        else:
+            if self.config.is_dynamic:
+                if prefill and "origin_inputs" in kwargs:
+                    origin_inputs = kwargs["origin_inputs"]
+                    slot_mapping = kwargs.get("slot_mapping")
+                    model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
+                                                                            batch_valid_length,
+                                                                            slot_mapping,
+                                                                            model_inputs)
+        position_ids = batch_valid_length - 1
+        model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
+
+        if not prefill:
+            q_seq_lens = np.ones(batch_valid_length.shape, dtype=np.int32).reshape(-1)
+        else:
+            q_seq_lens = batch_valid_length.astype(np.int32).reshape(-1)
+        model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
+
+        model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
+        return model_inputs
+
     def set_dynamic_inputs(self, **kwargs):
         """Set dynamic input for telechat."""
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=self.config.compute_dtype)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+
+        def get_input():
+            if self.npu_mem_size > 0:
+                return None
+            cache_list = []
+            for _ in self.model.layers:
+                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+            return mutable(cache_list)
+
+        key_cache = get_input()
+        value_cache = get_input()
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache)
         else:
-            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, key_cache, value_cache)
         logger.info("Set dynamic input for telechat.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -145,22 +213,30 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
             layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
+    @jit
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """
-        Forward of llama model.
+        Forward of telechat model.
         """
         bsz, _ = self.shape(input_ids)
-        if batch_valid_length is not None:
-            batch_valid_length = batch_valid_length.reshape(-1,)
-        else:
-            batch_valid_length = self.ones((bsz,), mstype.int32)
+        if self.use_past:
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz,), mstype.int32)
+            else:
+                batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, prefix_keys_values)
+                            slot_mapping, prefix_keys_values, position_ids=position_ids, attention_mask=attention_mask,
+                            q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache)
+        if self.return_hidden_states:
+            output = self.reshape(output, (-1, output.shape[-1]))
+            return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            if not self.is_pynative:
+                batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
