@@ -29,6 +29,7 @@ class TestDropout:
         """Setup test data and module"""
         self.input = ms.ops.randn((2, 4, 16), dtype=ms.float32)
         self.dropout = Dropout()
+        self.dropout_0 = Dropout(drop_prob=0.0)
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
@@ -39,6 +40,7 @@ class TestDropout:
         Description: Test Base Case: drop_prob=0.5,  training=True
         Exception: AssertionError
         """
+        self.dropout.set_train(True)
         output = self.dropout(self.input)
         assert not ms.ops.equal(output, self.input).all()
 
@@ -51,7 +53,8 @@ class TestDropout:
         Description: Test Base Case: drop_prob=0.5,  training=False
         Exception: AssertionError
         """
-        output = self.dropout(self.input, training=False)
+        self.dropout.set_train(False)
+        output = self.dropout(self.input)
         assert ms.ops.equal(output, self.input).all()
 
     @pytest.mark.level0
@@ -63,5 +66,6 @@ class TestDropout:
         Description: Test drop_prob_0 Case: drop_prob=0.0,  training=True
         Exception: AssertionError
         """
-        output = self.dropout(self.input, p=0.0)
+        self.dropout.set_train(True)
+        output = self.dropout_0(self.input)
         assert ms.ops.equal(output, self.input).all()
