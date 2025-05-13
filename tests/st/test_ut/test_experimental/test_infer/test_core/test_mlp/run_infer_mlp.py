@@ -12,70 +12,188 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""run mlp in infer mode"""
+"""Run infer MLP test case with configurable parameters via args"""
+import argparse
+import os
+from pathlib import Path
 import numpy as np
 
 import mindspore as ms
-from mindspore import Tensor
+from mindspore import Parameter
+import mindspore.common.dtype as mstype
+from mindspore.communication import init, get_rank
 
-from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
-from mindformers.models.llama import LlamaConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 
-from tests.st.test_ut.test_experimental.test_infer.test_core.test_mlp.utils import (
-    NewMLPNet,
-    OldMLPNet,
-    convert_weight_name,
-)
+from tests.st.test_ut.test_experimental.test_infer.test_core.test_mlp.data_gen_utils import get_init_params
+from tests.st.test_ut.test_experimental.test_infer.test_core.test_mlp.test_infer_mlp import INPUT_SIZE
 
-
-jit_level = "O0"
-infer_boost = "on"
-ms.set_context(device_target="Ascend",
-               mode=ms.GRAPH_MODE,
-               jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
-ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.STAND_ALONE, full_batch=False)
-
-seed_value = 42
-ms.set_seed(seed_value)
-np.random.seed(seed_value)
+SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
-def set_model_config():
-    """Set model config for mlp ut test."""
-    config = LlamaConfig()
-    config.batch_size = 1
-    config.seq_length = 32
-    config.hidden_size = 64
-    config.intermediate_size = 128
-    config.hidden_act = 'silu'
-    config.mlp_has_bias = False
-    config.mlp_has_gate = True
-    config.ffn_concat = False
-    return config
+class MLPRunner:
+    """Class to manage MLP module"""
+
+    def __init__(self, args_from_parser):
+        self.args = args_from_parser
+        self.has_bias = self.args.has_bias
+        self.gated_linear_unit = self.args.gated_linear_unit
+
+        self.input_size = self.args.input_size
+        self.ffn_hidden_size = self.args.ffn_hidden_size
+        self.compute_dtype = ms.bfloat16
+        self.param_init_dtype = ms.float32
+
+        init_params = get_init_params(INPUT_SIZE, self.args.ffn_hidden_size)
+
+        self.input = ms.Tensor(init_params.get("input"), dtype=mstype.bfloat16)
+        if self.gated_linear_unit:
+            self.fc1_weight = init_params.get("fc1_gate_weight")
+        else:
+            self.fc1_weight = init_params.get("fc1_no_gate_weight")
+        if self.has_bias:
+            self.fc2_bias = init_params.get("fc2_bias")
+            if self.gated_linear_unit:
+                self.fc1_bias = init_params.get("fc1_gate_bias")
+            else:
+                self.fc1_bias = init_params.get("fc1_no_gate_bias")
+        self.fc2_weight = init_params.get("fc2_weight")
+
+        # RANK_ID and worker_num are set by msrun environment
+        rank_id_str = os.environ.get("RANK_ID")
+        self.rank_id = int(rank_id_str) if rank_id_str is not None else None
+
+        self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
+
+        # Set parallel context
+        if self.rank_id is not None:
+            init()
+            initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+
+        # Transformer config
+        self.config = TransformerConfig(
+            tensor_parallel=self.args.tensor_parallel,
+            compute_dtype=self.compute_dtype,
+            hidden_size=INPUT_SIZE,
+            num_attention_heads=self.args.tensor_parallel,
+            mlp_has_bias=self.has_bias,
+            gated_linear_unit=self.gated_linear_unit,
+            hidden_act="silu"
+        )
+        self.config.param_init_type = self.param_init_dtype
+
+    @staticmethod
+    def _get_mlp_spec():
+        """Construct test mlp spec."""
+        return ModuleSpec(
+            module=MLP,
+            submodules=MLPSubmodules(
+                linear_fc1=ColumnParallelLinear,
+                linear_fc2=RowParallelLinear,
+            )
+        )
+
+    def build_model(self):
+        """Build MLP module"""
+        net = build_module(
+            self._get_mlp_spec(),
+            config=self.config,
+            input_size=self.input_size,
+            ffn_hidden_size=self.ffn_hidden_size
+        )
+        param_dict = {
+            "linear_fc1.weight": self.fc1_weight,
+            "linear_fc2.weight": self.fc2_weight,
+        }
+        if self.has_bias:
+            param_dict["linear_fc1.bias"] = self.fc1_bias
+            param_dict["linear_fc2.bias"] = self.fc2_bias
+        self._load_weights(net, param_dict)
+        return net
+
+    def _load_weights(self, net, param_dict):
+        """load weights for mlp module"""
+        tp_group_size = self.args.tensor_parallel
+        rank_id = get_rank()
+        new_param_dict = {}
+
+        def split(weight, split_axis=0):
+            split_size = weight.shape[split_axis] // tp_group_size
+            start = rank_id * split_size
+            stop = (rank_id + 1) * split_size
+            return weight[start:stop] if split_axis == 0 else weight[:, start:stop]
+
+        w_fc1 = param_dict["linear_fc1.weight"]
+        w_fc2 = param_dict["linear_fc2.weight"]
+        if self.gated_linear_unit:
+            w_gate = w_fc1[:self.ffn_hidden_size, :]
+            w_hidden = w_fc1[self.ffn_hidden_size:, :]
+            w_gate_shard = split(w_gate)
+            w_hidden_shard = split(w_hidden)
+            w_fc1_shard = np.concatenate([w_gate_shard, w_hidden_shard], axis=0)
+        else:
+            w_fc1_shard = split(w_fc1)
+        w_fc2_shard = split(w_fc2, split_axis=1)
+        new_param_dict["linear_fc1.weight"] = Parameter(w_fc1_shard)
+        new_param_dict["linear_fc2.weight"] = Parameter(w_fc2_shard)
+
+        if self.has_bias:
+            w_fc1_bias = param_dict["linear_fc1.bias"]
+            w_fc2_bias = param_dict["linear_fc2.bias"]
+            w_fc1_bias = w_fc1_bias.reshape(
+                self.ffn_hidden_size * 2 if self.gated_linear_unit else self.ffn_hidden_size, -1)
+            w_fc2_bias = w_fc2_bias.reshape(INPUT_SIZE, -1)
+            w_fc1_bias_shard = split(w_fc1_bias)
+            w_fc2_bias_shard = split(w_fc2_bias)
+            w_fc1_bias_shard = w_fc1_bias_shard.reshape(-1)
+            w_fc2_bias_shard = w_fc2_bias_shard.reshape(-1)
+            new_param_dict["linear_fc1.bias"] = Parameter(w_fc1_bias_shard)
+            new_param_dict["linear_fc2.bias"] = Parameter(w_fc2_bias_shard)
+
+        ms.load_param_into_net(net, new_param_dict)
+
+    def run(self):
+        """Run the model with given inputs"""
+        net = self.build_model()
+
+        output = net(self.input)
+        output_ms = {"output": output}
+
+        if self.rank_id is None or int(self.rank_id) == 0:
+            output_np = {k: v.asnumpy().astype(np.float32) for k, v in output_ms.items() if v is not None}
+            output_path = self.args.output_path
+            np.savez(output_path, **output_np)
 
 
-if __name__ == '__main__':
-    model_config = set_model_config()
-    transformer_config = TransformerConfig()
-    transformer_config = convert_to_transformer_config(model_config, transformer_config)
+def main():
+    parser = argparse.ArgumentParser(description="Run MLP test")
+    parser.add_argument("--input_size", type=int, default=None)
+    parser.add_argument("--ffn_hidden_size", type=int, default=32)
+    parser.add_argument("--has_bias", type=lambda x: x.lower() == "true", default=True)
+    parser.add_argument("--gated_linear_unit", type=lambda x: x.lower() == "true", default=True)
+    parser.add_argument("--output_path", type=str, default="output_ms.npz")
+    parser.add_argument("--tensor_parallel", type=int, default=1)
 
-    bs = model_config.batch_size
-    seq_len = model_config.seq_length
-    hidden_size = model_config.hidden_size
+    args = parser.parse_args()
 
-    input_shape = (1, bs * seq_len, hidden_size)
-    input_x = Tensor(np.random.standard_normal(input_shape).astype(np.float16))
+    ms.context.set_context(deterministic="ON")
+    jit_level = "O0"
+    infer_boost = "on"
+    ms.set_context(device_target="Ascend",
+                   mode=ms.GRAPH_MODE,
+                   jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+    seed_value = 2025
+    ms.set_seed(seed_value)
+    np.random.seed(seed_value)
 
-    new_net = NewMLPNet(config=transformer_config)
-    old_net = OldMLPNet(config=model_config)
-    old_param_dict = old_net.parameters_dict()
+    # Prepare input
+    runner = MLPRunner(args)
+    runner.run()
 
-    converted_param_dict = convert_weight_name(old_param_dict)
-    ms.load_param_into_net(new_net, converted_param_dict)
 
-    new_mlp_output = new_net(input_x)
-    old_mlp_output = old_net(input_x)
-
-    ret = np.array_equal(new_mlp_output.asnumpy(), old_mlp_output.asnumpy())
-    assert ret
+if __name__ == "__main__":
+    main()

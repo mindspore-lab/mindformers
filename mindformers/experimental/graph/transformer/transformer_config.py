@@ -219,7 +219,7 @@ class TransformerConfig(ModelParallelConfig):
                  layernorm_compute_type: mstype = mstype.float32,
                  add_bias_linear: bool = False,
                  add_qkv_bias: bool = False,
-                 mlp_has_gate: bool = True,
+                 mlp_has_bias: bool = True,
                  gated_linear_unit: bool = False,
                  fp16: bool = False,
                  bf16: bool = False,
@@ -266,7 +266,7 @@ class TransformerConfig(ModelParallelConfig):
         self.layernorm_compute_type = layernorm_compute_type
         self.add_bias_linear = add_bias_linear
         self.add_qkv_bias = add_qkv_bias
-        self.mlp_has_gate = mlp_has_gate
+        self.mlp_has_bias = mlp_has_bias
         self.gated_linear_unit = gated_linear_unit
         self.fp16 = fp16
         self.bf16 = bf16

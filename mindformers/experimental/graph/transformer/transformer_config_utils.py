@@ -114,7 +114,6 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
     transformer_config.ulysses_degree_in_cp = config.parallel_config.ulysses_degree_in_cp
     transformer_config.vocab_emb_dp = config.parallel_config.vocab_emb_dp
     transformer_config.sequence_parallel = getattr(config.parallel_config, 'use_seq_parallel', False)
-    transformer_config.ffn_concat = config.qkv_concat
     use_legacy = get_context("use_legacy", True)
     if not use_legacy:
         transformer_config.rotary_base = config.rope_theta
