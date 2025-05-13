@@ -323,7 +323,10 @@ class MindIEModelRunner:
         else:
             inputs = None
         self.config.load_checkpoint = get_load_path_after_hf_convert(self.config, self.model)
-        transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        if self.config.load_checkpoint:
+            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        else:
+            logger.warning("No checkpoint loaded. Network will be inited randomly.")
         if network_delay_inited:
             self.model.init_parameters_data()
         logger.info(f"Load checkpoints finished.")
