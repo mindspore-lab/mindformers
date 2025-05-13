@@ -158,6 +158,12 @@ dtype:       转换权重的精度
 
   运行下面的代码需要先将`mindformers`目录所在路径加入到`PYTHONPATH`环境变量中。
 
+  设置`mindformers`使用动态图模式环境变量（llm_boost需要用动态图模式执行）
+
+  ```shell
+  export FORCE_EAGER=True
+  ```
+
 ### 单卡推理
 
 以`Qwen2-7b`单卡推理为例。
