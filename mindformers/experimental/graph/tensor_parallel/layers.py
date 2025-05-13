@@ -387,21 +387,26 @@ class VocabParallelEmbedding(nn.Cell):
             self,
             num_embeddings,
             embedding_dim,
-            parallel_config,
             init_method: Callable,
-            init_type=dtype.float32,
+            config: TransformerConfig,
+            reduce_scatter_embeddings: bool = False,
     ):
         super().__init__()
+        if reduce_scatter_embeddings:
+            raise NotImplementedError("For VocabParallelEmbedding, reduce_scatter_embeddings is not supported for now")
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.weight = Parameter(
-            init_method([self.num_embeddings, self.embedding_dim]).astype(init_type),
+            init_method([self.num_embeddings, self.embedding_dim]).astype(config.params_dtype),
             name="weight"
         )
         self.gather = IndexSelect()
         self.reshape = Reshape()
-        self.parallel_config = parallel_config
-        self.shard(self.parallel_config)
+        self.config = config
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+            self.shard(config)
 
     def construct(self, input_ids):
         """Forward of vocab embedding."""
@@ -426,3 +431,6 @@ class VocabParallelEmbedding(nn.Cell):
                 self.gather.shard(((1, 1), (dp * cp,)))
             else:
                 self.gather.shard(((tp, 1), (1,)))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
