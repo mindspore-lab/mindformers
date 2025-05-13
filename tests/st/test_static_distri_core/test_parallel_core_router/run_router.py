@@ -73,7 +73,7 @@ from mindformers.experimental.parallel_core import (ParallelTransformer,
                                                     get_language_model,
                                                     ParallelLMLogits)
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 from mindformers.core.context import build_context
 
 from tests.utils.model_tester import ModelTester

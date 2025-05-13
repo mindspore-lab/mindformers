@@ -32,7 +32,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.utils import init_method_zero
+from mindformers.parallel_core.utils.init_method import init_method_zero
 
 __all__ = [
     "ColumnParallelLinear",

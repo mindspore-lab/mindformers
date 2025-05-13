@@ -18,7 +18,7 @@ from typing import Union
 from mindspore import nn
 from mindspore import ops as P
 
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
 __all__ = [

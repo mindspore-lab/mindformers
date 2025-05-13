@@ -19,7 +19,7 @@ from enum import Enum
 import mindspore.common.dtype as mstype
 from mindspore import log as logger
 
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 
 
 class ContextParallelAlgo(Enum):

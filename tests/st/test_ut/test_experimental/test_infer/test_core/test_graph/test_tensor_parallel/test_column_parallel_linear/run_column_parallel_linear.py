@@ -21,7 +21,7 @@ import mindspore as ms
 from mindspore.communication import init
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 from data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
 

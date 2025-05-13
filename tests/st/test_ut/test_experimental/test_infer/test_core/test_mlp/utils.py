@@ -21,7 +21,7 @@ from mindformers.experimental.graph.transformer.transformer_config import Transf
 from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
 from mindformers.models.llama.llama_transformer import LlamaFeedForward
 from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 
 
 def get_mlp_spec():

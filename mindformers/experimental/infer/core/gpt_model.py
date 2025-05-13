@@ -22,7 +22,7 @@ import mindspore.common.dtype as mstype
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
 from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
 from mindformers.experimental.infer.transformer.language_model_embedding import LanguageModelEmbedding

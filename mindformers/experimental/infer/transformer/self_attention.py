@@ -22,7 +22,7 @@ from mindformers.experimental.infer.core import get_attn_mask_func
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
 from mindformers.experimental.infer.core.utils import get_tp_world_size
-from mindformers.experimental.graph.transformer.spec_utils import (
+from mindformers.parallel_core.utils.spec_utils import (
     ModuleSpec, build_module
 )
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import (

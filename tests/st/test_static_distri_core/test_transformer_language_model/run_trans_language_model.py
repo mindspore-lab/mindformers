@@ -24,7 +24,7 @@ from mindspore.communication import init
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.transformer.language_model import TransformerLanguageModel
-from mindformers.experimental.utils import scaled_init_method_normal
+from mindformers.parallel_core.utils.init_method import scaled_init_method_normal
 
 ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')

@@ -17,7 +17,7 @@ from typing import Union
 from mindspore import nn, Tensor
 from mindformers.experimental.infer.transformer.norm import get_norm
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 
 __all__ = [
     'TransformerBlockSubmodules',

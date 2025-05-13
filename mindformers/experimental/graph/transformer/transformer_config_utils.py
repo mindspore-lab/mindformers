@@ -17,7 +17,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.experimental.utils import init_method_normal, init_method_zero
+from mindformers.parallel_core.utils.init_method import init_method_normal, init_method_zero
 from mindformers.tools.utils import get_context
 
 _CONFIG_MAPPING = {

@@ -20,7 +20,7 @@ from mindformers.experimental.graph.transformer.transformer_config import Transf
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
 from mindformers.experimental.infer.core.gpt_model import LowerTriangularMaskWithDynamic
 from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
-from mindformers.experimental.graph.transformer.spec_utils import build_module
+from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.experimental.models.qwen2.modeling_qwen2_infer import get_gpt_layer_spec
 
 
