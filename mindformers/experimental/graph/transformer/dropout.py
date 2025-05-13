@@ -24,28 +24,30 @@ __all__ = ['Dropout']
 
 class Dropout(nn.Cell):
     r"""
-        A Dropout Implements for parallel training.
+    Dropout layer for parallel training.
+
+    Args:
+        drop_prob (float): Probability of dropping an element. Default: 0.5.
     """
 
-    def __init__(self):
+    def __init__(self, drop_prob: float = 0.5):
         super(Dropout, self).__init__()
+        self.p = drop_prob
         self.generator_step = Tensor(1, mstype.int64)
         self.seed, self.offset = default_generator._step(self.generator_step)  # pylint: disable=protected-access
         self.dropout = ms.ops.auto_generate.DropoutExt().add_prim_attr("side_effect_hidden", True)
 
-    def construct(self, x, p: float = 0.5, training: bool = True):
+    def construct(self, x):
         r"""
            Input:
                x: a tensor
-               p: probability of an element to be zeroed. Default: 0.5
-               training: apply dropout if is `True`. Default: `True`
            Returns: a tensor
         """
-        if not training:
+        if not self.training:
             return x
 
-        out, _ = self.dropout(input=x, p=p, seed=self.seed, offset=self.offset)
+        out, _ = self.dropout(input=x, p=self.p, seed=self.seed, offset=self.offset)
         return out
 
     def shard(self, strategy):
-        self.dropout.shard((strategy,))
+        self.dropout.shard((strategy, (), ()))
