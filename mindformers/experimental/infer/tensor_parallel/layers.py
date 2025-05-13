@@ -164,6 +164,7 @@ class ColumnParallelLinear(nn.Cell):
             )
             self.bias_add = P.Add()
 
+        self.cast = ops.Cast()
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
@@ -182,10 +183,10 @@ class ColumnParallelLinear(nn.Cell):
 
         origin_dtype = F.dtype(input_parallel)
         if self.skip_weight_param_allocation:
-            weight = P.Cast()(weight, self.compute_dtype)
+            weight = self.cast(weight, self.compute_dtype)
         else:
-            weight = P.Cast()(self.weight, self.compute_dtype)
-        input_parallel = P.Cast()(input_parallel, self.compute_dtype)
+            weight = self.cast(self.weight, self.compute_dtype)
+        input_parallel = self.cast(input_parallel, self.compute_dtype)
 
         if self.sequence_parallel:
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
@@ -201,9 +202,9 @@ class ColumnParallelLinear(nn.Cell):
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
             output_parallel = self.bias_add(
-                output_parallel, P.Cast()(self.bias, self.compute_dtype)
+                output_parallel, self.cast(self.bias, self.compute_dtype)
             )
-        output_parallel = P.Cast()(output_parallel, origin_dtype)
+        output_parallel = self.cast(output_parallel, origin_dtype)
         output_parallel = self.reshape(output_parallel, output_shape)
 
         if self.gather_output:
@@ -347,6 +348,7 @@ class RowParallelLinear(nn.Cell):
             self.bias = Parameter(initializer(bias_init, bias_shape, param_init_type), name="bias")
             self.bias_add = P.Add()
 
+        self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
@@ -367,8 +369,8 @@ class RowParallelLinear(nn.Cell):
             input_parallel = self.scatter_to_mp_region(input_)
 
         origin_dtype = F.dtype(input_parallel)
-        weight = P.Cast()(self.weight, self.compute_dtype)
-        input_parallel = P.Cast()(input_parallel, self.compute_dtype)
+        weight = self.cast(self.weight, self.compute_dtype)
+        input_parallel = self.cast(input_parallel, self.compute_dtype)
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
@@ -388,8 +390,8 @@ class RowParallelLinear(nn.Cell):
                 output = self.reduce_from_mp_region(output_parallel)
 
         if self.has_bias and not self.skip_bias_add:
-            output = self.bias_add(output, P.Cast()(self.bias, self.compute_dtype))
-        output = P.Cast()(output, origin_dtype)
+            output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
+        output = self.cast(output, origin_dtype)
         output = self.reshape(output, output_shape)
         return output
 
@@ -439,24 +441,25 @@ class VocabParallelEmbedding(nn.Cell):
 
         self.tensor_parallel_group_size = get_tp_world_size()
 
+        rank_id = get_tensor_model_parallel_rank() if self.tensor_parallel_group_size > 1 else 0
         (
             self.vocab_start_index,
             self.vocab_end_index,
         ) = self._vocab_range_from_global_vocab_size(
-            self.num_embeddings, get_tensor_model_parallel_rank(), self.tensor_parallel_group_size
+            self.num_embeddings, rank_id, self.tensor_parallel_group_size
         )
         self.num_embeddings_per_partition = (
             self.vocab_end_index - self.vocab_start_index
         )
 
         with get_rng_tracer().rng_fork():
-            self.embedding_weight = Parameter(
+            self.weight = Parameter(
                 initializer(
                     init=init_method,
                     shape=(self.num_embeddings_per_partition, self.embedding_dim),
                     dtype=init_type,
                 ),
-                name="embedding_weight",
+                name="weight",
             )
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
@@ -481,7 +484,7 @@ class VocabParallelEmbedding(nn.Cell):
             truncated_x = x
         # Get the embeddings.
         # 'embedding' has dynamic shape issue, use gather instead now.
-        output_parallel = self.gather(self.embedding_weight, truncated_x, 0)
+        output_parallel = self.gather(self.weight, truncated_x, 0)
         # Mask the output embedding.
         if self.tensor_parallel_group_size > 1:
             output_parallel = mint.mul(output_parallel, input_mask)
@@ -509,7 +512,7 @@ class VocabParallelEmbedding(nn.Cell):
         """provide the sharded state dict based on the config"""
         w_shard = (self.tensor_parallel_group_size, 1)
         state_dict = {}
-        state_dict[self.embedding_weight.name] = {'shape': self.embedding_weight.shape,
-                                                  'shard': w_shard}
+        state_dict[self.weight.name] = {'shape': self.weight.shape,
+                                        'shard': w_shard}
 
         return state_dict

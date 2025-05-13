@@ -98,6 +98,7 @@ def test_qwen2_0_5b_predict_mcore():
     config.auto_trans_ckpt = True
     config.use_legacy = False
     config.run_mode = "predict"
+    config.context = MindFormerConfig(mode=0)
     # init context
     build_context(config)
     qwen_model_config = get_qwen_model_config()

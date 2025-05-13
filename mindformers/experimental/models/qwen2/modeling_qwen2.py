@@ -16,13 +16,16 @@
 import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.experimental.models.qwen2.utils import Qwen2PreTrainedModel
 from mindformers.experimental.models.qwen2.modeling_qwen2_infer import InferenceQwen2ForCausalLM
 
-__all__ = ['Qwen2ForCausalLM']
+__all__ = [
+    'Qwen2ForCausalLM',
+]
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class Qwen2ForCausalLM:
+class Qwen2ForCausalLM(Qwen2PreTrainedModel):
     r"""
     Provide Qwen2 Model for training and inference.
     Args:

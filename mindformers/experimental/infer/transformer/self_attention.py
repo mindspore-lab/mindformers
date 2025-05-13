@@ -17,7 +17,6 @@ import math
 from typing import Union
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, mint, nn, ops
-from mindspore.ops import operations as P
 
 from mindformers.experimental.infer.core import get_attn_mask_func
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
@@ -194,6 +193,7 @@ class SelfAttention(nn.Cell):
 
         self._init_self_attn()
 
+        self.cast = ops.Cast()
         self.reshape = ops.Reshape()
 
         # submodules.linear_proj: RowParallelLinear
@@ -254,7 +254,7 @@ class SelfAttention(nn.Cell):
         if self.sequence_parallel:
             seq_len = seq_len * self.tp_group_size
         if self.qkv_concat:
-            qkv = P.Cast()(self.linear_qkv(x), self.compute_dtype)
+            qkv = self.cast(self.linear_qkv(x), self.compute_dtype)
             # [B, S, H] --> [B, S, N, D]
             reshape_qkv = self.reshape(
                 qkv, (bs, seq_len, self.kv_num_heads_per_partition,
@@ -270,9 +270,9 @@ class SelfAttention(nn.Cell):
             value = self.reshape(
                 value, (bs, seq_len, self.kv_hidden_size_per_partition))
         else:
-            query = P.Cast()(self.linear_q(x), self.compute_dtype)
-            key = P.Cast()(self.linear_k(x), self.compute_dtype)
-            value = P.Cast()(self.linear_v(x), self.compute_dtype)
+            query = self.cast(self.linear_q(x), self.compute_dtype)
+            key = self.cast(self.linear_k(x), self.compute_dtype)
+            value = self.cast(self.linear_v(x), self.compute_dtype)
 
         # [B, S, H]
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
@@ -282,8 +282,8 @@ class SelfAttention(nn.Cell):
 
         if prefix_keys_values is not None:
             prefix_len = prefix_keys_values.shape[2]
-            slot_mapping = slot_mapping + P.Cast()(mint.ne(slot_mapping, -1),
-                                                   mstype.int32) * prefix_len
+            slot_mapping = slot_mapping + self.cast(mint.ne(slot_mapping, -1),
+                                                    mstype.int32) * prefix_len
             if self.is_first_iteration:
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
@@ -320,7 +320,7 @@ class SelfAttention(nn.Cell):
 
         # apply output projection
         output = self.linear_proj(context_layer)
-        output = P.Cast()(output, ori_dtype)
+        output = self.cast(output, ori_dtype)
         return output
 
     def _cat_prefix(self, key, value, prefix_keys_values):
@@ -331,8 +331,8 @@ class SelfAttention(nn.Cell):
         if prefix_keys_values is not None:
             past_key = prefix_keys_values[0]
             past_value = prefix_keys_values[1]
-            past_key = P.Cast()(past_key, key.dtype)
-            past_value = P.Cast()(past_value, value.dtype)
+            past_key = self.cast(past_key, key.dtype)
+            past_value = self.cast(past_value, value.dtype)
             key = ops.concat((past_key, key), 1)
             value = ops.concat((past_value, value), 1)
         return key, value
