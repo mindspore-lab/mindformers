@@ -18,12 +18,14 @@ import mindspore.ops.operations as P
 import mindspore.common.dtype as mstype
 
 from mindspore import nn, Parameter
+from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import MeanExt, Sqrt, Rsqrt, SubExt, AddExt, Mul, Div, Cast
 from mindspore.common.initializer import initializer
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
-__all__ = ["get_norm"]
+__all__ = ["get_norm", "Norm", "FusedNorm"]
 
 
 def get_strategy(config):
@@ -50,15 +52,18 @@ class LayerNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32):
+    def __init__(self, config, dim, eps=1e-5, param_init_type=mstype.float32, layernorm_compute_type=mstype.float32):
         super(LayerNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should in [float32, float16, bfoat16], "
+            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
                             "but got the type : {}.".format(type(param_init_type)))
+        if layernorm_compute_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
+            raise TypeError("The type of parameter 'layernorm_compute_type' should be in [float32, float16, bfloat16], "
+                            "but got the type : {}.".format(type(layernorm_compute_type)))
 
-        self.gamma = Parameter(initializer('ones', normalized_shape, param_init_type), name="gamma",
+        self.gamma = Parameter(initializer('ones', dim, param_init_type), name="gamma",
                                parallel_optimizer=False)
-        self.beta = Parameter(initializer('zeros', normalized_shape, param_init_type), name="beta",
+        self.beta = Parameter(initializer('zeros', dim, param_init_type), name="beta",
                               parallel_optimizer=False)
 
         self.mean = MeanExt()
@@ -71,8 +76,13 @@ class LayerNorm(nn.Cell):
         self.mul = Mul()
         self.add2 = AddExt()
         self.real_div = Div()
-        self.compute_type = param_init_type
-        self.cast = Cast()
+        self.compute_type = layernorm_compute_type
+        self.cast = P.Cast()
+
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, x):
         """construct method"""
@@ -92,7 +102,7 @@ class LayerNorm(nn.Cell):
         if in_strategy:
             strategy = in_strategy
         else:
-            strategy = (dp, cp, 1)
+            strategy = (cp, dp, 1)
 
         self.mean.shard((strategy,))
         self.sub.shard((strategy, strategy[:-1] + (1,)))
@@ -104,7 +114,7 @@ class LayerNorm(nn.Cell):
         self.mul.shard((strategy, (strategy[-1],)))
         self.add2.shard((strategy, (strategy[-1],)))
 
-    def sharding_propagation(self, strategy):
+    def sharding_propagation(self, config: TransformerConfig):
         pass
 
 
@@ -124,21 +134,29 @@ class FusedLayerNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32):
+    def __init__(self, config, dim, eps=1e-5, param_init_type=mstype.float32, layernorm_compute_type=mstype.float32):
         super(FusedLayerNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should in [float32, float16, bfoat16], "
+            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
                             "but got the type : {}.".format(type(param_init_type)))
+        if layernorm_compute_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
+            raise TypeError("The type of parameter 'layernorm_compute_type' should be in [float32, float16, bfloat16], "
+                            "but got the type : {}.".format(type(layernorm_compute_type)))
 
         self.layer_norm = P.LayerNorm(begin_norm_axis=-1,
                                       begin_params_axis=-1,
                                       epsilon=eps)
-        self.gamma = Parameter(initializer('ones', normalized_shape, param_init_type), name="gamma",
+        self.gamma = Parameter(initializer('ones', dim, param_init_type), name="gamma",
                                parallel_optimizer=False)
-        self.beta = Parameter(initializer('zeros', normalized_shape, param_init_type), name="beta",
+        self.beta = Parameter(initializer('zeros', dim, param_init_type), name="beta",
                               parallel_optimizer=False)
-        self.compute_type = param_init_type
-        self.cast = Cast()
+        self.compute_type = layernorm_compute_type
+        self.cast = P.Cast()
+
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, x):
         """construct method"""
@@ -153,7 +171,7 @@ class FusedLayerNorm(nn.Cell):
         if in_strategy:
             strategy = in_strategy
         else:
-            strategy = (dp, cp, 1)
+            strategy = (cp, dp, 1)
 
         if strategy[-1] != 1:
             raise TypeError(
@@ -161,7 +179,7 @@ class FusedLayerNorm(nn.Cell):
 
         self.layer_norm.shard((strategy, (strategy[-1],), (strategy[-1],)))
 
-    def sharding_propagation(self, strategy):
+    def sharding_propagation(self, config: TransformerConfig):
         pass
 
 
@@ -181,15 +199,18 @@ class RMSNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
+    def __init__(self, config, dim, eps=1e-6, param_init_type=mstype.float32, layernorm_compute_type=mstype.float32):
         super(RMSNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should in [float32, float16, bfoat16], "
+            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
                             "but got the type : {}.".format(type(param_init_type)))
+        if layernorm_compute_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
+            raise TypeError("The type of parameter 'layernorm_compute_type' should be in [float32, float16, bfloat16], "
+                            "but got the type : {}.".format(type(layernorm_compute_type)))
 
         self.eps = eps
         self.weight = Parameter(initializer('ones', (dim), param_init_type))
-        self.compute_type = param_init_type
+        self.compute_type = layernorm_compute_type
 
         self.square = P.Square()
         self.mean = MeanExt()
@@ -198,6 +219,11 @@ class RMSNorm(nn.Cell):
         self.mul = Mul()
         self.mul2 = Mul()
         self.cast = Cast()
+
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, x):
         """construct method"""
@@ -217,7 +243,7 @@ class RMSNorm(nn.Cell):
         if in_strategy:
             strategy = in_strategy
         else:
-            strategy = (dp, cp, 1)
+            strategy = (cp, dp, 1)
 
         self.square.shard((strategy,))
         self.mean.shard((strategy,))
@@ -226,7 +252,7 @@ class RMSNorm(nn.Cell):
         self.mul.shard((strategy, strategy[:-1] + (1,)))
         self.mul2.shard((strategy, (strategy[-1],)))
 
-    def sharding_propagation(self, strategy):
+    def sharding_propagation(self, config: TransformerConfig):
         pass
 
 
@@ -246,18 +272,26 @@ class FusedRMSNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
+    def __init__(self, config, dim, eps=1e-6, param_init_type=mstype.float32, layernorm_compute_type=mstype.float32):
         super(FusedRMSNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should in [float32, float16, bfoat16], "
+            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
                             "but got the type : {}.".format(type(param_init_type)))
+        if layernorm_compute_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
+            raise TypeError("The type of parameter 'layernorm_compute_type' should be in [float32, float16, bfloat16], "
+                            "but got the type : {}.".format(type(layernorm_compute_type)))
 
         self.eps = eps
         self.weight = Parameter(initializer('ones', (dim), param_init_type))
-        self.compute_type = param_init_type
+        self.compute_type = layernorm_compute_type
 
         self.norm = P.RmsNorm(eps)
         self.cast = Cast()
+
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, x):
         """construct method"""
@@ -272,7 +306,7 @@ class FusedRMSNorm(nn.Cell):
         if in_strategy:
             strategy = in_strategy
         else:
-            strategy = (dp, cp, 1)
+            strategy = (cp, dp, 1)
 
         if strategy[-1] != 1 and ms.get_context('mode') == ms.GRAPH_MODE:
             raise TypeError(
@@ -280,8 +314,104 @@ class FusedRMSNorm(nn.Cell):
 
         self.norm.shard((strategy, (strategy[-1],)))
 
-    def sharding_propagation(self, strategy):
+    def sharding_propagation(self, config: TransformerConfig):
         pass
+
+
+class Norm:
+    """
+    Factory class for creating standard normalization layers.
+
+    This class returns an instance of a normalization layer based on the
+    `normalization` field in the provided `config`.
+
+    Currently supported:
+        - LayerNorm
+        - RMSNorm
+
+    Args:
+        config (TransformerConfig): Configuration object containing model settings,
+                                     including the `normalization` type.
+        dim (int): The dimension of the input tensor to normalize.
+        eps (float, optional): A small value to avoid division by zero. Default: 1e-5.
+        param_init_type (dtype, optional): Data type for parameter initialization. Default: mstype.float32.
+        layernorm_compute_type (dtype, optional): Data type for layer normalization computation.
+                                                  Default: mstype.float32.
+
+    Returns:
+        A `LayerNorm` or `RMSNorm` instance.
+
+    Raises:
+        Exception: If an unsupported normalization type is specified.
+    """
+
+    @staticmethod
+    def __new__(cls, config: TransformerConfig, dim, eps=1e-5, param_init_type=mstype.float32,
+                layernorm_compute_type=mstype.float32):
+        if config.normalization == "LayerNorm":
+            return LayerNorm(
+                config,
+                dim=dim,
+                eps=eps,
+                param_init_type=param_init_type,
+                layernorm_compute_type=layernorm_compute_type)
+        if config.normalization == "RMSNorm":
+            return RMSNorm(
+                config,
+                dim=dim,
+                eps=eps,
+                param_init_type=param_init_type,
+                layernorm_compute_type=layernorm_compute_type)
+        raise Exception('Only LayerNorm and RMSNorm are currently supported')
+
+
+class FusedNorm:
+    """
+    Factory class for creating fused normalization layers.
+
+    This class returns an instance of a fused normalization layer based on the
+    `normalization` field in the provided `config`.
+
+    Fused layers may offer better performance by combining operations for optimization.
+
+    Currently supported:
+        - FusedLayerNorm
+        - FusedRMSNorm
+
+    Args:
+        config (TransformerConfig): Configuration object containing model settings,
+                                     including the `normalization` type.
+        dim (int): The dimension of the input tensor to normalize.
+        eps (float, optional): A small value to avoid division by zero. Default: 1e-5.
+        param_init_type (dtype, optional): Data type for parameter initialization. Default: mstype.float32.
+        layernorm_compute_type (dtype, optional): Data type for layer normalization computation.
+                                                  Default: mstype.float32.
+
+    Returns:
+        A `FusedLayerNorm` or `FusedRMSNorm` instance.
+
+    Raises:
+        Exception: If an unsupported normalization type is specified.
+    """
+
+    @staticmethod
+    def __new__(cls, config: TransformerConfig, dim, eps=1e-5, param_init_type=mstype.float32,
+                layernorm_compute_type=mstype.float32):
+        if config.normalization == "LayerNorm":
+            return FusedLayerNorm(
+                config,
+                dim=dim,
+                eps=eps,
+                param_init_type=param_init_type,
+                layernorm_compute_type=layernorm_compute_type)
+        if config.normalization == "RMSNorm":
+            return FusedRMSNorm(
+                config,
+                dim=dim,
+                eps=eps,
+                param_init_type=param_init_type,
+                layernorm_compute_type=layernorm_compute_type)
+        raise Exception('Only LayerNorm and RMSNorm are currently supported')
 
 
 def get_norm(config):
@@ -296,23 +426,31 @@ def get_norm(config):
     """
     if config.normalization == "LayerNorm":
         return LayerNorm(
-            config.hidden_size,
+            config=config,
+            dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_type)
+            param_init_type=config.params_dtype,
+            layernorm_compute_type=config.layernorm_compute_type)
     if config.normalization == "FusedLayerNorm":
         return FusedLayerNorm(
-            config.hidden_size,
+            config=config,
+            dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_type)
+            param_init_type=config.params_dtype,
+            layernorm_compute_type=config.layernorm_compute_type)
     if config.normalization == "RMSNorm":
         return RMSNorm(
+            config=config,
             dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_type)
+            param_init_type=config.params_dtype,
+            layernorm_compute_type=config.layernorm_compute_type)
     if config.normalization == "FusedRMSNorm":
         return FusedRMSNorm(
+            config=config,
             dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_type)
+            param_init_type=config.params_dtype,
+            layernorm_compute_type=config.layernorm_compute_type)
 
     raise Exception(f"unsupported norm type '{config.normalization}'.")

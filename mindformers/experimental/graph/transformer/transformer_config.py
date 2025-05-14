@@ -141,6 +141,7 @@ class TransformerConfig(ModelParallelConfig):
             compute_dtype (mstype): Linear layer compute dtype. Default: mstype.float32.
             softmax_compute_dtype (mstype): Softmax compute dtype. Default: mstype.float32.
             param_init_dtype (mstype): Parameter initial dtype. Default: mstype.float32.
+            layernorm_compute_type (mstype): LayerNorm and RMSNorm compute dtype. Default: mstype.float32.
             add_bias_linear (bool): Include a bias term in all linear layers (QKV projections, after core attention,
                 and two in MLP layer). Default: False.
             add_qkv_bias (bool): Add a bias term only for QKV projections. Default: False.
@@ -200,6 +201,7 @@ class TransformerConfig(ModelParallelConfig):
                  params_dtype: mstype = mstype.float32,
                  embedding_init_type: mstype = mstype.float32,
                  rotary_dtype: mstype = mstype.float32,
+                 layernorm_compute_type: mstype = mstype.float32,
                  add_bias_linear: bool = False,
                  add_qkv_bias: bool = False,
                  mlp_has_gate: bool = True,
@@ -245,6 +247,7 @@ class TransformerConfig(ModelParallelConfig):
         self.params_dtype = params_dtype
         self.embedding_init_type = embedding_init_type
         self.rotary_dtype = rotary_dtype
+        self.layernorm_compute_type = layernorm_compute_type
         self.add_bias_linear = add_bias_linear
         self.add_qkv_bias = add_qkv_bias
         self.mlp_has_gate = mlp_has_gate
