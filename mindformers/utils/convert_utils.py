@@ -16,17 +16,17 @@
 Convert utils.
 """
 import numpy as np
-import torch
 import mindspore as ms
 from mindspore.ops.operations import Cast
 
 cpu_cast = Cast().set_device("CPU")
 
 
-def pt2ms(value: torch.Tensor, dtype) -> ms.Tensor:
+def pt2ms(value, dtype) -> ms.Tensor:
     """
     convert torch.Tensor to ms.Tensor with specified dtype
     """
+    import torch
     if value.dtype == torch.bfloat16:
         np_value = value.detach().cpu().to(torch.float32).numpy()
     else:
@@ -37,10 +37,11 @@ def pt2ms(value: torch.Tensor, dtype) -> ms.Tensor:
     return ms.Tensor(np_value, dtype=ms.bfloat16) if value.dtype == torch.bfloat16 else ms.Tensor(np_value)
 
 
-def ms2pt(value: ms.Tensor, dtype) -> torch.Tensor:
+def ms2pt(value: ms.Tensor, dtype):
     """
     convert ms.Tensor to torch.Tensor with specified dtype
     """
+    import torch
     if value.dtype == ms.bfloat16:
         np_value = cpu_cast(value, ms.float32).asnumpy()
     else:
