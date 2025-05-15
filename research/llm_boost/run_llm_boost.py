@@ -137,6 +137,7 @@ def main(
             print("***************************Warm up for bs {}*************************".format(bs))
             inputs_ids_arr = np.random.randint(low=1, high=1000, size=(bs, max_length))
             inputs_ids_arr[:, length:] = 0
+            network.set_exec_add_flags(True)
             outputs = network.generate(input_ids=inputs_ids_arr.tolist(), max_length=max_length,
                                        do_sample=model_config.do_sample, top_k=model_config.top_k,
                                        top_p=model_config.top_p)
@@ -145,6 +146,7 @@ def main(
                 print("************************ Measure bs={}, length={} *************************".format(bs, length))
                 max_length = length * 2
                 inputs_ids_arr = np.random.randint(low=1, high=1000, size=(bs, length))
+                network.set_exec_add_flags(True)
                 outputs = network.generate(input_ids=inputs_ids_arr.tolist(), max_length=max_length,
                                            do_sample=model_config.do_sample, top_k=model_config.top_k,
                                            top_p=model_config.top_p)

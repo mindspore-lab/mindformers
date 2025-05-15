@@ -157,6 +157,9 @@ class LlmBoostForCausalLM(PreTrainedModel):
     def set_dynamic_inputs(self, **kwargs):
         pass
 
+    def set_exec_add_flags(self, flags):
+        self._exec_add_flags = flags
+
     def add_flags_custom(self, is_first_iteration):
         self.is_first_iteration = is_first_iteration
         self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
