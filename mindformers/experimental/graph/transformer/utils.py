@@ -63,33 +63,9 @@ class AttnMaskFill(nn.Cell):
         self.add.shard(((dp, tp, 1, 1), (dp, 1, 1, 1)))
 
 
-class AttnMaskAdd(nn.Cell):
-    """Adds a mask to attention scores by adding the mask values to the attention scores."""
-
-    def __init__(self, config):
-        super(AttnMaskAdd, self).__init__()
-        self.add = P.Add()
-        self.cast = P.Cast()
-        self.shard(config)
-
-    def construct(self, attention_scores: Tensor, attention_mask):
-        """ Construct function of AttnMaskAdd. """
-        attention_scores = self.add(attention_scores, self.cast(attention_mask, attention_scores.dtype))
-
-        return attention_scores
-
-    def shard(self, parallel_config):
-        """sharding parameters"""
-        dp = 1 if parallel_config is None else parallel_config.data_parallel
-        tp = 1 if parallel_config is None else parallel_config.tensor_parallel
-        cp = 1 if parallel_config is None else parallel_config.context_parallel
-
-        self.add.shard(((dp, tp, cp, 1), (cp, 1)))
-
 
 ATTNMASK_FUNC_MAP = {
     "attn_mask_fill": AttnMaskFill,
-    "attn_mask_add": AttnMaskAdd,
 }
 
 
@@ -105,6 +81,6 @@ def get_attn_mask_func(mask_func_type):
     """
     if mask_func_type not in ATTNMASK_FUNC_MAP:
         raise KeyError("Invalid attention mask function. Supported attention "
-                       "mask function are ['attn_mask_fill', 'attn_mask_add'] "
+                       "mask function are ['attn_mask_fill'] "
                        ", but got {}.".format(mask_func_type))
     return ATTNMASK_FUNC_MAP[mask_func_type]

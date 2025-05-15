@@ -100,7 +100,7 @@ class FusedScaleMaskSoftmax(nn.Cell):
 
         sq = input_.shape[-2]
         if self.causal_attn_mask_type and mask is None and sq > 1:
-            mask = self.triu(self.ones((sq, sq))).bool()
+            mask = self.triu(self.ones((sq, sq))).int()
 
         if mask is not None and self.mask_func:
             input_ = self.mask_func(input_, mask)
