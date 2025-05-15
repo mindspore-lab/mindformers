@@ -53,6 +53,9 @@ class ModelParallelConfig():
                 FeedForward layer will be sliced according to the model parallel way. Default: 1.
             context_parallel (int): The context parallel way. The context data will be sliced into n parts for each
                 layer according to the context parallel strategy. Default: 1.
+            expert_model_parallel_size (int): Distributes Moe Experts across sub data parallel dimension. Default: 1.
+            expert_tensor_parallel_size (Optional[int]): Intra-layer tensor model parallelsm for expert layer.
+                                                         Default: 1.
             context_parallel_algo (str): Which type of context parallel algorithm to use. Supports `colossalai_cp`,
                 `ulysses_cp` and `hybrid_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. If True, the embedding lookup
@@ -70,6 +73,8 @@ class ModelParallelConfig():
                  data_parallel: int = 1,
                  tensor_parallel: int = 1,
                  context_parallel: int = 1,
+                 expert_model_parallel_size: int = 1,
+                 expert_tensor_parallel_size: int = 1,
                  context_parallel_algo: str = 'colossalai_cp',
                  ulysses_degree_in_cp=1,
                  vocab_emb_dp: bool = True,
@@ -79,10 +84,16 @@ class ModelParallelConfig():
         self.data_parallel = data_parallel
         self.tensor_parallel = tensor_parallel
         self.context_parallel = context_parallel
+        self.expert_model_parallel_size = expert_model_parallel_size
+        self.expert_tensor_parallel_size = expert_tensor_parallel_size
         self.context_parallel_algo = ContextParallelAlgo(context_parallel_algo)
         self.ulysses_degree_in_cp = ulysses_degree_in_cp
         self.vocab_emb_dp = vocab_emb_dp
         self.sequence_parallel = sequence_parallel
+        self.post_init_check()
+
+    def post_init_check(self):
+        """Modify attributes after initialization"""
         self._check_context_parallel()
 
     def _check_context_parallel(self):
@@ -104,6 +115,7 @@ class ModelParallelConfig():
         if self.context_parallel_algo.value != ContextParallelAlgo.hybrid_cp.value and self.ulysses_degree_in_cp > 1:
             logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
                            f"context_parallel_algo {self.context_parallel_algo.value} is not `hybrid_cp`.")
+
         if (self.context_parallel_algo.value == ContextParallelAlgo.hybrid_cp.value and
                 self.context_parallel % self.ulysses_degree_in_cp != 0):
             raise ValueError(f"When using hybrid_cp algorithm, context_parallel {self.context_parallel} "
@@ -129,6 +141,8 @@ class TransformerConfig(ModelParallelConfig):
                 Default: 1.
             num_query_groups (int): Define multi group head attention heads number. Default: None.
             max_position_embeddings (int): Sets the maximum position embedding size. Default: None.
+            num_moe_experts (int): Number of experts to use for MoE layer. When set, it replaces MLP with MoE layer.
+                Set to None for no MoE. Default: None.
             layernorm_epsilon (float): Epsilon value for any LayerNorm operations. Default: 1e-5.
             hidden_dropout (float): Dropout probability for transformer hidden state. Default: 0.0.
             attention_dropout (float): Post attention dropout probability. Default: 0.0.
@@ -188,6 +202,7 @@ class TransformerConfig(ModelParallelConfig):
                  num_attention_heads: int = 1,
                  num_query_groups: int = None,
                  max_position_embeddings: int = None,
+                 num_moe_experts: int = None,
                  layernorm_epsilon: float = 1e-5,
                  hidden_dropout: float = 0.0,
                  attention_dropout: float = 0.0,
@@ -233,6 +248,7 @@ class TransformerConfig(ModelParallelConfig):
         self.num_attention_heads = num_attention_heads
         self.num_query_groups = num_query_groups
         self.max_position_embeddings = max_position_embeddings
+        self.num_moe_experts = num_moe_experts
         self.layernorm_epsilon = layernorm_epsilon
         self.hidden_dropout = hidden_dropout
         self.attention_dropout = attention_dropout
@@ -272,16 +288,36 @@ class TransformerConfig(ModelParallelConfig):
 
     def post_init_checks(self):
         """Modify attributes after initialization."""
-        if self.ffn_hidden_size is None:
-            self.ffn_hidden_size = 4 * self.hidden_size
+        super().post_init_check()
+        self._check_training()
+        self._check_model_architecture()
+        self._check_initialization()
+        self._check_mixed_precision()
 
+        if self.max_position_embeddings is None:
+            self.max_position_embeddings = self.seq_length
+
+        if not self.use_flash_attn and self.use_ring_attention:
+            raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
+
+        if self.context_parallel_algo.value == ContextParallelAlgo.hybrid_cp.value and not self.use_ring_attention:
+            logger.warning(f"When using hybrid_cp algorithm,but use_ring_attention=False, will not take effect."
+                           f"Please check your config")
+
+        if self.context_parallel_algo.value == ContextParallelAlgo.ulysses_cp.value and self.use_ring_attention:
+            logger.warning(f"When using ulysses_cp algorithm,use_ring_attention will not take effect.")
+
+    def _check_training(self):
+        """Modify training attributes after initialization."""
         if self.fp16 and self.bf16:
             raise ValueError(
                 f'Only one of self.fp16: {self.fp16} and self.bf16 {self.bf16} should be True.'
             )
 
-        if self.apply_query_key_layer_scaling:
-            self.attention_softmax_in_fp32 = True
+    def _check_model_architecture(self):
+        """Modify model architecture attributes after initialization."""
+        if self.ffn_hidden_size is None:
+            self.ffn_hidden_size = 4 * self.hidden_size
 
         if self.num_attention_heads % self.tensor_parallel != 0:
             raise ValueError(
@@ -298,21 +334,21 @@ class TransformerConfig(ModelParallelConfig):
                 f"tensor_model_parallel_size ({self.tensor_parallel})."
             )
 
-        if self.max_position_embeddings is None:
-            self.max_position_embeddings = self.seq_length
+        if self.expert_model_parallel_size > 1 and self.num_moe_experts is None:
+            raise ValueError('num_moe_experts must be non None to use expert-parallel.')
 
+        if self.num_moe_experts is not None and self.num_moe_experts <= 0:
+            raise ValueError('num_moe_experts must be non-negative.')
+
+    def _check_initialization(self):
+        """Modify initialization attributes after initialization."""
         if self.init_method_ is None:
             self.init_method_ = init_method_normal(self.init_method_std, self.params_dtype)
 
-        if not self.use_flash_attn and self.use_ring_attention:
-            raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
-
-        if self.context_parallel_algo.value == ContextParallelAlgo.hybrid_cp.value and not self.use_ring_attention:
-            logger.warning(f"When using hybrid_cp algorithm,but use_ring_attention=False, will not take effect."
-                           f"Please check your config")
-
-        if self.context_parallel_algo.value == ContextParallelAlgo.ulysses_cp.value and self.use_ring_attention:
-            logger.warning(f"When using ulysses_cp algorithm,use_ring_attention will not take effect.")
+    def _check_mixed_precision(self):
+        """Modify mixed-precision attributes after initialization."""
+        if self.apply_query_key_layer_scaling:
+            self.attention_softmax_in_fp32 = True
 
     def update(self):
         """Modify attributes after covert."""
