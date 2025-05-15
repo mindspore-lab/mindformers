@@ -13,10 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """ For language model """
-from typing import Union
+from typing import Union, Literal
 
 from mindspore import nn
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import AddExt, Cast, Transpose
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.enums import AttnMaskType
@@ -30,7 +31,7 @@ from mindformers.experimental.graph.transformer.transformer import ParallelTrans
 
 __all__ = [
     "Pooler",
-    "Embedding",
+    "LanguageModelEmbedding",
     "TransformerLanguageModel",
     "get_language_model"
 ]
@@ -71,17 +72,19 @@ class Pooler(nn.Cell):
         return pooled
 
 
-class Embedding(nn.Cell):
+class LanguageModelEmbedding(nn.Cell):
     r"""
     A embedding layer contain word embediing, position embedding and tokentypes embedding.
 
     Args:
-        hidden_size: hidden states size for embedding layer
-        vocab_size: vocabulary size
-        max_sequence_length: if using position embedding, it is necessary to set the maximum sequence length
-        embedding_dropout_prob: dropout rate for embedding layer
-        config: configuration
-        num_tokentypes: if > 0, using tokentypes embedding
+        config (TransformerConfig): config object with all necessary configs for TransformerBlock
+        vocab_size (int): vocabulary size
+        max_sequence_length (int): maximum size of sequence. This is used for positional embedding.
+        add_position_embedding (bool): Add a position embedding.
+        embedding_dropout_prob (float): Dropout probability for embeddings.
+        num_tokentypes (int): Set to 0 without binary head, and 2 with a binary head. Defaults to 0.
+        scatter_to_sequence_parallel (bool): Set False to disable scatter of embedding
+            across sequence parallel region. Defaults to True.
 
     Inputs:
         input_ids: input ids
@@ -96,50 +99,52 @@ class Embedding(nn.Cell):
         Ascend
     """
 
-    def __init__(self,
-                 hidden_size,
-                 vocab_size,
-                 max_sequence_length,
-                 embedding_dropout_prob,
-                 config: TransformerConfig,
-                 num_tokentypes=0):
-        super(Embedding, self).__init__()
+    def __init__(
+            self,
+            config: TransformerConfig,
+            vocab_size: int,
+            max_sequence_length: int,
+            position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
+            num_tokentypes: int = 0,
+            scatter_to_sequence_parallel: bool = False,
+    ):
+        super(LanguageModelEmbedding, self).__init__()
+        if scatter_to_sequence_parallel:
+            raise NotImplementedError(
+                "For LanguageModelEmbedding, scatter_to_sequence_parallel is not supported for now")
 
-        self.embedding_init_type = config.embedding_init_type
         self.compute_dtype = config.compute_dtype
         self.num_tokentypes = num_tokentypes
         self.init_method = config.init_method_
 
         # Word embedding
-        self.word_embeddings = VocabParallelEmbedding(vocab_size,
-                                                      hidden_size,
-                                                      config,
-                                                      init_method=self.init_method,
-                                                      init_type=self.embedding_init_type)
+        self.word_embeddings = VocabParallelEmbedding(num_embeddings=vocab_size,
+                                                      embedding_dim=config.hidden_size,
+                                                      config=config,
+                                                      init_method=self.init_method)
         # Position embedding
-        self.add_position_embedding = config.position_embedding_type == 'learned_absolute'
+        self.add_position_embedding = position_embedding_type == 'learned_absolute'
         if self.add_position_embedding:
-            self.position_embeddings = VocabParallelEmbedding(max_sequence_length,
-                                                              hidden_size,
-                                                              config,
-                                                              init_method=self.init_method,
-                                                              init_type=self.embedding_init_type)
+            self.position_embeddings = VocabParallelEmbedding(num_embeddings=max_sequence_length,
+                                                              embedding_dim=config.hidden_size,
+                                                              config=config,
+                                                              init_method=self.init_method)
         # tokentypes embedding
         if num_tokentypes > 0:
-            self.tokentype_embedding = VocabParallelEmbedding(num_tokentypes,
-                                                              hidden_size,
-                                                              config,
-                                                              init_method=self.init_method,
-                                                              init_type=self.embedding_init_type)
+            self.tokentype_embeddings = VocabParallelEmbedding(num_embeddings=num_tokentypes,
+                                                               embedding_dim=config.hidden_size,
+                                                               config=config,
+                                                               init_method=self.init_method)
         else:
-            self.tokentype_embedding = None
+            self.tokentype_embeddings = None
         # Embedding dropout
-        self.embedding_dropout_prob = embedding_dropout_prob
+        self.embedding_dropout_prob = config.hidden_dropout
         self.embedding_dropout = Dropout(self.embedding_dropout_prob)
         # operations
-        self.add_pe = P.Add()
-        self.add_te = P.Add()
-        self.cast = P.Cast()
+        self.add_pe = AddExt()
+        self.add_te = AddExt()
+        self.cast = Cast()
+        self.transpose = Transpose()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -154,15 +159,20 @@ class Embedding(nn.Cell):
             embeddings = self.add_pe(words_embeddings, position_embeddings)
         else:
             embeddings = words_embeddings
+
         if tokentype_ids is not None:
-            if self.tokentype_embedding is None:
+            if self.tokentype_embeddings is None:
                 raise RuntimeError("Embedding layer got 'tokentype_ids' input, "
                                    "but 'tokentype_embeddings' layer is not initialized")
-            embeddings = self.add_te(embeddings, self.tokentype_embedding(tokentype_ids))
+            tokentype_embedding = self.tokentype_embeddings(tokentype_ids)
+            embeddings = self.add_te(embeddings, tokentype_embedding)
         else:
-            if self.tokentype_embedding is not None:
+            if self.tokentype_embeddings is not None:
                 raise RuntimeError("The 'tokentype_ids' input for Embedding layer is None, "
                                    "but 'tokentype_embeddings' layer is initialized")
+
+        # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
+        embeddings = self.transpose(embeddings, (1, 0, 2))
 
         # Dropout
         if self.embedding_dropout_prob > 0:
@@ -176,10 +186,11 @@ class Embedding(nn.Cell):
         dp = 1 if config is None else config.data_parallel
         cp = 1 if config is None else config.context_parallel
 
+        self.transpose.shard(((dp, cp, 1),))
         if config.vocab_emb_dp:
             self.add_pe.shard(((dp, cp, 1), (dp, cp, 1)))
             self.add_te.shard(((dp, cp, 1), (dp, cp, 1)))
-            strategy_dropout = (dp, cp, 1)
+            strategy_dropout = (cp, dp, 1)
             self.embedding_dropout.shard(strategy=strategy_dropout)
         else:
             self.add_pe.shard(((1, 1, 1), (1, 1, 1)))

@@ -55,7 +55,7 @@ from mindformers.experimental.graph.transformer.language_model import (
     TransformerLanguageModel as GraphTransformerLanguageModel)
 from mindformers.experimental.parallel_core.pynative.transformer.language_model import (
     TransformerLanguageModel as PynativeTransformerLanguageModel)
-from mindformers.experimental.graph.transformer.language_model import Embedding as GraphEmbedding
+from mindformers.experimental.graph.transformer.language_model import LanguageModelEmbedding as GraphEmbedding
 from mindformers.experimental.parallel_core.pynative.transformer.language_model import Embedding as PynativeEmbedding
 from mindformers.experimental.graph.optimizer.adamw import AdamW as GraphAdamW
 from mindformers.experimental.parallel_core.pynative.optimizer.zero.adamw_zero import AdamW as PynativeAdamW
