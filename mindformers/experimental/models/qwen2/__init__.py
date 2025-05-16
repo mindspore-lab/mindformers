@@ -15,7 +15,7 @@
 """qwen2 model"""
 from .configuration_qwen2 import Qwen2Config
 from .modeling_qwen2 import Qwen2ForCausalLM
-from .modeling_qwen2_infer import InferenceQwen2ForCausalLM
+from .modeling_qwen2_infer import InferenceQwen2ForCausalLM, get_gpt_layer_spec
 
 __all__ = []
 __all__.extend(configuration_qwen2.__all__)

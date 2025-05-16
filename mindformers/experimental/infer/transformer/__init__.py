@@ -18,7 +18,7 @@ MindFormers Transformers API for infer.
 """
 from .transformer_block import TransformerBlock, TransformerBlockSubmodules
 from .rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
-from .self_attention import SelfAttention, CoreAttention, SelfAttentionSubmodules
+from .self_attention import SelfAttention, DotProductAttention, SelfAttentionSubmodules
 from .flash_attention import FlashAttention
 from .mlp import MLP, MLPSubmodules
 

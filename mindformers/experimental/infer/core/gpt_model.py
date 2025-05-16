@@ -195,7 +195,6 @@ class GPTModel(nn.Cell):
             q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
-            prefix_keys_values=None,
             kv_cache=kv_cache
         )
 
