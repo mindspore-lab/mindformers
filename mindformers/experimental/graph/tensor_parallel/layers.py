@@ -17,6 +17,7 @@
 Linear units for tensor parallelism.
 """
 from typing import List, Optional, Callable
+import copy
 
 try:
     from mindformer._checkparam import Validator
@@ -434,3 +435,72 @@ class VocabParallelEmbedding(nn.Cell):
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
+
+
+class LinearNoTP(ColumnParallelLinear):
+    """Linear layer without tensor parallelism.
+
+    The linear layer is defined as Y = XA + b. A is not parallelized.
+
+    Args:
+        input_size (int): The number of input units.
+        output_size (int): The number of output units.
+        config (TransformerConfig): The config of the transformer model.
+        bias_init (str): The initialization method for bias. Default: 'zeros'.
+        bias (bool): Whether to include bias in the linear layer. Default: True.
+        gather_output (bool): Whether to gather the output. Default: False.
+        stride (int): The stride of the linear layer. Default: 1.
+        keep_master_weight_for_test (bool): Whether to keep master weight for test. Default: False.
+        skip_bias_add (bool): Whether to skip bias add. Default: False.
+        skip_weight_param_allocation (bool): Whether to skip weight parameter allocation. Default: False.
+        embedding_activation_buffer (List[Tensor]): The buffer for embedding activation. Default: None.
+        grad_output_buffer (List[Tensor]): The buffer for gradient output. Default: None.
+        is_expert (bool): Whether to use expert mode. Default: False.
+        tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
+        disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
+        transpose_b (bool): Whether to transpose the weight matrix. Default: True.
+        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
+        init_method (Callable): The initialization method. Default: None
+    """
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 config: TransformerConfig,
+                 init_method: Callable = None,
+                 bias: bool = True,
+                 gather_output: bool = False,
+                 stride: int = 1,
+                 keep_master_weight_for_test: bool = False,
+                 skip_bias_add: bool = False,
+                 skip_weight_param_allocation: bool = False,
+                 embedding_activation_buffer: Optional[List[Tensor]] = None,
+                 grad_output_buffer: Optional[List[Tensor]] = None,
+                 is_expert: bool = False,
+                 tp_comm_buffer_name: str = None,
+                 disable_grad_reduce: bool = False,
+                 transpose_b: bool = True,
+                 compute_dtype: dtype = dtype.float16,
+                 bias_init: Callable = None
+                 ):
+        config = copy.deepcopy(config)
+        config.tensor_parallel = 1
+        super().__init__(
+            input_size,
+            output_size,
+            config,
+            init_method,
+            bias,
+            gather_output,
+            stride,
+            keep_master_weight_for_test,
+            skip_bias_add,
+            skip_weight_param_allocation,
+            embedding_activation_buffer,
+            grad_output_buffer,
+            is_expert,
+            tp_comm_buffer_name,
+            disable_grad_reduce,
+            transpose_b,
+            compute_dtype,
+            bias_init
+        )
