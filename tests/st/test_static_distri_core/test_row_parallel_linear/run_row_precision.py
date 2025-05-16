@@ -8,7 +8,7 @@ from mindspore.ops.auto_generate import Mul, SumExt
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import RowParallelLinear
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 
 
 ms.context.set_context(deterministic="ON")

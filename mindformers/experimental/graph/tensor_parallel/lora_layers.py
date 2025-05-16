@@ -28,7 +28,7 @@ except ImportError:
 from mindspore.common import dtype
 from mindspore.common.initializer import initializer
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.utils import init_method_zero
+from mindformers.parallel_core.utils.init_method import init_method_zero
 
 __all__ = ["LoRAColumnParallelLinear", "LoRARowParallelLinear"]
 

@@ -24,7 +24,7 @@ from mindspore.ops.auto_generate import SumExt
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 
 inputs_ = ms.tensor(
     [[[0.5156250000, 0.3957519531, 0.0114746094, 0.5893554688],

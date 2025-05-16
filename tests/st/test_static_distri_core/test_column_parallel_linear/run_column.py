@@ -26,7 +26,7 @@ from mindspore.ops import operations as P
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.experimental.utils import init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

@@ -21,7 +21,7 @@ import pytest
 import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, load_param_into_net
-from mindformers.experimental.graph.transformer.spec_utils import (
+from mindformers.parallel_core.utils.spec_utils import (
     ModuleSpec,
     build_module,
 )

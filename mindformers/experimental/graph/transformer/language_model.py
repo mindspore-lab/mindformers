@@ -21,7 +21,7 @@ from mindspore.ops.auto_generate import AddExt, Cast, Transpose
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.enums import AttnMaskType
-from mindformers.experimental.utils import init_method_normal, scaled_init_method_normal
+from mindformers.parallel_core.utils.init_method import init_method_normal, scaled_init_method_normal
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.graph.transformer.dropout import Dropout
 from mindformers.experimental.graph.tensor_parallel.layers import VocabParallelEmbedding

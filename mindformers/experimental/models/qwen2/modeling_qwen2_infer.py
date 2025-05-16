@@ -29,7 +29,7 @@ from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.infer.transformer.norm import get_norm
 from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
 from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.transformer.self_attention import (
