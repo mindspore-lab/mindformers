@@ -214,3 +214,18 @@ class TestCausalLanguageModelDataset(unittest.TestCase):
         for item in dataset:
             assert list(item[0][0].asnumpy()) == [44, 47, 53, 0, 3, 59, 3, 39, 9, 19, 21, 50, 36, 23, 6, 24]
             break
+
+    @patch("mindformers.dataset.base_dataset.BaseDataset", MockBaseDataset)
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_token_monitor(self):
+        """test token_monitor does not change data"""
+        config = copy.deepcopy(self.default_config)
+        config.token_monitor = True
+        dataset = CausalLanguageModelDataset(config)
+        for item in dataset:
+            assert item[0].shape == (1, 16)
+            assert list(item[0][0].asnumpy()) == [44, 47, 53, 0, 3, 59, 3, 39, 9, 19, 21, 50, 36, 23, 6, 24]
+            assert len(item) == 1
+            break

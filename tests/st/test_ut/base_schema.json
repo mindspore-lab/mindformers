@@ -1092,7 +1092,7 @@
         "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },
     "mindformers.dataset.CausalLanguageModelDataset": {
-        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[Callable, dict] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
+        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[Callable, dict] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, token_monitor: bool = False, token_monitor_config: Optional[dict] = None, **kwargs)"
     },
     "mindformers.dataset.CausalLanguageModelDataset._process_raw_text_data": {
         "signature": "(dataset_config)"
