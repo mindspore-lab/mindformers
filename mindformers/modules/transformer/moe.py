@@ -1567,17 +1567,21 @@ class TopkRouterV2(Cell):
             expert_gate = self._normalize(expert_gate)  # (dp, N, k) <-- (dp, N, k)
 
         expert_gate = ops.mul(self.moe_config.routed_scaling_factor, expert_gate)  # (dp, N, k) <-- (dp, N, k)
-
+        if self.moe_config.balance_via_topk_bias and (self.aux_loss_config.get("expert", 0) > 0 \
+            or self.aux_loss_config.get("device", 0) > 0 or self.aux_loss_config.get("comm", 0) > 0):
+            _, expert_index_for_aux = self.topk(router_prob_for_aux, self.num_experts_chosen)
+        else:
+            expert_index_for_aux = expert_index
         if self.aux_loss_config.get("expert", 0):
-            expert_load_loss = self._expert_load_balancing(router_prob_for_aux, expert_index,
+            expert_load_loss = self._expert_load_balancing(router_prob_for_aux, expert_index_for_aux,
                                                            self.aux_loss_config.get("expert"), seq_chunk=seq_chunk)
             extra_loss = self.add_scalar(extra_loss, expert_load_loss)
         if self.aux_loss_config.get("device", 0):
-            device_load_loss = self._device_load_balancing(router_prob_for_aux, expert_index,
+            device_load_loss = self._device_load_balancing(router_prob_for_aux, expert_index_for_aux,
                                                            self.aux_loss_config.get("device"))
             extra_loss = self.add_scalar(extra_loss, device_load_loss)
         if self.aux_loss_config.get("comm", 0):
-            comm_load_loss = self._comm_load_balancing(router_prob_for_aux, expert_index,
+            comm_load_loss = self._comm_load_balancing(router_prob_for_aux, expert_index_for_aux,
                                                        self.aux_loss_config.get("comm"))
             extra_loss = self.add_scalar(extra_loss, comm_load_loss)
 
