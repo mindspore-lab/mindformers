@@ -824,7 +824,8 @@ class LlamaFeedForwardWithMoE(Cell):
                                                compute_dtype=compute_dtype,
                                                param_init_type=param_init_type,
                                                use_fused_swiglu=use_fused_swiglu,
-                                               parallel_config=parallel_config)
+                                               parallel_config=parallel_config,
+                                               init_method_std=init_method_std)
 
         if self.use_shared_expert_gating:
             self.shared_experts_gate = Dense(in_channels=hidden_size,
