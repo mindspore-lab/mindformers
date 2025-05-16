@@ -1,0 +1,65 @@
+# Copyright 2025 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Test FusedNorm with various configurations"""
+import pytest
+import mindspore as ms
+from mindformers.experimental.graph.transformer.norm import FusedNorm
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
+from data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
+
+
+class TestFusedNorm:
+    """A test class for testing Fused Norm"""
+
+    def setup_method(self):
+        """Setup test data and cell"""
+        init_params = get_init_params()
+        self.inputs = ms.Tensor(init_params.get("inputs"), dtype=ms.float32)
+        self.standard = DoubleBenchmarkStandard(dtype="float32")
+
+    def run_test(self, normalization: str, hidden_size=32):
+        """Run test with normalization"""
+        self.config = TransformerConfig(normalization=normalization, params_dtype=ms.float32,
+                                        layernorm_compute_type=ms.float32)
+        self.norm = FusedNorm(config=self.config, dim=hidden_size, param_init_type=self.config.params_dtype,
+                              layernorm_compute_type=self.config.layernorm_compute_type)
+        output = self.norm(self.inputs)
+        npu_output = output.asnumpy()
+        gpu_output = GPU_DATA[normalization]
+        golden_output = GOLDEN_DATA[normalization]
+        assert DoubleBenchmarkComparator.check_pass_or_not(npu_output, gpu_output, golden_output, self.standard)
+
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    def test_layer_norm(self):
+        """
+        Feature: Activation
+        Description: Test Case: normalization='LayerNorm',
+        Exception: AssertionError
+        """
+        self.run_test(normalization='LayerNorm')
+
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    def test_rms_norm(self):
+        """
+        Feature: Activation
+        Description: Test Case: normalization='LayerNorm',
+        Exception: AssertionError
+        """
+        self.run_test(normalization='RMSNorm')
