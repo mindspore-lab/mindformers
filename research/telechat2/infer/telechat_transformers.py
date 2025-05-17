@@ -204,8 +204,8 @@ class TelechatParallelAttention(ParallelAttention):
     """
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
-                  key_cache=None, value_cache=None):
+                  attn_mask=None, alibi_mask=None, encoder_output=None, prefix_keys_values=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """Construct function of attention block."""
         # hidden_states: [B, S, H]
         ori_dtype = x.dtype
@@ -283,7 +283,7 @@ class TelechatParallelAttention(ParallelAttention):
                     context_layer = self.core_attention(query, key, value, attn_mask)
             else:
                 context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
-                                                                    key_cache=key_cache, value_cache=value_cache)
+                                                                    attn_mask, q_seq_lens, key_cache, value_cache)
         else:
             # [B, S, H] -> [B, N, S, D]
             query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
@@ -390,8 +390,8 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
         # MLP
         self.expert_num = 1 if config.moe_config is None else config.moe_config.expert_num
         self.use_moe_infer = config.use_past and self.expert_num > 1
-        config.moe_config.router_dense_type = config.router_dense_type
         if self.use_moe_infer:
+            config.moe_config.router_dense_type = config.router_dense_type
             self.feed_forward = TelechatParallelMoE(
                 ffn=TelechatRoutedParallelMLP(config),
                 hidden_size=config.hidden_size,
@@ -436,8 +436,11 @@ class TelechatParallelTransformer(ParallelTransformer):
         self.enable_dynamic_ntk = False
         if config.extend_method == 'DYNAMIC_NTK':
             self.enable_dynamic_ntk = True
+            base_seqlen = config.base_seqlen \
+                if hasattr(config, "base_seqlen") and config.base_seqlen else None
             self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
                                                 max_position_embedding=config.max_position_embedding,
+                                                base_seqlen=base_seqlen,
                                                 rotary_dtype=config.rotary_dtype,
                                                 theta=config.theta,
                                                 parallel_config=config.parallel_config,
@@ -451,7 +454,8 @@ class TelechatParallelTransformer(ParallelTransformer):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """
         Forward of ParallelTransformer.
 
@@ -466,7 +470,7 @@ class TelechatParallelTransformer(ParallelTransformer):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        mask = None
+        mask = attention_mask
         if self.use_past:
             if self.is_first_iteration:
                 if self.enable_dynamic_ntk:
@@ -476,8 +480,6 @@ class TelechatParallelTransformer(ParallelTransformer):
 
                 if self.is_pynative:
                     mask = self.casual_mask(tokens)
-                else:
-                    mask = self.casual_mask.prefill()
 
                 if prefix_keys_values is not None:
                     if mask is None:
@@ -504,7 +506,7 @@ class TelechatParallelTransformer(ParallelTransformer):
             value_cache_i = value_cache[i] if value_cache is not None else None
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv,
+                                           prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
                                            key_cache=key_cache_i, value_cache=value_cache_i)
 
         if self.post_norm:

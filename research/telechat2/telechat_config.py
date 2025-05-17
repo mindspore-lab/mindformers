@@ -93,6 +93,7 @@ class TelechatConfig(PretrainedConfig):
             The maximum number of tokens in one block can have when using paged attention.
         num_blocks (`int`, *optional*, defaults to 512):
             The maximum number of blocks when using paged attention.
+        return_hidden_states (bool, optional): Whether to return hidden states. Default: ``False``.
         Returns:
             Class, TelechatConfig.
     """
@@ -155,6 +156,7 @@ class TelechatConfig(PretrainedConfig):
                  quant: str = "",
                  sigma: float = 0.0048,
                  mean: float = 0.0,
+                 return_hidden_states: bool = False,
                  **kwargs):
         super(TelechatConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -218,3 +220,4 @@ class TelechatConfig(PretrainedConfig):
         self.num_blocks = num_blocks
         self.quant = quant
         self.qkv_concat = qkv_concat
+        self.return_hidden_states = return_hidden_states
