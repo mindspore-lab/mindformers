@@ -53,8 +53,8 @@ class _LogSoftmax(nn.Cell):
     """
     def __init__(self, parallel_config=default_dpmp_config):
         super(_LogSoftmax, self).__init__()
-        dp = parallel_config.data_parallel
-        mp = parallel_config.tensor_parallel
+        dp = parallel_config.data_parallel_size
+        mp = parallel_config.tensor_model_parallel_size
         # on/off value for onehot, for smooth labeling, modify the off_value
         self.on_value = Tensor(1.0, mstype.int32)
         self.off_value = Tensor(0.0, mstype.int32)
@@ -107,8 +107,8 @@ class _NLLLoss(nn.Cell):
     """
     def __init__(self, parallel_config=default_dpmp_config):
         super(_NLLLoss, self).__init__()
-        dp = parallel_config.data_parallel
-        mp = parallel_config.tensor_parallel
+        dp = parallel_config.data_parallel_size
+        mp = parallel_config.tensor_model_parallel_size
         self.repeat_loss = 1
         self.gather_d = GatherD()
         self.expand_dims = ExpandDims()
@@ -224,8 +224,8 @@ class CrossEntropyLoss(nn.Cell):
     def __init__(self, parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False,
                  calculate_per_token_loss=False, seq_split_num=1, **kwargs):
         super(CrossEntropyLoss, self).__init__()
-        dp = parallel_config.data_parallel
-        mp = parallel_config.tensor_parallel
+        dp = parallel_config.data_parallel_size
+        mp = parallel_config.tensor_model_parallel_size
         self.seq_pipe = seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
