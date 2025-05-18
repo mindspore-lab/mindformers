@@ -21,6 +21,20 @@ from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_mo
 from mindformers.version_control import check_tft_valid
 
 
+NEW_CLASS_PREFIX = "mcore_"
+
+
+def get_legacy():
+    """return mf context: use_legacy"""
+    from mindformers.core.context import get_context
+    try:
+        legacy = get_context("use_legacy")
+        use_legacy = bool(legacy is None or legacy)
+        return use_legacy
+    except RuntimeError:
+        return True
+
+
 class MindFormerModuleType:
     """
     Enumerated class of the MindFormers module type, which includes:
@@ -159,7 +173,7 @@ class MindFormerRegister:
     registry = {}
 
     @classmethod
-    def register(cls, module_type=MindFormerModuleType.TOOLS, alias=None):
+    def register(cls, module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True):
         """
         A decorator that registers the class in the registry.
 
@@ -167,6 +181,7 @@ class MindFormerRegister:
             module_type (MindFormerModuleType, optional): Module type name of MindFormers.
                 Default: ``MindFormerModuleType.TOOLS``.
             alias (str, optional): Alias for the class. Default: ``None``.
+            legacy (bool, optional): Legacy Class or not. Default: ``True``.
 
         Returns:
             Wrapper, decorates the registered class.
@@ -182,6 +197,7 @@ class MindFormerRegister:
                 wrapper of register_class
             """
             class_name = alias if alias is not None else register_class.__name__
+            class_name = cls._add_class_name_prefix(class_name, legacy)
             if module_type not in cls.registry:
                 cls.registry[module_type] = {class_name: register_class}
             else:
@@ -191,7 +207,7 @@ class MindFormerRegister:
         return wrapper
 
     @classmethod
-    def register_cls(cls, register_class, module_type=MindFormerModuleType.TOOLS, alias=None):
+    def register_cls(cls, register_class, module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True):
         """
         A method that registers a class into the registry.
 
@@ -200,11 +216,13 @@ class MindFormerRegister:
             module_type (MindFormerModuleType, optional): Module type name of MindFormers.
                 Default: ``MindFormerModuleType.TOOLS``.
             alias (str, optional): Alias for the class. Default: ``None``.
+            legacy (bool, optional): Legacy Class or not. Default: ``True``.
 
         Returns:
             Class, the registered class itself.
         """
         class_name = alias if alias is not None else register_class.__name__
+        class_name = cls._add_class_name_prefix(class_name, legacy)
         if module_type not in cls.registry:
             cls.registry[module_type] = {class_name: register_class}
         else:
@@ -226,6 +244,7 @@ class MindFormerRegister:
         """
         if not class_name:
             return module_type in cls.registry
+        class_name = cls._add_class_name_prefix(class_name, get_legacy())
         registered = module_type in cls.registry and class_name in cls.registry.get(module_type)
         return registered
 
@@ -246,10 +265,12 @@ class MindFormerRegister:
             ValueError: Can't find type `module_type` in the registry.
         """
         if not cls.is_exist(module_type, class_name):
-            raise ValueError(f"Can't find class type {module_type} class name {class_name} in class registry")
+            raise ValueError(f"Can't find class type {module_type} class name {class_name} in class registry "
+                             f"when use_legacy={get_legacy()}")
 
         if not class_name:
             raise ValueError(f"Can't find class. class type = {class_name}")
+        class_name = cls._add_class_name_prefix(class_name, get_legacy())
         register_class = cls.registry.get(module_type).get(class_name)
         return register_class
 
@@ -373,4 +394,10 @@ class MindFormerRegister:
         register_path = os.path.realpath(os.getenv("REGISTER_PATH"))
         module_class = get_class_from_dynamic_module(
             class_reference=class_reference, pretrained_model_name_or_path=register_path)
-        cls.register_cls(module_class, module_type=module_type)
+        cls.register_cls(module_class, module_type=module_type, legacy=get_legacy())
+
+    @classmethod
+    def _add_class_name_prefix(cls, class_name, legacy=True):
+        if not legacy:
+            class_name = NEW_CLASS_PREFIX + class_name
+        return class_name
