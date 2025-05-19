@@ -22,7 +22,6 @@ from safetensors import safe_open
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.experimental.models.qwen2.configuration_qwen2 import Qwen2Config
-from mindformers.utils.convert_utils import ffn_concat_hf2mg
 
 
 class Qwen2PreTrainedModel(PreTrainedModel):
@@ -83,7 +82,6 @@ class Qwen2PreTrainedModel(PreTrainedModel):
 
         """
         model_config = kwargs.get("model_config")
-        qkv_concat = model_config.qkv_concat
         target_dict = {}
         wq_keys = []
         wk_keys = []
@@ -94,28 +92,26 @@ class Qwen2PreTrainedModel(PreTrainedModel):
         for k, v in source_dict.items():
             k = cls.convert_name(k)
             target_dict.update({k: v})
-            if qkv_concat:
-                part = k.split('.')
-                if part[-2] == 'linear_q':
-                    wq_keys.append(k)
-                if part[-2] == 'linear_k':
-                    wk_keys.append(k)
-                if part[-2] == 'linear_v':
-                    wv_keys.append(k)
-                if part[-2] == 'gating':
-                    w1_keys.append(k)
-                if part[-2] == 'linear_fc1':
-                    w3_keys.append(k)
+            part = k.split('.')
+            if part[-2] == 'linear_q':
+                wq_keys.append(k)
+            if part[-2] == 'linear_k':
+                wk_keys.append(k)
+            if part[-2] == 'linear_v':
+                wv_keys.append(k)
+            if part[-2] == 'gating':
+                w1_keys.append(k)
+            if part[-2] == 'linear_fc1':
+                w3_keys.append(k)
 
-        if qkv_concat:
-            qkv_dict = kwargs.get('qkv_dict', None)
-            if not isinstance(qkv_dict, DictProxy):
-                raise ValueError(f'qkv_queue must be a queue, when qkv_concat is True, but got {qkv_dict}.')
-            condition = kwargs.get('condition', None)
-            if not isinstance(condition, Condition):
-                raise ValueError(f'condition must be a Condition, when qkv_concat is True, but got {condition}.')
-            _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict)
-            _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict)
+        qkv_dict = kwargs.get('qkv_dict', None)
+        if not isinstance(qkv_dict, DictProxy):
+            raise ValueError(f'qkv_queue must be a queue, but got {qkv_dict}.')
+        condition = kwargs.get('condition', None)
+        if not isinstance(condition, Condition):
+            raise ValueError(f'condition must be a Condition, but got {condition}.')
+        _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict)
+        _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict)
 
         return target_dict
 
@@ -132,7 +128,6 @@ class Qwen2PreTrainedModel(PreTrainedModel):
             target_dict: converted weight dict.
 
         """
-        qkv_concat = kwargs.pop("qkv_concat", False)
         target_dict = {}
         wq_keys = []
         w1_keys = []
@@ -140,32 +135,30 @@ class Qwen2PreTrainedModel(PreTrainedModel):
         for k, v in source_dict.items():
             k = cls.convert_name(k)
             target_dict.update({k: v})
-            if qkv_concat:
-                part = k.split('.')
-                if part[-2] == 'linear_q':
-                    wq_keys.append(k)
-                if part[-2] == 'gating':
-                    w1_keys.append(k)
+            part = k.split('.')
+            if part[-2] == 'linear_q':
+                wq_keys.append(k)
+            if part[-2] == 'gating':
+                w1_keys.append(k)
 
-        if qkv_concat:
-            for wq_key in wq_keys:
-                wk_key = wq_key.replace('linear_q', 'linear_k')
-                wv_key = wq_key.replace('linear_q', 'linear_v')
-                wq_value = target_dict.pop(wq_key)
-                target_dict.pop(wk_key)
-                target_dict.pop(wv_key)
+        for wq_key in wq_keys:
+            wk_key = wq_key.replace('linear_q', 'linear_k')
+            wv_key = wq_key.replace('linear_q', 'linear_v')
+            wq_value = target_dict.pop(wq_key)
+            target_dict.pop(wk_key)
+            target_dict.pop(wv_key)
 
-                w_qkv_key = wq_key.replace('linear_q', 'linear_qkv')
-                w_qkv_value = wq_value
-                target_dict.update({w_qkv_key: w_qkv_value})
-            for w1_key in w1_keys:
-                w3_key = w1_key.replace('gating', 'linear_fc1')
-                w1_value = target_dict.pop(w1_key)
-                target_dict.pop(w3_key)
+            w_qkv_key = wq_key.replace('linear_q', 'linear_qkv')
+            w_qkv_value = wq_value
+            target_dict.update({w_qkv_key: w_qkv_value})
+        for w1_key in w1_keys:
+            w3_key = w1_key.replace('gating', 'linear_fc1')
+            w1_value = target_dict.pop(w1_key)
+            target_dict.pop(w3_key)
 
-                w_gate_hidden_key = w1_key.replace('gating', 'linear_fc1')
-                w_gate_hidden_value = w1_value
-                target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
+            w_gate_hidden_key = w1_key.replace('gating', 'linear_fc1')
+            w_gate_hidden_value = w1_value
+            target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
 
         return target_dict
 
@@ -260,18 +253,8 @@ def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, targ
     Returns:
 
     """
-    intermediate_size = model_config.intermediate_size
-    ffn_dim_multiplier = model_config.ffn_dim_multiplier
-    multiple_of = model_config.multiple_of or 256
-    ffn_hidden_size = model_config.hidden_size * 4
-    if intermediate_size is not None:
-        ffn_hidden_size = intermediate_size
-    else:
-        if ffn_dim_multiplier is not None:
-            ffn_hidden_size = int((ffn_dim_multiplier + 0.01) * ffn_hidden_size)
-        ffn_hidden_size = int(2 * ffn_hidden_size / 3)
-        ffn_hidden_size = multiple_of * \
-            ((ffn_hidden_size + multiple_of - 1) // multiple_of)
+    if model_config is not None:
+        pass
 
     # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
     for w3_key in w3_keys:
@@ -295,6 +278,4 @@ def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, targ
 
         w_gate_hidden_key = w1_key.replace('gating', 'linear_fc1')
         w_gate_hidden_value = np.concatenate((w1_value, w3_value), 0)
-        # ffn weight format: hf -> mg
-        w_gate_hidden_value_mg = ffn_concat_hf2mg(w_gate_hidden_value, ffn_hidden_size)
-        target_dict.update({w_gate_hidden_key: w_gate_hidden_value_mg})
+        target_dict.update({w_gate_hidden_key: w_gate_hidden_value})

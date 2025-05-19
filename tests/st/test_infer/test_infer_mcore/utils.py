@@ -52,7 +52,8 @@ QWEN2_CONFIG = {
     "hidden_act": "silu",
     "attn_proj_has_bias": False,
     "out_proj_has_bias": False,
-    "mlp_has_bias": False
+    "mlp_has_bias": False,
+    "gated_linear_unit": True,
 }
 
 
