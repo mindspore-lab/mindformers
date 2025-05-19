@@ -43,7 +43,7 @@ from mindformers.tools.logger import logger
 from mindformers.modules.transformer.op_parallel_config import default_moeparallel_config
 from mindformers.modules.transformer.moe import default_moe_config
 
-from mindformers.version_control import check_moveto_op_support
+from mindformers.version_control import check_moveto_op_support, check_moev3_valid
 
 if check_moveto_op_support():
     D2H = ops.MoveTo().add_prim_attr("recompute", False)
@@ -95,6 +95,9 @@ class MoEV3(Cell):
                  tp_y=1,
                  tp_z=1):
         super(MoEV3, self).__init__()
+        if not check_moev3_valid():
+            raise ValueError("MoEV3 is not supported in this version of MindSpore. Please upgrade to 2.6.0 at least.")
+
         print("use MoEV3 computing via GroupedMatMul. Capacity factor is ignored.")
         self.hidden_size = dim
         self.intermediate_size = intermediate_size

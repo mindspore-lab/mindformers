@@ -452,6 +452,11 @@ def check_moveto_op_support():
     return is_version_ge(ms.__version__, "2.6.0")
 
 
+def check_moev3_valid():
+    """Check whether the current MindSpore version is valid for MoeV3."""
+    return is_version_ge(ms.__version__, "2.6.0")
+
+
 def check_delay_initialization_support():
     """check mindspore version if use delay initialization"""
     return is_version_ge(ms.__version__, "2.4.10")
