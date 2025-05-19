@@ -35,7 +35,7 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 1. 模型具体实现：
 
    ```text
-   qwenvl
+   research/qwenvl
      ├── qwenvl_config.py         # 配置文件
      ├── qwenvl_tokenizer.py      # tokenizer
      ├── qwenvl_model.py          # qwenvl模型实现
@@ -45,7 +45,7 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 2. 模型配置：
 
    ```text
-   qwenvl
+   research/qwenvl
      └── qwenvl_9.6b
              ├── predict_qwenvl_9.6b.yaml            # qwenvl推理启动配置
              └── finetune_qwenvl_9.6b_bf16.yaml      # qwenvl微调启动配置（2k，bf16）
@@ -54,8 +54,9 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 3. 环境准备和任务启动脚本：
 
    ```text
-   qwenvl
+   research/qwenvl
      ├── qwenvl_processor.py      # 训练和推理时候使用的数据处理
+     ├── qwenvl_transform.py      # qwenvl_processor.py中使用的文本数据处理实现
      ├── convert_weight.py        # 权重转换脚本
      └── data_convert.py          # 数据预处理转换脚本
    ```
@@ -98,12 +99,12 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 ]
 ```
 
-Qwen-VL开源模型中未开源相关数据集，以下提供使用公开数据集转换为上述数据格式的样例，并用于模型微调
+Qwen-VL开源模型中未开源相关数据集，以下提供使用公开数据集转换为上述数据格式的样例，并用于模型微调。若链接跳转失败，可手动复制粘贴 https://images.cocodataset.org/zips/train2014.zip 至地址栏访问下载。
 
 | 数据集名称                                     |     适用模型     |   适用阶段   |                                                       下载链接                                                        |
 |:------------------------------------------|:------------:|:--------:|:-----------------------------------------------------------------------------------------------------------------:|
 | LlaVA-Instruct-150K detail_23k.json（对话数据） | Qwen-VL-9.6B | finetune | [Link](https://huggingface.co/datasets/liuhaotian/LLaVA-Instruct-150K/resolve/main/detail_23k.json?download=true) |
-| COCO2014 Train（图片数据）                      | Qwen-VL-9.6B | finetune |                                     [Link](https://cocodataset.org/#download)                                     |
+| COCO2014 Train（图片数据）                      | Qwen-VL-9.6B | finetune |                             [Link](https://images.cocodataset.org/zips/train2014.zip)                             |
 
 下载数据集后，需要执行`data_convert.py`脚本进行数据预处理，将原始数据转换为上述对话格式数据。
 
@@ -122,10 +123,10 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 
 也可选择从HuggingFace下载所有工程文件后进行[模型权重转换](#模型权重转换)使用。
 
-| 模型名称              |                                               MindSpore权重                                               |                  HuggingFace权重                   |
-|:------------------|:-------------------------------------------------------------------------------------------------------:|:------------------------------------------------:|
-| Qwen-VL-Base      | [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwenvl_base_fp16.ckpt) |   [Link](https://huggingface.co/Qwen/Qwen-VL/)   |
-| tokenizer.model   |     [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken)     |                        /                         |
+| 模型名称          |                                               MindSpore权重                                               |                           HuggingFace权重                            |
+|:--------------|:-------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------:|
+| Qwen-VL-Base  | [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwenvl_base_fp16.ckpt) |            [Link](https://huggingface.co/Qwen/Qwen-VL/)            |
+| qwen.tiktoken |     [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken)     | [link](https://huggingface.co/Qwen/Qwen-VL/blob/main/qwen.tiktoken) |
 
 #### 模型权重转换
 
@@ -133,7 +134,7 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 
 ```shell
 pip install torch
-pip install transformers  # 如果transformers使用tokenizers版本不是0.15.0，在权重转换完成后重装tokenizers版本为0.15.0
+pip install transformers  # 如果transformers使用tokenizers版本不是0.21.0，在权重转换完成后重装tokenizers版本为0.21.0
 pip install einops transformers_stream_generator accelerate
 ```
 
@@ -158,7 +159,7 @@ python convert_weight.py --model qwenvl --input_path /path/to/hf/dir \
 ### Stage-3微调
 
 MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置中使用数据集[LlaVa-150k detail_23k](#数据集制作)
-，开启LLM部分的[Flash Attention](../../docs/feature_cards/Training_Algorithms.md#flash-attention)，设置图文对话中最多包含一张图像。
+，开启LLM部分的Flash Attention，设置图文对话中最多包含一张图像。
 
 #### 单机训练
 
@@ -283,16 +284,14 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 进行推理前，模型权重以及tokenizer文件可参考[模型权重下载](#模型权重下载)进行准备，并修改`predict_qwenvl_9.6b.yaml`中相关配置，补充词表路径。
 
-修改`predict_llava1_5_7b.yaml`中相关配置，补充词表路径。
+修改`predict_qwenvl_9.6b.yaml`中相关配置，补充词表路径。
 
    ```yaml
    processor:
      tokenizer:
-       add_bos_token: True
-       add_eos_token: False
-       vocab_file: "/path/to/tokenizer.model"
-       type: LlavaTokenizer
-       auto_register: llava_tokenizer.LlavaTokenizer
+       vocab_file: "/path/to/qwen.tiktoken"
+       type: QwenVLTokenizer
+       auto_register: qwenvl_tokenizer.QwenVLTokenizer
    ```
 
 ### 单卡推理
