@@ -1335,6 +1335,7 @@ class FreqsMgrDynamicNTK(Cell):
     def __init__(self,
                  head_dim,
                  max_position_embedding,
+                 base_seqlen=None,
                  rotary_dtype=mstype.float16,
                  theta=10000,
                  parallel_config=None,
@@ -1378,7 +1379,7 @@ class FreqsMgrDynamicNTK(Cell):
 
         self.base = theta
         self.max_position_embedding = max_position_embedding
-        self.max_position_embedding_inverse = 1 / max_position_embedding
+        self.max_position_embedding_inverse = 1 / base_seqlen if base_seqlen else 1 / max_position_embedding
         self.log_scale_inverse = 1 / math.log(2)
         self.log_scale = math.log(2)
         self.min_ntk_alpha = 1.0
