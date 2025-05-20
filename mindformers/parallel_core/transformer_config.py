@@ -1,0 +1,768 @@
+# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+#
+# Modified some config parameters to adapt to MindSpore Transformer.
+"""Transformer Config"""
+
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Union
+
+from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
+
+
+@dataclass
+class TransformerConfig(ModelParallelConfig):
+    """
+    Configuration object for MindSpore Transformer's transformers.
+
+    The initialization function has an argument for each parameter, including those in ModelParallelConfig.
+    """
+
+    ####################
+    # Model Architecture
+    ####################
+
+    num_layers: int = 0
+    """Number of transformer layers in a transformer block."""
+
+    mtp_num_layers: Optional[int] = None
+    """Number of Multi-Token Prediction (MTP) Layers."""
+
+    mtp_loss_scaling_factor: Optional[float] = None
+    """Weighting factor of Multi-Token Prediction (MTP) loss."""
+
+    hidden_size: int = 0
+    """Transformer hidden size."""
+
+    num_attention_heads: int = 0
+    """Number of transformer attention heads."""
+
+    softmax_scale: Optional[float] = None
+    """Softmax scale for attention scaling."""
+
+    num_query_groups: Optional[int] = None
+    """Number of query groups for group query attention. If None, normal attention is used."""
+
+    ffn_hidden_size: Optional[int] = None
+    """
+    Transformer Feed-Forward Network hidden size.
+    This is set to 4*hidden_size if not provided.
+    """
+
+    kv_channels: Optional[int] = None
+    """
+    Projection weights dimension in multi-head attention.
+    This is set to hidden_size // num_attention_heads if not provided.
+    """
+
+    hidden_dropout: float = 0.1
+    """Dropout probability for transformer hidden state."""
+
+    attention_dropout: float = 0.1
+    """Post attention dropout probability."""
+
+    fp32_residual_connection: bool = False
+    """If true, move residual connections to fp32."""
+
+    apply_residual_connection_post_layernorm: bool = False
+    """If True, uses the original BERT residule connection ordering."""
+
+    layernorm_epsilon: float = 1e-5
+    """Epsilon value for any LayerNorm operations."""
+
+    layernorm_zero_centered_gamma: bool = False
+    """
+    If set to True, the LayerNorm is adjusted to center the gamma values around 0.
+    This improves numerical stability.
+    """
+
+    add_bias_linear: bool = True
+    """
+    Include a bias term in all linear layers
+    (QKV projections, after core attention, and two in MLP layer).
+    """
+
+    add_qkv_bias: bool = False
+    """Add a bias term only for QKV projections."""
+
+    gated_linear_unit: bool = False
+    """Use a gated linear unit for the first linear layer in the MLP."""
+
+    activation_func: str = "gelu"
+    """Activation function to use for the non-linearity in the MLP."""
+
+    num_moe_experts: Optional[int] = None
+    """
+    Number of experts to use for MoE layer.
+    When set, it replaces MLP with MoE layer. Set to None for no MoE.
+    """
+
+    rotary_interleaved: bool = False
+    """
+    True is rotate pairs of even and odd dimensions (RoFormer style),
+    False is rotate pairs of first half and second half (LLaMa style). Default to False.
+    """
+
+    normalization: str = "LayerNorm"
+    """Which norm to use for normalization layers, valid options are `LayerNorm` and `RMSNorm`."""
+
+    qk_layernorm: bool = False
+    """Whether to apply `normalization` type of normalization to the query and key embeddings."""
+
+    calculate_per_token_loss: bool = False
+    """
+    Whether cross entropy loss is calculated over the actual number of non-padded tokens in the
+    global batch, versus the default behavior of assuming all tokens are non-padded.
+    """
+
+    multi_latent_attention: bool = False
+    """Whether to use multi-latent attention."""
+
+    # MindFormers New
+    compute_dtype: str = "bfloat16"
+    """Linear layer compute dtype."""
+
+    layernorm_compute_dtype: str = "float32"
+    """LayerNorm compute dtype."""
+
+    rotary_dtype: str = "float32"
+    """Custom rotary position embedding compute dtype."""
+
+    ####################
+    # Flash Attention
+    ####################
+
+    use_flash_attention: bool = True
+    """If true, use flash attention for the attention layer."""
+
+    attention_pre_tokens: int = None
+    """Pre-tokens for flash attention."""
+
+    attention_next_tokens: int = None
+    """Next tokens for flash attention."""
+
+    rotary_seq_len_interpolation_factor: float = None
+    """
+    RoPE scaling used for linear interpolation of longer sequences.
+    This value must be a floating point number greater than 1.0.
+    """
+
+    rope_scaling: bool = False
+    """Whether to use RoPE scaling."""
+
+    input_layout: str = "BNSD"
+    """
+    Specifies the layout of input query, key and value.
+    The value can be "BSH", "BNSD", "SBH", "BSND" or "TND". "TND" is an experimental format.
+    More details, please refer MindSpore API Document: mindspore.ops.flash_attention_score
+    (https://www.mindspore.cn/docs/en/master/api_python/ops/mindspore.ops.flash_attention_score.html)
+    """
+
+    sparse_mode: int = 0
+    """
+    Indicates sparse mode:
+    - 0: Indicates the defaultMask mode. If attn_mask is not passed, the mask operation is not performed,
+        and preTokens and nextTokens(internally assigned as INT_MAX) are ignored. If passed in, the full attn_mask
+        matrix (S1 * S2) needs to be passed in, indicating that the part between preTokens and nextTokens needs to
+        be calculated.
+    - 1: Represents allMask, that is, passing in the complete attn_mask matrix.
+    - 2: Representing the leftUpCausal mode corresponds to the lower triangle scenario divided by the left
+        vertex, and the optimized attn_mask matrix (2048*2048) is required.
+    - 3: Representing the rightDownCausal model corresponds to the lower triangle scene divided by the lower
+        right vertex, and the optimized attn_mask matrix (2048*2048) is required.
+    - 4: Represents the band scenario, that is, the part between counting preTokens and nextTokens, and the
+        optimized attn_mask matrix (2048*2048) is required..
+    - 5: Represents the prefix scenario, that is, on the basis of rightDownCasual, a matrix with length S1 and
+        width N is added to the left side. The value of N is obtained by the new input prefix, and the N value of
+        each Batch axis is different. Not implemented yet.
+    - 6: Represents the global scenario, not implemented yet.
+    - 7: Represents the dilated scenario, not implemented yet.
+    - 8: Represents the block_local scenario, not implemented yet.
+    """
+
+    use_alibi_mask: bool = False
+    """The value is True if alibi_mask is passed."""
+
+    use_attn_mask_compression: bool = False
+    """If true, use attention mask compression for the attention layer."""
+
+    use_eod_attn_mask_compression: bool = False
+    """If true, use end of sequence attention mask compression for the attention layer."""
+
+    use_attention_mask: bool = True
+    """If true, use attention mask for the attention layer."""
+
+    use_ring_attention: bool = False
+    """If true, use ring attention for the attention layer."""
+
+    fp16_lm_cross_entropy: bool = False
+    """If true, use fp16 for cross entropy loss calculation."""
+
+    untie_embeddings_and_output_weights: bool = True
+    """If true, untie the embeddings and output weights."""
+
+    hidden_act: str = "gelu"
+    """Activation function to use for the non-linearity in the MLP."""
+
+    mask_func_type: str = "attn_mask_fill"
+    """Mask function type to use for the attention layer."""
+
+    position_embedding_type: str = "rope"
+    """Position embedding type to use for the attention layer."""
+
+    ####################
+    # Initialization
+    ####################
+
+    init_method: Optional[Callable] = None
+    """
+    Method to initialize weights. Note that bias is always set to zero.
+    Should be a function that takes a single Tensor and initializes it.
+    If None, will be set to init_method_normal(init_method_std)
+    which is torch nn init normal with mean=0.0 and std=init_method_std.
+    """
+
+    output_layer_init_method: Optional[Callable] = None
+    """
+    Method to initialize weights of the output layer of both attention and MLP blocks.
+    If None, will be set to scaled_init_method_normal(init_method_std)
+    which is torch nn init normal with mean=0.0 and std=init_method_std / math.sqrt(2.0 * num_layers).
+    """
+
+    init_method_std: float = 0.02
+    """
+    Standard deviation of the zero mean normal for the default initialization method,
+    not used if init_method and output_layer_init_method are provided.
+    """
+
+    init_model_with_meta_device: bool = False
+    """
+    If True, initializes the model with the meta device. This is helpful for
+    training of very large models. This feature is only works when custom fsdp is turned on.
+    """
+
+    ####################
+    # Mixed-Precision
+    ####################
+
+    apply_query_key_layer_scaling: bool = False
+    """
+    If true, scale Q * K^T by 1 / layer-number.
+    This improve numeric stability when training with fp16.
+    """
+
+    attention_softmax_in_fp32: bool = True
+    """
+    If True, run attention masking and softmax in fp32.
+    This should be True if apply_query_key_layer_scaling is True.
+    """
+
+    disable_bf16_reduced_precision_matmul: bool = False
+    """If True, prevent matmul from using reduced precision accumulation when using BF16."""
+
+    ####################
+    # Fusion
+    ####################
+
+    bias_activation_fusion: bool = False
+    """If True, fuses bias addition and the activation function when possible."""
+
+    masked_softmax_fusion: bool = False
+    """If True, uses softmax fusion."""
+
+    persist_layer_norm: bool = False
+    """
+    If True, uses the persistent fused layer norm kernel.
+    This kernel only supports a fixed set of hidden sizes.
+    """
+
+    memory_efficient_layer_norm: bool = False
+    """
+    If True, and using local layers (not from TransformerEngine),
+    tells Apex to use the memory efficient fused LayerNorm kernel.
+    Ignored if not using LayerNorm.
+    """
+
+    bias_dropout_fusion: bool = False
+    """If True, uses bias dropout fusion."""
+
+    apply_rope_fusion: bool = False
+    """If True, use fused RoPE kernel."""
+
+    ####################
+    # Recompute
+    ####################
+    recompute: Optional[Union[bool, list, tuple]] = False
+    """Whether enable recompute. Default: False."""
+
+    select_recompute: Optional[Union[bool, list]] = False
+    """Turn on recomputation to recompute only for the operators in the attention layer. Default: False."""
+
+    parallel_optimizer_comm_recompute: Optional[Union[bool, list]] = False
+    """Whether to recompute AllGather communication introduced in parallel by the optimizer. Default: False."""
+
+    select_comm_recompute: Optional[bool] = False
+    """Whether to slice the Cell outputs retained in memory. Default: False."""
+
+    mp_comm_recompute: Optional[bool] = True
+    """Whether to recompute communications introduced by model parallel. Default: True."""
+
+    recompute_slice_activation: bool = False
+    """Whether to output slices for Cells kept in memory. Default: False."""
+
+    select_recompute_exclude: Optional[Union[bool, list]] = False
+    """Disable recomputation for the specified operator, valid only for the Primitive operators."""
+
+    select_comm_recompute_exclude: Optional[Union[bool, list]] = False
+    """Disable communication recomputation for the specified operator, valid only for the Primitive operators."""
+
+    ####################
+    # MoE
+    ####################
+
+    moe_shared_expert_intermediate_size: Optional[int] = None
+    """
+    Shared expert total ffn hidden size.
+    It should be equal to 'num_shared_experts * ffn_size_of_each_shared_expert' if
+    there are multiple shared experts.
+    None means no shared expert.
+    """
+
+    moe_shared_expert_overlap: bool = False
+    """
+    Enable overlapping between shared expert computations and dispatcher communications.
+    Without this, the shared epxerts execute after the routed experts.
+    """
+
+    moe_layer_freq: Optional[Union[int, List[int]]] = 1
+    """
+    Frequency between MoE layers and Dense layers. Accepts either:
+    - An integer N: Represents a 1:N ratio, meaning one expert layer for every N-1 dense layers.
+    - A list that defines a custom pattern, e.g.: [1,1,1,0,1,1,1,0,1,1,1,0]
+    """
+
+    moe_ffn_hidden_size: Optional[int] = None
+    """MoE Feed-Forward Network hidden size"""
+
+    moe_router_load_balancing_type: str = "aux_loss"
+    """
+    The load balancing strategy for the router.
+    - "aux_loss" corresponds to the load balancing loss used in GShard and SwitchTransformer;
+    - "seq_aux_loss" corresponds to the load balancing loss used in DeepSeekV2 and DeepSeekV3,
+        which computes the loss for each individual sample;
+    - "sinkhorn" corresponds to the balancing algorithm used in S-BASE, and "none" implies no load balancing.
+
+    The default is "aux_loss".
+    """
+
+    moe_router_topk: int = 2
+    """Number of experts to route to for each token."""
+
+    moe_router_topk_limited_devices: Optional[int] = None
+    """
+    Number of EP ranks to consider for each token in group-limited routing,
+    DEPRECATED and replaced by moe_router_num_groups and moe_router_group_topk.
+    """
+
+    moe_router_num_groups: Optional[int] = None
+    """
+    Number of groups to divide experts into for group-limited routing.
+
+    When using group-limited routing:
+    1. Experts are divided into 'moe_router_num_groups' equal-sized groups
+    2. For each token, 'moe_router_group_topk' groups are selected based on sum of
+    top-('moe_router_topk'/'moe_router_group_topk') routing scores within each group
+    3. From these selected groups, 'moe_router_topk' individual experts are chosen
+
+    Two common use cases:
+    - Device-limited routing: Set 'moe_router_num_groups' equal to expert parallel size (EP)
+    to limit each token to experts on a subset of devices.
+    (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434)
+    - Node-limited routing: Set 'moe_router_num_groups' equal to number of nodes in EP group
+    to limit each token to experts on a subset of nodes.
+    (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)
+    """
+
+    moe_router_group_topk: Optional[int] = None
+    """Number of selected groups for group-limited routing."""
+
+    moe_router_pre_softmax: bool = False
+    """
+    Enable pre-softmax(pre-sigmoid) routing for MoE,
+    which means softmax is before the top-k selection.
+    By default, softmax is done after top-k.
+    """
+
+    moe_router_topk_scaling_factor: Optional[float] = None
+    """
+    Scaling factor for routing score in top-k selection, only works when moe_router_pre_softmax enabled.
+    Defaults to None, which means no scaling.
+    """
+
+    moe_router_score_function: str = "softmax"
+    """Score function for MoE routing. Can be "softmax" or "sigmoid"."""
+
+    moe_router_dtype: Optional[str] = None
+    """
+    Data type for routing and expert output weighted averaging.
+    Using fp32 or fp64 can improve stability especially when the number of experts is large (e.g. finegrained-moe).
+    None means no changes for dtype.
+    """
+
+    moe_router_enable_expert_bias: bool = False
+    """
+    TopK routing with dynamic per-expert bias in the aux-loss-free load balancing strategy.
+    The routing decision is based on the sum of the routing scores and the expert bias.
+    See https://arxiv.org/abs/2408.15664 for details.
+    """
+
+    moe_router_bias_update_rate: float = 1e-3
+    """
+    The expert bias is updated based on the number of assigned tokens to each expert
+    in a global batch, where the bias is increased for the experts with less assigned tokens
+    and decreased for the experts with more assigned tokens.
+    The default value 1e-3 is same as that used in DeepSeekV3.
+    """
+
+    moe_grouped_gemm: bool = False
+    """
+    When there are multiple experts per rank, compress multiple local (potentially small) gemms
+    in a single kernel launch to improve the utilization and performance by leveraging the Grouped
+    GEMM feature introduced since CUTLASS 2.8 (https://github.com/fanshiqing/grouped_gemm).
+    """
+
+    moe_use_legacy_grouped_gemm: bool = False
+    """
+    Use legacy GroupedMLP rather than TEGroupedMLP.
+    Note: The legacy one will be deprecated soon.
+    """
+
+    moe_aux_loss_coeff: float = 0.0  # 1e-2 would be a good start value for load balance loss.
+    """Scaling coefficient for the aux loss. A starting value of 1e-2 is recommended."""
+
+    moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
+    """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
+
+    moe_input_jitter_eps: Optional[float] = None
+    """Add noise to the input tensor by applying jitter with a specified epsilon value."""
+
+    moe_token_dropping: bool = False
+    """
+    This feature involves selectively dropping and padding tokens for each expert to achieve a specified capacity,
+    similar to GShard, Switch-Transformer, and DeepSpeed-MoE.
+    Note that this is currently unsupported so should remain False.
+    """
+
+    moe_token_dispatcher_type: str = "allgather"
+    """
+    The type of token dispatcher to use. The default is 'allgather'.
+    Options are 'allgather','alltoall' and 'flex'.
+    """
+
+    moe_enable_deepep: bool = False
+    """[Experimental] Enable DeepEP for efficient token dispatching and combine in MoE models."""
+
+    moe_per_layer_logging: bool = False
+    """Enable per-layer logging for MoE, currently supports auxiliary loss and z loss."""
+
+    moe_expert_capacity_factor: Optional[float] = None
+    """
+    The capacity factor for each expert, None means no token will be dropped.
+    The default is None.
+    """
+
+    moe_pad_expert_input_to_capacity: bool = False
+    """
+    If True, pads the input for each expert to match the expert capacity length,
+    effective only after the moe_expert_capacity_factor is set.
+    The default setting is False.
+    """
+
+    moe_token_drop_policy: str = 'probs'
+    """
+    The policy to drop tokens. Can be either "probs" or "position".
+    If "probs", the tokens with the lowest probabilities will be dropped.
+    If "position", tokens at the end of each batch will be dropped.
+    """
+
+    moe_permute_fusion: bool = False
+    """Fuse token rearrangement ops during token dispatching."""
+
+    moe_apply_probs_on_input: bool = False
+    """Apply probs on input of experts instead of applying after activation and glu."""
+
+    # MindFormers New
+    comp_comm_parallel: bool = False
+    """
+    Whether to enable ffn compute and communication parallel,
+    which can reduce pure communicattion time by splitting and overlapping compute and communication.
+    """
+
+    comp_comm_parallel_degree: int = 2
+    """
+    The split number of compute and communication.
+    The larger the numbers,the more overlap there will be but will consume more memory.
+    This parameter is effective only when comp_comm_parallel enable.
+    """
+
+    norm_topk_prob: bool = True
+    """If True, use top-k probability for normalization."""
+
+    use_fused_ops_topkrouter: bool = False
+    """If True, use fused ops for top-k routing."""
+
+    shared_expert_num: int = 0
+    """Number of shared experts."""
+
+    use_shared_expert_gating: bool = False
+    """If True, use shared expert gating."""
+
+    topk_method: str = "greedy"
+    """Method to use for top-k routing."""
+
+    enable_deredundency: bool = False
+    """This parameter is used for inter-machine communication masking and performance optimization features."""
+
+    npu_nums_per_device: int = 1
+    """Set NPU ranks for each device."""
+
+    enable_gmm_safe_tokens: bool = False
+    """If True, gmm pads an additional protection token to avoid 0-token calculation."""
+
+    use_fused_ops_permute: bool = False
+    """If True, use fused ops for permutation."""
+
+    callback_moe_droprate: bool = False
+    """Whether to print each expert's load information through callback."""
+
+    return_extra_loss: bool = True
+    """If True, return extra loss for MoE."""
+
+    moe_init_method_std: float = 0.01
+    """Standard deviation of the zero mean normal for the MoE initialization method."""
+
+    ##################
+    # Context Parallel
+    ##################
+
+    cp_comm_type: Optional[Union[str, List[str]]] = None
+    """
+    Reserved interface, will be supported in subsequent versions.
+
+    Inter-NPU communication type for context parallelism.
+    - str: all layers share same communication type.
+    - List[str]: each layer has its separate communication type.
+
+    cp_comm_type of each layer can be "p2p" or "all_gather" or "a2a" or "a2a+p2p".
+    - "p2p": Exchange KV chunks with P2P communications in ring topology. P2P is async and can be
+        overlapped with attention compute.
+    - "all_gather": All-gather to get full sequence of KV before attention. The all-gather is not
+        async, and cannot be overlapped.
+    - "a2a": Like DeepSpeed Ulysses, scatter attention heads across the CP group, and gather to get
+        full sequence of QKV.
+    - "a2a+p2p": A hierarchical implementation of context parallelism to attention.
+
+    It uses A2A communications in low-level CP groups, and P2P communications in high-level CP groups.
+    """
+
+    # MindFormers New
+    context_parallel_algo: str = "colossalai_cp"
+    """
+    Algorithm to use for context parallelism.
+    Can be "colossalai_cp", "ulysses_cp" or "hybrid_cp".
+    Only effective when context_parallel > 1
+    """
+
+
+    def __post_init__(self):
+        """
+        Python dataclass method that is used to modify attributes after initialization.
+        See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more
+        details.
+        """
+        super().__post_init__()
+
+        if self.num_attention_heads % self.tensor_model_parallel_size != 0:
+            raise ValueError(
+                f"num_attention_heads ({self.num_attention_heads}) must be a multiple of "
+                f"tensor_model_parallel_size ({self.tensor_model_parallel_size})."
+            )
+
+        if self.ffn_hidden_size is None:
+            self.ffn_hidden_size = 4 * self.hidden_size
+
+        if self.kv_channels is None:
+            self.kv_channels = self.hidden_size // self.num_attention_heads
+
+        if self.num_query_groups is None:
+            self.num_query_groups = self.num_attention_heads
+
+        if self.num_query_groups % self.tensor_model_parallel_size != 0:
+            raise ValueError(
+                f"num_query_groups ({self.num_query_groups}) must be a multiple of "
+                f"tensor_model_parallel_size ({self.tensor_model_parallel_size})."
+            )
+
+        if self.apply_query_key_layer_scaling:
+            self.attention_softmax_in_fp32 = True
+
+        if self.expert_model_parallel_size > 1 and self.num_moe_experts is None:
+            raise ValueError('num_moe_experts must be non None to use expert-parallel.')
+
+        if self.num_moe_experts is not None and self.num_moe_experts <= 0:
+            raise ValueError('num_moe_experts must be non-negative.')
+
+        if self.moe_ffn_hidden_size is None:
+            self.moe_ffn_hidden_size = self.ffn_hidden_size
+
+        if self.moe_enable_deepep:
+            if self.moe_token_dispatcher_type != "flex":
+                raise ValueError("DeepEP backend is only supported with flex token dispatcher.")
+
+        if self.moe_shared_expert_intermediate_size is not None:
+            if self.moe_shared_expert_intermediate_size <= 0:
+                raise ValueError(
+                    f'moe_shared_expert_intermediate_size must be '
+                    f'num_shared_experts * ffn_size_of_each_shared_expert, '
+                    f'but got {self.moe_shared_expert_intermediate_size}'
+                )
+
+        if self.moe_expert_capacity_factor is not None:
+            if self.moe_expert_capacity_factor < 0:
+                self.moe_expert_capacity_factor = None
+            if self.moe_router_load_balancing_type not in ["aux_loss", "seq_aux_loss", "none"]:
+                raise ValueError(
+                    'moe_expert_capacity_factor only works with aux_loss or none load balancing'
+                )
+
+        if self.moe_pad_expert_input_to_capacity:
+            if self.moe_expert_capacity_factor is None:
+                raise ValueError(
+                    'moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity'
+                )
+
+        if self.apply_query_key_layer_scaling:
+            self.attention_softmax_in_fp32 = True
+
+        if self.apply_rope_fusion:
+            if self.multi_latent_attention:
+                raise ValueError("multi_latent_attention does not support apply_rope_fusion.")
+
+        if self.multi_latent_attention and self.rotary_interleaved:
+            raise ValueError("rotary_interleaved does not work with multi_latent_attention.")
+
+        if self.init_method is None:
+            self.init_method = init_method_normal(self.init_method_std)
+
+        if self.output_layer_init_method is None:
+            self.output_layer_init_method = scaled_init_method_normal(
+                self.init_method_std,
+                self.num_layers,
+                multiplier=2.0 if not self.is_hybrid_model else 1.0,
+            )
+
+        if self.num_moe_experts is not None:
+            assert not self.add_bias_linear, "Bias is not supported for MoE"
+
+        if self.moe_router_enable_expert_bias and self.moe_router_score_function != "sigmoid":
+            raise ValueError(
+                "Expert bias for aux-loss-free routing only supports sigmoid score function."
+                "Please set --moe-router-score-function sigmoid for sigmoid score function."
+            )
+
+        if (
+                self.moe_router_topk == 1
+                and self.moe_router_score_function == 'softmax'
+                and not self.moe_router_pre_softmax
+                and self.moe_router_load_balancing_type != 'sinkhorn'
+        ):
+            # Requires applying softmax before selecting the top-k when k is 1,
+            # since softmax on a [num_tokens, 1] would yield a zero gradient.
+            raise ValueError("Please use --moe-router-pre-softmax when topk is 1.")
+
+        if self.moe_router_group_topk:
+            if not self.moe_router_num_groups:
+                raise ValueError(
+                    "When using group limited routing, moe_router_num_groups must be specified."
+                )
+            else:
+                assert self.num_moe_experts % self.moe_router_num_groups == 0, (
+                    f"num_moe_experts ({self.num_moe_experts}) should be divisible by "
+                    f"moe_router_num_groups ({self.moe_router_num_groups})."
+                )
+                assert self.moe_router_group_topk <= self.moe_router_num_groups, (
+                    f"moe_router_group_topk ({self.moe_router_group_topk}) should be smaller than "
+                    f"moe_router_num_groups ({self.moe_router_num_groups})."
+                )
+
+        assert (
+            self.pipeline_model_parallel_size > 0
+        ), f"Pipeline model parallel size must be larger than 0 \
+            when enable --standalone-embedding-stage and --standalone-loss-stage"
+
+        if (
+                self.num_moe_experts is not None
+                and self.num_moe_experts >= 32
+                and not self.moe_router_dtype
+        ):
+            warnings.warn(
+                "Using a large number of experts (e.g. >=32) without fp32 routing. "
+                "Consider enabling moe_router_dtype for better numerical stability."
+            )
+
+
+@dataclass
+class MLATransformerConfig(TransformerConfig):
+    """
+    Configuration object for MindSpore Transformer's Multi-Latent Attention (MLA) transformers.
+
+    The initialization function has an argument for each parameter, including those in ModelParallelConfig.
+    Included YaRN RoPE parameters that is fused in MLA.
+    """
+
+    multi_latent_attention: bool = True
+    """Whether to use Multi-Latent Attention."""
+
+    q_lora_rank: int = 512
+    """Rank of Query tensor's low rank representation."""
+
+    kv_lora_rank: int = 512
+    """Rank of Key and Value tensors' low rank representation."""
+
+    qk_head_dim: int = 128
+    """Dimension of the head in the QK projection. q_head_dim = qk_head_dim + qk_pos_emb_head_dim"""
+
+    qk_pos_emb_head_dim: int = 64
+    """Dimension of the position embedding in the QK projection."""
+
+    v_head_dim: int = 128
+    """Dimension of the head in the V projection."""
+
+    normalization: str = "RMSNorm"
+    """Default normalization layer for MLA models is RMSNorm."""
+
+    rope_type: str = "yarn"
+    """Type of RoPE to use. Default to yarn, options are rope and yarn."""
+
+    rotary_base: float = 10000.0
+    """Rotary base for the rotary embeddings, used by rope and yarn."""
+
+    rotary_percent: float = 1.0
+    """Rotary percent for the rotary embeddings, used by rope."""
+
+    rotary_scaling_factor: float = 40.0
+    """Rotary scaling factor for the rotary embeddings, used by yarn."""
+
+    max_position_embeddings: int = 4096
+    """Maximum position embeddings for the original model, used by yarn."""
+
+    beta_fast: float = 32.0
+    """Beta fast for YaRN RoPE, used by yarn."""
+
+    beta_slow: float = 1.0
+    """Beta slow for YaRN RoPE, used by yarn."""
+
+    mscale: float = 0.707
+    """Mscale for YaRN RoPE in Multi-Latent Attention, used by yarn."""
+
+    mscale_all_dim: float = 0.707
+    """Mscale all dimensions for YaRN RoPE in Multi-Latent Attention, used by yarn."""
