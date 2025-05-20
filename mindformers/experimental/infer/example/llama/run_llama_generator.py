@@ -23,7 +23,7 @@ from mindspore.communication import get_rank
 from mindspore.nn.utils import no_init_parameters
 
 from mindformers import MindFormerConfig, build_context, logger
-from mindformers.experimental.infer.core.utils import generate_state_dict
+from mindformers.parallel_core.inference.utils import generate_state_dict
 from mindformers.experimental.infer.models.llama import ParallelLlamaForCausalLM
 from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
 from mindformers.models.llama import LlamaConfig, LlamaTokenizer

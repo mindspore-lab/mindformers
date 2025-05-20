@@ -72,7 +72,7 @@ from mindformers.experimental.parallel_core import (ParallelTransformer,
                                                     Embedding,
                                                     get_language_model,
                                                     ParallelLMLogits)
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.experimental.utils import init_method_normal
 from mindformers.core.context import build_context
 

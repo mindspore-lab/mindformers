@@ -32,7 +32,7 @@ import mindspore.common.dtype as mstype
 from mindspore import nn, ops, mint, Parameter
 import mindspore.ops.functional as F
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_pipeline_model_parallel_rank,
     get_tensor_model_parallel_world_size,
     get_pipeline_model_parallel_world_size,

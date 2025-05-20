@@ -20,7 +20,7 @@ from mindspore import nn, Tensor, ops, mint
 import mindspore.common.dtype as mstype
 
 from mindformers.modules import Linear
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.core.transformer import VocabEmbedding
 from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, VocabParallelEmbedding

@@ -18,7 +18,7 @@ from mindspore import ops
 from mindspore.communication import get_group_size, get_rank
 import numpy as np
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_rank, \
+from mindformers.parallel_core.inference.parallel_state import get_context_parallel_rank, \
     get_data_parallel_world_size, get_context_parallel_world_size
 
 

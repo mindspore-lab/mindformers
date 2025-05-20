@@ -26,7 +26,7 @@ from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister

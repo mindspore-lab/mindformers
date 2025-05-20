@@ -19,7 +19,7 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, mint
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_tensor_model_parallel_world_size,
     get_data_parallel_world_size,
 )

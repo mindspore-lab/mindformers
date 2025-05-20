@@ -25,12 +25,12 @@ from mindspore import Tensor, ops
 from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (get_group_info,
-                                                                            initialize_model_parallel)
+from mindformers.parallel_core.inference.parallel_state import (get_group_info,
+                                                                initialize_model_parallel)
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.logger import logger
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.experimental.infer.transformer.norm import get_norm
 from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
 from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear

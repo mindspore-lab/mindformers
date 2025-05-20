@@ -23,12 +23,12 @@ from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
-from mindformers.experimental.infer.core import get_act_func
+from mindformers.experimental.infer.core.activation import get_act_func
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 
 # pylint: disable=C0412
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.tools.utils import divide
 
 try:

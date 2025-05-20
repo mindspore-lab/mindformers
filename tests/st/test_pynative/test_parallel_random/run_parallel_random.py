@@ -26,7 +26,7 @@ except ImportError:
 from mindspore import mint, Tensor, grad
 import mindspore.nn as nn
 from mindspore.communication.management import init, get_rank, get_group_size
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import (
     RNGStateTracer,
     get_rng_tracer,

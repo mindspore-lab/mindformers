@@ -25,7 +25,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import composite as C
 from mindspore.communication import get_group_size, GlobalComm
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_model_parallel_group,
     get_tensor_model_parallel_rank,
     is_pipeline_last_stage

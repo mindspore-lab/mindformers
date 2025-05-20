@@ -23,8 +23,8 @@ from mindformers.experimental.infer.core.layers import ColumnParallelLinear, Row
 from mindformers.experimental.infer.core.transformer import \
     ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
 from mindformers.experimental.infer.core.moe import ParallelMoE, RoutedParallelMLP
-from mindformers.experimental.infer.core.utils import get_tp_world_size
-from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+from mindformers.parallel_core.inference.utils import get_tp_world_size
+from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
 

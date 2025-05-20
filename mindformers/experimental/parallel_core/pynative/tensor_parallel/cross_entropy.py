@@ -19,7 +19,7 @@ from mindspore import ops as P
 from mindspore.ops import ReduceOp
 from mindspore.common.api import _pynative_executor
 import mindspore.communication.comm_func as comm_func
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group, \
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group, \
     get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
 
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry

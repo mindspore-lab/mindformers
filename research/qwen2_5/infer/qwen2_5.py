@@ -24,14 +24,14 @@ import numpy as np
 from safetensors import safe_open
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.experimental.infer.models.llama.utils import convert_model_config
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_data_parallel_group,
     get_tensor_model_parallel_group,
 )

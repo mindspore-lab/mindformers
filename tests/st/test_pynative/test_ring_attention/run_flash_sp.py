@@ -23,7 +23,7 @@ from mindspore.common.tensor import Tensor
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
 from mindformers.experimental.parallel_core.pynative.context_parallel.utils import get_sp_chuncks
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.context_parallel.flash_sp import FlashSP
 
 

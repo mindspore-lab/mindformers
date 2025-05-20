@@ -19,7 +19,7 @@ from mindspore import mint, ops, _no_grad, Parameter
 from mindspore.common.initializer import Zero
 from mindspore.common import dtype as mstype
 from mindspore.communication.comm_func import all_gather_into_tensor, reduce_scatter_tensor
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_world_size, \
+from mindformers.parallel_core.inference.parallel_state import get_data_parallel_world_size, \
     get_pipeline_model_parallel_rank, get_data_parallel_group, get_data_modulo_expert_parallel_group, \
     get_pipeline_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module

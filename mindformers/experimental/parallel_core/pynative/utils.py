@@ -25,7 +25,7 @@ from mindspore.nn.optim.optimizer import Optimizer
 
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_pipeline_model_parallel_rank,
     get_pipeline_model_parallel_world_size,
     get_expert_model_parallel_rank,

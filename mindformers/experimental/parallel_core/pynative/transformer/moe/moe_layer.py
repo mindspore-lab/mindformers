@@ -16,7 +16,7 @@
 import mindspore as ms
 
 from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_expert_model_parallel_rank,
     get_expert_model_parallel_world_size,
     get_tensor_model_parallel_world_size

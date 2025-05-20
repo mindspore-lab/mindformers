@@ -25,7 +25,7 @@ from mindformers.core.optim import Came
 from mindformers.core.optim import AdamW as mf_AdamW
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallel
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_group
+from mindformers.parallel_core.inference.parallel_state import get_data_parallel_group
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import get_checkpoint_name
 from mindformers.experimental.parallel_core.pynative.optimizer.lr_scheduler import get_learning_rate_scheduler
 

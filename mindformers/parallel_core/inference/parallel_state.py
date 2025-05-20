@@ -16,8 +16,9 @@
 """Model and data parallel groups."""
 import warnings
 import mindspore
-from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
 from mindspore import hal
+from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
+
 from mindformers.tools import logger
 
 _GLOBAL_STREAM = None

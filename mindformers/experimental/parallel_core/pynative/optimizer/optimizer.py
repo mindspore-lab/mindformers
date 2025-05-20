@@ -24,7 +24,7 @@ from mindformers.experimental.parallel_core.pynative.training.optimizer_param_sc
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.training.grad_handler import inplace_apply_to_tensor_list, \
     get_grad_norm_fp32, clip_grad_by_total_norm_fp32, param_is_not_shared
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_rank, \
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_rank, \
     get_data_parallel_world_size, get_model_parallel_group
 
 

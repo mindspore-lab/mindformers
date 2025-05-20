@@ -22,7 +22,7 @@ from mindspore import Tensor, set_context
 from mindspore.communication import init
 
 from mindformers.tools.utils import is_pynative
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from tests.st.test_infer.test_infer_core.utils import (AttentionNet, MLPNet, TransformerLayerNet, TransformerNet,
                                                        get_config)
 
