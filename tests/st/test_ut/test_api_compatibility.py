@@ -193,7 +193,7 @@ class TestApiStability:
     def setup_method(self):
         """init the class"""
         self.api_json_path = os.path.join(CUR_DIR_PATH, "base_schema.json")
-        self.is_update = True  # when base_schema.json needs to update, set this value to True
+        self.is_update = False  # when base_schema.json needs to update, set this value to True
         if not self.is_update:
             with open(self.api_json_path, "r", encoding="utf-8") as r:
                 self.base_schema = json.loads(r.read())
