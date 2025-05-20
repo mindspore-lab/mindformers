@@ -75,7 +75,7 @@
         "signature": "()"
     },
     "mindformers.core.AdamW": {
-        "signature": "(*args, fused=False, **kwargs)"
+        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
     },
     "mindformers.core.CheckpointMonitor": {
         "signature": "(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=False, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False)"
@@ -120,12 +120,6 @@
         "signature": "(base_lr: float, t_max: int, eta_min: float = 0.0, **kwargs)"
     },
     "mindformers.core.CosineAnnealingLR.construct": {
-        "signature": "(self, global_step)"
-    },
-    "mindformers.core.WarmUpStableDecayLR": {
-        "signature": "(self, learning_rate: float, lr_end: float = 1e-7, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)"
-    },
-    "mindformers.core.WarmUpStableDecayLR.construct": {
         "signature": "(self, global_step)"
     },
     "mindformers.core.CosineAnnealingWarmRestarts": {
@@ -360,7 +354,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False)"
     },
     "mindformers.core.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -370,6 +364,9 @@
     },
     "mindformers.core.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
+    },
+    "mindformers.core.TrainingStateMonitor.abnormal_global_norm_check": {
+        "signature": "(self, cb_params)"
     },
     "mindformers.core.TrainingStateMonitor._init_config": {
         "signature": "(self, config)"
@@ -510,7 +507,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.callback.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False)"
     },
     "mindformers.core.callback.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -520,6 +517,9 @@
     },
     "mindformers.core.callback.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor.abnormal_global_norm_check": {
+        "signature": "(self, cb_params)"
     },
     "mindformers.core.callback.TrainingStateMonitor._init_config": {
         "signature": "(self, config)"
@@ -716,12 +716,6 @@
     "mindformers.core.lr.CosineAnnealingLR.construct": {
         "signature": "(self, global_step)"
     },
-    "mindformers.core.lr.WarmUpStableDecayLR": {
-        "signature": "(self, learning_rate: float, lr_end: float = 1e-7, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)"
-    },
-    "mindformers.core.lr.WarmUpStableDecayLR.construct": {
-        "signature": "(self, global_step)"
-    },
     "mindformers.core.lr.CosineAnnealingWarmRestarts": {
         "signature": "(base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0.0, **kwargs)"
     },
@@ -758,6 +752,12 @@
     "mindformers.core.lr.PolynomialWithWarmUpLR.construct": {
         "signature": "(self, global_step)"
     },
+    "mindformers.core.lr.WarmUpStableDecayLR": {
+        "signature": "(learning_rate: float, lr_end: float = 1e-07, warmup_steps: int = None, warmup_lr_init: float = 0.0, warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)"
+    },
+    "mindformers.core.lr.WarmUpStableDecayLR.construct": {
+        "signature": "(self, global_step)"
+    },
     "mindformers.core.lr.lr_schedule.ConstantWarmUpLR": {
         "signature": "(learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0.0, warmup_ratio: float = None, total_steps: int = None, **kwargs)"
     },
@@ -768,12 +768,6 @@
         "signature": "(base_lr: float, t_max: int, eta_min: float = 0.0, **kwargs)"
     },
     "mindformers.core.lr.lr_schedule.CosineAnnealingLR.construct": {
-        "signature": "(self, global_step)"
-    },
-    "mindformers.core.lr.lr_schedule.WarmUpStableDecayLR": {
-        "signature": "(self, learning_rate: float, lr_end: float = 1e-7, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)"
-    },
-    "mindformers.core.lr.lr_schedule.WarmUpStableDecayLR.construct": {
         "signature": "(self, global_step)"
     },
     "mindformers.core.lr.lr_schedule.CosineAnnealingWarmRestarts": {
@@ -810,6 +804,12 @@
         "signature": "(learning_rate: float, total_steps: int, warmup_steps: int = None, lr_end: float = 1e-07, power: float = 1.0, warmup_lr_init: float = 0.0, warmup_ratio: float = None, decay_steps: int = None, **kwargs)"
     },
     "mindformers.core.lr.lr_schedule.PolynomialWithWarmUpLR.construct": {
+        "signature": "(self, global_step)"
+    },
+    "mindformers.core.lr.lr_schedule.WarmUpStableDecayLR": {
+        "signature": "(learning_rate: float, lr_end: float = 1e-07, warmup_steps: int = None, warmup_lr_init: float = 0.0, warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)"
+    },
+    "mindformers.core.lr.lr_schedule.WarmUpStableDecayLR.construct": {
         "signature": "(self, global_step)"
     },
     "mindformers.core.metric.EmF1Metric": {
@@ -1071,25 +1071,7 @@
         "signature": "(self, logits)"
     },
     "mindformers.core.optim.AdamW": {
-        "signature": "(*args, fused=False, **kwargs)"
-    },
-    "mindformers.core.optim.adamw.AdamW": {
-        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0)"
-    },
-    "mindformers.core.optim.adamw.AdamW.clone_state": {
-        "signature": "(self, prefix, init)"
-    },
-    "mindformers.core.optim.adamw.AdamW.construct": {
-        "signature": "(self, gradients)"
-    },
-    "mindformers.core.optim.fused_adamw.FusedAdamW": {
-        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0, amsgrad=False, maximize=False)"
-    },
-    "mindformers.core.optim.fused_adamw.FusedAdamW.clone_state": {
-        "signature": "(self, prefix, init)"
-    },
-    "mindformers.core.optim.fused_adamw.FusedAdamW.construct": {
-        "signature": "(self, gradients)"
+        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
     },
     "mindformers.core.optim.optim.FP32StateAdamWeightDecay": {
         "signature": "(params, learning_rate=0.001, beta1=0.9, beta2=0.999, eps=1e-06, weight_decay=0.0)"
@@ -1779,7 +1761,7 @@
         "signature": "(config, layer_number, attention_type='self_attn', attn_mask_type=None)"
     },
     "mindformers.experimental.infer.core.ParallelAttention.construct": {
-        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
+        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, encoder_output=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.ParallelAttention._cat_prefix": {
         "signature": "(self, key, value, prefix_keys_values)"
@@ -1803,13 +1785,13 @@
         "signature": "(config, model_type=None, layer_type=None, self_attn_mask_type=None, post_norm: bool = True, pre_process=False, post_process=False, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.ParallelTransformer.construct": {
-        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
+        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.ParallelTransformerLayer": {
         "signature": "(config, layer_number: int, layer_type=None, self_attn_mask_type=None, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.ParallelTransformerLayer.construct": {
-        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
+        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear": {
         "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, moe_delay_allreduce=False)"
@@ -1881,7 +1863,7 @@
         "signature": "(config, layer_number, attention_type='self_attn', attn_mask_type=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention.construct": {
-        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
+        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, encoder_output=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention._cat_prefix": {
         "signature": "(self, key, value, prefix_keys_values)"
@@ -1905,13 +1887,13 @@
         "signature": "(config, model_type=None, layer_type=None, self_attn_mask_type=None, post_norm: bool = True, pre_process=False, post_process=False, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformer.construct": {
-        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
+        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformerLayer": {
         "signature": "(config, layer_number: int, layer_type=None, self_attn_mask_type=None, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformerLayer.construct": {
-        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
+        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.utils.generate_state_dict": {
         "signature": "(network)"
@@ -1925,6 +1907,9 @@
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
     },
+    "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.prepare_inputs_for_generation": {
+        "signature": "(self, input_ids, **kwargs)"
+    },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"
     },
@@ -1932,7 +1917,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None, q_seq_lens=None)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
@@ -1961,6 +1946,9 @@
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
     },
+    "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.prepare_inputs_for_generation": {
+        "signature": "(self, input_ids, **kwargs)"
+    },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"
     },
@@ -1968,7 +1956,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None, q_seq_lens=None)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
@@ -6812,6 +6800,9 @@
     "mindformers.modules.transformer.transformer.LowerTriangularMaskWithDynamic.chunk_masks": {
         "signature": "(self, seq_range)"
     },
+    "mindformers.modules.transformer.transformer.LowerTriangularMaskWithDynamic.gen_attention_mask": {
+        "signature": "(self, is_prefill)"
+    },
     "mindformers.modules.transformer.transformer.LowerTriangularMaskWithDynamic.shard": {
         "signature": "(self, parallel_config)"
     },
@@ -6949,6 +6940,15 @@
     },
     "mindformers.modules.transformer.transformer.VocabEmbedding.construct": {
         "signature": "(self, input_ids)"
+    },
+    "mindformers.parallel_core.utils.init_method.init_method_normal": {
+        "signature": "(sigma: float = 0.01, param_init_dtype: mindspore.common.dtype = mindspore.float32)"
+    },
+    "mindformers.parallel_core.utils.init_method.init_method_zero": {
+        "signature": "(param_init_dtype: mindspore.common.dtype = mindspore.float32)"
+    },
+    "mindformers.parallel_core.utils.init_method.scaled_init_method_normal": {
+        "signature": "(sigma: float, num_layers: int, param_init_dtype: mindspore.common.dtype = mindspore.float32)"
     },
     "mindformers.pet.LoraConfig": {
         "signature": "(lora_rank: int = 8, lora_alpha: int = 16, lora_dropout: float = 0.01, lora_a_init: str = 'normal', lora_b_init: str = 'zero', param_init_type: str = None, compute_dtype: str = None, target_modules: str = None, exclude_layers: str = None, freeze_include: List[str] = None, freeze_exclude: List[str] = None, **kwargs)"
