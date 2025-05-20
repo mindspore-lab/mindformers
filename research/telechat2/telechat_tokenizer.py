@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Telechat tokenizer APIs."""
 # coding: utf-8
+"""Telechat tokenizer APIs."""
 import os
 from shutil import copyfile
 from typing import Any, Dict, List, Optional
