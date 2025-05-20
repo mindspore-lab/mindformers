@@ -175,19 +175,3 @@ class ModelParallelConfig:
         if self.sequence_parallel:
             if self.tensor_model_parallel_size <= 1:
                 raise ValueError("Can not use sequence paralllelism without tensor parallelism")
-
-        if self.expert_tensor_parallel_size is None:
-            self.expert_tensor_parallel_size = self.tensor_model_parallel_size
-
-        if self.pipeline_model_parallel_size > 1:
-            if self.pipeline_dtype is None:
-                raise ValueError(
-                    "When using pipeline parallelism, pipeline_dtype must be specified"
-                )
-
-        if self.expert_model_parallel_size > 1 and self.tensor_model_parallel_size > 1:
-            if self.sequence_parallel is False:
-                raise ValueError(
-                    "When using expert parallelism and tensor parallelism, "
-                    "sequence parallelism must be used"
-                )

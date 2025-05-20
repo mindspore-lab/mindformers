@@ -5,8 +5,9 @@
 
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
-
+from mindformers.tools.logger import logger
 from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
+from mindformers.parallel_core.utils.init_method import init_method_normal, scaled_init_method_normal
 
 
 @dataclass
@@ -572,7 +573,6 @@ class TransformerConfig(ModelParallelConfig):
     Only effective when context_parallel > 1
     """
 
-
     def __post_init__(self):
         """
         Python dataclass method that is used to modify attributes after initialization.
@@ -651,13 +651,13 @@ class TransformerConfig(ModelParallelConfig):
             raise ValueError("rotary_interleaved does not work with multi_latent_attention.")
 
         if self.init_method is None:
-            self.init_method = init_method_normal(self.init_method_std)
+            self.init_method = init_method_normal(self.init_method_std, self.params_dtype)
 
         if self.output_layer_init_method is None:
             self.output_layer_init_method = scaled_init_method_normal(
                 self.init_method_std,
                 self.num_layers,
-                multiplier=2.0 if not self.is_hybrid_model else 1.0,
+                self.params_dtype
             )
 
         if self.num_moe_experts is not None:
@@ -704,7 +704,7 @@ class TransformerConfig(ModelParallelConfig):
                 and self.num_moe_experts >= 32
                 and not self.moe_router_dtype
         ):
-            warnings.warn(
+            logger.warning(
                 "Using a large number of experts (e.g. >=32) without fp32 routing. "
                 "Consider enabling moe_router_dtype for better numerical stability."
             )
