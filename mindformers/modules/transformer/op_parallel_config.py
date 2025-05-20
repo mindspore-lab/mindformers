@@ -303,6 +303,11 @@ def _check_config(config):
     """
        Check if micro_batch_num >= pipeline_stage
     """
+    # make sure the following is in auto parallel mode
+    is_auto_parallel = _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL)
+    if not is_auto_parallel:
+        return
+    
     # the config pipeline_stage is same with context.pipeline_stage
     pipeline_stage = context.get_auto_parallel_context("pipeline_stages")
     if hasattr(config, 'pipeline_stage') and pipeline_stage != config.pipeline_stage:
@@ -310,11 +315,6 @@ def _check_config(config):
             f"The pipeline stage {pipeline_stage} in auto_parallel_context is not equal to the pipeline_stage "
             f"{config.pipeline_stage}"
             f" in the config.")
-
-    # make sure the following is in auto parallel mode
-    is_auto_parallel = _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL)
-    if not is_auto_parallel:
-        return
 
     device_num = D.get_group_size()
     optimizer_shard = context.get_auto_parallel_context("enable_parallel_optimizer")

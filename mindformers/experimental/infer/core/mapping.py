@@ -15,6 +15,13 @@
 """mapping"""
 
 from mindspore import nn, ops
+from mindspore.communication.comm_func import _deal_comm_outputs
+
+from mindspore.ops.auto_generate.gen_ops_prim import (
+    dist_comm_isend_op,
+    dist_comm_irecv_op,
+)
+
 
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.parallel_core.pynative.parallel_state import (get_tensor_model_parallel_group,
@@ -118,3 +125,14 @@ class ScatterToModelParallelRegion(nn.Cell):
         tensor_tuple = self.split(input_)
         output = tensor_tuple[self.rank]
         return output
+
+
+def p2p_send(tensor, dst, group, tag=0):
+    output = dist_comm_isend_op(tensor, dst, group, tag)
+    return _deal_comm_outputs(output, False)
+
+
+def p2p_recv(tensor, src, group, tag=0):
+    _deal_comm_outputs(
+        dist_comm_irecv_op(tensor, tag, src, group), False
+    )

@@ -14,6 +14,7 @@
 # ============================================================================
 """DeepseekV3 models' APIs."""
 import math
+from collections import OrderedDict
 from enum import Enum
 from typing import Tuple, Optional, Dict
 import numpy as np
@@ -25,7 +26,8 @@ from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
 from mindspore.communication._comm_helper import _is_initialized
-
+from mindspore.common.initializer import Zero, initializer
+from mindformers.version_control import need_nz
 try:
     from mindspore._checkparam import Validator
 except ImportError:
@@ -43,17 +45,63 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
+
+from mindformers.experimental.parallel_core.pynative.parallel_state import (get_group_info,
+                                                                            get_pipeline_model_parallel_group,
+                                                                            get_pipeline_model_parallel_rank,
+                                                                            get_pipeline_model_parallel_world_size,
+                                                                            initialize_model_parallel,
+                                                                            is_pipeline_first_stage,
+                                                                            is_pipeline_last_stage)
+from mindformers.experimental.infer.core.utils import (get_pp_world_size, get_tp_world_size,
+                                                       get_vpp_world_size)
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
+    get_pipeline_model_parallel_rank, get_pipeline_model_parallel_world_size, get_virtual_pipeline_model_parallel_rank,
+    get_virtual_pipeline_model_parallel_world_size)
+from mindformers.experimental.infer.core.utils import get_pp_world_size
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
-from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion, p2p_send, p2p_recv
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
 
 __all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
 
+def _get_num_layers(config):
+    """get transformer layers number for current rank"""
+    pp = get_pp_world_size()
+    if config.num_layers < pp:
+        raise RuntimeError(f"The number of model layers is {config.num_layers}, "
+                           f"but using pipeline parallel requires at least "
+                           f"'pp({pp})' layers for splitting")
+    if pp > 1:
+        def divide_layers(num_layers, stage, rank, offset):
+            num_layer_list = np.array([num_layers // stage] * stage)
+            offset = np.array(offset)
+            offset = np.broadcast_to(offset, (stage))
+            remain_layer_nums = num_layers - num_layer_list.sum()
+            if remain_layer_nums != offset.sum():
+                raise RuntimeError("Offset can't support.")
+            num_layer_list += offset
+            num_layers = num_layer_list[rank]
+            offset = num_layer_list[:rank].sum()
+            print(f"num_layer_list: {num_layer_list}")
+            return num_layers, offset
+
+        num_layers = config.num_layers
+        offset = config.offset
+
+        pp_stage = get_pipeline_model_parallel_world_size()
+        pp_rank = get_pipeline_model_parallel_rank()
+        num_layers, offset = divide_layers(num_layers, pp_stage, pp_rank, offset)
+
+    else:
+        num_layers = config.num_layers
+        offset = 0
+    return num_layers, offset
 
 class CacheConfig(Enum):
     KEY_VALUE_CACHE = 0
@@ -125,6 +173,65 @@ class MLAPagedAttentionMgr(nn.Cell):
         return self.paged_attention(query, key_cache, key_cache, block_tables, batch_valid_length,
                                     None, None, attn_mask, q_seq_lens)
 
+class PagedAttentionMgr(nn.Cell):
+    """Paged Attention Manager."""
+
+    def __init__(self,
+                 n_heads,
+                 head_dim,
+                 n_kv_heads,
+                 kv_shape,
+                 seq_length=-1,
+                 compute_dtype=mstype.float16,
+                 parallel_decoding=False,
+                 scale_value=None,
+                 chunk_prefill=False,
+                 npu_mem_size=2):
+        super().__init__()
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+        self.n_kv_heads = n_kv_heads
+        self.seq_length = seq_length
+        self.is_first_iteration = True
+        self.scale_value = 1 / math.sqrt(self.head_dim) if scale_value is None else scale_value
+        self.npu_mem_size = npu_mem_size
+        if self.npu_mem_size > 0:
+            self.key_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="key_cache",
+                                       requires_grad=False)
+            self.value_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="value_cache",
+                                        requires_grad=False)
+
+        self.reshape_and_cache = ops.auto_generate.ReshapeAndCache()
+        self.paged_attention = ops.auto_generate.PagedAttention(self.n_heads,
+                                                              self.scale_value,
+                                                              self.n_kv_heads)
+        self.paged_attention_with_alibi = ops.auto_generate.PagedAttentionMask(self.n_heads,
+                                                                             self.scale_value,
+                                                                             self.n_kv_heads)
+        self.parallel_decoding = parallel_decoding
+        self.chunk_prefill = chunk_prefill
+
+    # pylint: disable=W0613
+    def construct(self, key, value, slot_mapping, batch_valid_length=None, key_cache=None, value_cache=None):
+        """The forward compute of KVCache for Paged Attention."""
+        # return key
+        if self.npu_mem_size > 0:
+            return self.reshape_and_cache(key, value, self.key_cache, self.value_cache, slot_mapping)
+        return self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
+
+    def paged_attn(self, query, batch_valid_length, block_tables, attn_mask=None, q_seq_lens=None,
+                   key_cache=None, value_cache=None):
+        """The forward compute of Paged Attention."""
+        # not support yet
+        # if self.parallel_decoding or self.chunk_prefill:
+        #     attn_mask = attn_mask.astype(mstype.bool_).astype(query.dtype) * -10000
+        #     return self.paged_attention(query, self.key_cache, self.value_cache, block_tables, batch_valid_length,
+        #                                 None, None, attn_mask, q_seq_lens)
+        if self.npu_mem_size > 0:
+            return self.paged_attention(query, self.key_cache, self.value_cache, block_tables, batch_valid_length,
+                                        None, None, None, q_seq_lens)
+        return self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length,
+                                    None, None, None, q_seq_lens)
 
 class MLAInferAttention(nn.Cell):
     r"""Multi-Latent-Attention Layer for infer.
@@ -268,6 +375,10 @@ class MLAInferAttention(nn.Cell):
 
         kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         npu_mem_size = config.npu_mem_size if hasattr(config, 'npu_mem_size') else 2
+        if need_nz():
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head * self.head_dim)
+        else:
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         self.paged_attention_mgr = MLAPagedAttentionMgr(self.pa_n_head_split,
                                                         self.head_dim,
                                                         self.pa_n_kv_head_split,
@@ -306,6 +417,32 @@ class MLAInferAttention(nn.Cell):
                                            batch_valid_length)
         return self._incre_attention(query, batch_valid_length, block_tables,
                                      attn_mask, q_seq_lens, key_cache=key_cache)
+
+class ParallelBatchMatMul(nn.Cell):
+    def __init__(
+            self,
+            transpose_a=False,
+            transpose_b=False,
+            weight_shape=None,
+            param_init_type=mstype.float16):
+        super(ParallelBatchMatMul, self).__init__()
+        self.tensor_parallel_group_size = get_tp_world_size()
+        self.bmm = P.BatchMatMul(transpose_a=transpose_a, transpose_b=transpose_b)
+        self.weight = Parameter(initializer("normal", weight_shape, param_init_type), name="weight")
+
+    def construct(self, input_parallel):
+        output = self.bmm(input_parallel, self.weight)
+        return output
+
+    def sharded_state_dict(self):
+        """provide the sharded state dict based on the config"""
+        w_shard = (self.tensor_parallel_group_size, 1, 1)
+
+        state_dict = {}
+        state_dict[self.weight.name] = \
+            {'shape': self.weight.shape,
+             'shard': w_shard}
+        return state_dict
 
 
 class DeepseekV3Attention(nn.Cell):
@@ -530,8 +667,6 @@ class DeepseekV3Attention(nn.Cell):
         self.dim_slice_4d = P.Slice()
         self.kpe_concat = P.Concat(2)
         self.pe_concat = P.Concat(3)
-        self.qabsorb_matmul = P.BatchMatMul()
-        self.outabsorb_matmul = P.BatchMatMul(transpose_b=True)
         self.infer_attention = MLAInferAttention(self.n_local_heads,
                                                  self.kv_lora_rank + self.qk_rope_head_dim,
                                                  1,
@@ -544,6 +679,10 @@ class DeepseekV3Attention(nn.Cell):
                                                  config=config)
 
         self.apply_rotary_emb = InferRotaryEmbedding(rotary_cos_format=2)
+        lkv2kv_k_nope_shape = (self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+        lkv2kv_v_shape = (self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
+        self.qabsorb_matmul = ParallelBatchMatMul(weight_shape=lkv2kv_k_nope_shape)
+        self.outabsorb_matmul = ParallelBatchMatMul(transpose_b=True, weight_shape=lkv2kv_v_shape)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None):
@@ -609,16 +748,16 @@ class DeepseekV3Attention(nn.Cell):
             output = self.cast(output, ori_dtype)
             return output
 
-        q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
-        out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
-        q_nope = self.qabsorb_matmul(q_nope.transpose(0, 2, 1, 3), q_absorb).transpose(0, 2, 1, 3)
+        # q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+        # out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
+        q_nope = self.qabsorb_matmul(q_nope.transpose(0, 2, 1, 3)).transpose(0, 2, 1, 3)
         query_states = self.pe_concat((q_nope, q_pe))
-        query_states = query_states.view(bs, seq_len, -1)
+        query_states = query_states.view(bs, seq_len, self.n_local_heads * (self.kv_lora_rank + self.qk_rope_head_dim))
         key_states = key_states_cache
         context_layer = self.infer_attention(query_states, key_states, key_states, batch_valid_length,
                                              block_tables, attn_mask=mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
         context_layer = context_layer.view(bs, seq_len, self.n_local_heads, -1).transpose(0, 2, 1, 3)
-        attn_out = self.outabsorb_matmul(context_layer, out_absorb).transpose(0, 2, 1, 3)
+        attn_out = self.outabsorb_matmul(context_layer).transpose(0, 2, 1, 3)
         attn_out = attn_out.view(bs, seq_len, self.n_local_heads * self.v_head_dim)
         output = self.wo(attn_out)
         output = self.cast(output, ori_dtype)
@@ -862,7 +1001,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
             self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, q_seq_lens=None, key_cache=None):
+                  slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -918,8 +1057,12 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         output: Tensor, the output of deepseek decoderlayer
     """
 
-    def __init__(self,
-                 config: DeepseekV3Config = None):
+    def __init__(
+            self,
+            config: DeepseekV3Config = None,
+            pre_process = False,
+            post_process = False
+        ):
         super().__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
         if config.batch_size or config.use_past:
@@ -941,6 +1084,8 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         self.is_pynative = is_pynative()
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
+        self.pre_process = pre_process
+        self.post_process = post_process
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -964,53 +1109,65 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_past=config.use_past)
-
-        self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
-                                             embedding_dim=config.hidden_size,
-                                             param_init_type=config.param_init_type,
-                                             param_init="normal")
+        self.pipeline_parallel = get_pp_world_size() > 1        
+        if self.pre_process:
+            self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
+                                                embedding_dim=config.hidden_size,
+                                                param_init_type=config.param_init_type,
+                                                param_init="normal")
 
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
-        self.layers = nn.CellList()
+        
+
+        layer_dict = OrderedDict()
+
         self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
                                           config.parallel_config,
                                           config.pp_interleave_num)
+                                          
+        self.num_layers, offset = _get_num_layers(config)
 
-        for layer_id in range(config.num_layers):
-            layer = DeepseekV3DecodeLayer(layer_id,
-                                          dim=config.hidden_size,
-                                          n_heads=config.num_heads,
-                                          n_kv_heads=config.n_kv_heads,
-                                          norm_eps=config.rms_norm_eps,
-                                          qkv_has_bias=config.qkv_has_bias,
-                                          compute_dtype=config.compute_dtype,
-                                          layernorm_compute_dtype=config.layernorm_compute_type,
-                                          param_init_type=config.param_init_type,
-                                          use_past=config.use_past,
-                                          use_flash_attention=config.use_flash_attention,
-                                          block_size=config.block_size,
-                                          num_blocks=config.num_blocks,
-                                          parallel_config=config.parallel_config,
-                                          moe_config=config.moe_config,
-                                          kv_lora_rank=config.kv_lora_rank,
-                                          q_lora_rank=config.q_lora_rank,
-                                          qk_rope_head_dim=config.qk_rope_head_dim,
-                                          v_head_dim=config.v_head_dim,
-                                          qk_nope_head_dim=config.qk_nope_head_dim,
-                                          max_position_embeddings=config.max_position_embeddings,
-                                          scaling_factor=config.scaling_factor,
-                                          config=config)
+        for layer_id in range(self.num_layers):
+            layer = DeepseekV3DecodeLayer(
+                layer_id + offset,
+                dim=config.hidden_size,
+                n_heads=config.num_heads,
+                n_kv_heads=config.n_kv_heads,
+                norm_eps=config.rms_norm_eps,
+                qkv_has_bias=config.qkv_has_bias,
+                compute_dtype=config.compute_dtype,
+                layernorm_compute_dtype=config.layernorm_compute_type,
+                param_init_type=config.param_init_type,
+                use_past=config.use_past,
+                use_flash_attention=config.use_flash_attention,
+                block_size=config.block_size,
+                num_blocks=config.num_blocks,
+                parallel_config=config.parallel_config,
+                moe_config=config.moe_config,
+                kv_lora_rank=config.kv_lora_rank,
+                q_lora_rank=config.q_lora_rank,
+                qk_rope_head_dim=config.qk_rope_head_dim,
+                v_head_dim=config.v_head_dim,
+                qk_nope_head_dim=config.qk_nope_head_dim,
+                max_position_embeddings=config.max_position_embeddings,
+                scaling_factor=config.scaling_factor,
+                config=config
+            )
+            layer_dict[str(layer_id + offset)] = layer
             self.layer_setting(layer, layer_id)
-            self.layers.append(layer)
-        self.norm_out = RMSNorm(config.hidden_size, config.rms_norm_eps,
+        self.layers = nn.SequentialCell(layer_dict)
+
+        if self.post_process:
+            self.norm_out = RMSNorm(config.hidden_size, config.rms_norm_eps,
                                 compute_type=config.layernorm_compute_type)
+
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, position_ids=None, q_seq_lens=None,
-                  attention_mask=None, key_cache=None):
+                  attention_mask=None, key_cache=None, value_cache=None, hidden_states=None):
         """
         Forward of deepseekv3 model.
 
@@ -1042,16 +1199,21 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
             mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
 
-        h = self.cast(self.tok_embeddings(tokens), self.dtype)
-        h = self.reshape(h, (bs, seq_len, self.hidden_size))
+        if not self.pre_process and self.pipeline_parallel:
+            if hidden_states is None:
+                raise ValueError("When pipeline stage is not 0, hidden_states can not be None.")
+        else:
+            hidden_states = self.cast(self.tok_embeddings(tokens), self.dtype)
+        h = self.reshape(hidden_states, (bs, seq_len, self.hidden_size))
 
         for i in range(self.num_layers):
             key_cache_i = key_cache[i] if key_cache is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                block_tables=block_tables, slot_mapping=slot_mapping,
                                q_seq_lens=q_seq_lens, key_cache=key_cache_i)
-        output = self.norm_out(h)
-        return output
+        if self.post_process:
+            h = self.norm_out(h)
+        return h
 
 
 class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
@@ -1109,6 +1271,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.pre_process = True
+        self.post_process = True
+        self.hidden_size = config.hidden_size
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -1120,27 +1285,43 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.ones = P.Ones()
         self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
-        self.model = DeepseekV3Model(config=config)
-        if config.parallel_config.vocab_emb_dp:
-            self.lm_head = Linear(
-                in_channels=config.hidden_size,
-                out_channels=config.vocab_size,
-                weight_init="normal",
-                has_bias=False,
-                param_init_type=config.param_init_type,
-                compute_dtype=config.compute_dtype
-            )
-        else:
-            self.lm_head = ColumnParallelLinear(
-                config.hidden_size,
-                config.vocab_size,
-                config=config.parallel_config,
-                bias=False,
-                param_init_type=config.param_init_type,
-                compute_dtype=config.compute_dtype,
-                weight_init="normal",
-                gather_output=True
-            )
+
+        self.pipeline_parallel = get_pp_world_size() > 1
+        if self.pipeline_parallel:
+            self.pre_process = is_pipeline_first_stage()
+            self.post_process = is_pipeline_last_stage()
+
+            self.pipeline_stage = get_pipeline_model_parallel_rank()
+            self.pipeline_parallel_world_size = get_pipeline_model_parallel_world_size()
+            self.hccl_pp_group = get_pipeline_model_parallel_group()
+            self.mccl_pp_group = f"mccl_{get_pipeline_model_parallel_group()}"
+            if not self.post_process:
+                self.send_dst = (self.pipeline_stage + 1) % self.pipeline_parallel_world_size
+            if not self.pre_process:
+                self.recv_src = (self.pipeline_stage - 1) % self.pipeline_parallel_world_size
+        self.model = DeepseekV3Model(config=config, pre_process=self.pre_process, post_process=self.post_process)
+
+        if self.post_process:
+            if config.parallel_config.vocab_emb_dp:
+                self.lm_head = Linear(
+                    in_channels=config.hidden_size,
+                    out_channels=config.vocab_size,
+                    weight_init="normal",
+                    has_bias=False,
+                    param_init_type=config.param_init_type,
+                    compute_dtype=config.compute_dtype
+                )
+            else:
+                self.lm_head = ColumnParallelLinear(
+                    config.hidden_size,
+                    config.vocab_size,
+                    config=config.parallel_config,
+                    bias=False,
+                    param_init_type=config.param_init_type,
+                    compute_dtype=config.compute_dtype,
+                    weight_init="normal",
+                    gather_output=True
+                )
         self.prefill_gather_flatten = P.Gather()
 
         self.load_checkpoint(config)
@@ -1205,16 +1386,19 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.float16)
+
+        dynamic_hidden_states = Tensor(shape=[None, None, None], dtype=self.config.compute_dtype) if not self.pre_process else None
         def get_input():
             if self.npu_mem_size > 0:
                 return None
             cache_list = []
             for _ in self.model.layers:
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+                cache_list.append(Tensor(shape=[None, None, None] if need_nz() else [None, None, None, None], dtype=self.config.compute_dtype))
             return mutable(cache_list)
         key_cache = get_input()
-        self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None,
+        value_cache = get_input()
+        self.set_inputs(dynamic_input_ids, dynamic_hidden_states, None, None, dynamic_position_ids, dynamic_attention_mask, None,
                         dynamic_init_reset, dynamic_batch_valid_length, None, None, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_q_seq_lens, key_cache, None)
         logger.info("Set dynamic input for DeepseekV3.")
@@ -1231,9 +1415,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         return output
 
-    # pylint: disable=W0613
     @predict_jit
-    def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+    def construct(self, input_ids, hidden_states=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ DeepseekV3ForCausalLM forward. """
@@ -1244,30 +1427,85 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, position_ids, q_seq_lens, attention_mask, key_cache=key_cache)
+        hidden_states = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
+                                   slot_mapping, position_ids, q_seq_lens, attention_mask, key_cache=key_cache,
+                                   hidden_states=hidden_states)
         if self.return_hidden_states:
-            output = self.reshape(output, (-1, output.shape[-1]))
-            return output
-        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        output = self.pre_gather_func(pre_gather, output, batch_valid_length)
-        logits = self.lm_head(output)
+            # hidden_states = self.reshape(hidden_states, (-1, hidden_states.shape[-1]))
+            return hidden_states
+        if self.post_process:
+            pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+            hidden_states = self.pre_gather_func(pre_gather, hidden_states, batch_valid_length)
+            logits = self.lm_head(hidden_states)
 
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
-        if labels is not None and labels.ndim > 1:
-            label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
-            input_mask = self.mul(input_mask, label_mask)
+            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+            if labels is not None and labels.ndim > 1:
+                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
+                input_mask = self.mul(input_mask, label_mask)
 
-        logits = self.cast(logits, mstype.float32)
-        if self.predict_run_mode:
-            logits = self.reshape(logits, (-1, logits.shape[-1]))
-            return logits
-        return logits, tokens, input_mask
+            logits = self.cast(logits, mstype.float32)
+            if self.predict_run_mode:
+                logits = self.reshape(logits, (-1, logits.shape[-1]))
+                return logits
+            return logits, tokens, input_mask
+        return hidden_states
+
+    def forward_pp(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
+        """ DeepseekV3ForCausalLM forward. """
+        # bs = batch_valid_length.shape[1]
+        bs, seq_len = input_ids.shape
+        logits = ops.zeros((bs, self.vocab_size), dtype=mstype.float32)
+
+        hidden_states = ops.zeros((bs, seq_len, self.hidden_size), dtype=self.config.compute_dtype)
+
+        if not self.pre_process:
+            p2p_recv(hidden_states, src=self.recv_src, group=self.mccl_pp_group)
+
+        if not self.post_process:
+            hidden_states = self(input_ids=input_ids,
+                                 hidden_states=hidden_states,
+                                 position_ids=position_ids,
+                                 attention_mask=attention_mask,
+                                 batch_valid_length=batch_valid_length,
+                                 batch_index=batch_index,
+                                 zactivate_len=zactivate_len,
+                                 block_tables=block_tables,
+                                 slot_mapping=slot_mapping,
+                                 q_seq_lens=q_seq_lens,
+                                 key_cache=key_cache,
+                                 value_cache=value_cache)
+            send_out = p2p_send(hidden_states, dst=self.send_dst, group=self.mccl_pp_group)
+            logits = ops.depend(logits, send_out)
+
+        if self.post_process:
+            logits = self(input_ids=input_ids,
+                          hidden_states=hidden_states,
+                          position_ids=position_ids,
+                          attention_mask=attention_mask,
+                          batch_valid_length=batch_valid_length,
+                          batch_index=batch_index,
+                          zactivate_len=zactivate_len,
+                          block_tables=block_tables,
+                          slot_mapping=slot_mapping,
+                          q_seq_lens=q_seq_lens,
+                          key_cache=key_cache,
+                          value_cache=value_cache)
+
+        # all_reduce(logits, group=self.mccl_pp_group)
+        return logits
 
     def kvcache(self, layer_idx):
         """Get the key_cache depend on layer_idx."""
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         return key_cache, None
+
+    def pp_warm_up(self, model_inputs):
+        bs, seq = model_inputs["input_ids"].shape
+        hidden_states = ops.zeros((bs, seq, self.hidden_size), dtype=self.config.compute_dtype)
+        self(hidden_states=hidden_states, **model_inputs)
+        logger.info("Warm up for pp.")
 
 
 class DeepseekV3MTPLayer(nn.Cell):
@@ -1496,7 +1734,7 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.float16)
         dynamic_key_cache = None if self.npu_mem_size > 0 else \
             mutable([Tensor(shape=[None, None, None, None], dtype=self.dtype) \
                      for _ in range(self.config.num_nextn_predict_layers)])

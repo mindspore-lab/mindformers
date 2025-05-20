@@ -39,12 +39,14 @@ _PIPELINE_GLOBAL_RANKS = None
 
 class GroupInfo:
     """ Comm Group Info """
+
     def __init__(self):
         self.group = None
         self.world_size = None
         self.rank = None
         self.global_ranks = None
         self.is_group_created = False
+        self.mccl_group = None
 
     def reset(self):
         if self.group is not None and self.is_group_created:
@@ -292,9 +294,9 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     for key in kwargs:
         logger.warning(f"The parameter '{key}' is not used in initialize_model_parallel.")
 
-    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size,\
-                                      ep=expert_model_parallel_size, \
-                                      dp=data_parallel_size, pp=pipeline_model_parallel_size, \
+    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size,
+                                      ep=expert_model_parallel_size,
+                                      dp=data_parallel_size, pp=pipeline_model_parallel_size,
                                       cp=context_parallel_size, order=order)
 
     # Build the basic parallel groups.
@@ -334,7 +336,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     if get_data_parallel_world_size() > 1:
         get_data_parallel_group()
     if get_tensor_model_parallel_world_size() > 1:
-        get_tensor_model_parallel_group()
+        tp_group = get_tensor_model_parallel_group()
+        print(f"tp_group: {tp_group}")
 
 
 def is_initialized():
@@ -363,7 +366,7 @@ def model_parallel_is_initialized():
     return True
 
 
-### get group
+# get group
 # pylint: disable=C0330
 def _get_group_helper(mode):
     comm_group = get_group_info(mode)
@@ -371,6 +374,10 @@ def _get_group_helper(mode):
         raise RuntimeError(f"{mode} parallel group is not initialized. Please check whether communication "
                            f"is initialized and {mode} in order.")
     if not comm_group.is_group_created:
+        if mode == 'pp':
+            create_group('mccl_world_group', [i for i in range(get_group_size())])
+            create_group(f"mccl_{comm_group.group}", comm_group.global_ranks)
+            comm_group.mccl_group = f"mccl_{comm_group.group}"
         create_group(comm_group.group, comm_group.global_ranks)
         comm_group.is_group_created = True
     return comm_group.group
@@ -431,7 +438,7 @@ def get_tensor_and_context_parallel_group():
     return _get_group_helper('tp-cp')
 
 
-### get global ranks
+# get global ranks
 def _get_global_ranks_helper(mode, check_initialized=True):
     comm_group = get_group_info(mode)
     if check_initialized:
@@ -447,7 +454,7 @@ def get_cp_global_ranks(check_initialized=True):
     return _get_global_ranks_helper('cp', check_initialized)
 
 
-### get world size
+# get world size
 def _get_world_size_helper(mode):
     comm_group = get_group_info(mode)
     return comm_group.world_size
@@ -500,7 +507,7 @@ def get_data_modulo_expert_parallel_world_size():
     return _get_world_size_helper('dp-independent_ep')
 
 
-### get rank
+# get rank
 def _get_rank_helper(mode):
     comm_group = get_group_info(mode)
     if comm_group.rank is not None:
@@ -572,7 +579,7 @@ def is_pipeline_first_stage(ignore_virtual=False):
     """Return True if in the first pipeline model-parallel stage, False otherwise."""
     if not ignore_virtual:
         if get_virtual_pipeline_model_parallel_world_size() is not None \
-            and get_virtual_pipeline_model_parallel_rank() != 0:
+                and get_virtual_pipeline_model_parallel_rank() != 0:
             return False
     return get_pipeline_model_parallel_rank() == 0
 

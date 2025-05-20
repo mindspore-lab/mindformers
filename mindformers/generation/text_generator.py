@@ -44,6 +44,8 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
+from mindspore.communication import get_group_size, get_rank
+from mindspore.ops.auto_generate.gen_ops_prim import dist_comm_broadcast_op
 
 __all__ = ["GenerationMixin"]
 
@@ -334,9 +336,15 @@ class GenerationMixin:
                 self.add_flags_custom(is_first_iteration=True)
             self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
-            res = self(
-                **model_inputs,
-            )
+            if self.pipeline_parallel:
+                self.pp_warm_up(model_inputs)
+                res = self.forward_pp(
+                    **model_inputs
+                )
+            else:
+                res = self(
+                    **model_inputs,
+                )
             self.phase = "increment"
             # first iter done, go to other iters, in dynamic shape scenarios, only the first execution
             # of the increment process will trigger this.
@@ -352,9 +360,14 @@ class GenerationMixin:
                 self.slice_incremental_inputs(model_inputs, current_index)
             self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
-            res = self(
-                **model_inputs,
-            )
+            if self.pipeline_parallel:
+                res = self.forward_pp(
+                    **model_inputs
+                )
+            else:
+                res = self(
+                    **model_inputs,
+                )
 
         return res
 
@@ -1085,6 +1098,16 @@ class GenerationMixin:
         infer_time = time.time() - start_time
         logger.debug("forward time: %s s; sample time: %s s; total count: %s s",
                      forward_time, sample_time, infer_time)
+
+        if self.pipeline_parallel:
+            def _broadcast_from_last_rank(tensor):
+                dist_comm_broadcast_op(tensor, get_group_size() - 1, get_rank(), "mccl_world_group")
+            target_list_tensor = Tensor.from_numpy(np.array(target_list))
+            is_finished_tensor = Tensor.from_numpy(np.array(is_finished)).astype(ms.int32)  # broadcast don't support bool
+            _broadcast_from_last_rank(target_list_tensor)
+            _broadcast_from_last_rank(is_finished_tensor)
+            target_list = target_list_tensor.asnumpy().tolist()
+            is_finished = is_finished_tensor.asnumpy().astype(np.bool_).tolist()
 
         if generation_config.return_dict_in_generate:
             infer_output_dict = InferOutput(
