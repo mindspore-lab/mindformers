@@ -22,6 +22,7 @@ from mindformers.tools.resume_ckpt import get_resume_checkpoint_by_meta
 from mindformers.tools.utils import get_real_rank, is_publicly_accessible_path, replace_rank_id_in_ckpt_name
 from mindformers.trainer.utils import get_last_checkpoint, is_hyper_param_existed_in_sf_dir
 
+
 def get_resume_checkpoint(checkpoint_dir, resume_training, ckpt_format='ckpt'):
     """get resume checkpoint."""
     rank_id = get_real_rank()
@@ -49,6 +50,7 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, ckpt_format='ckpt'):
     if not isinstance(resume_ckpt, str):
         return get_last_checkpoint(checkpoint_dir_path, ckpt_format)
     return os.path.join(checkpoint_dir, f"rank_{rank_id}", resume_ckpt)
+
 
 def load_resume_checkpoint(load_checkpoint_path, remove_redundancy, load_ckpt_format):
     """resume training, load training info from checkpoint to config"""

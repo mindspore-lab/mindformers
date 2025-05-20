@@ -1567,8 +1567,9 @@ class TopkRouterV2(Cell):
             expert_gate = self._normalize(expert_gate)  # (dp, N, k) <-- (dp, N, k)
 
         expert_gate = ops.mul(self.moe_config.routed_scaling_factor, expert_gate)  # (dp, N, k) <-- (dp, N, k)
-        if self.moe_config.balance_via_topk_bias and (self.aux_loss_config.get("expert", 0) > 0 \
-            or self.aux_loss_config.get("device", 0) > 0 or self.aux_loss_config.get("comm", 0) > 0):
+        aux_loss_config_is_valid = self.aux_loss_config.get("expert", 0) > 0 \
+            or self.aux_loss_config.get("device", 0) > 0 or self.aux_loss_config.get("comm", 0) > 0
+        if self.moe_config.balance_via_topk_bias and aux_loss_config_is_valid:
             _, expert_index_for_aux = self.topk(router_prob_for_aux, self.num_experts_chosen)
         else:
             expert_index_for_aux = expert_index

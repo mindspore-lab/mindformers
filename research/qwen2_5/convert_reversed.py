@@ -172,11 +172,13 @@ def read_matched_file(layer_st_map, layer_list, is_first, is_last):
         weights.update(current_weight)
     return weights
 
+
 def has_only_one_safetensors_file(file_path):
     """Check whether there is only one safetensors file."""
     files = os.listdir(file_path)
     safetensors_files = [file for file in files if file.endswith('.safetensors')]
     return len(safetensors_files) == 1
+
 
 def layers_model_file_map(file_path):
     """Get weight-file map"""

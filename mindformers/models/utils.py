@@ -141,6 +141,7 @@ ms_type_to_str = reverse_dict(str_to_ms_type)
 lazy_inline = get_lazy_inline
 predict_lazy_inline = get_predict_lazy_inline
 
+
 class LayerSetting:
     r"""
     Class for setting offset, pipeline stage, swap and select recompute for each transformer layer.

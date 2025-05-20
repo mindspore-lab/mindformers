@@ -392,6 +392,7 @@ def check_tft_valid():
     required_flags = ["TTP:1", "UCE:1", "ARF:1"]
     return any(flag in env_enable for flag in required_flags)
 
+
 def check_tre_valid():
     """check mindspore version is valid for tre"""
     version_valid = is_version_ge(ms.__version__, "2.6.0")
@@ -400,6 +401,7 @@ def check_tre_valid():
         return False
     env_enable = os.getenv("MS_ENABLE_TFT", "")
     return "TRE:1" in env_enable
+
 
 def check_arf_status(cb_params):
     """check arf flag when using ARF, make sure that the number of operators executed by all nodes is consistent"""
