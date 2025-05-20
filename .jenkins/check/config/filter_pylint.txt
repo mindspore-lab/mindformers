@@ -13,3 +13,7 @@
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "missing-final-newline"
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "missing-docstring"
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "unused-argument"
+"mindformers/mindformers/parallel_core/utils/spec_utils.py"                                                                   "bad-continuation"
+"mindformers/mindformers/parallel_core/utils/spec_utils.py"                                                                   "missing-final-newline"
+"mindformers/mindformers/parallel_core/utils/spec_utils.py"                                                                   "missing-docstring"
+"mindformers/mindformers/parallel_core/utils/spec_utils.py"                                                                   "unused-argument"
