@@ -30,7 +30,7 @@ try:
     from mindspore import manual_seed, get_rng_state, set_rng_state
 except ImportError:
     from mindspore.nn.generator import manual_seed, get_rng_state, set_rng_state
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_tensor_model_parallel_rank,
     get_data_parallel_rank,
     get_pipeline_model_parallel_rank,

@@ -25,7 +25,7 @@ from mindspore.ops.auto_generate.gen_ops_prim import FlashAttentionScore
 
 from mindformers.experimental.parallel_core.pynative.context_parallel.utils import get_sp_chuncks, \
     get_sp_chuncks_attn_mask_general, get_sp_chuncks_general
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.context_parallel.ring_attention import RingAttention
 
 

@@ -19,7 +19,7 @@ import math
 import mindspore.common.dtype as mstype
 from mindspore import ops as P
 from mindspore import nn
-from mindformers.experimental.infer.core.utils import create_empty_parameter
+from mindformers.parallel_core.inference.utils import create_empty_parameter
 
 
 class ParallelPagedAttentionMgr(nn.Cell):

@@ -27,7 +27,7 @@ from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 import mindspore.communication.comm_func as comm_func
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, \
+from mindformers.parallel_core.inference.parallel_state import get_data_parallel_rank, \
     get_data_parallel_world_size, get_data_parallel_group
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry

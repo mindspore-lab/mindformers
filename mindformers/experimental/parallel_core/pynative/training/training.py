@@ -31,7 +31,7 @@ from mindspore.experimental.optim.optimizer import Optimizer as mintOptimizer
 
 from mindformers.tools import logger
 from mindformers.tools.resume_ckpt import get_resume_checkpoint
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_data_parallel_world_size,
     get_data_parallel_group,
     get_tensor_model_parallel_world_size,

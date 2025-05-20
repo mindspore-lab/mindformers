@@ -20,7 +20,7 @@ import mindspore as ms
 import mindspore.communication.comm_func as comm_func
 from mindspore import mint, nn, ops
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_tensor_and_context_parallel_group,
     get_tensor_and_context_parallel_world_size,
     get_context_parallel_group,

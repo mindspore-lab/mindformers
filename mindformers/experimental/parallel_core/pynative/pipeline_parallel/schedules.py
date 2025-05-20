@@ -22,7 +22,7 @@ from mindspore.ops import functional as F
 from mindspore import Tensor, mint, nn, hal
 import mindspore.communication.comm_func as comm_func
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, \
+from mindformers.parallel_core.inference.parallel_state import get_pipeline_model_parallel_rank, \
     get_pipeline_model_parallel_world_size, get_context_parallel_world_size, get_tensor_model_parallel_world_size, \
     is_pipeline_last_stage, is_pipeline_first_stage, is_rank_in_embedding_group, get_embedding_group, \
     set_virtual_pipeline_model_parallel_rank, get_stream

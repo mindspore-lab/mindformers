@@ -22,7 +22,7 @@ import mindspore.nn as nn
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import GatherFromSequenceParallelRegion, \
     VocabParallelEmbedding, ScatterToSequenceParallelRegion, ColumnParallelLinear
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_world_size
+from mindformers.parallel_core.inference.parallel_state import get_pipeline_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.enums import ModelType, AttnMaskType
 
 from .module import Module

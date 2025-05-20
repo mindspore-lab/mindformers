@@ -20,7 +20,7 @@ from mindspore import nn, ops
 from mindspore.communication import get_group_size
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_expert_model_parallel_group,
     get_expert_model_parallel_rank,
     get_expert_model_parallel_world_size,

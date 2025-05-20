@@ -17,7 +17,7 @@ import mindspore as ms
 import mindspore.ops as ops
 from mindspore.nn import DistributedGradReducer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_data_parallel_group,
     get_data_parallel_world_size,
 )

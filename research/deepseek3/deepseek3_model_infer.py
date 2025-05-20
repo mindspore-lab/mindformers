@@ -42,12 +42,12 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAtten
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
-from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config

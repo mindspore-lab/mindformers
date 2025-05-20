@@ -13,13 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """ utils """
+__all__ = ["get_attn_mask_func", "generate_state_dict"]
 
 from contextlib import contextmanager
 
 from mindspore import Tensor, ops, Parameter, mint
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_size, get_tensor_model_parallel_world_size
-
-__all__ = ["get_attn_mask_func", "generate_state_dict"]
+from mindformers.parallel_core.inference.parallel_state import get_group_size, get_tensor_model_parallel_world_size
 
 
 def attn_mask_fill(attention_scores: Tensor, attention_mask, fill_value=-10000.0):
@@ -121,3 +120,15 @@ def create_empty_parameter(shape, *, dtype=None, device=None, **kwargs):
     with replace_class_method(Parameter, "_get_parameter_new_args", get_param):
         param = Parameter(data, **kwargs)
     return param
+
+
+def ensure_divisibility(numerator, denominator):
+    """Ensure that numerator is divisible by the denominator."""
+    if numerator % denominator != 0:
+        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+
+
+def divide(numerator, denominator):
+    """Ensure that numerator is divisible by the denominator and return the division value."""
+    ensure_divisibility(numerator, denominator)
+    return numerator // denominator

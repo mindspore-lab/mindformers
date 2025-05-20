@@ -21,7 +21,7 @@ from mindspore.ops.auto_generate.gen_ops_prim import FlashAttentionScore
 from mindspore import hal
 from mindspore.ops.auto_generate import FlashAttentionScoreGrad
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_group, \
+from mindformers.parallel_core.inference.parallel_state import get_context_parallel_group, \
     get_context_parallel_world_size, get_context_parallel_rank, get_sp_send_stream, \
     get_tensor_model_parallel_world_size, get_data_parallel_world_size
 

@@ -25,9 +25,11 @@ from mindspore.common.initializer import initializer
 from mindformers.experimental.infer.core.parallel_paged_attention_mgr import ParallelPagedAttentionMgr
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
 from mindformers.experimental.parallel_core.pynative.utils import divide
-from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
+from mindformers.experimental.infer.core.activation import get_act_func
+from mindformers.experimental.infer.core.norm import get_norm
+from mindformers.parallel_core.inference.utils import get_attn_mask_func
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding

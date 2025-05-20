@@ -21,7 +21,7 @@ from mindspore import nn
 import mindspore.ops as P
 import mindspore.communication.comm_func as comm_func
 from mindformers.tools import logger
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     is_pipeline_first_stage,
     is_pipeline_last_stage,
     get_pipeline_model_parallel_world_size,

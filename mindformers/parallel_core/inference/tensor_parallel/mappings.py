@@ -16,9 +16,9 @@
 
 from mindspore import nn, ops
 
-from mindformers.experimental.infer.core.utils import get_tp_world_size
-from mindformers.experimental.parallel_core.pynative.parallel_state import (get_tensor_model_parallel_group,
-                                                                            get_tensor_model_parallel_rank)
+from mindformers.parallel_core.inference.utils import get_tp_world_size
+from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_group,
+                                                                get_tensor_model_parallel_rank)
 
 
 class GatherFromModelParallelRegion(nn.Cell):

@@ -43,7 +43,7 @@ from mindspore.communication import get_rank
 from mindspore.train.serialization import _update_param
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.utils import generate_state_dict, save_strategy_file
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
+from mindformers.parallel_core.inference.parallel_state import (
     get_data_parallel_group,
     get_data_parallel_rank,
     get_data_parallel_world_size,

@@ -17,7 +17,7 @@
 from mindspore import nn
 from mindspore.ops.auto_generate.gen_ops_prim import inner_comm_irecv_op, inner_comm_isend_op
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, \
+from mindformers.parallel_core.inference.parallel_state import get_pipeline_model_parallel_group, \
     get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, \
     get_pipeline_model_parallel_world_size
 

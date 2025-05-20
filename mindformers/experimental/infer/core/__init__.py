@@ -17,7 +17,6 @@
 from .activation import get_act_func
 from .layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 from .norm import get_norm
-from .utils import get_attn_mask_func
 from .transformer import ParallelAttention, ParallelMLP, ParallelTransformer, ParallelTransformerLayer
 
 __all__ = []
@@ -25,4 +24,3 @@ __all__.extend(activation.__all__)
 __all__.extend(layers.__all__)
 __all__.extend(norm.__all__)
 __all__.extend(transformer.__all__)
-__all__.extend(utils.__all__)
