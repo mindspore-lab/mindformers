@@ -1215,6 +1215,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+
         def get_input():
             if self.npu_mem_size > 0:
                 return None
@@ -1222,6 +1223,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             for _ in self.model.layers:
                 cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
             return mutable(cache_list)
+
         key_cache = get_input()
         self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None,
                         dynamic_init_reset, dynamic_batch_valid_length, None, None, dynamic_block_tables,
