@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""
-Test module for testing ColumnParallelBatchedLinear used for mindformers.
-"""
+"""Test module for testing RowParallelBatchedLinear used for mindformers."""
 import argparse
 
 import mindspore as ms
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.training_graph.tensor_parallel.batched_layers import ColumnParallelBatchedLinear
+from mindformers.parallel_core.training_graph.tensor_parallel.batched_layers import RowParallelBatchedLinear
 from data_gen_utils import get_data, get_output
-from tests.utils.double_benchmark import DoubleBenchmarkComparator
+from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 
 ms.context.set_context(deterministic="ON")
 ms.set_context(mode=ms.GRAPH_MODE)
@@ -41,6 +39,7 @@ def get_config():
                              params_dtype=ms.float32,
                              add_bias_linear=False
                              )
+
 
 
 if __name__ == "__main__":
@@ -69,31 +68,16 @@ if __name__ == "__main__":
         required=False,
         type=int,
         help='num_moe_experts')
-    parser.add_argument(
-        '--skip_weight_param_allocation',
-        action='store_true',
-        help='linear skip weight param allocation')
-    parser.add_argument(
-        '--weight',
-        action='store_true',
-        help='the weight parameter in the linear forward pass is not None')
 
-    parser.set_defaults(skip_weight_param_allocation=False)
-    parser.set_defaults(weight=False)
     args, rest_args = parser.parse_known_args()
-
     config = get_config()
     state_dict, input_ = get_data(config)
-    net = ColumnParallelBatchedLinear(input_size=config.hidden_size, output_size=config.ffn_hidden_size,
-                                      config=config, init_method=config.init_method,
-                                      skip_weight_param_allocation=args.skip_weight_param_allocation,
-                                      compute_dtype=config.compute_dtype)
-    if not args.skip_weight_param_allocation and not args.weight:
-        ms.load_param_into_net(net, state_dict)
-    if args.weight:
-        output, bias = net(input_, state_dict['linear.weight'])
-    else:
-        output, bias = net(input_)
+    net = RowParallelBatchedLinear(input_size=config.hidden_size, output_size=config.ffn_hidden_size,
+                                   config=config, init_method=config.init_method,
+                                   compute_dtype=config.compute_dtype)
+    ms.load_param_into_net(net, state_dict)
+    output, bias = net(input_)
     gpu_output, golden_output = get_output()
     npu_output = output.asnumpy()
-    assert DoubleBenchmarkComparator.check_pass_or_not(npu_output, gpu_output, golden_output)
+    standard = DoubleBenchmarkStandard(dtype="bfloat16")
+    assert DoubleBenchmarkComparator.check_pass_or_not(npu_output, gpu_output, golden_output, standard)
