@@ -18,10 +18,8 @@ import copy
 import re
 from functools import partial
 from typing import Union, Optional, Callable, List
-from importlib import import_module
 import numpy as np
 
-import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms.transforms import TypeCast
 
@@ -123,17 +121,10 @@ def dataset_batch_func(config, dataset):
             pad_token_id=config.pad_token_id
         )
     elif use_compressed_eod_mask:
-        context_module = import_module("mindformers.core.context.build_context")
-        if context_module.Context.is_exists():
-            # set batch actual_seq_len wrapper
-            context_instance = context_module.Context()
-            micro_batch_num = getattr(context_instance.parallel_opr.parallel, "micro_batch_num", 1)
-            if ms.get_auto_parallel_context("pipeline_stages") == 1:
-                micro_batch_num = 1
-            per_batch_map_func = partial(
-                asl_batch_wrapper,
-                micro_batch_num=micro_batch_num
-            )
+        per_batch_map_func = partial(
+            asl_batch_wrapper,
+            micro_batch_num=config.micro_batch_num
+        )
 
     # set num_parallel_workers
     if config.eod_reset:

@@ -193,6 +193,10 @@ class BaseTrainer:
         pp = self.get_pipeline_stages()
 
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+            if pp == 1 and micro_batch_num > 1:
+                logger.warning(f"When pipeline parallel is not enabled, "
+                               f"config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")
+                micro_batch_num = self.config.parallel_config.micro_batch_num = 1
             if full_batch:
                 if ds_stra != 'full_batch':
                     logger.warning(f"full_batch=True only supports dataset_strategy='full_batch', "
