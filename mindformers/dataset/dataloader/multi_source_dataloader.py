@@ -43,6 +43,11 @@ class MultiSourceDataLoader:
                 load_indices_npz_path: Optional[str] = None,
                 save_indices_npz_path: Optional[str] = None,
                 **kwargs):
+
+        # pop num_shards and shard_id for total dataset
+        num_shards = kwargs.pop("num_shards", None)
+        shard_id = kwargs.pop("shard_id", None)
+
         if dataset_ratios is not None:
             if any([ratios < 0 for ratios in dataset_ratios]):
                 raise ValueError(
@@ -164,8 +169,8 @@ class MultiSourceDataLoader:
 
         dataset = GeneratorDataset(
             data_source,
-            num_shards=kwargs.get("num_shards", None),
-            shard_id=kwargs.get("shard_id", None),
+            num_shards=num_shards,
+            shard_id=shard_id,
             **prepare_generator_dataset_args(sub_data_loader_args))
         return dataset
 
