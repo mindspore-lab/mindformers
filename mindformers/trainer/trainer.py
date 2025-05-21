@@ -326,7 +326,6 @@ class Trainer:
         """parse config.monitor_config and supplement settings"""
         if self.config.get('monitor_config') and self.config.monitor_config.monitor_on:
             monitor_config = self.config.monitor_config
-            self.config.check_for_nan_in_loss_and_grad = bool(monitor_config.get('local_loss_format'))
             if not monitor_config.dump_path:
                 monitor_config.dump_path = './dump'
                 logger.info("`monitor_config.dump_path` is unset or set to empty, use default path './dump' instead.")
@@ -344,7 +343,13 @@ class Trainer:
             self.config.callbacks.append({
                 "type": "TrainingStateMonitor",
                 "config": monitor_config,
-                "step_interval": step_interval
+                "step_interval": step_interval,
+                "check_for_nan_in_loss_and_grad": self.config.check_for_nan_in_loss_and_grad
+            })
+        elif self.config.check_for_nan_in_loss_and_grad:
+            self.config.callbacks.append({
+                "type": "TrainingStateMonitor",
+                "check_for_nan_in_loss_and_grad": self.config.check_for_nan_in_loss_and_grad
             })
 
     @args_type_check(train_checkpoint=(str, bool), resume_from_checkpoint=(str, bool),

@@ -320,9 +320,13 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
         loss_parallel_config.data_parallel *= loss_parallel_config.context_parallel
-        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        monitor_config = getattr(config, "monitor_config", None)
+        monitor_on = getattr(monitor_config, "monitor_on", False)
+        check_for_nan_in_loss_and_grad = monitor_on and bool(getattr(monitor_config, "local_loss_format", None))
+        monitor_device_local_loss = monitor_on and bool(getattr(monitor_config, "device_local_loss_format", None))
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     monitor_device_local_loss=monitor_device_local_loss)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel

@@ -14,6 +14,7 @@ mindformers.core.TrainingStateMonitor
           - ``"local_norm_format"`` - 决定local norm的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。只有指定的参数会被监控，选择 'log' 时可能引入大量打印信息。设置为 ``None`` 以忽略该指标。默认值：``None`` 。
           - ``"device_local_norm_format"`` - 决定device local norm的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。设置为 ``None`` 以忽略该指标。默认值：``None`` 。
           - ``"local_loss_format"`` - 决定local loss的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。设置为 ``None`` 以忽略该指标。默认值：``None`` 。
+          - ``"device_local_loss_format"`` - 决定device local loss的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。设置为 ``None`` 以忽略该指标。默认值：``None`` 。
           - ``"optimizer_state_format"`` - 决定优化器状态的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。只有指定参数的优化器状态会被监控，选择 'log' 时可能引入大量打印信息。设置为 ``None`` 以忽略该指标。默认值：'tensorboard' 。
           - ``"weight_state_format"`` - 决定权重L2-norm的展示方式。必须是字符串'tensorboard'、'log'之一（分别代表写入tensorboard、日志），或包含它们的列表，或 ``None`` 。设置为 ``None`` 以忽略该指标。默认值：'tensorboard' 。
           - ``"throughput_baseline"`` - 模型吞吐量的基线，用于计算线性度。必须为正数。会同时写入日志文件和tensorboard。设置为 ``None`` 以忽略该指标。默认值： ``None`` 。
@@ -24,3 +25,4 @@ mindformers.core.TrainingStateMonitor
         - **initial_epoch** (int, 可选) - 训练开始的epoch数。默认值： ``0`` 。
         - **initial_step** (int, 可选) - 训练开始的step数。默认值： ``0`` 。
         - **global_batch_size** (int, 可选) - 总BatchSize大小。默认值： ``0`` 。
+        - **check_for_nan_in_loss_and_grad** (bool, 可选) - 是否检查损失和梯度存在Nan。默认值： ``False`` 。

@@ -326,7 +326,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
-        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        monitor_config = getattr(config, "monitor_config", None)
+        monitor_on = getattr(monitor_config, "monitor_on", False)
+        check_for_nan_in_loss_and_grad = monitor_on and bool(getattr(monitor_config, "local_loss_format", None))
+        monitor_device_local_loss = monitor_on and bool(getattr(monitor_config, "device_local_loss_format", None))
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
@@ -345,6 +348,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             loss_parallel_config.context_parallel = 1
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     monitor_device_local_loss=monitor_device_local_loss,
                                      calculate_per_token_loss=calculate_per_token_loss,
                                      seq_split_num=config.parallel_config.seq_split_num)
         self.gmask = config.gmask_token_id

@@ -1,7 +1,7 @@
 mindformers.core.CrossEntropyLoss
 =================================
 
-.. py:class:: mindformers.core.CrossEntropyLoss(parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)
+.. py:class:: mindformers.core.CrossEntropyLoss(parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)
 
     计算预测值和目标值之间的交叉熵损失。
 
@@ -47,6 +47,7 @@ mindformers.core.CrossEntropyLoss
     参数：
         - **parallel_config** (:class:`mindformers.modules.OpParallelConfig`, 可选) - 并行配置字典，用于控制并行训练的策略。默认值： ``default_dpmp_config`` 。
         - **check_for_nan_in_loss_and_grad** (bool, 可选) - 是否打印局部损失。默认值： ``False`` 。
+        - **monitor_device_local_loss** (bool, 可选) - 是否监控设备局部损失，会对当前设备的局部损失进行累计。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
         - **seq_split_num** (int, 可选) - 序列流水线并行模式下的序列分割数。默认值： ``1`` 。
 

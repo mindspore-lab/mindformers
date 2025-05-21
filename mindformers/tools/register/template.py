@@ -537,6 +537,7 @@ class MonitorConfig(Config):
     local_loss_format = None
     local_norm_format = None
     device_local_norm_format = None
+    device_local_loss_format = None
     optimizer_state_format = None
     weight_state_format = None
     throughput_baseline = None

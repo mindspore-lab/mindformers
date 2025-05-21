@@ -18,7 +18,8 @@ from .loss import (
     CrossEntropyLoss,
     L1Loss,
     MSELoss,
-    SoftTargetCrossEntropy
+    SoftTargetCrossEntropy,
+    get_device_local_loss
 )
 
 __all__ = ['CrossEntropyLoss']

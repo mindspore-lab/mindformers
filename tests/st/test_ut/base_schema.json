@@ -141,7 +141,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.CrossEntropyLoss": {
-        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
@@ -380,6 +380,9 @@
     "mindformers.core.TrainingStateMonitor._dump_data_in_step": {
         "signature": "(self, global_step)"
     },
+    "mindformers.core.TrainingStateMonitor._dump_local_loss": {
+        "signature": "(self, local_losses)"
+    },
     "mindformers.core.TrainingStateMonitor._dump_optimizer_state": {
         "signature": "(self, cb_params)"
     },
@@ -397,6 +400,12 @@
     },
     "mindformers.core.TrainingStateMonitor._output": {
         "signature": "(self, tag, data, global_step, formats)"
+    },
+    "mindformers.core.TrainingStateMonitor._get_loss_output": {
+        "signature": "(self, output)"
+    },
+    "mindformers.core.TrainingStateMonitor._check_nan_or_inf": {
+        "signature": "(device_local_loss, loss, local_norm, global_norm)"
     },
     "mindformers.core.build_context": {
         "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
@@ -533,6 +542,9 @@
     "mindformers.core.callback.TrainingStateMonitor._dump_data_in_step": {
         "signature": "(self, global_step)"
     },
+    "mindformers.core.callback.TrainingStateMonitor._dump_local_loss": {
+        "signature": "(self, local_losses)"
+    },
     "mindformers.core.callback.TrainingStateMonitor._dump_optimizer_state": {
         "signature": "(self, cb_params)"
     },
@@ -550,6 +562,12 @@
     },
     "mindformers.core.callback.TrainingStateMonitor._output": {
         "signature": "(self, tag, data, global_step, formats)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._get_loss_output": {
+        "signature": "(self, output)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._check_nan_or_inf": {
+        "signature": "(device_local_loss, loss, local_norm, global_norm)"
     },
     "mindformers.core.callback.callback.CheckpointMonitor": {
         "signature": "(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=False, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False)"
@@ -663,7 +681,7 @@
         "signature": "(run_mode=None, **kwargs)"
     },
     "mindformers.core.loss.CrossEntropyLoss": {
-        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.loss.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
@@ -672,7 +690,7 @@
         "signature": "(self, logits, label, input_mask)"
     },
     "mindformers.core.loss.loss.CrossEntropyLoss": {
-        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.loss.loss.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
