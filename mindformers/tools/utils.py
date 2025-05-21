@@ -21,7 +21,7 @@ import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 from importlib import import_module
-
+from collections import OrderedDict
 import numpy as np
 import psutil
 
@@ -49,6 +49,12 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
         'GRAPH_MODE': context.GRAPH_MODE,
         0: context.GRAPH_MODE,
         1: context.PYNATIVE_MODE}
+
+CONFIG_MAPPING = OrderedDict(
+    [
+        ("qwen2", "Qwen2Config")
+    ]
+)
 
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
 

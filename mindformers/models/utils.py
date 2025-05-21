@@ -15,7 +15,9 @@
 """Check Model Input Config."""
 import json
 import re
+import os
 from functools import wraps
+from typing import Union
 import numpy as np
 import mindspore.common.dtype as mstype
 import mindspore as ms
@@ -135,6 +137,18 @@ def jit(func):
         return ms.jit(func, jit_level='O0', infer_boost='on')(*args, **kwargs)
 
     return decorator
+
+
+def dict_from_json_file(json_file: Union[str, os.PathLike]):
+    """method to read json."""
+    if not os.path.exists(json_file):
+        raise ValueError(
+            f"{json_file} should be a .json file."
+        )
+    json_file = os.path.realpath(json_file)
+    with open(json_file, "r", encoding="utf-8") as reader:
+        text = reader.read()
+    return json.loads(text)
 
 ms_type_to_str = reverse_dict(str_to_ms_type)
 

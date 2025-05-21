@@ -29,9 +29,6 @@ QWEN2_CONFIG = {
     "rms_norm_eps": 1.0e-6,
     "rope_theta": 1000000.0,
     "emb_dropout_prob": 0.0,
-    "eos_token_id": [151643, 151645],
-    "pad_token_id": 151643,
-    "bos_token_id": 151643,
     "compute_dtype": "bfloat16",
     "layernorm_compute_type": "float32",
     "softmax_compute_type": "float32",
@@ -40,13 +37,7 @@ QWEN2_CONFIG = {
     "use_flash_attention": True,
     "block_size": 32,
     "num_blocks": 1024,
-    "qkv_concat": False,
-    "repetition_penalty": 1.1,
-    "max_decode_length": 512,
-    "temperature": 0.7,
-    "top_k": 20,
-    "top_p": 0.8,
-    "do_sample": False,
+    "qkv_concat": True,
     "tie_word_embeddings": True,
     "normalization": "RMSNorm",
     "hidden_act": "silu",
@@ -55,6 +46,20 @@ QWEN2_CONFIG = {
     "mlp_has_bias": False
 }
 
+QWEN2_GENERATION_CONFIG = {
+    "repetition_penalty": 1.1,
+    "max_decode_length": 512,
+    "temperature": 0.7,
+    "top_k": 20,
+    "top_p": 0.8,
+    "do_sample": False,
+    "eos_token_id": [151643, 151645],
+    "pad_token_id": 151643,
+    "bos_token_id": 151643
+}
 
 def get_qwen_model_config():
     return QWEN2_CONFIG
+
+def get_qwen_generation_config():
+    return QWEN2_GENERATION_CONFIG

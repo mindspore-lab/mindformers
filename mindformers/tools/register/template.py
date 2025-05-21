@@ -466,7 +466,7 @@ class ModelConfig(Config):
     _raise_error_for_unexpected_key = False
 
     _name = "model"
-    _required_keys = ["model_config", "arch"]
+    _required_keys = ["model_config"]
 
 
 class WrapperConfig(SpecConfig):

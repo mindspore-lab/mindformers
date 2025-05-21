@@ -20,7 +20,7 @@ from mindspore import dtype
 from mindspore.ops import operations as P
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindformers import LlamaConfig
+from mindformers.models import LlamaConfig
 from mindformers.core.context import get_context
 from mindformers.experimental.parallel_core.pynative.transformer.enums import AttnMaskType
 from mindformers.models.modeling_utils import PreTrainedModel

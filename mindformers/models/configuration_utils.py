@@ -27,13 +27,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 from packaging import version
 from mindspore._c_expression.typing import Float, BFloat
-
 from mindformers import __version__
 from mindformers.tools import MindFormerConfig
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
 from mindformers.tools.logger import logger
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
-from mindformers.models.build_config import build_model_config
+from mindformers.models.build_config import build_model_config, get_model_config
 from mindformers.models.utils import CONFIG_NAME, ms_type_to_str
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools import (
@@ -215,6 +214,9 @@ class PretrainedConfig(PushToHubMixin):
         self.tokenizer_class = kwargs.pop("tokenizer_class", None)
 
         # general config
+        self.bos_token_id = kwargs.pop("bos_token_id", None)
+        self.pad_token_id = kwargs.pop("pad_token_id", None)
+        self.eos_token_id = kwargs.pop("eos_token_id", None)
         self.architectures = kwargs.pop("architectures", None)
         self.is_encoder_decoder = kwargs.pop("is_encoder_decoder", None)
 
@@ -424,13 +426,20 @@ class PretrainedConfig(PushToHubMixin):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
+                    raise FileNotFoundError(
+                        f'default yaml file path must be correct, but get {default_yaml_file}'
+                    )
             config_args = MindFormerConfig(yaml_file)
+        use_legacy = config_args.get_value("use_legacy", True)
         config_args.model.model_config.update(**kwargs)
-        config = build_model_config(config_args.model.model_config)
-        MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
+        if not use_legacy:
+            config = get_model_config(config_args.model)
+        else:
+            config = build_model_config(config_args.model.model_config)
+            MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
 
         return config
+
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model", **kwargs):
         """
@@ -765,6 +774,10 @@ class PretrainedConfig(PushToHubMixin):
 
     @classmethod
     def _dict_from_json_file(cls, json_file: Union[str, os.PathLike]):
+        if not os.path.exists(json_file):
+            raise ValueError(
+                f"{json_file} should be a .json file."
+            )
         with open(json_file, "r", encoding="utf-8") as reader:
             text = reader.read()
         return json.loads(text)
