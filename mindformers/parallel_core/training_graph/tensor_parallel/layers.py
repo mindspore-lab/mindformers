@@ -16,18 +16,24 @@
 __all__ = [
     "ColumnParallelLinear",
     "RowParallelLinear",
+    "VocabParallelEmbedding",
     "LinearNoTP"
 ]
 
 from typing import List, Optional, Callable
 import copy
 
+try:
+    from mindformer._checkparam import Validator
+except ImportError:
+    import mindspore._checkparam as Validator
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
+from mindspore.ops import functional as F
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose
+from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
@@ -363,6 +369,72 @@ class RowParallelLinear(nn.Cell):
             weight_strategy = (tp, 1)
         matmul_in_strategy = ((dp * cp, tp), weight_strategy)
         self.matmul.shard(in_strategy=matmul_in_strategy)
+
+
+class VocabParallelEmbedding(nn.Cell):
+    """Embedding parallelized in the vocabulary dimension.
+
+    This is mainly adapted from torch.nn.Embedding and all the default
+    values are kept.
+
+    Args:
+        num_embeddings (int): The number of embeddings.
+        embedding_dim (int): The size of each embedding vector.
+        parallel_config (ModelParallelConfig): The model parallel configuration.
+        init_method (str): The initialization method. Default: 'normal'.
+        init_type (dtype): The data type of the initialization. Default: dtype.float32.
+    """
+    def __init__(
+            self,
+            num_embeddings,
+            embedding_dim,
+            init_method: Callable,
+            config: TransformerConfig,
+            reduce_scatter_embeddings: bool = False,
+    ):
+        super().__init__()
+        if reduce_scatter_embeddings:
+            raise NotImplementedError("For VocabParallelEmbedding, reduce_scatter_embeddings is not supported for now")
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.weight = Parameter(
+            init_method([self.num_embeddings, self.embedding_dim]).astype(config.params_dtype),
+            name="weight"
+        )
+        self.gather = IndexSelect()
+        self.reshape = Reshape()
+        self.config = config
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+            self.shard(config)
+
+    def construct(self, input_ids):
+        """Forward of vocab embedding."""
+        Validator.check_type_name("input_ids", F.dtype(input_ids), [dtype.int32, dtype.int64], self.cls_name)
+        bs, seq_len = input_ids.shape
+        # in IndexSelect, input_ids should be 1-dimension
+        input_ids_ = self.reshape(input_ids, (bs * seq_len,))
+        output_ = self.gather(self.weight, 0, input_ids_)
+        output = self.reshape(output_, (bs, seq_len, -1))
+
+        return output
+
+    def shard(self, config: TransformerConfig):
+        """sharding for embedding"""
+        dp = 1 if config.data_parallel_size is None else config.data_parallel_size
+        tp = 1 if config.tensor_model_parallel_size is None else config.tensor_model_parallel_size
+        cp = 1 if config.context_parallel_size is None else config.context_parallel_size
+        if config.vocab_emb_dp:
+            self.gather.shard(((1, 1), (dp * cp,)))
+        else:
+            if self.num_embeddings % tp != 0:
+                self.gather.shard(((1, 1), (dp * cp,)))
+            else:
+                self.gather.shard(((tp, 1), (1,)))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 class LinearNoTP(ColumnParallelLinear):
