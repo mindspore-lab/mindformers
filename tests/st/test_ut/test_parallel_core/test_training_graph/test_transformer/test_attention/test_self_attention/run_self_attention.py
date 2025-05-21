@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Run SelfAttentionMegatron accuracy test with configurable parameters via args"""
+"""Run SelfAttention accuracy test with configurable parameters via args"""
 import argparse
 import os
 from pathlib import Path
@@ -22,17 +22,85 @@ from mindspore.communication import init
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.norm import LayerNorm
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionMegatron, \
-    SelfAttentionSubmodules
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+# from mindformers.parallel_core.training_graph.transformer.dot_product_attention import DotPruductAttention
 
 from data_gen_utils import get_init_params
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
-class SelfAttentionMegatronRunner:
-    """Class to manage SelfAttentionMegatron model and weights"""
+def transform_megatron_weight_to_mf(weight, kv_num_heads, n_rep, head_dim, tensor_parallel=1):
+    """
+    Transform the linear_qkv weight matrix from the commented code's grouped layout
+    to the original code's global layout.
+
+    Args:
+        weight (np.ndarray): Weight matrix from commented code, shape (total_dim, hidden_dim)
+        kv_num_heads (int): Number of key-value heads
+        n_rep (int): Number of query head repetitions per key-value head
+        head_dim (int): Dimension of each head
+
+    Returns:
+        np.ndarray: Transformed weight matrix, shape (total_dim, hidden_dim)
+    """
+    total_dim = weight.shape[0]
+    expected_total_dim = head_dim * kv_num_heads * (
+                n_rep + 2)  # hidden_size(head_dim * kv_num_heads * n_rep) + kv_hidden_size(head_dim * kv_num_heads) * 2
+    assert total_dim == expected_total_dim, f"Total dimension mismatch: {total_dim} != {expected_total_dim}"
+
+    # Total rows per group (query + key + value for one kv_head)
+    group_rows = head_dim * (n_rep + 2)
+
+    # Initialize lists to collect query, key, and value indices
+    query_indices = []
+    key_indices = []
+    value_indices = []
+
+    # Iterate over each kv_head group
+    for kv_head in range(kv_num_heads):
+        # Start index of this group
+        group_start = kv_head * group_rows
+
+        # Query rows: first n_rep * head_dim rows in the group
+        query_start = group_start
+        query_end = query_start + n_rep * head_dim
+        query_indices.extend(range(query_start, query_end))
+
+        # Key rows: next head_dim rows after query
+        key_start = query_end
+        key_end = key_start + head_dim
+        key_indices.extend(range(key_start, key_end))
+
+        # Value rows: last head_dim rows in the group
+        value_start = key_end
+        value_end = value_start + head_dim
+        value_indices.extend(range(value_start, value_end))
+
+    # Combine all indices in the order: all queries, all keys, all values
+    if tensor_parallel == 1:
+        new_indices = query_indices + key_indices + value_indices
+    else:
+        new_indices = []
+        q_len = len(query_indices) // tensor_parallel
+        k_len = len(key_indices) // tensor_parallel
+        v_len = len(value_indices) // tensor_parallel
+        for i in range(tensor_parallel):
+            new_indices += query_indices[i * q_len:(i + 1) * q_len]
+            new_indices += key_indices[i * k_len:(i + 1) * k_len]
+            new_indices += value_indices[i * v_len:(i + 1) * v_len]
+
+    new_indices = np.array(new_indices)
+
+    # Reorder the rows of weight according to new_indices
+    weight_new = weight[new_indices]
+
+    return weight_new
+
+
+class SelfAttentionRunner:
+    """Class to manage SelfAttention model and weights"""
 
     def __init__(self, args_from_parser):
         self.args = args_from_parser
@@ -54,6 +122,12 @@ class SelfAttentionMegatronRunner:
         self.attention_mask = ms.Tensor(init_params["attention_mask"], dtype=self.compute_dtype)
         self.weight_qkv = init_params["weight_qkv"]
         self.bias_qkv = init_params["bias_qkv"]
+        self.weight_q = None
+        self.bias_q = None
+        self.weight_k = None
+        self.bias_k = None
+        self.weight_v = None
+        self.bias_v = None
         self.weight_proj = init_params["weight_proj"]
         self.bias_proj = init_params["bias_proj"]
         self.q_layernorm_weight = init_params["q_layernorm_weight"]
@@ -92,8 +166,8 @@ class SelfAttentionMegatronRunner:
         """Build and initialize SelfAttention model"""
         submodules = SelfAttentionSubmodules(
             linear_qkv=ColumnParallelLinear,
-            core_attention=FlashAttention,
             # core_attention=FlashAttention if self.config.use_flash_attn else CoreAttention,
+            core_attention=FlashAttention,
             linear_proj=RowParallelLinear,
         )
 
@@ -102,7 +176,7 @@ class SelfAttentionMegatronRunner:
         if self.args.k_layernorm == "Norm":
             submodules.k_layernorm = LayerNorm
 
-        net = SelfAttentionMegatron(
+        net = SelfAttention(
             config=self.config,
             submodules=submodules,
             layer_number=1,
@@ -110,9 +184,24 @@ class SelfAttentionMegatronRunner:
 
         state_dict = {}
         if self.weight_qkv is not None:
-            state_dict["linear_qkv.weight"] = ms.Parameter(self.weight_qkv)
+            weight_qkv = transform_megatron_weight_to_mf(
+                np.copy(self.weight_qkv),
+                kv_num_heads=self.config.num_query_groups,
+                n_rep=self.config.num_attention_heads // self.config.num_query_groups,
+                head_dim=self.config.kv_channels,
+                tensor_parallel=self.config.tensor_model_parallel_size,
+            )
+
+            state_dict["linear_qkv.weight"] = ms.Parameter(weight_qkv)
         if self.has_bias and self.bias_qkv is not None:
-            state_dict["linear_qkv.bias"] = ms.Parameter(self.bias_qkv)
+            bias_qkv = transform_megatron_weight_to_mf(
+                np.copy(self.bias_qkv),
+                kv_num_heads=self.config.num_query_groups,
+                n_rep=self.config.num_attention_heads // self.config.num_query_groups,
+                head_dim=self.config.kv_channels,
+                tensor_parallel=self.config.tensor_model_parallel_size,
+            )
+            state_dict["linear_qkv.bias"] = ms.Parameter(bias_qkv)
 
         if self.weight_proj is not None:
             state_dict["linear_proj.weight"] = ms.Parameter(self.weight_proj)
@@ -161,7 +250,7 @@ def main():
     ms.set_context(mode=ms.GRAPH_MODE)
     ms.set_seed(42)
 
-    runner = SelfAttentionMegatronRunner(args)
+    runner = SelfAttentionRunner(args)
     runner.run()
 
 
