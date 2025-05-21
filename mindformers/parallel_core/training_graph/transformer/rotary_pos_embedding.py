@@ -18,6 +18,7 @@ Rotary position embedding for transformer.
 __all__ = [
     "RotaryEmbedding",
     "YarnRotaryEmbedding",
+    "ApplyRotaryPosEmb"
 ]
 
 import math
@@ -26,7 +27,11 @@ import numpy as np
 import mindspore as ms
 from mindspore import nn, Tensor, dtype, mint
 from mindspore import ops
-from mindspore.ops.auto_generate import (Reshape, Mul, Concat, StackExt, Div, Outer)
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.ops.auto_generate import (AddExt, Reshape, Mul, Cos, Sin,
+                                         Split, Neg, Concat, StackExt, StridedSlice, Div, Outer)
+from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
 class RotaryEmbedding(nn.Cell):
@@ -264,3 +269,123 @@ def _yarn_get_mscale(scale=1, mscale=1):
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0
+
+
+class ApplyRotaryPosEmb(nn.Cell):
+    """Apply rotary positional embedding to input tensor T.
+
+    Args:
+        config (TransformerConfig): The transformer configuration
+    """
+
+    def __init__(self,
+                 config: TransformerConfig):
+        super(ApplyRotaryPosEmb, self).__init__()
+        self.append_eod = config.use_eod_attn_mask_compression
+        self.add = AddExt()
+        self.mul = Mul()
+        self.cos = Cos()
+        self.sin = Sin()
+        self.neg = Neg()
+        self.split = Split(axis=-1, output_num=2)
+        self.tnd_split = Split(axis=-1, output_num=2)
+        self.cat = Concat(axis=-1)
+        self.stack = StackExt(dim=-1)
+        self.slice = StridedSlice()
+        self.reshape = Reshape()
+
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
+
+    def construct(self,
+                  t: Tensor,
+                  freqs: tuple,
+                  rotary_interleaved: bool = False,
+                  multi_latent_attention: bool = False) -> Tensor:
+        """Apply rotary position embedding to input tensor.
+
+        Args:
+            t (Tensor): Input tensor is of shape [bs, n_heads, seq_len, head_dim]
+            freqs (tuple): Rotary position embedding frequencies of shape [1, 1, seq_len, head_dim]
+            rotary_interleaved (bool): Whether to use interleaved rotary position embedding
+            multi_latent_attention (bool): Whether to use multi latent attention
+
+        Returns:
+            Tensor: Output tensor after applying rotary position embedding
+        """
+        freqs, m_scale = freqs
+        rot_dim = freqs.shape[-1]
+        t, t_not_rotary = t[..., :rot_dim], t[..., rot_dim:]
+
+        if multi_latent_attention:
+            x1 = t[..., 0::2]
+            x2 = t[..., 1::2]
+            t = self.cat((x1, x2))
+
+        cos_ = self.cos(freqs * m_scale).astype(t.dtype)
+        sin_ = self.sin(freqs * m_scale).astype(t.dtype)
+
+        output = self.add(self.mul(t, cos_), self.mul(self._rotate_half(t, rotary_interleaved), sin_))
+        if t_not_rotary is not None:
+            output = self.cat((output, t_not_rotary))
+        return output
+
+    def _rotate_half(self, t: Tensor, rotary_interleaved: bool = False) -> Tensor:
+        seq_len, bs, n_heads, head_dim = t.shape
+        if rotary_interleaved:
+            t_1 = self.slice(t, (0, 0, 0, 0), (seq_len, bs, n_heads, head_dim), (1, 1, 1, 2))
+            t_2 = self.slice(t, (0, 0, 0, 1), (seq_len, bs, n_heads, head_dim), (1, 1, 1, 2))
+            t_rot = self.reshape(self.stack((self.neg(t_2), t_1)), (seq_len, bs, n_heads, -1))
+        else:
+            t_1, t_2 = self.split(t)
+            t_rot = self.cat((self.neg(t_2), t_1))
+        return t_rot
+
+    def shard(self, config: TransformerConfig):
+        """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""
+        dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
+        tp = config.tensor_model_parallel_size if config and config.tensor_model_parallel_size is not None else 1
+
+        strategy_in = (1, dp, tp, 1)
+
+        sin_in_strategy = ((1, 1, 1, 1),)
+        cos_in_strategy = ((1, 1, 1, 1),)
+        split_in_strategy = (strategy_in,)
+        neg_in_strategy = (strategy_in,)
+        cat_in_strategy = (strategy_in, strategy_in)
+        stack_in_strategy = (strategy_in, strategy_in)
+        slice_in_strategy = (strategy_in,)
+        add_in_strategy = (strategy_in, strategy_in)
+
+        self.add.shard(in_strategy=add_in_strategy)
+        if self.append_eod:
+            self.mul.shard(in_strategy=(strategy_in, (1, strategy_in[0], 1, 1)))
+        else:
+            self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))
+        self.split.shard(in_strategy=split_in_strategy)
+        self.cat.shard(in_strategy=cat_in_strategy)
+        self.stack.shard(in_strategy=stack_in_strategy)
+        self.slice.shard(in_strategy=slice_in_strategy)
+        self.neg.shard(in_strategy=neg_in_strategy)
+        self.sin.shard(in_strategy=sin_in_strategy)
+        self.cos.shard(in_strategy=cos_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig):
+        """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""
+        dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
+        tp = config.tensor_model_parallel_size if config and config.tensor_model_parallel_size is not None else 1
+
+        strategy_in = (1, dp, tp, 1)
+
+        add_in_strategy = (strategy_in, strategy_in)
+        split_in_strategy = (strategy_in,)
+
+        self.add.shard(in_strategy=add_in_strategy)
+        self.split.shard(in_strategy=split_in_strategy)
+        if self.append_eod:
+            self.mul.shard(in_strategy=(strategy_in, (1, strategy_in[0], 1, 1)))
+        else:
+            self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))
