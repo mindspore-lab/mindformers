@@ -12,29 +12,202 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""
-Linear units for tensor parallelism.
-"""
+"""Linear units for tensor parallelism."""
 __all__ = [
+    "ColumnParallelLinear",
     "RowParallelLinear",
+    "LinearNoTP"
 ]
 
-from typing import Callable
+from typing import List, Optional, Callable
+import copy
 
-try:
-    from mindformer._checkparam import Validator
-except ImportError:
-    import mindspore._checkparam as Validator
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
+from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
 
+
+class ColumnParallelLinear(nn.Cell):
+    """Linear layer with column parallelism.
+
+    The linear layer is defined as Y = XA + b. A is parallelized along
+    its second dimension as A = [A_1, ..., A_p].
+
+    Args:
+        input_size (int): The number of input units.
+        output_size (int): The number of output units.
+        config (TransformerConfig): The config of the transformer model.
+        bias_init (str): The initialization method for bias. Default: 'zeros'.
+        bias (bool): Whether to include bias in the linear layer. Default: True.
+        gather_output (bool): Whether to gather the output. Default: False.
+        stride (int): The stride of the linear layer. Default: 1.
+        keep_master_weight_for_test (bool): Whether to keep master weight for test. Default: False.
+        skip_bias_add (bool): Whether to skip bias add. Default: False.
+        skip_weight_param_allocation (bool): Whether to skip weight parameter allocation. Default: False.
+        embedding_activation_buffer (List[Tensor]): The buffer for embedding activation. Default: None.
+        grad_output_buffer (List[Tensor]): The buffer for gradient output. Default: None.
+        is_expert (bool): Whether to use expert mode. Default: False.
+        tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
+        disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
+        transpose_b (bool): Whether to transpose the weight matrix. Default: True.
+        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
+        init_method (Callable): The initialization method. Default: None
+    """
+
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 config: TransformerConfig,
+                 init_method: Callable = None,
+                 bias: bool = True,
+                 gather_output: bool = False,
+                 stride: int = 1,
+                 keep_master_weight_for_test: bool = False,
+                 skip_bias_add: bool = False,
+                 skip_weight_param_allocation: bool = False,
+                 embedding_activation_buffer: Optional[List[Tensor]] = None,
+                 grad_output_buffer: Optional[List[Tensor]] = None,
+                 is_expert: bool = False,
+                 tp_comm_buffer_name: str = None,
+                 disable_grad_reduce: bool = False,
+                 transpose_b: bool = True,
+                 compute_dtype: dtype = dtype.float16,
+                 bias_init: Callable = None
+                 ):
+        super(ColumnParallelLinear, self).__init__()
+        if gather_output:
+            raise NotImplementedError("For ColumnParallelLinear, `gather_output` is not supported for now")
+        if stride > 1:
+            raise NotImplementedError("For ColumnParallelLinear, `stride > 1` is not supported for now")
+        if keep_master_weight_for_test:
+            raise NotImplementedError(
+                "For ColumnParallelLinear, `keep_master_weight_for_test` is not supported for now")
+        if embedding_activation_buffer is not None:
+            raise NotImplementedError(
+                "For ColumnParallelLinear, `embedding_activation_buffer` is not supported for now")
+        if grad_output_buffer is not None:
+            raise NotImplementedError("For ColumnParallelLinear, `grad_output_buffer` is not supported for now")
+        if is_expert:
+            raise NotImplementedError("For ColumnParallelLinear, `is_expert` is not supported for now")
+        if tp_comm_buffer_name is not None:
+            raise NotImplementedError("For ColumnParallelLinear, `tp_comm_buffer_name` is not supported for now")
+        if disable_grad_reduce:
+            raise NotImplementedError("For ColumnParallelLinear, `disable_grad_reduce` is not supported for now")
+
+        self.input_size = input_size
+        self.output_size = output_size
+        self.config = config
+        self.init_method = init_method
+        self.skip_bias_add = skip_bias_add
+        self.compute_dtype = compute_dtype
+        self.cast = Cast()
+        self.transpose_b = transpose_b
+        self.skip_weight_param_allocation = skip_weight_param_allocation
+        self.has_bias = bias
+        self.params_dtype = config.params_dtype
+
+        if skip_weight_param_allocation:
+            self.weight = None
+        else:
+            weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
+            self.weight = Parameter(init_method(weight_shape), name='weight')
+
+        if self.has_bias:
+            if bias_init is None:
+                bias_init = init_method_zero(self.params_dtype)
+            self.bias = Parameter(bias_init((output_size,)), name='bias')
+        else:
+            self.bias = None
+
+        self.matmul = MatMulExt()
+        self.transpose = Transpose()
+        if not skip_bias_add:
+            self.add = AddExt()
+        self.reshape = Reshape()
+
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
+
+    def construct(self, input_: Tensor, weight: Tensor = None) -> tuple[Tensor, Tensor]:
+        """Forward of ColumnParallelLinear.
+
+        Args:
+            input_ (Tensor): The input tensor.
+            weight (Tensor): The weight tensor. Default: None.
+
+        Returns:
+            - output (Tensor): The output tensor.
+            - bias (Tensor): The bias
+        """
+        output_shape = input_.shape[:-1] + (self.output_size,)
+        input_ = self.reshape(input_, (-1, self.input_size))
+
+        ori_dtype = input_.dtype
+        if weight is None:
+            if self.skip_weight_param_allocation:
+                raise ValueError("For ColumnParallelLinear, when `skip_weight_param_allocation` is enabled,"
+                                 " `weight` is required, but got None")
+            weight = self.weight
+        weight = self.cast(weight, self.compute_dtype)
+        input_ = self.cast(input_, self.compute_dtype)
+
+        if self.transpose_b:
+            weight = self.transpose(weight, (1, 0))
+        input_ = self.matmul(input_, weight)
+
+        if not self.skip_bias_add and self.has_bias:
+            bias = self.cast(self.bias, self.compute_dtype)
+            input_ = self.add(input_, bias)
+            bias = None
+        else:
+            bias = self.bias
+
+        input_ = self.cast(input_, ori_dtype)
+        output = self.reshape(input_, output_shape)
+        return output, bias
+
+    def shard(self, config: TransformerConfig) -> None:
+        """Shard the operators in ColumnParallelLinear.
+
+        Args:
+            config (TransformerConfig): The config of the transformer model.
+        """
+        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
+        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+
+        matmul_in_strategy = ((dp * cp, 1), (1, tp))
+        self.matmul.shard(in_strategy=matmul_in_strategy)
+
+        if not self.skip_bias_add:
+            add_in_strategy = ((dp * cp, tp), (tp,))
+            self.add.shard(in_strategy=add_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig) -> None:
+        """Shard the operators in ColumnParallelLinear in sharding propagation mode.
+
+        Args:
+            config (TransformerConfig): The config of the transformer model.
+        """
+        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
+        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+
+        if self.transpose_b:
+            weight_strategy = (tp, 1)
+        else:
+            weight_strategy = (1, tp)
+        matmul_in_strategy = ((dp * cp, 1), weight_strategy)
+        self.matmul.shard(in_strategy=matmul_in_strategy)
 
 
 class RowParallelLinear(nn.Cell):
@@ -59,6 +232,7 @@ class RowParallelLinear(nn.Cell):
         compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
         init_method (Callable): The initialization method. Default: None
     """
+
     def __init__(self,
                  input_size: int,
                  output_size: int,
@@ -189,3 +363,73 @@ class RowParallelLinear(nn.Cell):
             weight_strategy = (tp, 1)
         matmul_in_strategy = ((dp * cp, tp), weight_strategy)
         self.matmul.shard(in_strategy=matmul_in_strategy)
+
+
+class LinearNoTP(ColumnParallelLinear):
+    """Linear layer without tensor parallelism.
+
+    The linear layer is defined as Y = XA + b. A is not parallelized.
+
+    Args:
+        input_size (int): The number of input units.
+        output_size (int): The number of output units.
+        config (TransformerConfig): The config of the transformer model.
+        bias_init (str): The initialization method for bias. Default: 'zeros'.
+        bias (bool): Whether to include bias in the linear layer. Default: True.
+        gather_output (bool): Whether to gather the output. Default: False.
+        stride (int): The stride of the linear layer. Default: 1.
+        keep_master_weight_for_test (bool): Whether to keep master weight for test. Default: False.
+        skip_bias_add (bool): Whether to skip bias add. Default: False.
+        skip_weight_param_allocation (bool): Whether to skip weight parameter allocation. Default: False.
+        embedding_activation_buffer (List[Tensor]): The buffer for embedding activation. Default: None.
+        grad_output_buffer (List[Tensor]): The buffer for gradient output. Default: None.
+        is_expert (bool): Whether to use expert mode. Default: False.
+        tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
+        disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
+        transpose_b (bool): Whether to transpose the weight matrix. Default: True.
+        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
+        init_method (Callable): The initialization method. Default: None
+    """
+
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 config: TransformerConfig,
+                 init_method: Callable = None,
+                 bias: bool = True,
+                 gather_output: bool = False,
+                 stride: int = 1,
+                 keep_master_weight_for_test: bool = False,
+                 skip_bias_add: bool = False,
+                 skip_weight_param_allocation: bool = False,
+                 embedding_activation_buffer: Optional[List[Tensor]] = None,
+                 grad_output_buffer: Optional[List[Tensor]] = None,
+                 is_expert: bool = False,
+                 tp_comm_buffer_name: str = None,
+                 disable_grad_reduce: bool = False,
+                 transpose_b: bool = True,
+                 compute_dtype: dtype = dtype.float16,
+                 bias_init: Callable = None
+                 ):
+        config = copy.deepcopy(config)
+        config.tensor_model_parallel_size = 1
+        super().__init__(
+            input_size,
+            output_size,
+            config,
+            init_method,
+            bias,
+            gather_output,
+            stride,
+            keep_master_weight_for_test,
+            skip_bias_add,
+            skip_weight_param_allocation,
+            embedding_activation_buffer,
+            grad_output_buffer,
+            is_expert,
+            tp_comm_buffer_name,
+            disable_grad_reduce,
+            transpose_b,
+            compute_dtype,
+            bias_init
+        )
