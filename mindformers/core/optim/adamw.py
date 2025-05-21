@@ -113,7 +113,7 @@ class AdamW(Optimizer):
             &\hspace{5mm}\widehat{\boldsymbol{m}_{t}} \leftarrow \boldsymbol{m}_{t}/\big(1-\beta_{1}^{t} \big) \\
             &\hspace{5mm}\widehat{\boldsymbol{v}_{t}} \leftarrow \boldsymbol{v}_{t}/\big(1-\beta_{2}^{t} \big) \\
             &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\widehat{\boldsymbol{m}_{t}}
-             /\left(\sqrt\widehat{\boldsymbol{v}_{t}}+\epsilon\right) \\
+             /\left(\sqrt{\widehat{\boldsymbol{v}_{t}}}+\epsilon\right) \\
             &\textbf{until}\text { stopping criterion is met } \\[-1.ex]
             &\newline
             &\hline \\[-1.ex]
