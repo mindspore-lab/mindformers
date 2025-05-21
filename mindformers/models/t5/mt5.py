@@ -213,7 +213,10 @@ class MT5ForConditionalGeneration(T5PreTrainedModel):
         self.mt5_model = MT5Model(config=config)
         self.vocab_size = config.vocab_size
 
-        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        monitor_config = getattr(config, "monitor_config", None)
+        monitor_on = getattr(monitor_config, "monitor_on", False)
+        check_for_nan_in_loss_and_grad = monitor_on and bool(getattr(monitor_config, "local_loss_format", None))
+        monitor_device_local_loss = monitor_on and bool(getattr(monitor_config, "device_local_loss_format", None))
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(
             parallel_config=OpParallelConfig(
@@ -221,6 +224,7 @@ class MT5ForConditionalGeneration(T5PreTrainedModel):
                 model_parallel=parallel_config.model_parallel,
             ),
             check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+            monitor_device_local_loss=monitor_device_local_loss,
             calculate_per_token_loss=calculate_per_token_loss
         )
         self.cast = ops.Cast()

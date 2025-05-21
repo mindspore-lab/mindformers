@@ -66,10 +66,12 @@ from mindformers.tools.utils import (
     get_real_rank,
     get_real_group_size,
     get_pipeline_rank_ids,
+    is_last_pipeline_stage,
     barrier_world
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
+from mindformers.core.loss import get_device_local_loss
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -129,25 +131,7 @@ def _check_mspti_is_on():
     return isinstance(ld_preload, str) and ld_preload.find("libmspti.so") != -1
 
 
-def _check_nan(loss, local_norm, global_norm):
-    """Check if Nan in loss, local/global norm of grad then terminate training"""
-    if isinstance(loss, ms.Tensor):
-        loss = loss.asnumpy()
-        if np.any(np.isnan(loss)):
-            raise ValueError(f"loss is {loss}, terminate training.")
-
-    if isinstance(local_norm, ms.Tensor):
-        local_norm = local_norm.asnumpy()
-        if np.any(np.isnan(local_norm)):
-            raise ValueError(f"local_norm is {local_norm}, terminate training.")
-
-    if isinstance(global_norm, ms.Tensor):
-        global_norm = global_norm.asnumpy()
-        if np.any(np.isnan(global_norm)):
-            raise ValueError(f"global_norm is {global_norm}, terminate training.")
-
-
-def _get_loss_output(output, check_for_nan_in_loss_and_grad=False):
+def _get_loss_output(output):
     """Get output of task for MFLossMonitor."""
     overflow = False
     scaling_sens = False
@@ -170,10 +154,6 @@ def _get_loss_output(output, check_for_nan_in_loss_and_grad=False):
         else:
             if isinstance(output[0], ms.Tensor) and isinstance(output[0].asnumpy(), np.ndarray):
                 loss = output[0]
-
-    # Boundary check.
-    if check_for_nan_in_loss_and_grad:
-        _check_nan(loss, local_norm, global_norm)
 
     if isinstance(global_norm, ms.Tensor):
         global_norm = global_norm.asnumpy()
@@ -320,8 +300,7 @@ class MFLossMonitor(Callback):
         if self.mstx_enabled:
             ms.profiler.mstx.range_end(self.mstx_range_id)
         net_outputs = cb_params.net_outputs
-        loss, overflow, scaling_sens, learning_rate, global_norm = \
-            _get_loss_output(net_outputs, self.check_for_nan_in_loss_and_grad)
+        loss, overflow, scaling_sens, learning_rate, global_norm = _get_loss_output(net_outputs)
         if learning_rate is not None:
             self.learning_rate = learning_rate
         loss = self._fix_loss_for_parallel(loss)
@@ -681,6 +660,11 @@ class TrainingStateMonitor(Callback):
               or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
+            - device_local_loss_format: Determine where to display the device local loss.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              Default: ``None``.
+
             - optimizer_state_format: Determine where to display the optimizer state.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
               or a `list` containing them,  or ``None``. Only the optimizer state of params specified
@@ -704,6 +688,7 @@ class TrainingStateMonitor(Callback):
         initial_step (int, optional): The beginning step. Default: ``0``.
         global_batch_size (int, optional): The total batch size. Default: ``0``.
         check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
+            Default: ``False``.
     """
     def __init__(self,
                  origin_epochs: int,
@@ -823,7 +808,19 @@ class TrainingStateMonitor(Callback):
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
-        self.abnormal_global_norm_check(cb_params)
+        if self.check_for_global_norm:
+            self.abnormal_global_norm_check(cb_params)
+
+        device_local_loss = None
+        if self.device_local_loss_format:
+            device_local_loss_param = get_device_local_loss()
+            device_local_loss = np.mean(device_local_loss_param.asnumpy())
+            F.assign(device_local_loss_param, ms.Tensor([0.0], ms.float32))
+
+        # Boundary check.
+        if self.check_for_nan_in_loss_and_grad:
+            loss, global_norm, local_norm = self._get_loss_output(cb_params.net_outputs)
+            self._check_nan_or_inf(device_local_loss, loss, local_norm, global_norm)
 
     def abnormal_global_norm_check(self, cb_params):
         """Check the abnormal global_norm and raise error"""
@@ -839,7 +836,7 @@ class TrainingStateMonitor(Callback):
             cur_epoch_num = cb_params.cur_epoch_num
             cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
         net_outputs = cb_params.net_outputs
-        global_norm = _get_loss_output(net_outputs, self.check_for_nan_in_loss_and_grad)[-1]
+        global_norm = self._get_loss_output(net_outputs)[1]
         if self.check_for_global_norm and global_norm >= self.global_norm_error_threshold:
             global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
             if str(global_step) not in self.abnormal_global_norms:
@@ -879,6 +876,8 @@ class TrainingStateMonitor(Callback):
         self.local_norm_format = config.get('local_norm_format', None)
         self.local_loss_format = config.get('local_loss_format', None)
         self.device_local_norm_format = config.get('device_local_norm_format', None)
+        self.device_local_loss_format = \
+            config.get('device_local_loss_format', None) if is_last_pipeline_stage() else None
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
         self.throughput_baseline = config.get('throughput_baseline', None)
@@ -900,7 +899,7 @@ class TrainingStateMonitor(Callback):
             raise ValueError(f"The value of 'throughput_baseline' should be None or positive number.")
         if not isinstance(self.print_struct, bool):
             raise TypeError(f"The value of 'print_struct' should be bool.")
-        attrs = ['local_norm_format', 'local_loss_format', 'device_local_norm_format',
+        attrs = ['local_norm_format', 'local_loss_format', 'device_local_norm_format', 'device_local_loss_format',
                  'optimizer_state_format', 'weight_state_format']
         for attr in attrs:
             self._check_attr_formats(attr)
@@ -994,11 +993,23 @@ class TrainingStateMonitor(Callback):
                     local_losses.append(data)
                 elif prefix == 'local_norm' and self._check_param_name(param_name):
                     self._output(f'local_norm/{param_name}', data, self.dump_step, self.local_norm_format)
-            # write the mean of local loss to tensorboard
-            if local_losses:
-                self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, self.local_loss_format)
+            if local_losses and self.local_loss_format:
+                self._dump_local_loss(local_losses)
+            if self.device_local_loss_format:
+                device_local_loss = np.mean(get_device_local_loss().asnumpy())
+                self._output(f'device_accum_local_loss', device_local_loss, self.dump_step,
+                             self.device_local_loss_format)
             self._clear_dump_path()
             self.dump_step += self.step_interval
+
+    def _dump_local_loss(self, local_losses):
+        """write the local loss to log/tensorboard"""
+        # log local loss of each micro
+        if 'log' in self.local_loss_format:
+            for local_loss in local_losses:
+                self._output(f'micro_local_loss', local_loss, self.dump_step, ['log'])
+        if 'tensorboard' in self.local_loss_format:
+            self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, ['tensorboard'])
 
     def _dump_optimizer_state(self, cb_params):
         """write the optimizer state to tensorboard"""
@@ -1058,6 +1069,38 @@ class TrainingStateMonitor(Callback):
         if formats:
             for fmt in formats:
                 self.outputer[fmt](tag, data, global_step)
+
+    def _get_loss_output(self, output):
+        """Get loss, global/local norm"""
+        loss = output
+        global_norm = None
+        local_norm = None
+        if isinstance(output, (tuple, list)):
+            if len(output) == 7:
+                loss, global_norm, local_norm = output[0], output[4], output[5]
+            elif len(output) == 5:
+                loss, global_norm = output[0], output[4]
+            elif isinstance(output[0], ms.Tensor) and isinstance(output[0].asnumpy(), np.ndarray):
+                loss = output[0]
+
+        if isinstance(global_norm, ms.Tensor):
+            global_norm = global_norm.asnumpy()
+
+        if isinstance(local_norm, ms.Tensor):
+            local_norm = local_norm.asnumpy()
+
+        if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
+            loss = np.mean(loss.asnumpy())
+
+        return loss, global_norm, local_norm
+
+    @staticmethod
+    def _check_nan_or_inf(device_local_loss, loss, local_norm, global_norm):
+        """Check if Nan or Inf in device local loss, loss, local/global norm of grad then terminate training"""
+        for indicator in [device_local_loss, loss, local_norm, global_norm]:
+            if indicator is not None and (np.any(np.isnan(indicator)) or np.any(np.isinf(indicator))):
+                raise ValueError(f"device_accum_local_loss is {device_local_loss}, loss is {loss}, "
+                                 f"local_norm is {local_norm}, global_norm is {global_norm}, terminate training.")
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -1194,7 +1237,8 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.global_batch_size = global_batch_size
         # this list records parameters which will be ignored when saving ckpt.
-        self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache']
+        self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache',
+                            '_device_local_norm', '_device_local_loss']
 
         self.save_info_list = defaultdict(
             lambda: {

@@ -498,6 +498,15 @@ def is_main_rank(ignore_check_modelarts=False):
         ((ignore_check_modelarts or check_in_modelarts()) and get_real_rank() % get_device_num_per_node() == 0)
 
 
+def is_last_pipeline_stage():
+    """get if current rank is in the last stage of pipeline parallelism"""
+    device_num = get_real_group_size()
+    stage_num = ms.get_auto_parallel_context("pipeline_stages")
+    device_num_per_stage = device_num // stage_num
+    rank = get_real_rank()
+    return (rank // device_num_per_stage + 1) == stage_num
+
+
 def is_publicly_accessible_path(path):
     """Check a path is accessible by all rank."""
     from .logger import logger

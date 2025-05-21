@@ -43,7 +43,8 @@ from .utils import (
     set_output_path,
     set_strategy_save_path,
     str2bool,
-    calculate_pipeline_stage
+    calculate_pipeline_stage,
+    is_last_pipeline_stage
 )
 from .generic import add_model_info_to_auto_map
 from .hub import (
