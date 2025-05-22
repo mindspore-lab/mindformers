@@ -25,12 +25,12 @@ import math
 
 import numpy as np
 import mindspore as ms
-from mindspore import nn, Tensor, dtype, mint
+from mindspore import nn, Tensor
 from mindspore import ops
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import (AddExt, Reshape, Mul, Cos, Sin,
-                                         Split, Neg, Concat, StackExt, StridedSlice, Div, Outer)
+                                         Split, Neg, Concat, StackExt, StridedSlice, Outer)
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -66,14 +66,10 @@ class RotaryEmbedding(nn.Cell):
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.rotary_interleaved = rotary_interleaved
 
-        self.mul = Mul()
-        self.div = Div()
-        self.inv_freq = self.div(1.0, (
-            rotary_base ** (ops.arange(0, dim, 2, dtype=dtype.float32) / dim)
-        ))
-
+        self.inv_freq = 1.0 / (rotary_base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
         if rope_scaling:
             self.inv_freq = self._apply_scaling(self.inv_freq, factor=rope_scaling_factor)
+        self.inv_freq = ms.Tensor(self.inv_freq, dtype=ms.float32)
 
         if self.rotary_interleaved:
             self.stack = StackExt(dim=-1)
@@ -83,35 +79,30 @@ class RotaryEmbedding(nn.Cell):
 
         self.outer = Outer()
 
-    def _apply_scaling(self,
-                       freqs,
-                       factor=8,
-                       low_freq_factor=1,
-                       high_freq_factor=4,
-                       original_max_position_embeddings=8192,
-                       ):
-        # This implementation is adapted from:
-        # https://github.com/huggingface/transformers/blob/2a5a6ad18aa22e98429bb5ecb880660328030ea0/src/transformers/modeling_rope_utils.py#L303-L343
-        """apply rope scaling"""
-
-        factor = factor  # `8` in the original implementation
-        low_freq_factor = low_freq_factor  # `1` in the original implementation
-        high_freq_factor = high_freq_factor  # `4` in the original implementation
-        old_context_len = original_max_position_embeddings  # `8192` in the original implementation
-
+    def _apply_scaling(
+            self,
+            freqs,
+            factor=8,
+            low_freq_factor=1,
+            high_freq_factor=4,
+            original_max_position_embeddings=8192,
+    ):
+        """apply rope scaling."""
+        old_context_len = original_max_position_embeddings
         low_freq_wavelen = old_context_len / low_freq_factor
         high_freq_wavelen = old_context_len / high_freq_factor
 
-        wavelen = 2 * math.pi / freqs
-        # wavelen < high_freq_wavelen: do nothing
-        # wavelen > low_freq_wavelen: divide by factor
-        inv_freq_llama = mint.where(wavelen > low_freq_wavelen, freqs / factor, freqs)
+        wavelen = 2 * np.pi / freqs
+        inv_freq_llama = np.where(wavelen > low_freq_wavelen, freqs / factor, freqs)
 
-        # otherwise: interpolate between the two, using a smooth factor
         smooth_factor = (old_context_len / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor)
-        smoothed_inv_freq = (1 - smooth_factor) * inv_freq_llama / factor + smooth_factor * inv_freq_llama
-        is_medium_freq = ~(wavelen < high_freq_wavelen) * ~(wavelen > low_freq_wavelen)
-        inv_freq_llama = mint.where(is_medium_freq, smoothed_inv_freq, inv_freq_llama)
+        smooth_factor = np.clip(smooth_factor, 0.0, 1.0)
+
+        smoothed_inv_freq = ((1 - smooth_factor) * (inv_freq_llama / factor) + smooth_factor * inv_freq_llama)
+
+        is_medium_freq = ((wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen))
+
+        inv_freq_llama = np.where(is_medium_freq, smoothed_inv_freq, inv_freq_llama)
 
         return inv_freq_llama
 
@@ -317,9 +308,14 @@ class ApplyRotaryPosEmb(nn.Cell):
         Returns:
             Tensor: Output tensor after applying rotary position embedding
         """
+        seq_len, bs, n_heads, head_dim = t.shape
         freqs, m_scale = freqs
         rot_dim = freqs.shape[-1]
-        t, t_not_rotary = t[..., :rot_dim], t[..., rot_dim:]
+        if head_dim == rot_dim:
+            t_not_rotary = None
+        else:
+            t_not_rotary = self.slice(t, (0, 0, 0, rot_dim), (seq_len, bs, n_heads, head_dim), (1, 1, 1, 1))
+            t = self.slice(t, (0, 0, 0, 0), (seq_len, bs, n_heads, rot_dim), (1, 1, 1, 1))
 
         if multi_latent_attention:
             x1 = t[..., 0::2]
