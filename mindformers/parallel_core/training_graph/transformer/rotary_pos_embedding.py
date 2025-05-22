@@ -308,8 +308,9 @@ class ApplyRotaryPosEmb(nn.Cell):
         """Apply rotary position embedding to input tensor.
 
         Args:
-            t (Tensor): Input tensor is of shape [bs, n_heads, seq_len, head_dim]
-            freqs (tuple): Rotary position embedding frequencies of shape [1, 1, seq_len, head_dim]
+            t (Tensor): Input tensor is of shape [seq_length, ... , dim]
+            freqs (tuple): A tuple of  frequencies and mscale. Rotary position embedding frequencies
+                of shape [seq_length, ... , dim], mscale is float.
             rotary_interleaved (bool): Whether to use interleaved rotary position embedding
             multi_latent_attention (bool): Whether to use multi latent attention
 
