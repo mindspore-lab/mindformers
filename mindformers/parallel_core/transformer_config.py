@@ -119,6 +119,9 @@ class TransformerConfig(ModelParallelConfig):
     """Whether to use multi-latent attention."""
 
     # MindFormers New
+    seq_length: int = None
+    """Model Seq Length"""
+
     compute_dtype: str = "bfloat16"
     """Linear layer compute dtype."""
 
