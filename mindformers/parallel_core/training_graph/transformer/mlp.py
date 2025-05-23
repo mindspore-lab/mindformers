@@ -37,20 +37,21 @@ class MLPSubmodules:
 
 class MLP(nn.Cell):
     r"""
-    Implementation of parallel feedforward block.
+    Parallel feedforward block implementation.
 
     Args:
-        config (TransformerConfig): Configuration.
-        submodules (MLPSubmodules): Submodules.
-        is_expert (bool): This block is an expert block. Default: False.
-        input_size (int): Hidden size. Default: None.
+        config (TransformerConfig): Configuration for the transformer model.
+        submodules (MLPSubmodules): The submodules used to construct the MLP, such as activation and linear layers.
+        is_expert (bool, optional): Whether this block is used as an expert in MoE. Default: False.
+        input_size (int, optional): Input hidden size. If None, will use config.hidden_size. Default: None.
 
     Inputs:
-        - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **hidden_states** (Tensor) - Input tensor with shape :math:`(S, B, H)`, where
+          :math:`S` is the sequence length, :math:`B` is the batch size, and :math:`H` is the hidden size.
 
     Outputs:
-        - **output** (Tensor) - Output tensor of shape :math:`(B, S, H)`.
-        - **output_bias** (Tensor) - output_bias tensor of shape :math:`(B, S, H)`.
+        - **output** (Tensor) - Output tensor of shape :math:`(S, B, H)`.
+        - **output_bias** (Tensor) - Bias output tensor of shape :math:`(S, B, H)`.
 
     Supported Platforms:
         ``Ascend``
@@ -67,12 +68,12 @@ class MLP(nn.Cell):
         self.hidden_size = input_size if input_size is not None else config.hidden_size
         self.ffn_hidden_size = config.ffn_hidden_size
         self.mlp_has_bias = config.add_bias_linear
-        self.gated_linear_unit = getattr(config, 'gated_linear_unit', False)
+        self.gated_linear_unit = config.gated_linear_unit
         self.init_method = config.init_method
         self.output_layer_init_method = config.output_layer_init_method
         self.activation_type = config.hidden_act
         self.compute_dtype = config.compute_dtype
-        self.parallel_config = config
+        self.config = config
         cp = 1 if config is None else config.context_parallel_size
         self.compute_2d = (config.sequence_parallel and cp == 1)
         self.mapping_ffn_hidden_size = self.ffn_hidden_size
@@ -87,7 +88,7 @@ class MLP(nn.Cell):
             submodules.linear_fc1,
             self.hidden_size,
             self.mapping_ffn_hidden_size,
-            self.parallel_config,
+            self.config,
             bias=self.mlp_has_bias,
             compute_dtype=self.compute_dtype,
             is_expert=is_expert,
@@ -96,7 +97,7 @@ class MLP(nn.Cell):
         )
 
         if self.activation_type is not None:
-            self.activation_func = get_activation(self.activation_type, config=self.parallel_config)
+            self.activation_func = get_activation(self.activation_type, config=self.config)
         else:
             self.activation_func = None
 
@@ -104,7 +105,7 @@ class MLP(nn.Cell):
             submodules.linear_fc2,
             self.ffn_hidden_size,
             self.hidden_size,
-            self.parallel_config,
+            self.config,
             bias=self.mlp_has_bias,
             compute_dtype=self.compute_dtype,
             is_expert=is_expert,
@@ -115,9 +116,9 @@ class MLP(nn.Cell):
         self.add = AddExt()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
-            self.sharding_propagation(self.parallel_config)
+            self.sharding_propagation(self.config)
         else:
-            self.shard(self.parallel_config)
+            self.shard(self.config)
 
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of mlp block. """
