@@ -17,10 +17,11 @@ __all__ = ["get_norm_cls"]
 
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
-from mindspore import Parameter, nn
+from mindspore import Parameter, nn, mint
 from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
 
 class LayerNorm(nn.Cell):
@@ -70,6 +71,76 @@ class LayerNorm(nn.Cell):
         return output
 
 
+class RMSNorm(nn.Cell):
+    r"""
+    A self-defined RMSNorm operation using reduce mean.
+
+    Args:
+        config: Transformer Config.
+        hidden_size (tuple): The shape of the parameter.
+        eps (float): The epsilon value of the denominator. Default 1e-5.
+
+    Inputs:
+        - **x** (Tensor) - Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+
+    Outputs:
+        Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+    """
+
+    def __init__(
+            self,
+            config: TransformerConfig,
+            hidden_size: int,
+            eps: float = 1e-5,
+    ):
+        super().__init__()
+        if config.layernorm_compute_dtype not in [mstype.float32, mstype.float16, mstype.bfloat16]:
+            raise TypeError("The type of parameter 'layernorm_compute_dtype' should in [float32, float16, bfloat16], "
+                            "but got the type : {}.".format(type(config.layernorm_compute_dtype)))
+
+        self.compute_type = config.layernorm_compute_dtype
+        self.hidden_size = hidden_size
+        self.eps = eps
+
+        self.weight = Parameter(initializer('ones', (hidden_size,), dtype=self.compute_type), name="weight",
+                                parallel_optimizer=False)
+
+        self.cast = P.Cast()
+        if check_rmsnorm_big_kernel_valid():
+            self.norm = P.RmsNorm(eps)
+            self.rms_norm = self._rms_norm
+        else:
+            self.mean = P.ReduceMean(keep_dims=True)
+            self.rms_norm = self._self_norm
+
+    def _self_norm(self, x):
+        original_type = x.dtype
+        norm_factor = mint.square(self.cast(x, self.compute_type))
+        norm_factor = self.mean(norm_factor, -1)
+        norm_factor = mint.add(norm_factor, self.eps)
+        norm_factor = mint.rsqrt(norm_factor)
+        output = mint.mul(x, self.cast(norm_factor, original_type))
+        output = mint.mul(output, self.cast(self.weight, original_type))
+        return output
+
+    def _rms_norm(self, x):
+        original_type = x.dtype
+        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
+        return self.cast(output, original_type)
+
+    def construct(self, x):
+        """Forward of RMSNorm."""
+        return self.rms_norm(x)
+
+    def sharded_state_dict(self):
+        """provide the sharded state dict based on the config"""
+        w_shard = (1,)
+        state_dict = {}
+        state_dict[self.weight.name] = {'shape': self.weight.shape,
+                                        'shard': w_shard}
+        return state_dict
+
+
 def get_norm_cls(config: TransformerConfig):
     r"""
     Get the class of normalization layer.
@@ -80,6 +151,10 @@ def get_norm_cls(config: TransformerConfig):
     Returns:
         callable, the class of normalization layer.
     """
-    if config.normalization == "LayerNorm":
-        return LayerNorm
-    raise Exception(f"unsupported norm type '{config.normalization}'.")
+    norm_map = {
+        "LayerNorm": LayerNorm,
+        "RMSNorm": RMSNorm,
+    }
+    if config.normalization not in norm_map.keys():
+        raise Exception(f"unsupported norm type '{config.normalization}'.")
+    return norm_map[config.normalization]
