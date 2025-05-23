@@ -426,6 +426,88 @@ class Attention(nn.Cell):
             self.linear_proj.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
 
 
+class SelfAttention(Attention):
+    """Self-attention layer class
+
+    Self-attention layer takes input with size [s, b, h]
+    and returns output of the same size.
+
+    Args:
+        config (TransformerConfig): Configuration.
+        submodules (SelfAttentionSubmodules): Submodules.
+        layer_number (int): Number which indicates the index of this transformer layer in the
+            whole transformer block.
+        attn_mask_type (str): attention mask type. Default None.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(
+            self,
+            config: TransformerConfig,
+            submodules: SelfAttentionSubmodules,
+            layer_number: int,
+            attn_mask_type: type = None,
+            cp_comm_type: str = None,
+    ):
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            attn_mask_type=attn_mask_type,
+            attention_type="self",
+            cp_comm_type=cp_comm_type,
+        )
+        if attn_mask_type:
+            raise NotImplementedError("For Attention, 'attn_mask_type' is not supported for now.")
+        if cp_comm_type is not None:
+            raise NotImplementedError("cp_comm_type is not supported for now.")
+        self.linear_qkv = build_module(
+            submodules.linear_qkv,
+            self.hidden_size,
+            self.q_hidden_size + 2 * self.kv_hidden_size,
+            config=self.config,
+            init_method=self.init_method,
+            compute_dtype=self.compute_dtype,
+            bias=self.config.add_bias_linear or self.config.add_qkv_bias,
+        )
+
+        self.reshape_concat = ms.ops.auto_generate.Reshape()
+        self.shard_self_attention(self.config)
+
+    def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
+        """
+        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        """
+        if self.compute_2d:
+            bs_seq, _ = self.shape(hidden_states)
+            seq_len = self.seq_length
+            bs = bs_seq // seq_len
+        else:
+            seq_len, bs, _ = self.shape(hidden_states)
+
+        qkv, _ = self.linear_qkv(hidden_states)
+        qkv = self.cast(qkv, self.compute_dtype)
+
+        query, key, value = self.split_qkv(qkv,
+                                           (self.head_dim * self.n_rep * self.kv_num_heads,
+                                            self.head_dim * self.kv_num_heads,
+                                            self.head_dim * self.kv_num_heads), -1)
+        query = self.reshape_concat(query, (seq_len, bs, self.kv_num_heads, self.n_rep * self.head_dim))
+        key = self.reshape_concat(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
+        value = self.reshape_concat(value, (seq_len, bs, self.kv_num_heads, self.head_dim))
+
+        return query, key, value
+
+    def shard_self_attention(self, config: TransformerConfig):
+        """Set sharding strategies."""
+        dp = 1 if config is None else config.data_parallel_size
+        tp = 1 if config is None else config.tensor_model_parallel_size
+        cp = 1 if config is None else config.context_parallel_size
+        self.split_qkv.shard(((cp, dp, tp),))
+
+
 class SelfAttentionMegatron(Attention):
     """Self-attention layer class
 
@@ -500,3 +582,84 @@ class SelfAttentionMegatron(Attention):
         tp = 1 if config is None else config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
         self.split_qkv.shard(((cp, dp, tp, 1),))
+
+
+class CrossAttention(Attention):
+    """Cross-attention layer class
+
+    Cross-attention layer takes input with size [s, b, h] and context with size
+    [s, b, h] and returns output of the same size.
+
+    Args:
+        config (TransformerConfig): Configuration.
+        submodules (CrossAttentionSubmodules): Submodules.
+        layer_number (int): Number which indicates the index of this transformer layer in the
+            whole transformer block.
+        attn_mask_type (str): attention mask type. Default None.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(
+            self,
+            config: TransformerConfig,
+            submodules: CrossAttentionSubmodules,
+            layer_number: int,
+            attn_mask_type,
+            cp_comm_type: str = None,
+    ):
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            attn_mask_type=attn_mask_type,
+            attention_type="cross",
+            cp_comm_type=cp_comm_type,
+        )
+        if self.use_gqa:
+            raise NotImplementedError("Grouped query attention not implemented for cross-attention.")
+        if self.hidden_size != self.kv_hidden_size:
+            raise ValueError("self.hidden_size and self.kv_hidden_size must be equal in cross_attn!")
+
+        self.linear_q = build_module(
+            submodules.linear_q,
+            self.hidden_size,
+            self.hidden_size,
+            config=self.config,
+            bias=self.config.add_bias_linear,
+            compute_dtype=self.config.compute_dtype,
+            init_method=self.init_method
+        )
+
+        self.linear_kv = build_module(
+            submodules.linear_kv,
+            self.hidden_size,
+            2 * self.kv_hidden_size,
+            config=self.config,
+            bias=self.config.add_bias_linear,
+            compute_dtype=self.config.compute_dtype,
+            init_method=self.init_method
+        )
+
+        self.split_kv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
+
+    def get_query_key_value_tensors(self, hidden_states, key_value_states):
+        """
+        Derives `query` tensor from `hidden_states`, and `key`/`value` tensors
+        from `key_value_states`.
+        """
+        query, _ = self.linear_q(hidden_states)
+        query = self.cast(query, self.compute_dtype)
+        kv, _ = self.linear_kv(key_value_states)
+        kv = self.cast(kv, self.compute_dtype)
+        key, value = self.split_kv(kv, (self.kv_hidden_size, self.kv_hidden_size), 2)
+
+        return query, key, value
+
+    def shard(self, config: TransformerConfig):
+        """Set sharding strategies."""
+        dp = 1 if config is None else config.data_parallel_size
+        tp = 1 if config is None else config.tensor_model_parallel_size
+        cp = 1 if config is None else config.context_parallel_size
+        self.split_kv.shard(((dp, cp, tp),))

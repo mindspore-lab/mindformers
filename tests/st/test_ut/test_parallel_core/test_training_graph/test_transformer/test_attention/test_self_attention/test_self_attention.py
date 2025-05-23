@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Test SelfAttentionMegatron with various configurations"""
+"""Test SelfAttention with various configurations"""
 from pathlib import Path
 import subprocess
 import pytest
@@ -105,15 +105,15 @@ def build_msrun_command_list(
     return cmd_list
 
 
-class TestSelfAttentionMegatron:
-    """Test class for SelfAttentionMegatron with different configurations"""
+class TestSelfAttention:
+    """Test class for SelfAttention with different configurations"""
     OUTPUT_MS_FILENAME = "output_ms.npz"
     LOG_DIR_NAME = "msrun_log"
 
     def setup_method(self):
         """Setup method to prepare test environment"""
         self.sh_path = Path(__file__).parent.resolve()
-        self.run_script_path = self.sh_path / "run_self_attention_megatron.py"
+        self.run_script_path = self.sh_path / "run_self_attention.py"
 
     def check_acc(self, output_ms_dict, data_keys):
         """Compare output_ms with GOLDEN_DATA and GPU_DATA using DoubleBenchmarkComparator."""
