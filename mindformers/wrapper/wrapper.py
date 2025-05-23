@@ -183,6 +183,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
         self.localnorm = LocalNorm()
         self.concat = P.Concat()
+        self.cast = P.Cast()
         self.local_norm = local_norm
         self.calculate_per_token_loss = calculate_per_token_loss
         self.zero_t = Tensor([0], dtype=mstype.float32)
