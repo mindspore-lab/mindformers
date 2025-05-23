@@ -5,8 +5,9 @@
 
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
+
 from mindformers.tools.logger import logger
-from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
+from mindformers.parallel_core.model_parallel_config import ModelParallelConfig, convert_str_to_mstype
 from mindformers.parallel_core.utils.init_method import init_method_normal, scaled_init_method_normal
 
 
@@ -361,12 +362,6 @@ class TransformerConfig(ModelParallelConfig):
     moe_router_topk: int = 2
     """Number of experts to route to for each token."""
 
-    moe_router_topk_limited_devices: Optional[int] = None
-    """
-    Number of EP ranks to consider for each token in group-limited routing,
-    DEPRECATED and replaced by moe_router_num_groups and moe_router_group_topk.
-    """
-
     moe_router_num_groups: Optional[int] = None
     """
     Number of groups to divide experts into for group-limited routing.
@@ -405,7 +400,7 @@ class TransformerConfig(ModelParallelConfig):
     moe_router_score_function: str = "softmax"
     """Score function for MoE routing. Can be "softmax" or "sigmoid"."""
 
-    moe_router_dtype: Optional[str] = None
+    moe_router_dtype: str = "float32"
     """
     Data type for routing and expert output weighted averaging.
     Using fp32 or fp64 can improve stability especially when the number of experts is large (e.g. finegrained-moe).
@@ -434,14 +429,11 @@ class TransformerConfig(ModelParallelConfig):
     GEMM feature introduced since CUTLASS 2.8 (https://github.com/fanshiqing/grouped_gemm).
     """
 
-    moe_use_legacy_grouped_gemm: bool = False
-    """
-    Use legacy GroupedMLP rather than TEGroupedMLP.
-    Note: The legacy one will be deprecated soon.
-    """
+    aux_loss_types: list = None
+    """list of auxiliary loss types"""
 
-    moe_aux_loss_coeff: float = 0.0  # 1e-2 would be a good start value for load balance loss.
-    """Scaling coefficient for the aux loss. A starting value of 1e-2 is recommended."""
+    aux_loss_factors: list = None
+    """list of auxiliary loss factors"""
 
     moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
     """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
@@ -449,17 +441,15 @@ class TransformerConfig(ModelParallelConfig):
     moe_input_jitter_eps: Optional[float] = None
     """Add noise to the input tensor by applying jitter with a specified epsilon value."""
 
-    moe_token_dropping: bool = False
-    """
-    This feature involves selectively dropping and padding tokens for each expert to achieve a specified capacity,
-    similar to GShard, Switch-Transformer, and DeepSpeed-MoE.
-    Note that this is currently unsupported so should remain False.
-    """
+    use_allgather_dispatcher: bool = False
+    """Whether the dispatcher's communication algorithm uses 'allgather'."""
 
-    moe_token_dispatcher_type: str = "allgather"
+    group_wise_a2a: bool = False
     """
-    The type of token dispatcher to use. The default is 'allgather'.
-    Options are 'allgather','alltoall' and 'flex'.
+    Whether to enable group-wise alltoall communication,
+    which can reduce communication time by converting part of intercommunication into intra communication.
+
+    This parameter is effective only when model parallel > 1 and data_parallel equal to expert parallel.
     """
 
     moe_enable_deepep: bool = False
@@ -584,6 +574,11 @@ class TransformerConfig(ModelParallelConfig):
         """
         super().__post_init__()
 
+        self.compute_dtype = convert_str_to_mstype(self.compute_dtype)
+        self.layernorm_compute_dtype = convert_str_to_mstype(self.layernorm_compute_dtype)
+        self.rotary_dtype = convert_str_to_mstype(self.rotary_dtype)
+        self.moe_router_dtype = convert_str_to_mstype(self.moe_router_dtype)
+
         if self.num_attention_heads % self.tensor_model_parallel_size != 0:
             raise ValueError(
                 f"num_attention_heads ({self.num_attention_heads}) must be a multiple of "
@@ -616,10 +611,6 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.moe_ffn_hidden_size is None:
             self.moe_ffn_hidden_size = self.ffn_hidden_size
-
-        if self.moe_enable_deepep:
-            if self.moe_token_dispatcher_type != "flex":
-                raise ValueError("DeepEP backend is only supported with flex token dispatcher.")
 
         if self.moe_shared_expert_intermediate_size is not None:
             if self.moe_shared_expert_intermediate_size <= 0:

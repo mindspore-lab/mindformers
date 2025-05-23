@@ -6,6 +6,42 @@
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
+from mindspore import dtype
+from mindspore._c_expression.typing import Number
+
+ms_dtype_mapping = {
+    "float64": dtype.float64,
+    "fp64": dtype.float64,
+    "float32": dtype.float32,
+    "fp32": dtype.float32,
+    "bfloat16": dtype.bfloat16,
+    "bf16": dtype.bfloat16,
+    "float16": dtype.float16,
+    "fp16": dtype.float16,
+}
+
+
+def convert_str_to_mstype(type_str) -> dtype:
+    """
+    Utils for convert type string to mstype.
+
+    Args:
+        type_str (Union[str, dtype]): A string describing the dtype, or mindspore.dtype.
+
+    Returns:
+        A dtype of `mindspore.dtype` .
+    """
+    if isinstance(type_str, str):
+        if type_str in ms_dtype_mapping.keys():
+            return ms_dtype_mapping[type_str]
+        raise ValueError(f"The value of 'type_str' must be in ['float64', 'float32', 'bfloat16', 'float16', "
+                         f"'fp64', 'fp32', 'bf16', 'fp16'], but got {type_str}.")
+
+    if isinstance(type_str, Number):
+        return type_str
+
+    raise TypeError(f"The type of 'type_str' must 'string' or 'mindspore.dtype', but got {type(type_str)}.")
+
 
 @dataclass
 class ModelParallelConfig:
@@ -103,7 +139,7 @@ class ModelParallelConfig:
     bf16: bool = False
     """If true, train with bf16 mixed precision training."""
 
-    params_dtype: str = "bfloat16"
+    params_dtype: str = "float32"
     """dtype used when initializing the weights."""
 
     finalize_model_grads_func: Optional[Callable] = None
@@ -172,6 +208,8 @@ class ModelParallelConfig:
         See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more
         details.
         """
+        self.params_dtype = convert_str_to_mstype(self.params_dtype)
+
         if self.sequence_parallel:
             if self.tensor_model_parallel_size <= 1:
                 raise ValueError("Can not use sequence paralllelism without tensor parallelism")
