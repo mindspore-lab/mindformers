@@ -16,8 +16,8 @@
 import abc
 from dataclasses import dataclass
 
-from mindformers.auto_class import AutoTokenizer
 from mindformers.models.build_tokenizer import build_tokenizer
+from mindformers.tools.utils import get_context
 
 
 @dataclass
@@ -106,13 +106,23 @@ class BaseInstructDataHandler:
     def get_tokenizer(config):
         """get tokenizer"""
         tokenizer_name = config.tokenizer_name
-        if tokenizer_name is not None and tokenizer_name.strip() != "":
-            word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        elif config.tokenizer:
-            tokenizer_dict = config.tokenizer
-            word_tokenizer = build_tokenizer(tokenizer_dict)
+        use_legacy = get_context("use_legacy", True)
+        if use_legacy:
+            if tokenizer_name is not None and tokenizer_name.strip() != "":
+                from mindformers.auto_class import AutoTokenizer
+                word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+            elif config.tokenizer:
+                tokenizer_dict = config.tokenizer
+                word_tokenizer = build_tokenizer(tokenizer_dict)
+            else:
+                return None
         else:
-            return None
+            from transforms import AutoTokenizer
+            pretrained_model_dir = config.pretrained_model_dir
+            trust_remote_code = config.trust_remote_code
+            word_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_dir=pretrained_model_dir,
+                                                           trust_remote_code=trust_remote_code)
+            word_tokenizer.padding_side = config.get("padding_side", "right")
 
         if hasattr(word_tokenizer, 'add_bos_token'):
             word_tokenizer.add_bos_token = True

@@ -60,7 +60,7 @@ from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensor
 from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resume_checkpoint
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
-from mindformers.tools.utils import get_real_rank, get_real_group_size
+from mindformers.tools.utils import get_real_rank, get_real_group_size, get_context
 from mindformers.core.callback.callback import EvalCallBack, MFLossMonitor, TrainingStateMonitor, CheckpointMonitor, ColdHotExpertMonitor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
@@ -1353,6 +1353,16 @@ class BaseTrainer:
             self.set_network(network, is_train=False)
             self.count_parameters()
             config.load_checkpoint = get_load_path_after_hf_convert(config, network)
+            if tokenizer is None:
+                use_legacy = get_context("use_legacy", True)
+                if use_legacy:
+                    tokenizer = build_tokenizer(config.processor.tokenizer)
+                else:
+                    from transformers import AutoTokenizer
+                    pretrained_model_dir = config.model.pretrained_model_dir
+                    trust_remote_code = config.get_value("trust_remote_code", False)
+                    tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=pretrained_model_dir,
+                                                              trust_remote_code=trust_remote_code)
             if tokenizer is None and config.processor.tokenizer:
                 tokenizer = build_tokenizer(config.processor.tokenizer)
 
