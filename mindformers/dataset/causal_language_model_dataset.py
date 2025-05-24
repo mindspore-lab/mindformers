@@ -16,12 +16,15 @@
 import os
 import copy
 import re
+import threading
+import csv
 from functools import partial
 from typing import Union, Optional, Callable, List
 import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms.transforms import TypeCast
+from mindspore.communication import get_rank
 
 from mindformers.tools.register.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
@@ -248,6 +251,10 @@ class CausalLanguageModelDataset(BaseDataset):
             Path for saving optimized parameter configurations. Default: ``'./autotune'``.
         profile (bool, optional):
             Whether to enable data collection. Default: ``False``.
+        token_monitor (bool, optional):
+            Whether to enable token monitor function.  Default: ``False``.
+        token_monitor_config (dict, optional):
+            Config for token monitor function, When set to None, use deault value. Default: ``None``.
 
     Returns:
         Instance of CausalLanguageModelDataset.
@@ -289,6 +296,8 @@ class CausalLanguageModelDataset(BaseDataset):
                 filepath_prefix: str = './autotune',
                 autotune_per_step: int = 10,
                 profile: bool = False,
+                token_monitor: bool = False,
+                token_monitor_config: Optional[dict] = None,
                 **kwargs):
         logger.info("Now Create Causal Language Model Dataset.")
         dataset_config = cls.check_dataset_config(dataset_config, locals())
@@ -342,6 +351,21 @@ class CausalLanguageModelDataset(BaseDataset):
                 if input_arg in CAST_TO_INT_COLUMNS:
                     dataset = get_dataset_map(dataset, type_cast_op,
                                               input_columns=input_arg)
+
+        if dataset_config.token_monitor:
+            kwargs = {}
+            # Check if token_monitor_config exists and is a dict
+            if isinstance(dataset_config.token_monitor_config, dict):
+                kwargs = dataset_config.token_monitor_config.copy()
+                if 'max_token_id' in kwargs and kwargs['max_token_id'] == "inf":
+                    kwargs['max_token_id'] = np.inf
+            else:
+                kwargs = {}
+
+            logger.info("token_monitor is TRUE. Saving token counts to output/token_counts_output_csv")
+            dataset = get_dataset_map(dataset,
+                                      operations=[cls.perform_token_counting(**kwargs)])
+
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 
@@ -406,3 +430,100 @@ class CausalLanguageModelDataset(BaseDataset):
                     f"num_samples will reset from {num_samples} to {cur_num_samples}.")
         dataset_config.data_loader.num_samples = cur_num_samples
         return dataset_config
+
+    @staticmethod
+    def perform_token_counting(top_n=10, min_token_id=0, max_token_id=np.inf,
+                               save_path="output/token_counts_output_csv/"):
+        """count tokenid and save them in csv"""
+        token_counter = TokenCounter(top_n, min_token_id, max_token_id, save_path)
+        return token_counter.count_tokens
+
+
+class TokenCounter:
+    """
+    TokenCounter is a utility class for counting token occurrences during training steps,
+    batching the counts, and saving them in a CSV format for later analysis.
+
+    Args:
+        top_n (int): Number of top tokens to record based on occurrence count.
+        min_token_id (int): Minimum token ID to consider for counting.
+        max_token_id (int): Maximum token ID to consider for counting.
+        save_path (str): Directory path where token count files are saved.
+
+    Raises:
+        ValueError: If `top_n` is not a positive integer.
+    """
+    def __init__(self, top_n=10, min_token_id=0, max_token_id=np.inf, save_path="output/token_counts_output_csv/"):
+        self.top_n = top_n
+        if not isinstance(self.top_n, int) or self.top_n <= 0:
+            raise ValueError("top_n must be a positive integer.")
+        self.min_token_id = min_token_id
+        self.max_token_id = max_token_id
+        self.step_num = 1
+        self.lock = threading.Lock()
+        self.saved_directory = save_path
+        self.token_count_pairs_header_written = False  # Flag to manage header writing
+        self.initialized = False  # Flag to check if initial setup was done
+
+    def initialize_file(self):
+        """This method initializes the file for writing by clearing any existing content"""
+        rank_id = get_rank()
+        os.makedirs(self.saved_directory, exist_ok=True)
+        filename = os.path.join(self.saved_directory, f"rank_{rank_id}_token_counts.csv")
+
+        # Clear existing file content
+        with open(filename, 'w', newline='') as csvfile:
+            _ = csv.writer(csvfile)
+
+        self.initialized = True
+        self.token_count_pairs_header_written = False
+
+    def count_tokens(self, input_ids):
+        """count tokens and save in csv file"""
+        if not self.initialized:
+            self.initialize_file()
+
+        tokens = input_ids.flatten()
+        unique_tokens, counts = np.unique(tokens, return_counts=True)
+        actual_min = np.min(unique_tokens)
+        actual_max = np.max(unique_tokens)
+
+        with self.lock:
+            if actual_min < self.min_token_id:
+                logger.warning("Step %d: Token ID range warning: Min token ID (%d) is below %d.",
+                               self.step_num, actual_min, self.min_token_id)
+
+            if actual_max > self.max_token_id:
+                logger.warning("Step %d: Token ID range warning: Max token ID (%d) is above %d.",
+                               self.step_num, actual_max, self.max_token_id)
+
+            token_count_pairs = np.array(list(zip(unique_tokens, counts)),
+                                         dtype=[('token_id', 'int32'), ('count', 'uint16')])
+
+            if self.top_n:
+                token_count_pairs = np.sort(token_count_pairs, order='count')[::-1][:self.top_n]
+
+            rank_id = get_rank()
+            filename = os.path.join(self.saved_directory, f"rank_{rank_id}_token_counts.csv")
+
+            with open(filename, mode='a', newline='') as csvfile:
+                csv_writer = csv.writer(csvfile)
+
+                if not self.token_count_pairs_header_written:
+                    header = ['step_num', 'min_id', 'max_id']
+                    for i in range(len(token_count_pairs)):
+                        header.append(f'token_id_{i+1}')
+                        header.append(f'count_{i+1}')
+                    csv_writer.writerow(header)
+                    self.token_count_pairs_header_written = True
+
+                row = [self.step_num, actual_min, actual_max]
+                for token_id, count in token_count_pairs:
+                    row.append(token_id)
+                    row.append(count)
+                csv_writer.writerow(row)
+
+            logger.debug(f"RANK {rank_id}: Appended token counts to {filename} with {token_count_pairs}")
+            self.step_num += 1
+
+        return input_ids
