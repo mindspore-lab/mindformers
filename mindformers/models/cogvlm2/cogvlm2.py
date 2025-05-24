@@ -94,6 +94,7 @@ class VisionMLPAdapter(nn.Cell):
         self.transpose = P.Transpose()
         self.broadcast_to = ops.broadcast_to
         self.concat = P.Concat(axis=1)
+        self.cast = P.Cast()
 
     def construct(self, x):
         """VisionMLPAdapter Forward."""
