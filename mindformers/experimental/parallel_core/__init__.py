@@ -46,7 +46,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.\
     language_model import (get_language_model as pynative_get_language_model)
 from mindformers.experimental.graph.transformer.language_model import Embedding as GraphEmbedding
 from mindformers.experimental.parallel_core.pynative.transformer.language_model import Embedding as PynativeEmbedding
-from mindformers import MFTrainOneStepCell as GraphTrainOneStepCell
+from mindformers.wrapper import MFTrainOneStepCell as GraphTrainOneStepCell
 from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell as PynativeTrainOneStepCell
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry

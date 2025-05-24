@@ -52,9 +52,6 @@ class Qwen2Config(PretrainedConfig):
                  seq_length: int = 2048,
                  multiple_of: int = 256,
                  ffn_dim_multiplier: Optional[int] = None,
-                 bos_token_id: int = 1,
-                 eos_token_id: int = 2,
-                 pad_token_id: int = 0,
                  normalization: str = "RMSNorm",
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
@@ -73,13 +70,8 @@ class Qwen2Config(PretrainedConfig):
                  extend_method: str = "None",
                  scaling_factor: float = 1.0,
                  use_flash_attention: bool = False,
-                 repetition_penalty: float = 1.0,
-                 max_decode_length: int = 1024,
                  block_size: int = 16,
                  num_blocks: int = 512,
-                 top_k: int = 5,
-                 top_p: float = 1.0,
-                 do_sample: bool = True,
                  quant_config: dict = None,
                  parallel_decoding_params: dict = None,
                  **kwargs):
@@ -168,9 +160,6 @@ class Qwen2Config(PretrainedConfig):
         self.seq_length = seq_length
         self.multiple_of = multiple_of
         self.ffn_dim_multiplier = ffn_dim_multiplier
-        self.bos_token_id = bos_token_id
-        self.eos_token_id = eos_token_id
-        self.pad_token_id = pad_token_id
         self.normalization = normalization
         self.compute_dtype = convert_mstype(compute_dtype)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
@@ -195,13 +184,8 @@ class Qwen2Config(PretrainedConfig):
         self.extend_method = extend_method
         self.scaling_factor = scaling_factor
         self.use_flash_attention = use_flash_attention
-        # infer params
-        self.repetition_penalty = repetition_penalty
-        self.max_decode_length = max_decode_length
-        self.top_k = top_k
-        self.top_p = top_p
-        self.do_sample = do_sample
+        # # infer params
+        self.parallel_decoding_params = parallel_decoding_params
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.quant_config = quant_config
-        self.parallel_decoding_params = parallel_decoding_params

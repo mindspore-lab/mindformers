@@ -788,7 +788,10 @@ class GenerationMixin:
         if generation_config is None:
             # legacy: users may modify the model configuration to control generation
             # model attribute accordingly, if it was created from the model config
-            generation_config = GenerationConfig.from_model_config(self.config)
+            if use_legacy:
+                generation_config = GenerationConfig.from_model_config(self.config)
+            else:
+                generation_config = self.generation_config
         generation_config = copy.deepcopy(generation_config)
         model_kwargs = generation_config.update(
             **kwargs

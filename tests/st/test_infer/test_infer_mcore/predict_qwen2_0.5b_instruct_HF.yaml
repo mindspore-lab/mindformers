@@ -1,0 +1,72 @@
+seed: 0
+output_dir: './output' # path to save checkpoint/strategy
+load_checkpoint: ''
+src_strategy_path_or_dir: ''
+only_save_strategy: False
+resume_training: False
+use_parallel: False
+run_mode: 'predict'
+use_legacy: False
+
+# trainer config
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'qwen2_7b'
+
+# default parallel of device num = 8 for Atlas 800T A2
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: False
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+
+model:
+  # dir path where store model_config(config.json, generation_config.json which direct downloaded from huggingface) 
+  pretrained_model_dir: './'  
+  # customed MF config 
+  model_config:
+    batch_size: 1
+    seq_length: 8192
+    qkv_has_bias: True
+    compute_dtype: "bfloat16"
+    layernorm_compute_type: "bfloat16"
+    softmax_compute_type: "float32"
+    rotary_dtype: "bfloat16"
+    param_init_type: "bfloat16"
+    use_flash_attention: True
+    block_size: 32
+    num_blocks: 1024
+    qkv_concat: True
+    auto_register: configuration_qwen2.Qwen2Config
+
+# mindspore context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  ascend_config:
+    precision_mode: "must_keep_origin_dtype"
+  max_call_depth: 10000
+  max_device_memory: "59GB"
+  save_graphs: False
+  save_graphs_path: "./graph"
+  device_id: 0
+
+# parallel context config
+parallel:
+  parallel_mode: 'STAND_ALONE' # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: False
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: False
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
+    parallel_optimizer_threshold: 64

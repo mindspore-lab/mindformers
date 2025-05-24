@@ -14,11 +14,15 @@
 # ============================================================================
 """generation config."""
 import copy
-from typing import Any, Dict
+import os
+import json
+from typing import Any, Dict, Union, Optional
 
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools.logger import logger
 
+
+GENERATION_CONFIG_NAME = "generation_config.json"
 __all__ = ["GenerationConfig"]
 
 
@@ -219,6 +223,39 @@ class GenerationConfig:
         return config
 
     @classmethod
+    def from_pretrained(
+            cls,
+            pretrained_model_name: Union[str, os.PathLike],
+            config_file_name: Optional[Union[str, os.PathLike]] = None,
+            **kwargs,
+        ) -> "GenerationConfig":
+        r"""
+        Instantiate a [`GenerationConfig`] from a generation configuration file.
+        ```python
+        ```"""
+        config_file_name = (
+            config_file_name if config_file_name is not None else GENERATION_CONFIG_NAME
+        )
+        config_path = os.path.join(pretrained_model_name, config_file_name)
+        config_path = os.path.realpath(config_path)
+        is_local = os.path.exists(config_path)
+        if not is_local:
+            raise ValueError(
+                f"It looks like the config file at '{config_path}' is not a valid file."
+            )
+        resolved_config_file = config_path
+        try:
+            # Load config dict
+            config_dict = cls._dict_from_json_file(resolved_config_file)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise EnvironmentError(
+                f"It looks like the config file at '{resolved_config_file}' "
+                "is not a valid JSON file."
+            ) from e
+        config = cls.from_dict(config_dict, **kwargs)
+        return config
+
+    @classmethod
     def from_model_config(cls, model_config: PretrainedConfig) -> "GenerationConfig":
         """
         Instantiates a [`GenerationConfig`] from a [`PretrainedConfig`].
@@ -263,3 +300,9 @@ class GenerationConfig:
         """to dict convert function."""
         output = copy.deepcopy(self.__dict__)
         return output
+
+    @classmethod
+    def _dict_from_json_file(cls, json_file: Union[str, os.PathLike]):
+        with open(json_file, "r", encoding="utf-8") as reader:
+            text = reader.read()
+        return json.loads(text)

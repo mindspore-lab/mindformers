@@ -29,6 +29,7 @@ from mindspore import Model
 from mindformers import build_context, MindFormerConfig
 from mindformers.experimental.models.qwen2.configuration_qwen2 import Qwen2Config
 from mindformers.experimental.models.qwen2.modeling_qwen2 import Qwen2ForCausalLM
+from mindformers.generation import GenerationConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 from mindformers.modules.transformer import TransformerOpParallelConfig
@@ -83,6 +84,7 @@ def test_qwen2_0_5b_predict_mcore():
     Description: Test mcore interface for prediction.
     Expectation: AssertionError
     """
+    local_path = os.getcwd()
     vocab_file_path = "/home/workspace/mindspore_dataset/weight/Qwen2-0.5B-Instruct/vocab.json"
     merges_file_path = "/home/workspace/mindspore_dataset/weight/Qwen2-0.5B-Instruct/merges.txt"
     load_safetensors = "/home/workspace/mindspore_dataset/weight/Qwen2-0.5B-Instruct"
@@ -110,6 +112,7 @@ def test_qwen2_0_5b_predict_mcore():
     tokenizer = Qwen2Tokenizer(vocab_file=vocab_file_path, merges_file=merges_file_path)
     # build model
     network = Qwen2ForCausalLM(model_config)
+    network.generation_config = GenerationConfig.from_pretrained(local_path)
     model = Model(network)
     if config.load_checkpoint:
         config.load_checkpoint = get_load_path_after_hf_convert(config=config, network=network)

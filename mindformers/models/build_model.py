@@ -14,7 +14,8 @@
 # ============================================================================
 """Build Model API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from .build_config import build_model_config
+from mindformers.tools.utils import get_context
+from .build_config import build_model_config, get_model_config
 
 
 def build_model(
@@ -46,13 +47,17 @@ def build_model(
         return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
 
     if config is not None:
+        use_legacy = get_context("use_legacy", True)
+
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
         if default_args is None:
             default_args = {}
-
         if isinstance(config.model_config, MindFormerConfig):
-            model_config = build_model_config(config.model_config, default_args=default_args)
+            if not use_legacy:
+                model_config = get_model_config(config, default_args=default_args)
+            else:
+                model_config = build_model_config(config.model_config, default_args=default_args)
         else:
             model_config = config.model_config
 
@@ -62,9 +67,11 @@ def build_model(
                     model_config.__setattr__(key, value)
                 default_args = {}
             default_args.setdefault('config', model_config)
-
+            if use_legacy:
+                return MindFormerRegister.get_instance_from_cfg(
+                    config.arch, MindFormerModuleType.MODELS, default_args=default_args)
             return MindFormerRegister.get_instance_from_cfg(
-                config.arch, MindFormerModuleType.MODELS, default_args=default_args)
+                model_config.to_dict(), MindFormerModuleType.MODELS, default_args=default_args)
         return None
     return None
 

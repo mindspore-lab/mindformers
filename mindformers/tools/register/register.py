@@ -18,6 +18,7 @@ import inspect
 import os
 
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
+from mindformers.tools.utils import get_context, CONFIG_MAPPING
 from mindformers.version_control import check_tft_valid
 
 
@@ -26,7 +27,6 @@ NEW_CLASS_PREFIX = "mcore_"
 
 def get_legacy():
     """return mf context: use_legacy"""
-    from mindformers.core.context import get_context
     try:
         legacy = get_context("use_legacy")
         use_legacy = bool(legacy is None or legacy)
@@ -275,6 +275,35 @@ class MindFormerRegister:
         return register_class
 
     @classmethod
+    def get_instance_type_from_cfg(cls, cfg, module_type=MindFormerModuleType.MODELS):
+        """
+        Get instance's type of the class in the registry via configuration.
+
+        Args:
+            cfg (dict): Configuration dictionary. It should contain at least the key "type".
+            module_type (MindFormerModuleType, optional): Module type name of MindFormers.
+                Default: ``MindFormerModuleType.TOOLS``.
+            default_args (dict, optional): Default initialization arguments. Default: ``None``.
+
+        Returns:
+            An instance of the class.
+
+        Raises:
+            TypeError: `cfg` must be a configuration.
+            KeyError: `cfg` or `default_args` must contain the key "type".
+            TypeError: `default_args` must be a dictionary or ``None``.
+            ValueError: Can't find class `class_name` of type `module_type` in the registry.
+        """
+        if module_type == MindFormerModuleType.CONFIG:
+            model_type = cfg.pop('model_type')
+            obj_type = CONFIG_MAPPING[model_type]
+        elif module_type == MindFormerModuleType.MODELS:
+            obj_type = cfg.pop('architectures')[0]
+        else:
+            obj_type = cfg.pop('type')
+        return obj_type
+
+    @classmethod
     def get_instance_from_cfg(cls, cfg, module_type=MindFormerModuleType.TOOLS, default_args=None):
         """
         Get instances of the class in the registry via configuration.
@@ -302,10 +331,14 @@ class MindFormerRegister:
         if 'auto_register' in cfg:
             cls.auto_register(class_reference=cfg.pop('auto_register'), module_type=module_type)
 
-        if 'type' not in cfg:
-            raise KeyError(
-                f'`cfg` or `default_args` must contain the key "type", but got {cfg}\n{default_args}'
-            )
+        use_legacy = get_context("use_legacy", True)
+        if use_legacy or module_type not in [MindFormerModuleType.CONFIG, MindFormerModuleType.MODELS]:
+            if 'type' not in cfg:
+                raise KeyError(
+                    '`cfg` or `default_args` must contain the key "type",'
+                    'but got {}\n{}'.format(cfg, default_args)
+                )
+
         if not (isinstance(default_args, dict) or default_args is None):
             raise TypeError(f'default_args must be a dict or None, but got {type(default_args)}')
 
@@ -317,7 +350,11 @@ class MindFormerRegister:
                 else:
                     args[k] = v
 
-        obj_type = args.pop('type')
+        if use_legacy:
+            obj_type = args.pop('type')
+        else:
+            obj_type = cls.get_instance_type_from_cfg(args, module_type)
+
         if isinstance(obj_type, str):
             obj_cls = cls.get_cls(module_type, obj_type)
         elif inspect.isclass(obj_type):
@@ -330,6 +367,8 @@ class MindFormerRegister:
                 if check_tft_valid():
                     from mindspore.train.callback import TrainFaultTolerance
                     obj_cls = TrainFaultTolerance.get_optimizer_wrapper(obj_cls)
+            if not use_legacy and module_type == MindFormerModuleType.MODELS:
+                return obj_cls(default_args['config'])
             return obj_cls(**args)
         except Exception as e:
             raise type(e)(f'{obj_cls.__name__}: {e}')
