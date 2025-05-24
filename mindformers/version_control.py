@@ -388,9 +388,15 @@ def check_tft_valid():
     if not version_valid:
         logger.warning("Current MindSpore version does not support tft, please upgrade to 2.5.0 or later version.")
         return False
+
     env_enable = os.getenv("MS_ENABLE_TFT", "")
-    required_flags = ["TTP:1", "UCE:1", "ARF:1"]
-    return any(flag in env_enable for flag in required_flags)
+
+    # switch track to recover
+    if "TSP:1" in env_enable and is_version_ge(ms.__version__, "2.7.0"):
+        return True
+
+    remain_required_flags = ["TTP:1", "UCE:1", "ARF:1"]
+    return any(flag in env_enable for flag in remain_required_flags)
 
 
 def check_tre_valid():
