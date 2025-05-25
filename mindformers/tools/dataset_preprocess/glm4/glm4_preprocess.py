@@ -20,7 +20,11 @@ import argparse
 import json
 import os
 import numpy as np
+from tqdm import tqdm
+
 from mindspore.mindrecord import FileWriter
+
+import mindformers
 from mindformers.models.glm2.glm4_tokenizer import ChatGLM4Tokenizer
 
 IGNORE_TOKEN_ID = -100
@@ -45,41 +49,45 @@ def preprocess(messages, tokenizer, seq_length):
     ret_labels = []
     ret_attention_mask = []
     ret_position_ids = []
-    for conv in messages:
-        input_ids = [151331, 151333]  # [gMASK] + <sop>
-        loss_masks = [False, False]
-        for message in conv:
-            message = process_message(message)
-            loss_mask_val = message['role'] not in ('system', 'user', 'observation')
-            if not message:
-                continue
-            new_input_ids = tokenizer.apply_chat_template([message], tokenize=True)[2:-1]
-            new_loss_masks = [loss_mask_val] * len(new_input_ids)
-            input_ids += new_input_ids
-            loss_masks += new_loss_masks
-        input_ids.append(151336)  # EOS token '<|user|>'
-        loss_masks = [False, *loss_masks]  # <|assistant|> True -> <|assistant|> False <|user|> True
-        labels = []
-        for input_id, mask in zip(input_ids, loss_masks):
-            if mask:
-                labels.append(input_id)
-            else:
-                labels.append(-100)
+    total_messages = len(messages)
+    with tqdm(total=total_messages, desc="Applying prompt templates", unit="row") as pbar:
+        for conv in messages:
+            input_ids = [151331, 151333]  # [gMASK] + <sop>
+            loss_masks = [False, False]
+            for message in conv:
+                message = process_message(message)
+                loss_mask_val = message['role'] not in ('system', 'user', 'observation')
+                if not message:
+                    continue
+                new_input_ids = tokenizer.apply_chat_template([message], tokenize=True)[2:-1]
+                new_loss_masks = [loss_mask_val] * len(new_input_ids)
+                input_ids += new_input_ids
+                loss_masks += new_loss_masks
+            input_ids.append(151336)  # EOS token '<|user|>'
+            loss_masks = [False, *loss_masks]  # <|assistant|> True -> <|assistant|> False <|user|> True
+            labels = []
+            for input_id, mask in zip(input_ids, loss_masks):
+                if mask:
+                    labels.append(input_id)
+                else:
+                    labels.append(-100)
 
-        input_ids = input_ids[:seq_length]
-        labels = labels[:seq_length]
-        attention_mask = [1] * len(input_ids)
-        position_ids = list(range(len(input_ids)))
+            input_ids = input_ids[:seq_length]
+            labels = labels[:seq_length]
+            attention_mask = [1] * len(input_ids)
+            position_ids = list(range(len(input_ids)))
 
-        input_ids = input_ids + [151329] * (seq_length - len(input_ids))
-        labels = labels + [-100] * (seq_length - len(labels))
-        attention_mask = attention_mask + [0] * (seq_length - len(attention_mask))
-        position_ids = position_ids + [0] * (seq_length - len(position_ids))
+            input_ids = input_ids + [151329] * (seq_length - len(input_ids))
+            labels = labels + [-100] * (seq_length - len(labels))
+            attention_mask = attention_mask + [0] * (seq_length - len(attention_mask))
+            position_ids = position_ids + [0] * (seq_length - len(position_ids))
 
-        ret_input_ids.append(input_ids[:seq_length - 1])
-        ret_labels.append(labels[1:seq_length])
-        ret_attention_mask.append(attention_mask[:seq_length - 1])
-        ret_position_ids.append(position_ids[:seq_length - 1])
+            ret_input_ids.append(input_ids[:seq_length - 1])
+            ret_labels.append(labels[1:seq_length])
+            ret_attention_mask.append(attention_mask[:seq_length - 1])
+            ret_position_ids.append(position_ids[:seq_length - 1])
+
+            pbar.update(1)
 
     return {
         'input_ids': np.array(ret_input_ids).astype(np.int32),
@@ -90,10 +98,14 @@ def preprocess(messages, tokenizer, seq_length):
 
 
 def tokenize_qa(tokenizer, file_path, seq_length):
+    """Tokenization for Question and Answer of alpaca jsonl file."""
     raw_data = []
+    mindformers.logger.info("..... Start to load alpaca jsonl file .....")
     with open(file_path, "r") as f:
         for line in f:
             raw_data.append(json.loads(line))
+    mindformers.logger.info("..... Alpaca jsonl file load successfully .....")
+
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
     for i, _ in enumerate(dataset_cls):
         yield dataset_cls[i]
@@ -156,7 +168,7 @@ if __name__ == '__main__':
     word_tokenizer = ChatGLM4Tokenizer(
         args.vocab_file, add_bos_token=False, add_eos_token=False)
 
-    for x in tokenize_qa(word_tokenizer, args.input_glob, args.seq_length + 1):
+    for x in tqdm(tokenize_qa(word_tokenizer, args.input_glob, args.seq_length + 1), desc="Processing QA data"):
         transforms_count += 1
         writer.write_raw_data([x])
     print("Transformed {} records.".format(transforms_count))
