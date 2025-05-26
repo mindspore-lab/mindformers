@@ -35,7 +35,6 @@ from .masked_image_modeling import MaskedImageModelingTrainer
 from .masked_language_modeling import MaskedLanguageModelingTrainer
 from .general_task_trainer import GeneralTaskTrainer
 from .contrastive_language_image_pretrain import ContrastiveLanguageImagePretrainTrainer
-from .image_to_text_generation import ImageToTextGenerationTrainer
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
 from .translation import TranslationTrainer
 from .text_classfication import TextClassificationTrainer

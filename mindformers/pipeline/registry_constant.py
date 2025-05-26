@@ -23,12 +23,10 @@ from mindformers.models.auto.modeling_auto import (
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
     AutoModelForTokenClassification,
-    AutoModelForVision2Seq,
     AutoModelForZeroShotImageClassification)
 
 from .fill_mask_pipeline import FillMaskPipeline
 from .image_classification_pipeline import ImageClassificationPipeline
-from .image_to_text_generation_pipeline import ImageToTextPipeline
 from .masked_image_modeling_pipeline import MaskedImageModelingPipeline
 from .pipeline_registry import PipelineRegistry
 from .question_answering_pipeline import QuestionAnsweringPipeline
@@ -45,7 +43,6 @@ TASK_ALIASES = {
     "ner": "token-classification",
     "fill_mask": "fill-mask",
     "image_classification": "image-classification",
-    "image_to_text_generation": "image-to-text",
     "masked_image_modeling": "masked-image-modeling",
     "question_answering": "question-answering",
     "text_generation": "text-generation",
@@ -67,12 +64,6 @@ SUPPORTED_TASKS = {
         "ms": (AutoModelForImageClassification,),
         "default": {"model": {"ms": ()}},
         "type": "image",
-    },
-    "image-to-text": {
-        "impl": ImageToTextPipeline,
-        "ms": (AutoModelForVision2Seq,),
-        "default": {"model": {"ms": ()}},
-        "type": "multimodal",
     },
     "masked-image-modeling": {
         "impl": MaskedImageModelingPipeline,

@@ -23,26 +23,22 @@ from mindformers.models import (
     SwinImageProcessor,
     ViTImageProcessor
 )
-from mindformers.models.blip2 import Blip2ImageProcessor
 from mindformers.tools.image_tools import load_image
 
 
 TEST_IMAGE = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 DIFF_THRESHOLD = 0.1
 
-BLIP2_REMOTE_PATH = 'mindformersinfra/test_blip2'
 CLIP_REMOTE_PATH = 'mindformersinfra/test_clip'
 MAE_REMOTE_PATH = 'mindformersinfra/test_mae'
 SWIN_REMOTE_PATH = 'mindformersinfra/test_swin'
 VIT_REMOTE_PATH = 'mindformersinfra/test_vit'
 
-BLIP2_OUTPUT_SHAPE = (1, 3, 224, 224)
 CLIP_OUTPUT_SHAPE = (1, 3, 224, 224)
 MAE_OUTPUT_SHAPE = [(1, 3, 224, 224), (1, 196), (1, 196), (1, 49)]
 SWIN_OUTPUT_SHAPE = (1, 3, 224, 224)
 VIT_OUTPUT_SHAPE = (1, 3, 224, 224)
 
-BLIP2_OUTPUT_SUM = -54167.402
 CLIP_OUTPUT_SUM = -40270.586
 MAE_OUTPUT_SUM = [-64566.43, 147, 19110, 4720]
 SWIN_OUTPUT_SUM = -26959.375
@@ -86,16 +82,6 @@ def run_processor(
 
 class TestImageProcessor:
     """A test class for testing image processor."""
-
-    def test_blip2_image_processor(self):
-        """test blip2 image processor."""
-        run_processor(
-            name='blip2',
-            processor=Blip2ImageProcessor,
-            remote_path=BLIP2_REMOTE_PATH,
-            output_shape=BLIP2_OUTPUT_SHAPE,
-            output_sum=BLIP2_OUTPUT_SUM
-        )
 
     def test_clip_image_processor(self):
         """test clip image processor."""

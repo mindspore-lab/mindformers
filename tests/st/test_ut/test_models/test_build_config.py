@@ -16,9 +16,6 @@
 from mindformers import MindFormerConfig
 from mindformers.models.build_config import build_model_config
 from mindformers.models.llama import LlamaConfig
-from mindformers.models.blip2 import Blip2Config
-from mindformers.models.blip2.qformer_config import QFormerConfig
-from mindformers.models.vit.vit_config import ViTConfig
 
 
 class TestBuildModelConfig:
@@ -29,12 +26,3 @@ class TestBuildModelConfig:
         config = MindFormerConfig("configs/llama2/pretrain_llama2_7b.yaml")
         model_config = build_model_config(config.model.model_config)
         assert isinstance(model_config, LlamaConfig)
-
-    def test_build_blip2_config(self):
-        """test build blip2 config from yaml."""
-        config = MindFormerConfig("configs/blip2/run_blip2_stage2_vit_g_llama_7b_910b.yaml")
-        model_config = build_model_config(config.model.model_config)
-        assert isinstance(model_config, Blip2Config)
-        assert isinstance(model_config.vision_config, ViTConfig)
-        assert isinstance(model_config.qformer_config, QFormerConfig)
-        assert isinstance(model_config.text_config, LlamaConfig)
