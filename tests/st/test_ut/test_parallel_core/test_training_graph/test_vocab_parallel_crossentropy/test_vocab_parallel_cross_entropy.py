@@ -41,18 +41,6 @@ SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
-    # Test Case 3: Four Cards (DP=2, TP=2), check_for_nan=False, calculate_per_token=True
-    (
-        {"check_for_nan_in_loss_and_grad": False, "calculate_per_token_loss": True},
-        {"numerator": "numerator", "denominator": "denominator"},
-        False,
-        2,
-    ),
-]
-
-
 def build_msrun_command_list(
         worker_num,
         local_worker_num,
@@ -195,6 +183,9 @@ class TestVocabParallelCrossEntropy:
             self.check_output_keys(output_ms_dict, model_args)
             self.check_acc(output_ms_dict, data_keys)
 
+
+class TestVocabParallelCrossEntropySingleCard(TestVocabParallelCrossEntropy):
+    """Test VocabParallelCrossEntropy on a single card with various configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -212,23 +203,4 @@ class TestVocabParallelCrossEntropy:
             expect_error=expect_error,
             tmp_path=tmp_path,
             tensor_parallel=1,
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        FOUR_CARD_TEST_PARAM,
-        FOUR_CARD_TEST_CASES
-    )
-    def test_four_cards_case(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
-        """Test four cards with various configurations."""
-        self.run_test(
-            worker_num=4,
-            local_worker_num=4,
-            model_args=model_args,
-            data_keys=data_keys,
-            expect_error=expect_error,
-            tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel,
         )
