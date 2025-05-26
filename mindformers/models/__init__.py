@@ -119,13 +119,6 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
-from .mllama import (
-    MllamaConfig,
-    MllamaTextModel,
-    MllamaProcessor,
-    MllamaTokenizer,
-    MllamaForConditionalGeneration
-)
 from .cogvlm2 import (
     CogVLM2Config,
     CogVLM2ContentTransformTemplate,
