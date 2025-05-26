@@ -25,9 +25,12 @@ from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
-from mindformers.parallel_core.training_graph.transformer.language_model import LanguageModelEmbedding
-from mindformers.parallel_core.training_graph.transformer.rotary_pos_embedding import RotaryEmbedding, \
-    YarnRotaryEmbedding
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
+    LanguageModelEmbedding)
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.rotary_pos_embedding import (
+    RotaryEmbedding)
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
+    YarnRotaryEmbedding)
 from mindformers.parallel_core.training_graph.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.version_control import get_lazy_inline as lazy_inline

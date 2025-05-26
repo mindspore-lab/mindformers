@@ -26,7 +26,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
-from mindformers.parallel_core.training_graph.transformer.rotary_pos_embedding import ApplyRotaryPosEmb, ROPE_FUNCTIONS
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import (ApplyRotaryPosEmb,
+                                                                                               ROPE_FUNCTIONS)
 
 
 @dataclass

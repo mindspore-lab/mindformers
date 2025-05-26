@@ -19,7 +19,8 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore.communication import init
-from mindformers.parallel_core.training_graph.transformer.rotary_pos_embedding import YarnRotaryEmbedding
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
+    YarnRotaryEmbedding)
 from data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
 

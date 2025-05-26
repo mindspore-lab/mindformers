@@ -23,10 +23,7 @@ __all__ = [
 from typing import List, Optional, Callable
 import copy
 
-try:
-    from mindformer._checkparam import Validator
-except ImportError:
-    import mindspore._checkparam as Validator
+import mindspore._checkparam as Validator
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
