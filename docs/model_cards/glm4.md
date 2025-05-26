@@ -39,14 +39,16 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 1. 模型具体实现：
 
     ```text
-    mindformers/models/glm2            # glm4复用glm2的代码实现
+    mindformers/models/glm2            # glm4 复用 glm2 的代码实现
         ├── __init__.py
-        ├── convert_weight.py          # huggingface权重转ckpt实现
+        ├── convert_reversed.py        # MindSpore 权重转 HuggingFace 权重
+        ├── convert_weight.py          # HuggingFace 权重转 MindSpore 权重
         ├── glm2.py                    # 模型实现
         ├── glm2_config.py             # 模型配置项
         ├── glm2_modules.py            # 模组实现
         ├── glm4_tokenizer.py          # tokenizer
-        └── glm2_transformer.py        # transformer层实现
+        ├── glm2_transformer.py        # transformer层实现
+        └── glm_processor.py           # glm 处理器
     ```
 
 2. 模型配置：
@@ -62,66 +64,72 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
-和[版本匹配关系](../../README.md#版本匹配关系)。
+MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/install.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/install.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
 
 ### 数据及权重准备
 
 #### 数据集下载
 
-MindFormers提供`alpaca`数据集示例处理脚本制作[微调](#微调)示例数据集。
+MindSpore Transformers 提供 `alpaca` 数据集示例处理脚本制作[全参微调](#全参微调)示例数据集。
 
 | 数据集名称        |  适用模型   |   适用阶段   |                                            下载链接                                            |
 |:-------------|:-------:|:--------:|:------------------------------------------------------------------------------------------:|
 | alpaca       | glm4-9b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
 
-数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
+数据预处理中所用的 `tokenizer.model` 可以参考[模型权重下载](#模型权重下载)进行下载。
 
 - **alpaca 数据预处理**
 
-  执行`mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py`，将原始数据集转换为jsonl格式。
+    执行 `mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py` ，将原始数据集转换为 `jsonl` 格式。
 
-  ```shell
-  python mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py \
-   --data_path /path/alpaca_data.json \
-   --output_path /path/alpaca_glm4_data.jsonl
+    ```shell
+    python mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py \
+      --data_path /path/alpaca_data.json \
+      --output_path /path/alpaca_glm4_data.jsonl
+    ```
 
-  # 参数说明
-  data_path:   输入下载的文件路径
-  output_path: 输出文件的保存路径
-  ```
+    参数说明如下表：
 
-  执行`mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+    | 参数名              | 含义          | 取值说明                    |
+    |------------------|-------------|-------------------------|
+    | `--data_path`    | 输入下载的文件路径。  | (str, 可选) - 默认值： `alpaca_data.json` 。   |
+    | `--output_path`  | 输出文件的保存路径。  | (str, 可选) - 默认值： `alpaca_glm4_data.jsonl` 。 |
 
-  ```shell
-  python mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py \
-   --input_glob /path/alpaca_glm4_data.jsonl \
-   --vocab_file /path/tokenizer.model \
-   --seq_length 8192 \
-   --output_file /path/alpaca-messages.mindrecord
+- **MindRecord 数据生成**
 
-  # 参数说明
-  input_glob:   转换后的alpaca的文件路径
-  vocab_file:   tokenizer.model文件路径
-  seq_length:   输出数据的序列长度
-  output_file:  输出文件的保存路径
-  ```
+    执行 `mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py` 文件，进行数据预处理和 MindRecord 数据生成。
+
+    ```shell
+    python mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py \
+      --input_glob /path/alpaca_glm4_data.jsonl \
+      --vocab_file /path/tokenizer.model \
+      --seq_length 8192 \
+      --output_file /path/alpaca-messages.mindrecord
+    ```
+
+    参数说明如下表：
+
+    | 参数名             | 含义                    | 取值说明                                                   |
+    |-----------------|-----------------------|--------------------------------------------------------|
+    | `--input_glob`  | 转换后的 alpaca 数据集的文件路径。 | (str, 可选) - 默认值： `./alpaca_glm4_data.jsonl` 。          |
+    | `--vocab_file`  | tokenizer.model 文件路径。 | (str, 可选) - 默认值： `./tokenizer.model` 。                 |
+    | `--seq_length`  | 输出数据的序列长度。            | (int, 可选) - 默认值： `8192` 。                              |
+    | `--output_file` | 输出文件的保存路径。            | (str, 可选) - 默认值： `./alpaca-fastchat-glm4.mindrecord` 。 |
 
 #### 模型权重下载
 
-MindFormers提供已经转换完成的预训练权重、词表文件用于微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)
-后进行使用。
+MindSpore TransFormers 提供已经转换完成的预训练权重、词表文件用于微调和推理，用户也可以下载 HuggingFace 官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
 | 模型名称          | MindSpore权重 |                   HuggingFace权重                    |
 |:--------------|:-----------:|:--------------------------------------------------:|
 | GLM-4-9B-Chat |      /      | [Link](https://huggingface.co/THUDM/glm-4-9b-chat) |
 | GLM-4-9B      |      /      |   [Link](https://huggingface.co/THUDM/glm-4-9b)    |
 
-注：词表文件为对应权重文件目录下tokenizer.model文件
+注：词表文件为对应权重文件目录下 tokenizer.model 文件
 
 #### 模型权重转换
 
-1. 如果使能高性能模式（enable_high_performance=True)，需要按如下方式修改yaml
+1. 如果使能高性能模式（`enable_high_performance=True`），需要按如下方式修改 yaml ：
 
    ```yaml
    model:
@@ -130,34 +138,40 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
        mlp_concat: False
    ```
 
-2. 执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
+2. 执行 `convert_weight.py` 转换脚本，将 HuggingFace 的权重转换为完整的 ckpt 权重。
 
    ```shell
    python convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME --dtype DTYPE --config YAML_PATH
-
-   # 参数说明
-   torch_ckpt_path:     下载HuggingFace权重的文件夹路径
-   mindspore_ckpt_path: 转换后的MindSpore权重文件保存路径
-   dtype:               权重的数值类型，一般有float16、float32、bfloat16
-   config:              yaml文件路径
    ```
 
-3. 如果使能高性能模式，需要额外执行如下转换。
+   参数说明如下表：
 
-   ```shell
-   python convert_weight.py --ms_not_concat_ckpt_path PRE_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME --dtype DTYPE --config YAML_PATH --concat True
+    | 参数名                         | 含义                                                                                                                                  | 取值说明                                                    |
+    |-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | `--torch_ckpt_path`         | HuggingFace 权重文件路径。                                                                                                                 | (str, 可选) - 默认值： `None` 。                               |
+    | `--mindspore_ckpt_path`     | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。                                                                                         | (str, 必选) - 默认值： `None` 。                               |
+    | `--dtype`                   | 权重的数值类型，一般有 `float16` 、 `float32` 、 `bfloat16` 。                                                                                    | (str, 可选) - 配置为 [`fp32`, `fp16`, `bf16`] 其中之一，默认值： `fp32` 。 |
+    | `--config`                  | glm4 模型所用 yaml 文件的路径。                                                                                                               | (str, 必选) - 如 `research/glm32k/finetune_glm32k.yaml` 。  |
 
-   # 参数说明
-   ms_not_concat_ckpt_path:    Mindspore权重文件路径（qkv和ffn not concat)
-   mindspore_ckpt_path:        转换后的MindSpore权重文件保存路径 (qkv和ffn concat)
-   dtype:                      权重的数值类型，一般有float16、float32、bfloat16
-   config:                     yaml文件路径
-   concat:                     指定开启qkv、ffn concat
-   ```
+3. 如果使能高性能模式，除了将 HuggingFace 权重转换为 ckpt 权重后，还需要将转换后得到的 ckpt 权重作为 `--ms_not_concat_ckpt_path` 指定的路径，额外执行如下转换。
+
+    ```shell
+    python convert_weight.py --ms_not_concat_ckpt_path PRE_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME --dtype DTYPE --config YAML_PATH --concat True
+    ```
+
+    参数说明如下表：
+
+    | 参数名                         | 含义                                                                                                                                  | 取值说明                                                      |
+    |-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+    | `--ms_not_concat_ckpt_path` | qkv 和 ffn 没有 concat 的 MindSpore 权重路径。<br>结合 `--concat` 进行配置后，将对此路径下的权重进行 qkv 和 ffn 的 concat，并生成新权重在 `--mindspore_ckpt_path` 指定的路径下。 | (str, 可选) - 默认值： `None` 。                                 |
+    | `--mindspore_ckpt_path`     | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。                                                                                         | (str, 必选) - 默认值： `None` 。                                 |
+    | `--dtype`                   | 权重的数值类型，一般有 `float16` 、 `float32` 、 `bfloat16` 。                                                                                    | (str, 可选) - 配置为 [`fp32`, `fp16`, `bf16`] 其中之一，默认值： `fp32` 。 |
+    | `--config`                  | glm4 模型所用 yaml 文件的路径。                                                                                                               | (str, 必选) - 如 `research/glm32k/finetune_glm32k.yaml` 。    |
+    | `--concat`                  | 指定开启 qkv、ffn concat。                                                                                                                | (bool, 可选) - 默认值： `False` 。                               |
 
 ## 全参微调
 
-MindFormers提供`GLM4-9b`单机多卡微调示例，过程中使用`alpaca`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindSpore Transformers 提供 `GLM4-9b` 单机多卡微调示例，过程中使用 `alpaca` 数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
 
 设置如下环境变量：
 
@@ -167,7 +181,7 @@ export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
 
 ### 单机训练
 
-以`GLM4-9b`单机8卡微调为例，使用配置文件`configs/glm4/finetune_glm4_9b.yaml`。
+以 `GLM4-9b` 单机8卡微调为例，使用配置文件 `configs/glm4/finetune_glm4_9b.yaml` 。
 
 执行如下命令启动微调任务。
 
@@ -182,18 +196,21 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ## 推理
 
-MindFormers提供`GLM-4-9B-Chat`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、双卡多batch推理。
+MindSpore Transformers 提供了 `GLM-4-9B-Chat` 的快速推理脚本，脚本主要通过 `generate` 高阶接口实现，支持单卡、双卡多 batch 推理。
 
 ```shell
 bash scripts/examples/glm4/run_glm4_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER DEVICE_NUM
-
-# 参数说明
-PARALLEL：   单卡推理or多卡推理，单卡为single，多卡为parallel
-CONFIG_PATH: 模型配置文件路径
-CKPT_PATH:   模型权重文件路径，单卡为完整权重，双卡为分布式权重
-TOKENIZER:   模型tokenizer文件路径
-DEVICE_NUM： 多卡推理的卡数
 ```
+
+参数说明如下表：
+
+| 参数名         | 含义                       | 取值说明                                                                                        |
+|-------------|--------------------------|---------------------------------------------------------------------------------------------|
+| PARALLEL    | 指定选择推理模式为单卡推理 or 多卡推理。   | (str, 必选) - 单卡推理配置为 `single` ，多卡推理配置为 `parallel` 。                                          |
+| CONFIG_PATH | 模型配置文件路径。                | (str, 必选) - 如 `/path/to/glm4/predict_glm4_9b_chat.yaml` 。                                   |
+| CKPT_PATH   | 推理时用到的模型权重文件路径。          | (str, 必选) - 单卡为完整权重，双卡为分布式权重。<br>如单卡推理 `/path/to/glm4.ckpt`，多卡推理 `/path/to/glm4_ckpt_dir` 。 |
+| TOKENIZER   | gml4 模型的 tokenizer 文件路径。 | (str, 必选) - 如 `/path/to/tokenizer.model` 。                                                  |
+| DEVICE_NUM  | 指定多卡推理的卡数。               | (int, 可选) - 多卡推理时必须指定推理卡数。<br>如双卡推理时，则配置为 `2` 。                                             |
 
 运行如下命令进行推理：
 
@@ -213,62 +230,77 @@ bash scripts/examples/glm4/run_glm4_predict.sh \
  /path/to/glm4_ckpt_dir \
  /path/to/tokenizer.model \
  2
-
-# 推理结果
-# [gMASK] <sop> <|user|>
-# 晚上睡不着应该怎么办 <|assistant|>
-# 晚上睡不着觉可能会影响第二天的精神状态和工作效率。以下是一些建议，可以帮助改善睡眠质量：
-#
-# 1. **规律作息**：尽量每天同一时间上床睡觉和起床，包括周末。
-#
-# 2. **放松身心**：
-#    - **深呼吸**：尝试深呼吸练习，帮助身体放松。
-#    - **冥想**：通过冥想放松心情，减少焦虑。
-#    - **热水澡**：睡前洗个热水澡有助于身体放松。
-#
-# 3. **避免刺激性饮料和食物**：睡前避免咖啡、茶、巧克力等含有咖啡因的食品和饮料。
-#
-# 4. **减少屏幕时间**：睡前减少使用手机、电脑等电子设备，因为屏幕发出的蓝光可能会干扰睡眠。
-#
-# 5. **舒适的环境**：确保卧室安静、黑暗和适宜的温度。
-#
-# 6. **适量运动**：白天进行适量的运动有助于晚上更好地入睡，但避免在睡前进行剧烈运动。
-#
-# 7. **避免白天打盹**：如果白天需要休息，尽量控制在30分钟以内。
-#
-# 8. **建立睡前仪式**：如阅读、听轻音乐等，帮助大脑逐渐进入睡眠状态。
-#
-# 9. **咨询专业人士**：如果上述方法都无效，建议咨询医生或睡眠专家。
-#
-# 10. **心理调适**：有时候，失眠可能与心理因素有关，如焦虑、抑郁等，这时需要寻求心理咨询。
-#
-# 请根据自己的实际情况尝试这些方法，并注意观察效果。如果失眠问题持续存在，建议及时就医。 <|user|>
-
-# [gMASK] <sop> <|user|>
-# 使用python编写快速排序代码 <|assistant|>
-# 下面是一个使用Python编写的快速排序算法的实现。快速排序是一种分而治之的算法，它通过一个基准值将数组分为两个子数组，一个包含小于基准值的元素，另一个包含大于基准值的元素，然后递归地对这两个子数组进行排序。
-#
-# ```python
-# def quick_sort(arr):
-#     if len(arr) <= 1:
-#         return arr
-#     else:
-#         pivot = arr[0]
-#         less = [x for x in arr[1:] if x <= pivot]
-#         greater = [x for x in arr[1:] if x > pivot]
-#         return quick_sort(less) + [pivot] + quick_sort(greater)
-#
-# # 示例
-# array = [3, 6, 8, 10, 1, 2, 1]
-# sorted_array = quick_sort(array)
-# print(sorted_array)
-# ```
-#
-# 这段代码定义了一个`quick_sort`函数，它接受一个列表`arr`作为参数。如果列表的长度小于或等于1，则它已经是有序的，所以直接返回。否则，选择列表的第一个元素作为基准值`pivot`，然后创建两个新的列表`less`和`greater`，分别包含小于和大于基准值的元素。最后，递归地对`less`和`greater`进行快速排序，并将结果与基准值连接起来返回。
-#
-# 示例中的`array`是一个未排序的列表，调用`quick_sort(array)`后，会得到一个排序后的列表`sorted_array`。 <|user|>
-#
-# [gMASK] <sop> <|user|>
-# 你好呀！ <|assistant|>
-# 你好👋！很高兴见到你，有什么可以帮助你的吗？ <|user|>
 ```
+
+推理结果示例：
+
+1. 推理结果 1：
+
+    ```text
+    [gMASK] <sop> <|user|>
+    晚上睡不着应该怎么办 <|assistant|>
+    晚上睡不着觉可能会影响第二天的精神状态和工作效率。以下是一些建议，可以帮助改善睡眠质量：
+
+    1. **规律作息**：尽量每天同一时间上床睡觉和起床，包括周末。
+
+    2. **放松身心**：
+       - **深呼吸**：尝试深呼吸练习，帮助身体放松。
+       - **冥想**：通过冥想放松心情，减少焦虑。
+       - **热水澡**：睡前洗个热水澡有助于身体放松。
+
+    3. **避免刺激性饮料和食物**：睡前避免咖啡、茶、巧克力等含有咖啡因的食品和饮料。
+
+    4. **减少屏幕时间**：睡前减少使用手机、电脑等电子设备，因为屏幕发出的蓝光可能会干扰睡眠。
+
+    5. **舒适的环境**：确保卧室安静、黑暗和适宜的温度。
+
+    6. **适量运动**：白天进行适量的运动有助于晚上更好地入睡，但避免在睡前进行剧烈运动。
+
+    7. **避免白天打盹**：如果白天需要休息，尽量控制在30分钟以内。
+
+    8. **建立睡前仪式**：如阅读、听轻音乐等，帮助大脑逐渐进入睡眠状态。
+
+    9. **咨询专业人士**：如果上述方法都无效，建议咨询医生或睡眠专家。
+
+    10. **心理调适**：有时候，失眠可能与心理因素有关，如焦虑、抑郁等，这时需要寻求心理咨询。
+
+    请根据自己的实际情况尝试这些方法，并注意观察效果。如果失眠问题持续存在，建议及时就医。 <|user|>
+    ```
+
+2. 推理结果 2：
+
+    ```text
+    [gMASK] <sop> <|user|>
+    使用python编写快速排序代码 <|assistant|>
+    下面是一个使用Python编写的快速排序算法的实现。快速排序是一种分而治之的算法，它通过一个基准值将数组分为两个子数组，一个包含小于基准值的元素，另一个包含大于基准值的元素，然后递归地对这两个子数组进行排序。
+    ```
+
+    ```python
+    def quick_sort(arr):
+        if len(arr) <= 1:
+            return arr
+        else:
+            pivot = arr[0]
+            less = [x for x in arr[1:] if x <= pivot]
+            greater = [x for x in arr[1:] if x > pivot]
+        return quick_sort(less) + [pivot] + quick_sort(greater)
+
+    # 示例
+    array = [3, 6, 8, 10, 1, 2, 1]
+    sorted_array = quick_sort(array)
+    print(sorted_array)
+    ```
+
+    ```text
+    这段代码定义了一个`quick_sort`函数，它接受一个列表`arr`作为参数。如果列表的长度小于或等于1，则它已经是有序的，所以直接返回。否则，选择列表的第一个元素作为基准值`pivot`，然后创建两个新的列表`less`和`greater`，分别包含小于和大于基准值的元素。最后，递归地对`less`和`greater`进行快速排序，并将结果与基准值连接起来返回。
+
+    示例中的`array`是一个未排序的列表，调用`quick_sort(array)`后，会得到一个排序后的列表`sorted_array`。 <|user|>
+    ```
+
+3. 推理结果 3：
+
+    ```text
+    [gMASK] <sop> <|user|>
+    你好呀！ <|assistant|>
+    你好👋！很高兴见到你，有什么可以帮助你的吗？ <|user|>
+    ```
