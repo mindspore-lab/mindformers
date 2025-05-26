@@ -71,8 +71,10 @@ class Attention(nn.Cell):
     "cross attn" specializations.
 
     Args:
-        config (TransformerConfig): Configuration.
-        submodules (Union[SelfAttentionSubmodules, CrossAttentionSubmodules]): Submodules.
+        config (TransformerConfig): The config of the transformer model.
+        submodules (Union[SelfAttentionSubmodules, CrossAttentionSubmodules]): The submodules used to construct
+            the Attention layer, such as ColumnParallelLinear and RowParallelLinear for query and
+            key-value projections.
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
         attn_mask_type (str): attention mask type. Default: None.
@@ -433,8 +435,9 @@ class SelfAttention(Attention):
     and returns output of the same size.
 
     Args:
-        config (TransformerConfig): Configuration.
-        submodules (SelfAttentionSubmodules): Submodules.
+        config (TransformerConfig): The config of the transformer model.
+        submodules (SelfAttentionSubmodules): The submodules used to construct the SelfAttention layer,
+            such as ColumnParallelLinear and RowParallelLinear for query and key-value projections.
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
         attn_mask_type (str): attention mask type. Default None.
@@ -515,8 +518,9 @@ class SelfAttentionMegatron(Attention):
     and returns output of the same size.
 
     Args:
-        config (TransformerConfig): Configuration.
-        submodules (SelfAttentionSubmodules): Submodules.
+        config (TransformerConfig): The config of the transformer model.
+        submodules (SelfAttentionSubmodules): The submodules used to construct the SelfAttentionMegatron layer,
+            such as ColumnParallelLinear and RowParallelLinear for query and key-value projections.
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
         attn_mask_type (str): attention mask type. Default None.
@@ -591,8 +595,9 @@ class CrossAttention(Attention):
     [s, b, h] and returns output of the same size.
 
     Args:
-        config (TransformerConfig): Configuration.
-        submodules (CrossAttentionSubmodules): Submodules.
+        config (TransformerConfig): The config of the transformer model.
+        submodules (CrossAttentionSubmodules): The submodules used to construct the CrossAttention layer,
+            such as ColumnParallelLinear and RowParallelLinear for query and key-value projections.
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
         attn_mask_type (str): attention mask type. Default None.
