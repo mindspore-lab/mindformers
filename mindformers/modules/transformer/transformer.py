@@ -1942,7 +1942,7 @@ class MultiHeadAttention(Cell):
                 (batch_size, self._get_seq_length_under_incremental(self.src_seq_length),
                  self.n_head, self.size_per_head)),
             (0, 2, 1, 3))
-        # FA: [bs, num_heads, seq_length, size_per_head] or [bs, num_heads, size_per_head, seq_length]
+        # FA shape: [bs, num_heads, seq_length, size_per_head] or [bs, num_heads, size_per_head, seq_length]
         if not self.training:
             do_different_shape = (self.use_flash_attention
                                   or self.use_prompt_flash_attention)

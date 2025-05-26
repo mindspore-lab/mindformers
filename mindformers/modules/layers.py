@@ -1502,7 +1502,7 @@ class RotaryEmbedding(Cell):
         self.cast = P.Cast()
 
     def rotate_half(self, x, swap_mask):
-        # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
+        # x, swap_mask: [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
         x = self.bmm_swap(x, swap_mask)
         return x
 

@@ -423,7 +423,7 @@ class LlamaFeedForward(Cell):
                 hidden = self.reshape(hidden, (bs, seq_len, self.hidden_dim))
                 gate = self.activate(gate)
         else:
-            # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+            # x shape: [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
             gate = self.w1(x)  # dp,1 -> dp, mp
             hidden = self.w3(x)  # dp,1 -> dp, mp
             if self.use_fused_swiglu:
@@ -695,7 +695,7 @@ class LlamaMoeInferFeedForward(Cell):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
-        # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+        # x shape: [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
         gate = self.w1(x, group_list)  # dp,1 -> dp, mp
         hidden = self.w3(x, group_list)  # dp,1 -> dp, mp
         hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp

@@ -756,11 +756,11 @@ class MoEV2(Cell):
         """
         use sp Computing the FFN.
         """
-        # (dp_moe, ep, mp, E, n, h) <-- (dp, E, n, h)
+        # expert_input shape: (dp_moe, ep, mp, E, n, h) <-- (dp, E, n, h)
         expert_input = self.reshape(expert_input, (self.dp_moe, self.ep, self.mp,
                                                    self.expert_dim, capacity, self.hidden_size))
         # dp_moe <==> outer_dp <==> dp // ep
-        # (dp_moe, E, ep, mp, n, h) <-- (dp_moe, ep, mp, E, n, h)
+        # expert_input shape: (dp_moe, E, ep, mp, n, h) <-- (dp_moe, ep, mp, E, n, h)
         expert_input = self.transpose_mp1(expert_input, (0, 3, 1, 2, 4, 5))
         expert_input = self.reshape(expert_input, (self.dp_moe, self.expert_dim, self.ep,
                                                    self.mp * capacity, self.hidden_size))
@@ -803,11 +803,11 @@ class MoEV2(Cell):
         Computing the FFN.
         """
         if self.group_wise_a2a:
-            # (dp_moe, ep, E, n, h) <-- (dp, E, n, h)
+            # expert_input shape: (dp_moe, ep, E, n, h) <-- (dp, E, n, h)
             expert_input = self.reshape(expert_input,
                                         (self.dp_moe, self.ep, self.expert_dim, -1, self.hidden_size))
             # dp_moe <==> outer_dp <==> dp // ep
-            # (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
+            # expert_input shape: (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
             expert_input = self.transpose_5dim_ep1(expert_input, (0, 2, 1, 3, 4))
             # capacity shard by mp
             expert_input = self.stride_slice_outer_dp_mp(expert_input, (0, 0, 0, 0, 0),
@@ -825,10 +825,10 @@ class MoEV2(Cell):
                                                        self.ep, capacity, self.hidden_size),
                                                       (1, 1, 1, 1, 1))
         else:
-            # (dp_moe, ep, E, n, h) <-- (dp, E, n, h)
+            # expert_input shape: (dp_moe, ep, E, n, h) <-- (dp, E, n, h)
             expert_input = self.reshape(expert_input,
                                         (self.dp_moe, self.ep, self.expert_dim, -1, self.hidden_size))
-            # (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
+            # expert_input shape: (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
             expert_input = self.transpose_5dim_ep2(expert_input, (0, 2, 1, 3, 4))
 
         expert_input = self.reshape(expert_input, (self.dp_moe, -1, self.hidden_size))
@@ -857,7 +857,7 @@ class MoEV2(Cell):
         else:
             expert_output = self.reshape(expert_output,
                                          (self.dp_moe, self.expert_dim, self.ep, -1, self.hidden_size))
-            # (dp_moe, ep, E, n, h) <-- (dp_moe, E, ep, n, h)
+            # expert_output shape: (dp_moe, ep, E, n, h) <-- (dp_moe, E, ep, n, h)
             expert_output = self.transpose_5dim_ep2(expert_output, (0, 2, 1, 3, 4))
         expert_output = self.reshape(expert_output, (self.dp, self.expert_dim, -1, self.hidden_size))
         return expert_output
@@ -874,14 +874,14 @@ class MoEV2(Cell):
 
         # dispatch
         expert_capacity = dispatch_policy.shape[-1]
-        # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
+        # expert_input shape: (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy)
         if self.use_allgather_dispatcher:
             expert_output = self.ffn(expert_input)
         else:
-            # ffn, (E, dp, n, h) <-- (E, dp, n, h)
+            # ffn shape: (E, dp, n, h) <-- (E, dp, n, h)
             expert_output = self.ffn_parallel_forward(expert_input, expert_capacity)
-        # combine, (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        # combine shape: (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff)
         output_tensor = self.reshape(output_tensor, input_tensor_shape)  # (B*S, h) <-- (dp, N, h)
         if self.return_extra_loss:
@@ -1416,20 +1416,20 @@ class TopkRouterV2(Cell):
                                  dtype=F.dtype(input_tensor))
         input_tensor_padded = self.concat_3d((zeros_3d, input_tensor)) # (dp, 1+N, h) <-- (dp, N, h)
         if self.use_allgather_dispatcher:
-            # (outer_dp, inner_dp, 1+N, h) <-- (dp, 1+N, h)
+            # input_tensor_padded shape: (outer_dp, inner_dp, 1+N, h) <-- (dp, 1+N, h)
             input_tensor_padded = self.reshape(input_tensor_padded, (
                 self.outer_dp, self.inner_dp, input_tensor_padded.shape[1], input_tensor_padded.shape[2]
             ))
-            # (outer_dp, inner_dp, E, n) <-- (dp, E, n)
+            # dispatch_index shape: (outer_dp, inner_dp, E, n) <-- (dp, E, n)
             dispatch_index = self.reshape(dispatch_index, (
                 self.outer_dp, self.inner_dp, dispatch_index.shape[1], dispatch_index.shape[2]))
-            # (outer_dp, innert_dp, E, n, h)
+            # expert_input shape: (outer_dp, innert_dp, E, n, h)
             expert_input = self.dispatch_gather(input_tensor_padded, dispatch_index, 2)
-            # (dp, E, n, h)
+            # expert_input shape: (dp, E, n, h)
             expert_input = self.reshape(expert_input, (
                 self.dp_group, self.expert_dim, expert_input.shape[-2], expert_input.shape[-1]))
         else:
-            # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
+            # expert_input shape: (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
             expert_input = self.dispatch_gather(input_tensor_padded, dispatch_index, 1)
         return expert_input
 
@@ -1450,44 +1450,45 @@ class TopkRouterV2(Cell):
         """
         if self.use_allgather_dispatcher:
             hidden_size = expert_output.shape[-1]
-            # (outer_dp, inner_dp, ep, E//ep, n*h)
+            # expert_output shape: (outer_dp, inner_dp, ep, E//ep, n*h)
             expert_output = self.reshape(expert_output, (
                 self.outer_dp, self.inner_dp, self.ep, self.expert_dim // self.ep, -1))
-            # (outer_dp, inner_dp, ep, E, n*h)
+            # expert_output shape: (outer_dp, inner_dp, ep, E, n*h)
             expert_output = self.tile_5d(expert_output, (1, 1, 1, self.ep, 1))
-            # (outer_dp, inner_dp, ep, E, n*h) <-- (outer_dp, inner_dp, ep, E, 1),(outer_dp, inner_dp, ep, E, n*h)
+            # one_hot shape: (outer_dp, inner_dp, ep, E, 1)
+            # expert_output shape: (outer_dp, inner_dp, ep, E, n*h)
             expert_output = self.mul_onehot(self.one_hot, expert_output)
-            # (outer_dp, inner_dp, ep*E, n, h)
+            # expert_output shape: (outer_dp, inner_dp, ep*E, n, h)
             expert_output = self.reshape(expert_output, (
                 self.outer_dp, self.inner_dp, self.expert_dim * self.ep, -1, hidden_size
             ))
-            # (outer_dp, inner_dp, ep*E, 1+n, h)
+            # expert_output shape: (outer_dp, inner_dp, ep*E, 1+n, h)
             expert_output = self.concat(
                 (self.cast(self.zeros, F.dtype(expert_output)), expert_output))
-            # (outer_dp, inner_dp, ep, E*(1+n), h)
+            # expert_output shape: (outer_dp, inner_dp, ep, E*(1+n), h)
             expert_output = self.reshape_redist(expert_output, (
                 self.outer_dp, self.inner_dp, self.ep, -1, hidden_size))
-            # (outer_dp, 1, ep, n, k) <-- (dp, n, k)
+            # combine_index shape: (outer_dp, 1, ep, n, k) <-- (dp, n, k)
             combine_index = self.reshape(combine_index, (
                 self.outer_dp, 1, self.ep, -1, combine_index.shape[2]))
-            # (outer_dp, inner_dp, ep, n, k)
+            # combine_index shape: (outer_dp, inner_dp, ep, n, k)
             combine_index = self.tile_idx(combine_index, (1, self.inner_dp, 1, 1, 1))
-            # (outer_dp, inner_dp, ep, n, k, h)
+            # output_tensor shape: (outer_dp, inner_dp, ep, n, k, h)
             output_tensor = self.combine_gather(expert_output, combine_index, 3)
             router_coeff = self.cast(router_coeff, F.dtype(expert_output))
-            # (outer_dp, 1, ep, n, k, 1)
+            # router_coeff shape: (outer_dp, 1, ep, n, k, 1)
             router_coeff = self.reshape(router_coeff, (
                 self.outer_dp, 1, self.ep, router_coeff.shape[1], router_coeff.shape[2], 1))
-            # (outer_dp, inner_dp, ep, n, k, 1)
+            # router_coeff shape: (outer_dp, inner_dp, ep, n, k, 1)
             router_coeff = self.tile_coeff(router_coeff, (
                 1, self.inner_dp, 1, 1, 1, 1))
-            # (outer_dp, inner_dp, ep, n, k, h)
+            # output_tensor shape: (outer_dp, inner_dp, ep, n, k, h)
             output_tensor = self.mul_router_coeff(output_tensor, router_coeff)
-            # (outer_dp, inner_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, k, h)
+            # output_tensor shape: (outer_dp, inner_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, k, h)
             output_tensor = self.sum_router_coeff(output_tensor, 4)
-            # (outer_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, h)
+            # output_tensor shape: (outer_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, h)
             output_tensor = self.reduce_sum_5d(output_tensor, 1)
-            # (dp, n, h) <-- (outer_dp, ep, n, h)
+            # output_tensor shape: (dp, n, h) <-- (outer_dp, ep, n, h)
             output_tensor = self.reshape(output_tensor, (
                 self.dp_group, output_tensor.shape[2], hidden_size))
         else:
@@ -1504,11 +1505,11 @@ class TopkRouterV2(Cell):
             output_tensor = self.combine_gather(
                 expert_output, combine_index, 1)  # (dp, n, k, h) <-- (dp, E*(1+n), h), (dp, n, k)
             router_coeff = self.cast(router_coeff, F.dtype(expert_output))
-            # (dp, n, k, h) <-- (dp, n, k, h) (dp, n, k, 1)
+            # output_tensor shape: (dp, n, k, h) <-- (dp, n, k, h) (dp, n, k, 1)
             output_tensor = self.mul_router_coeff(
                 output_tensor,
                 self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1)))
-            # (dp, n, h) <-- (dp, n, k, h)
+            # output_tensor shape: (dp, n, h) <-- (dp, n, k, h)
             output_tensor = self.sum_router_coeff(output_tensor, 2)
         return output_tensor
 
