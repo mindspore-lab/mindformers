@@ -37,6 +37,7 @@ The following table lists models supported by MindSpore Transformers.
 | [Llama3.1](https://gitee.com/mindspore/mindformers/blob/dev/research/llama3_1)                          | 8B/70B                        |    Dense LLM     | In-development version, 1.5.0 |
 | [Qwen2.5](https://gitee.com/mindspore/mindformers/blob/dev/research/qwen2_5)                            | 0.5B/1.5B/7B/14B/32B/72B      |    Dense LLM     | In-development version, 1.5.0 |
 | [TeleChat2](https://gitee.com/mindspore/mindformers/blob/dev/research/telechat2)                        | 7B/35B/115B                   |    Dense LLM     | In-development version, 1.5.0 |
+| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md)          | 34B                           |    Dense LLM     |             1.5.0             |
 | [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md)  | 19B                           |        MM        |             1.5.0             |
 | [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md)  | 13B                           |        MM        |             1.5.0             |
 | [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek2)                   | 236B                          |    Sparse LLM    |             1.5.0             |
