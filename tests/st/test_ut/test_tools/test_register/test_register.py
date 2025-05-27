@@ -17,7 +17,7 @@ from mindformers.core.context.build_context import build_context, set_context
 from mindformers.tools.register.register import MindFormerRegister, MindFormerModuleType
 import pytest
 from .model_class import MyModel
-from .model_class_legacy import MyModel as MyModelNew
+from .model_class_legacy import MyTool, MyModel as MyModelNew
 
 
 class TestMindFormerRegister:
@@ -26,6 +26,17 @@ class TestMindFormerRegister:
     def setup_class(cls):
         build_context({"use_legacy": True})
 
+    def test_register_other_type_case(self):
+        """
+        Test this feature only affects models, not other types, check existence.
+        Input: MyTool registered with legacy=True.
+        Output: MyTool is found in registry, when use_legacy=False.
+        Expected: get_cls returns MyTool.
+        """
+        set_context(use_legacy=False)
+        assert MindFormerRegister.is_exist(MindFormerModuleType.TOOLS, "MyTool")
+        assert MindFormerRegister.get_cls(MindFormerModuleType.TOOLS, "MyTool") is MyTool
+
     def test_register_decorator_and_is_exist_case(self):
         """
         Test registering with decorator (legacy=True), check existence and internal keys.
@@ -33,6 +44,7 @@ class TestMindFormerRegister:
         Output: MyModel is found in registry, both 'MyModel' and 'mcore_MyModel' keys exist.
         Expected: get_cls returns MyModel, keys present.
         """
+        set_context(use_legacy=True)
         assert MindFormerRegister.is_exist(MindFormerModuleType.MODELS, "MyModel")
         assert MindFormerRegister.get_cls(MindFormerModuleType.MODELS, "MyModel") is MyModel
         keys = list(MindFormerRegister.registry[MindFormerModuleType.MODELS].keys())

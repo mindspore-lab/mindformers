@@ -20,3 +20,8 @@ from mindformers.tools.register.register import MindFormerRegister, MindFormerMo
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
 class MyModel:
     pass
+
+
+@MindFormerRegister.register(MindFormerModuleType.TOOLS)
+class MyTool:
+    pass
