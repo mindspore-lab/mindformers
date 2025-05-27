@@ -330,10 +330,14 @@ class CausalLanguageModelDataset(BaseDataset):
                         f"{num_shards}. You should change the args: per_batch_size.")
 
             dataset = dataset_batch_func(dataset_config, dataset)
-            map_func = lambda input_ids: get_input_data_batch_slice_map(input_ids,
-                                                                        eod_token_id=dataset_config.eod_token_id,
-                                                                        rank_id=shard_id,
-                                                                        dis=dis)
+
+            def map_func(inputs_ids):
+                """Mapping function for slicing input_ids."""
+                return get_input_data_batch_slice_map(inputs_ids,
+                                                      eod_token_id=dataset_config.eod_token_id,
+                                                      rank_id=shard_id,
+                                                      dis=dis)
+
             dataset = get_dataset_map(dataset, map_func,
                                       input_columns=dataset_config.input_columns,
                                       output_columns=dataset_config.output_columns)

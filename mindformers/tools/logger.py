@@ -597,8 +597,13 @@ class _LogActionOnce:
                 return func(*args, **kwargs)
 
             old_func = self.logger.warning
+
+            def _silent_warning(msg):
+                """A no-op function to disable warning logs."""
+                return msg
+
             if self.no_warning or self.key in _LogActionOnce.is_logged:
-                self.logger.warning = lambda x: x
+                self.logger.warning = _silent_warning
             else:
                 _LogActionOnce.is_logged[self.key] = True
             res = func(*args, **kwargs)
