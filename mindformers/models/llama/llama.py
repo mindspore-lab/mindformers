@@ -386,7 +386,7 @@ class LlamaModel(LlamaPreTrainedModel):
                     prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
                     mask = self.concat((prefix_mask, mask))
 
-        # tokens: [bs, seq/1]
+        # tokens shape: [bs, seq/1]
         if input_embeds is not None:
             h = self.cast(input_embeds, self.dtype)
         else:

@@ -234,11 +234,11 @@ class TelechatModel(TelechatPreTrainedModel):
                 prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
                 mask = self.concat((prefix_mask, mask))
 
-        # tokens: [bs, seq/1]
+        # tokens shape: [bs, seq/1]
         h = self.tok_embeddings(tokens)
         h = self.embeddings_dropout(h)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
-        # h: [bs, seq/1, hidden_dim]
+        # h shape: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             if self.expert_num > 1:

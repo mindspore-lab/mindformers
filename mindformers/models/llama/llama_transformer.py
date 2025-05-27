@@ -472,7 +472,7 @@ class LLamaAttention(nn.Cell):
                   seq_chunk=None, actual_seq_len=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
-        # [bs, seq/1, hidden_dim]
+        # x shape: [bs, seq/1, hidden_dim]
         if not self.rmsnorm_compute_2d:
             bs, seq_len, _ = self.shape(x)
         else:
@@ -568,7 +568,7 @@ class LLamaAttention(nn.Cell):
                     value = self._repeat_kv(value, self.n_rep)
                     context_layer = self._attn(query, key, value, mask)
 
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # context_layer shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         if self.rmsnorm_compute_2d and self.rl_config is not None:
             context_layer = self.reshape(context_layer, (bs * seq_len, -1))
         output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
@@ -612,9 +612,9 @@ class LLamaAttention(nn.Cell):
         Output:
             x_merge: the tnd output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         new_shape = (bs * seq_len, n_head, head_dim)
         x_merge = self.reshape(x, new_shape)
@@ -630,11 +630,11 @@ class LLamaAttention(nn.Cell):
         Output:
             x_merge: the 2d output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
-        # [bs, seq/1, hidden_dim]
+        # x_merge shape: [bs, seq/1, hidden_dim]
         if self.rmsnorm_compute_2d:
             if self.rl_config is not None:
                 new_shape = (bs, seq_len, n_head * head_dim)
@@ -727,16 +727,16 @@ class LLamaAttention(nn.Cell):
         """
         # q, k: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim]
         score = self.batch_matmul_q_k(query, key)
-        # score: [bs, n_head, seq/1, seq]
+        # score shape: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         score = self.add(mask, score)
 
         attention_probs = self.softmax(self.cast_attn(score, self.softmax_dtype))
         # score, v: [bs, n_head, seq/1, seq], [bs, n_head, seq, head_dim]
         weighted_values = self.batch_matmul(self.cast(attention_probs, self.dtype), value)
-        # [bs, n_head, seq/1, head_dim]
+        # weighted_values shape: [bs, n_head, seq/1, head_dim]
         attention_merge = self._merge_heads(weighted_values)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # attention_merge shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return attention_merge
 
 
@@ -1053,9 +1053,9 @@ class LLamaDecodeLayer(nn.Cell):
         if actual_seq_len is not None:
             _check_input_dtype(actual_seq_len.dtype, "actual_seq_len",
                                [mstype.int32, mstype.int64], self.cls_name)
-        # [bs, seq/1, hidden_dim]
+        # x shape: [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
-        # [bs, seq/1, hidden_dim]
+        # input_x shape: [bs, seq/1, hidden_dim]
         if self.seq_pipe:
             h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables, slot_mapping,
                                prefix_keys_values, q_seq_lens, kv_mask, seq_chunk, actual_seq_len=actual_seq_len)
@@ -1070,12 +1070,12 @@ class LLamaDecodeLayer(nn.Cell):
         if self.residual_cast_flag:
             h = self.cast(h, self.dtype)
         ffn_norm = self.ffn_norm(h)
-        # [bs, seq/1, hidden_dim]
+        # The shape is: [bs, seq/1, hidden_dim]
         ffn_out = self.feed_forward(ffn_norm)
         if self.residual_cast_flag:
             h = self.cast(h, self.residual_dtype)
             ffn_out = self.cast(ffn_out, self.residual_dtype)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # The shape is: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         out = self.add(h, ffn_out)
         if self.residual_cast_flag:
             out = self.cast(out, self.dtype)

@@ -292,12 +292,12 @@ class TelechatAttentionInterleave(nn.Cell):
         key = self.reshape(key, (-1, self.seq_length, self.n_kv_head, self.head_dim))
         value = self.reshape(value, (-1, self.seq_length, self.n_kv_head, self.head_dim))
 
-        # [bs, seq/1, n_head/n_kv_head, head_dim]
+        # q,k,v shape: [bs, seq/1, n_head/n_kv_head, head_dim]
         query = self.transpose(query, (0, 2, 1, 3))
         key = self.transpose(key, (0, 2, 1, 3))
         value = self.transpose(value, (0, 2, 1, 3))
 
-        # [bs, n_head/n_kv_head, seq/1, head_dim]
+        # q,k,v shape: [bs, n_head/n_kv_head, seq/1, head_dim]
         query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
         # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
         bs, n_head, seq, head_dim = query.shape
@@ -341,11 +341,11 @@ class TelechatAttentionInterleave(nn.Cell):
         Output:
             x_merge: the 2d output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3)) # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         x_shape = x.shape
-        # [bs * seq/1, hidden_dim]
+        # x_merge shape: [bs * seq/1, hidden_dim]
         new_shape = (-1, x_shape[-2] * x_shape[-1])
         x_merge = self.reshape(x, new_shape)
         return x_merge
@@ -365,7 +365,7 @@ class TelechatAttentionInterleave(nn.Cell):
         """
         # q, k: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim]
         score = self.batch_matmul_q_k(query, key)
-        # score: [bs, n_head, seq/1, seq]
+        # score shape: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         score = self.add(mask, score)
 
@@ -373,9 +373,9 @@ class TelechatAttentionInterleave(nn.Cell):
         attention_probs = self.attention_dropout(attention_probs)
         # score, v: [bs, n_head, seq/1, seq], [bs, n_head, seq, head_dim]
         weighted_values = self.batch_matmul(self.cast(attention_probs, self.dtype), value)
-        # [bs, n_head, seq/1, head_dim]
+        # weighted_values shape: [bs, n_head, seq/1, head_dim]
         attention_merge = self._merge_heads(weighted_values)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # attention_merge shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return attention_merge
 
 

@@ -207,7 +207,7 @@ class TelechatParallelAttention(ParallelAttention):
                   attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
                   key_cache=None, value_cache=None):
         """Construct function of attention block."""
-        # hidden_states: [B, S, H]
+        # hidden_states shape: [B, S, H]
         ori_dtype = x.dtype
         bs, seq_len, _ = x.shape
         # apply query, key, value projection
@@ -271,8 +271,7 @@ class TelechatParallelAttention(ParallelAttention):
                     # [B, S, H] -> [B, S, N, D]
                     key = key.reshape(bs, seq_len, -1, self.head_dim)
                     value = value.reshape(bs, seq_len, -1, self.head_dim)
-                    # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
-                    # to [B, S, N_per_tp, D]
+                    # key_layer, value_layer shape: [B, S, kv_N_per_tp, D] --> [B, S, N_per_tp, D]
                     if self.use_gqa:
                         repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
                         key = self._repeat_kv(key, repeat_num)
@@ -290,8 +289,7 @@ class TelechatParallelAttention(ParallelAttention):
             # [B, S, H] -> [B, S, N, D]
             key = key.reshape(bs, seq_len, -1, self.head_dim)
             value = value.reshape(bs, seq_len, -1, self.head_dim)
-            # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
-            # to [B, S, N_per_tp, D]
+            # key_layer, value_layer shape: [B, S, kv_N_per_tp, D] --> [B, S, N_per_tp, D]
             if self.use_gqa:
                 repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
                 key = self._repeat_kv(key, repeat_num)
@@ -495,9 +493,9 @@ class TelechatParallelTransformer(ParallelTransformer):
                 prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
                 mask = self.concat((prefix_mask, mask))
 
-        # tokens: [bs, seq/1]
+        # tokens shape: [bs, seq/1]
         hidden_states = self.cast(self.tok_embeddings(tokens), self.compute_dtype)
-        # h: [bs, seq/1, hidden_dim]
+        # h shape: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             key_cache_i = key_cache[i] if key_cache is not None else None

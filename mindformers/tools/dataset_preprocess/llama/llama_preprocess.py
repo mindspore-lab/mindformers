@@ -132,7 +132,6 @@ def preprocess(sources, tokenizer, seq_length):
             # pylint: disable=W0212
             d = tokenizer._pad(d, max_length=seq_length, padding_strategy='max_length')
             input_ids.append(d['input_ids'][:seq_length])
-            # attention_mask.append(d['attention_mask'])
 
             target = np.array(d['input_ids'])
             total_len = int(np.not_equal(target, tokenizer.pad_token_id).sum())

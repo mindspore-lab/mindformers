@@ -314,7 +314,7 @@ class InferAttention(Cell):
         """
         # q, k: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim]
         score = self.batch_matmul_q_k(query, key)
-        # score: [bs, n_head, seq/1, seq]
+        # score shape: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         if alibi_mask is not None:
             score = self.add_alibi(score, alibi_mask)
@@ -323,9 +323,9 @@ class InferAttention(Cell):
         attention_probs = self.softmax(self.cast(score, mstype.float32))
         # score, v: [bs, n_head, seq/1, seq], [bs, n_head, seq, head_dim]
         weighted_values = self.batch_matmul(self.cast(attention_probs, self.compute_dtype), value)
-        # [bs, n_head, seq/1, head_dim]
+        # weighted_values shape: [bs, n_head, seq/1, head_dim]
         weighted_values = self._merge_heads(weighted_values)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # weighted_values shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return weighted_values
 
     def _repeat_kv(self, x, rep):
@@ -347,11 +347,11 @@ class InferAttention(Cell):
         Output:
             x_merge: the 2d output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
-        # [bs, seq/1, hidden_dim]
+        # new_shape shape: [bs, seq/1, hidden_dim]
         new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
@@ -390,7 +390,7 @@ class InferAttention(Cell):
 
     def _core_attention_bsh(self, query, key, value, attn_mask, alibi_mask):
         """ flash attention with bsh format """
-        # [B, S, H]
+        # query shape：[B, S, H]
         bs, _, _ = query.shape
         key_seq_len = key.shape[1]
         value_seq_len = value.shape[1]
@@ -407,13 +407,13 @@ class InferAttention(Cell):
         """
         if self.input_layout == "TH":
             if self.use_flash_attention:
-                # [1, actual_seq_len, H]
+                # query shape: [1, actual_seq_len, H]
                 bs, seq_len, _ = query.shape
                 # [1, actual_seq_len, H] -> [actual_seq_len, H]
                 query = self.reshape(query, (-1, self.n_head * self.head_dim))
                 key = self.reshape(key, (-1, self.n_kv_head * self.head_dim))
                 value = self.reshape(value, (-1, self.n_kv_head * self.head_dim))
-                # [actual_seq_len, H]
+                # output shape: [actual_seq_len, H]
                 output = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None, actual_seq_qlen,
                                               actual_seq_kvlen)
                 # [actual_seq_len, H] -> [1, actual_seq_len, H]

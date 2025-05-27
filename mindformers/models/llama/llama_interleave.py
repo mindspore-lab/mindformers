@@ -393,11 +393,11 @@ class LLamaAttentionInterleave(nn.Cell):
             value = self.reshape(value, (-1, self.seq_seg_len, self.n_kv_head, self.head_dim))
             value = self.transpose(value, (0, 2, 1, 3))
 
-        # [bs, seq/1, n_head/n_kv_head, head_dim]
+        # q, k: [bs, seq/1, n_head/n_kv_head, head_dim]
         query = self.transpose(query, (0, 2, 1, 3))
         key = self.transpose(key, (0, 2, 1, 3))
 
-        # [bs, n_head/n_kv_head, seq/1, head_dim]
+        # q, k: [bs, n_head/n_kv_head, seq/1, head_dim]
         query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
 
         if self.input_layout == 'TND':
@@ -486,9 +486,9 @@ class LLamaAttentionInterleave(nn.Cell):
         Output:
             x_merge: the tnd output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         new_shape = (bs * seq_len, n_head, head_dim)
         x_merge = self.reshape(x, new_shape)
@@ -504,11 +504,11 @@ class LLamaAttentionInterleave(nn.Cell):
         Output:
             x_merge: the 2d output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3)) # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         x_shape = x.shape
-        # [bs * seq/1, hidden_dim]
+        # x shape: [bs * seq/1, hidden_dim]
         if self.context_parallel > 1:
             new_shape = (-1, x_shape[-3], x_shape[-2] * x_shape[-1])
         else:
@@ -531,16 +531,16 @@ class LLamaAttentionInterleave(nn.Cell):
         """
         # q, k: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim]
         score = self.batch_matmul_q_k(query, key)
-        # score: [bs, n_head, seq/1, seq]
+        # score shape: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         score = self.add(mask, score)
 
         attention_probs = self.softmax(self.cast_attn(score, self.softmax_dtype))
         # score, v: [bs, n_head, seq/1, seq], [bs, n_head, seq, head_dim]
         weighted_values = self.batch_matmul(self.cast(attention_probs, self.dtype), value)
-        # [bs, n_head, seq/1, head_dim]
+        # weighted_values shape: [bs, n_head, seq/1, head_dim]
         attention_merge = self._merge_heads(weighted_values)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # attention_merge shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return attention_merge
 
 

@@ -272,7 +272,7 @@ class TelechatAttention(nn.Cell):
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
-        # [bs, seq/1, hidden_dim]
+        # x shape: [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
 
         if self.qkv_concat:
@@ -307,7 +307,7 @@ class TelechatAttention(nn.Cell):
                 value = self._repeat_kv(value, self.n_rep)
                 context_layer = self._attn(query, key, value, mask)
 
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # output shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
         output = self.cast(output, ori_dtype)
         return output
@@ -349,11 +349,11 @@ class TelechatAttention(nn.Cell):
         Output:
             x_merge: the 2d output
         """
-        # [bs, n_head, seq/1, head_dim]
+        # x shape: [bs, n_head, seq/1, head_dim]
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
-        # [bs, seq/1, n_head, head_dim]
+        # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
-        # [bs, seq/1, hidden_dim]
+        # x_merge: shape [bs, seq/1, hidden_dim]
         new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
@@ -373,7 +373,7 @@ class TelechatAttention(nn.Cell):
         """
         # q, k: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim]
         score = self.batch_matmul_q_k(query, key)
-        # score: [bs, n_head, seq/1, seq]
+        # score shape: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         score = self.add(mask, score)
 
@@ -381,9 +381,9 @@ class TelechatAttention(nn.Cell):
         # score, v: [bs, n_head, seq/1, seq], [bs, n_head, seq, head_dim]
         attention_probs = self.attention_dropout(attention_probs)
         weighted_values = self.batch_matmul(self.cast(attention_probs, self.dtype), value)
-        # [bs, n_head, seq/1, head_dim]
+        # weighted_values shape: [bs, n_head, seq/1, head_dim]
         attention_merge = self._merge_heads(weighted_values)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # attention_merge shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return attention_merge
 
 
@@ -591,20 +591,20 @@ class TelechatDecodeLayer(nn.Cell):
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         ori_dtype = x.dtype
-        # [bs, seq/1, hidden_dim]
+        # tensor shape: [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
-        # [bs, seq/1, hidden_dim]
+        # tensor shape: [bs, seq/1, hidden_dim]
         h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
                            slot_mapping, prefix_keys_values)
         h = self.add(self.cast(x, self.res_dtype), self.cast(h, self.res_dtype))
         h = self.cast(h, ori_dtype)
         ffn_norm = self.ffn_norm(h)
-        # [bs, seq/1, hidden_dim]
+        # tensor shape: [bs, seq/1, hidden_dim]
         if self.expert_num == 1:
             ffn_out = self.feed_forward(ffn_norm)
         else:
             ffn_out, aux_loss = self.feed_forward(ffn_norm, aux_loss)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        # tensor shape: [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         h = self.add(self.cast(h, self.res_dtype), self.cast(ffn_out, self.res_dtype))
         out = self.cast(h, ori_dtype)
         if self.expert_num > 1:

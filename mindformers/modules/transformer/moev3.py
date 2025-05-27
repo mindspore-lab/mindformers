@@ -225,7 +225,7 @@ class MoEV3(Cell):
     def construct(self, input_tensor, extra_loss=0., seq_chunk=None):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
-        # (dp, N, h) <-- (B*S, h)
+        # input_tensor shape: (dp, N, h) <-- (B*S, h)
         input_tensor = self.reshape(input_tensor, (self.dp, -1, self.hidden_size))
 
         # 1.gating
@@ -323,11 +323,11 @@ class MoEV3(Cell):
         return expert_input, sorted_index, expert_cnt, unsort_map
 
     def _normalize(self, router_coeff_raw):
-        # (dp, N, 1) <-- (dp, N, k)
+        # router_coeff_sum: (dp, N, 1) <-- (dp, N, k)
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2)
-        # (dp, N, k) <-- (dp, N, k) (dp, N, 1)
+        # router_coeff shape: (dp, N, k) <-- (dp, N, k) (dp, N, 1)
         router_coeff = self.div_3d(router_coeff_raw, self.add_eps(router_coeff_sum, 1e-9))
-        # (dp, N, k)
+        # router_coeff shape: (dp, N, k)
         return router_coeff
 
     def _expert_load_balancing(self, scores, top_indices, alpha, seq_chunk=None):
@@ -346,7 +346,7 @@ class MoEV3(Cell):
         top_indices = self.reshape(top_indices, (top_indices.shape[0], -1))
         # (dp, kN, E)fp32 <-- (dp, kN)int32
         mask = self.onehot_aux(top_indices, self.expert_dim, self.on_value, self.off_value)
-        # (dp, E) <- (dp, kN, E)
+        # fi shape: (dp, E) <- (dp, kN, E)
         fi = self.reduce_mean_aux_3d(mask, 1)
         if seq_chunk is not None:
             is_clean = self.cast(P.NotEqual()(seq_chunk, 0), mstype.float32)
@@ -363,7 +363,7 @@ class MoEV3(Cell):
             expert_load_loss = self.mul_noshard(pi_fi, alpha * self.expert_dim ** 2)
             expert_load_loss = F.depend(expert_load_loss, (pi_cache_state, fi_cache_state))
             return expert_load_loss * is_return / (self.seq_split_num * self.seq_split_num)
-        # p*f  (dp) <- (dp, E)
+        # p*f shape: (dp) <- (dp, E)
         expert_load_loss = self.reduce_mean_aux_2d(self.mul_aux_2d(pi, fi))
         # alpha*E \sum_i^E (f_i * P_i)
         expert_load_loss = self.mul_noshard(expert_load_loss, alpha * self.expert_dim ** 2)
@@ -502,10 +502,10 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, ep_group, hidden_size, ep, u
     receive_list = D2H(receive_list, "CPU", True)
 
     # 1.AllToAllv
-    # x [B, S, h]
+    # x shape: [B, S, h]
     x = ops.AlltoAllV(group=ep_group, block_size=hidden_size)(
         x.reshape(-1), send_list, receive_list).reshape(1, -1, hidden_size)
-    # x [B, S]
+    # x shape: [B, S]
     expert_id = ops.AlltoAllV(group=ep_group, block_size=1)(
         expert_id.astype(ms.float32).reshape(-1), send_list, receive_list).reshape(1, -1)
 
@@ -526,7 +526,7 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, ep_group, hidden_size, ep, u
     y = _ffn_unresort(y, unresort_map, use_fused_ops_permute)
 
     # 5.AllToAllv
-    # x [B, S, h]
+    # x shape: [B, S, h]
     y = ops.AlltoAllV(group=ep_group, block_size=hidden_size)(
         y.reshape(-1), receive_list, send_list).reshape(1, -1, hidden_size)
     y = y.reshape(x_shape_origin)

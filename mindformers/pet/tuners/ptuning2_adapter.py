@@ -195,21 +195,21 @@ class Ptuning2Encoder(nn.Cell):
         """
 
         if self.prefix_projection:
-            # (bs, pre_len, embedding_dim)
+            # tensor shape: (bs, pre_len, embedding_dim)
             self.mindpet_delta_ptuning2_dense_in.matmul.shard(((data_parallel, 1), (model_parallel, 1)))
             self.mindpet_delta_ptuning2_dense_in.bias_add.shard(((data_parallel, 1), (1,)))
             self.mindpet_delta_ptuning2_tanh.tanh.shard(((data_parallel, 1, 1),))
             self.mindpet_delta_ptuning2_dense_out.matmul.shard(((data_parallel, 1), (model_parallel, 1)))
             self.mindpet_delta_ptuning2_dense_out.bias_add.shard(((data_parallel, 1), (1,)))
 
-        # (bs, pre_len, 2 * layers * num_heads * kv_channels)
+        # tensor shape: (bs, pre_len, 2 * layers * num_heads * kv_channels)
         self.cast.shard(((data_parallel, 1, 1),))  # (dp, 1, 1)
 
-        # (bs, pre_len, 2 * layers, num_heads * kv_channels)
+        # tensor shape: (bs, pre_len, 2 * layers, num_heads * kv_channels)
         self.dropout.dropout.shard(((data_parallel, 1, 1, 1),))
         self.transpose.shard(((data_parallel, 1, 1, 1),))
 
-        # (2 * layers, bs, pre_len, num_heads * kv_channels)
+        # tensor shape: (2 * layers, bs, pre_len, num_heads * kv_channels)
         self.spilt_layers.shard(((1, data_parallel, 1, 1),))
 
 
