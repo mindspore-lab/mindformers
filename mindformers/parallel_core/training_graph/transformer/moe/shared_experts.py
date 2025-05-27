@@ -50,7 +50,7 @@ class SharedExpertMLP(MLP):
         ``Ascend``
     """
 
-    def __init__(self, config: TransformerConfig, submodules: MLPSubmodules, gate: bool):
+    def __init__(self, config: TransformerConfig, submodules: MLPSubmodules):
         config = deepcopy(config)
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
         super().__init__(config, submodules)
@@ -58,7 +58,7 @@ class SharedExpertMLP(MLP):
         self.cast = Cast()
         self.use_seq_parallel = config.sequence_parallel
         self.router_dense_type = config.moe_router_dtype
-        self.use_shared_expert_gate = gate
+        self.use_shared_expert_gate = config.use_shared_expert_gating
         if self.use_shared_expert_gate:
             self.shared_experts_gate = Dense(in_channels=config.hidden_size,
                                              out_channels=1,
@@ -71,6 +71,7 @@ class SharedExpertMLP(MLP):
             else:
                 self.expert_gate_shard(config)
 
+    # pylint: disable=W0221
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of shared_expert_mlp block. """
         if self.use_seq_parallel:

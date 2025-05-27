@@ -2161,9 +2161,14 @@ class TopkBiasBalanceCallback(Callback):
 
     def _update_topk_bias(self, network):
         """update topk bias tensor during training."""
+        while hasattr(network, "network"):
+            network = network.network
+        if hasattr(network, "update_topk_bias"):
+            expert_loads = network.update_topk_bias(self.acc_step_over_expert_num, self.topk_bias_update_rate)
+            for layer, expert_load in expert_loads:
+                logger.info(f"The expert_load sum of {layer}: {expert_load.sum().item()}")
+            return
         for i in range(self.num_layers):
-            while hasattr(network, "network"):
-                network = network.network
             if hasattr(network.model.layers[i].feed_forward, "routed_experts"):
                 if hasattr(network.model.layers[i].feed_forward.routed_experts, "router"):
                     expert_load_data = \

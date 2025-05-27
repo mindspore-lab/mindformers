@@ -22,6 +22,8 @@ class TransformerConfig(ModelParallelConfig):
     ####################
     # Model Architecture
     ####################
+    vocab_size: int = 128000
+    """Vocabulary size"""
 
     num_layers: int = 0
     """Number of transformer layers in a transformer block."""
@@ -83,6 +85,9 @@ class TransformerConfig(ModelParallelConfig):
     (QKV projections, after core attention, and two in MLP layer).
     """
 
+    rotary_base: int = 10000
+    """Rotary base for the rotary embeddings, used by rope and yarn."""
+
     add_qkv_bias: bool = False
     """Add a bias term only for QKV projections."""
 
@@ -141,6 +146,7 @@ class TransformerConfig(ModelParallelConfig):
     rotary_dtype: str = "float32"
     """Custom rotary position embedding compute dtype."""
 
+    use_eod_reset: bool = False
     ####################
     # Flash Attention
     ####################
@@ -519,6 +525,9 @@ class TransformerConfig(ModelParallelConfig):
     use_shared_expert_gating: bool = False
     """If True, use shared expert gating."""
 
+    use_fused_ops_permute: bool = False
+    """If True, use fused ops for permutation."""
+
     topk_method: str = "greedy"
     """Method to use for top-k routing."""
 
@@ -581,7 +590,12 @@ class TransformerConfig(ModelParallelConfig):
         self.layernorm_compute_dtype = convert_str_to_mstype(self.layernorm_compute_dtype)
         self.rotary_dtype = convert_str_to_mstype(self.rotary_dtype)
         self.moe_router_dtype = convert_str_to_mstype(self.moe_router_dtype)
-
+        self.mtp_num_layers = self.mtp_num_layers or 0
+        if self.mtp_num_layers is not None:
+            if self.mtp_num_layers < 0 or not isinstance(self.mtp_num_layers, int):
+                raise ValueError(
+                    f"mtp_num_layers should be `None` or non-negative integer, but get {self.mtp_num_layers}."
+                )
         if self.num_attention_heads % self.tensor_model_parallel_size != 0:
             raise ValueError(
                 f"num_attention_heads ({self.num_attention_heads}) must be a multiple of "
@@ -603,6 +617,24 @@ class TransformerConfig(ModelParallelConfig):
                 f"tensor_model_parallel_size ({self.tensor_model_parallel_size})."
             )
 
+        if self.use_flash_attention:
+            if self.use_eod_attn_mask_compression and not self.use_ring_attention:
+                self.input_layout = "TND"
+                self.sparse_mode = 3
+                if self.attention_dropout != 0:
+                    logger.warning("When use TND layout of flash attention, attention_dropout is ignored. Set to 0.")
+                    self.attention_dropout = 0.
+            elif self.use_attn_mask_compression and not self.use_ring_attention:
+                self.sparse_mode = 2
+            else:
+                self.input_layout = "BNSD"
+                self.sparse_mode = 0
+        else:
+            if self.use_eod_attn_mask_compression or self.use_attn_mask_compression:
+                raise ValueError("When use mask compression, use_flash_attention must be True.")
+            if self.use_ring_attention:
+                raise ValueError("When use ring attention, use_flash_attention must be True.")
+
         if self.apply_query_key_layer_scaling:
             self.attention_softmax_in_fp32 = True
 
@@ -616,12 +648,19 @@ class TransformerConfig(ModelParallelConfig):
             self.moe_ffn_hidden_size = self.ffn_hidden_size
 
         if self.moe_shared_expert_intermediate_size is not None:
-            if self.moe_shared_expert_intermediate_size <= 0:
-                raise ValueError(
-                    f'moe_shared_expert_intermediate_size must be '
-                    f'num_shared_experts * ffn_size_of_each_shared_expert, '
-                    f'but got {self.moe_shared_expert_intermediate_size}'
+            if self.shared_expert_num == 0:
+                logger.warning("The hidden-size of shared experts (moe_shared_expert_intermediate_size) is set, "
+                               "but get shared_expert_num = 0. The shared_expert_num will be ignored.")
+            elif self.moe_shared_expert_intermediate_size != self.moe_ffn_hidden_size * self.shared_expert_num:
+                logger.warning(
+                    f'moe_shared_expert_intermediate_size should be '
+                    f'num_shared_experts ({self.shared_expert_num}) * '
+                    f'ffn_size_of_each_shared_expert ({self.moe_ffn_hidden_size}), '
+                    f'but get {self.moe_shared_expert_intermediate_size}. '
+                    f'moe_shared_expert_intermediate_size ({self.moe_shared_expert_intermediate_size}) will be applied.'
                 )
+        else:
+            self.moe_shared_expert_intermediate_size = self.moe_ffn_hidden_size * self.shared_expert_num or None
 
         if self.moe_expert_capacity_factor is not None:
             if self.moe_expert_capacity_factor < 0:
@@ -736,12 +775,6 @@ class MLATransformerConfig(TransformerConfig):
 
     normalization: str = "RMSNorm"
     """Default normalization layer for MLA models is RMSNorm."""
-
-    rope_type: str = "yarn"
-    """Type of RoPE to use. Default to yarn, options are rope and yarn."""
-
-    rotary_base: float = 10000.0
-    """Rotary base for the rotary embeddings, used by rope and yarn."""
 
     rotary_percent: float = 1.0
     """Rotary percent for the rotary embeddings, used by rope."""

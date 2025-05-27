@@ -15,23 +15,34 @@
 """mindformers GPT model"""
 __all__ = ['GPTModel']
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
+import numpy as np
+
+import mindspore as ms
+from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops import auto_generate as aclnn_ops
 from mindspore import Tensor, dtype, nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
-from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
+from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
-    LanguageModelEmbedding)
+    LanguageModelEmbedding
+)
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rotary_pos_embedding import (
-    RotaryEmbedding)
+    RotaryEmbedding
+)
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
-    YarnRotaryEmbedding)
-from mindformers.parallel_core.training_graph.transformer.transformer_block import TransformerBlock
+    YarnRotaryEmbedding
+)
+from mindformers.parallel_core.training_graph.transformer.transformer_block import (
+    TransformerBlock,
+    TransformerBlockSubmodules
+)
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.version_control import get_lazy_inline as lazy_inline
 
@@ -60,7 +71,7 @@ class GPTModel(nn.Cell):
         share_embeddings_and_output_weights (bool, optional):
             When True, input embeddings and output logit weights are shared. Defaults to False.
         position_embedding_type (Literal[learned_absolute,rope], optional):
-            Position embedding type.. Defaults to 'learned_absolute'.
+            Position embedding type. Defaults to 'learned_absolute'.
         rotary_percent (float, optional):
             Percent of rotary dimension to use for rotary position embeddings.
             Ignored unless position_embedding_type is 'rope'. Defaults to 1.0.
@@ -68,8 +79,8 @@ class GPTModel(nn.Cell):
             Base period for rotary position embeddings. Ignored unless
             position_embedding_type is 'rope'.
             Defaults to 10000.
-        rope_scaling (bool, optional): Toggle RoPE scaling.
-        rope_scaling_factor (float): RoPE scaling factor. Default 8.
+        rope_scaling (bool, optional): Toggle RoPE scaling. Defaults to False.
+        rope_scaling_factor (float): RoPE scaling factor. Defaults to 8.
         scatter_embedding_sequence_parallel (bool, optional):
             Whether embeddings should be scattered across sequence parallel
             region or not. Defaults to True.
@@ -81,8 +92,8 @@ class GPTModel(nn.Cell):
     @lazy_inline
     def __init__(
             self,
-            config: MLATransformerConfig,
-            transformer_layer_spec: ModuleSpec,
+            config: TransformerConfig,
+            transformer_layer_spec: Union[TransformerBlockSubmodules, ModuleSpec],
             vocab_size: int,
             max_sequence_length: int,
             pre_process: bool = True,
@@ -90,21 +101,21 @@ class GPTModel(nn.Cell):
             fp16_lm_cross_entropy: bool = False,
             parallel_output: bool = True,
             share_embeddings_and_output_weights: bool = False,
-            position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
+            position_embedding_type: Literal['learned_absolute', 'rope', 'yarn', 'none'] = 'learned_absolute',
             rotary_percent: float = 1.0,
             rotary_base: int = 10000,
             rope_scaling: bool = False,
             rope_scaling_factor: float = 8.0,
             scatter_embedding_sequence_parallel: bool = False,
             seq_len_interpolation_factor: Optional[float] = None,
-            mtp_layer_spec: ModuleSpec = None,
+            mtp_block_spec: ModuleSpec = None,
     ):
         super().__init__()
         if scatter_embedding_sequence_parallel:
             raise NotImplementedError('scatter_embedding_sequence_parallel is not supported for now.')
 
         self.config = config
-        self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
+        self.transformer_layer_spec = transformer_layer_spec
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length
         self.pre_process = pre_process
@@ -120,6 +131,7 @@ class GPTModel(nn.Cell):
             self.position_embedding_type = position_embedding_type
 
         self.rotary_percent = rotary_percent
+
         if hasattr(self.config, 'rotary_base'):
             # By default, use the rotary_base configuration in TransformerConfig.
             self.rotary_base = self.config.rotary_base
@@ -127,12 +139,11 @@ class GPTModel(nn.Cell):
             self.rotary_base = rotary_base
 
         self.rotary_scaling = rope_scaling
-        self.mtp_block_spec = mtp_layer_spec
-        self.mtp_process = mtp_layer_spec is not None
-
         self.rope_scaling_factor = rope_scaling_factor
         self.rotary_seq_len_interpolation_factor = seq_len_interpolation_factor \
             if seq_len_interpolation_factor is not None else config.rotary_seq_len_interpolation_factor
+        self.seq_length = config.seq_length
+        self.mtp_process = mtp_block_spec is not None
 
         # get value from config
         self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
@@ -161,7 +172,8 @@ class GPTModel(nn.Cell):
                 vocab_size=self.vocab_size,
                 max_sequence_length=self.max_sequence_length,
                 position_embedding_type=self.position_embedding_type,
-                scatter_to_sequence_parallel=scatter_embedding_sequence_parallel)
+                scatter_to_sequence_parallel=scatter_embedding_sequence_parallel
+            )
 
         # rope
         # The MTP implementation pre-computes RotaryEmbedding
@@ -175,7 +187,6 @@ class GPTModel(nn.Cell):
                     rotary_base=config.rotary_base,
                 )
             else:
-                self.seq_length = config.seq_length
                 self.rotary_pos_emb = RotaryEmbedding(
                     kv_channels=self.config.kv_channels,
                     rotary_percent=rotary_percent,
@@ -197,7 +208,7 @@ class GPTModel(nn.Cell):
                 mscale_all_dim=config.mscale_all_dim,
             )
         elif self.position_embedding_type == 'mrope':
-            raise NotImplementedError("position_embedding_type=mrope not support.")
+            raise NotImplementedError("position_embedding_type = mrope is not supported now.")
 
         # Transformer.
         self.decoder = TransformerBlock(
@@ -212,9 +223,7 @@ class GPTModel(nn.Cell):
 
         # multi token prediction block
         if self.mtp_process:
-            self.mtp = build_module(mtp_layer_spec.module, config=config, submodules=mtp_layer_spec.submodules)
-            # remove parameters name prefix 'mtp_block'
-            self.mtp.update_parameters_name(prefix='')
+            self.mtp = build_module(mtp_block_spec.module, config=config, **mtp_block_spec.params)
 
         # Output
         if self.post_process or self.mtp_process:
@@ -261,6 +270,19 @@ class GPTModel(nn.Cell):
             actual_seq_len=None
     ):
         """GPTModel construct"""
+        if not self.config.use_eod_reset:
+            position_ids = None
+        elif position_ids is None:
+            raise ValueError("When use eod_reset, position_ids should not be None.")
+        if actual_seq_len is not None:
+            actual_seq_len = self.reshape(actual_seq_len, (-1,))
+        extra_block_kwargs = extra_block_kwargs or {}
+
+        # Mindspore support TND layout by using actual_seq_len,
+        # which indicates the partial seq_lens of eod sequences for compression mask.
+        # Check mindformers.dataset.blended_datasets.gpt_dataset._get_eod_attention_mask() for implement details.
+        extra_block_kwargs['actual_seq_len'] = actual_seq_len
+
         tokens, labels, attention_mask, loss_mask = self._preprocess_input_labels_and_masks(
             input_ids, labels, attention_mask, loss_mask
         )
@@ -270,26 +292,31 @@ class GPTModel(nn.Cell):
             attention_mask,
             decoder_input=decoder_input,
             prefix_keys_values=prefix_keys_values,
-            actual_seq_len=actual_seq_len,
-            **(extra_block_kwargs or {}),
+            **extra_block_kwargs,
         )
 
         # multi token prediction
         if self.mtp_process:
             rotary_pos_emb = None
+            position_embeddings_weight = None
             if self.use_rotary_position_embeddings:
                 rotary_pos_emb = self.rotary_pos_emb(self.seq_length, position_ids=position_ids)
+            else:
+                position_embeddings_weight = self.embedding.position_embeddings.weight
             mtp_loss, extra_loss = self.mtp(
-                mtp_tokens=tokens,
+                input_ids=tokens,
+                position_ids=position_ids,
                 hidden_states=hidden_states,
-                shared_emb_weight=self.embedding.word_embeddings.weight,
-                shared_head_weight=self.output_layer.weight,
-                mtp_labels=labels.reshape_as(tokens),
-                mtp_loss_mask=loss_mask.reshape_as(tokens),
                 attention_mask=attention_mask,
+                labels=labels.reshape_as(tokens),
                 rotary_pos_emb=rotary_pos_emb,
+                loss_mask=loss_mask.reshape_as(tokens),
+                extra_block_kwargs=extra_block_kwargs,
+                word_embeddings_weight=self.embedding.word_embeddings.weight,
+                position_embeddings_weight=position_embeddings_weight,
+                tokentype_embeddings_weight=getattr(self.embedding.tokentype_embeddings, 'weight', None),
+                output_weight=self.output_layer.weight,
                 extra_loss=extra_loss,
-                prefix_keys_values=prefix_keys_values,
             )
             extra_loss = self.add(extra_loss, mtp_loss)
 
@@ -304,6 +331,7 @@ class GPTModel(nn.Cell):
         # labels origin shape is [b s h], Transpose is not required.
         loss = self.compute_language_model_loss(hidden_states, labels, output_weight,
                                                 self.fp16_lm_cross_entropy, loss_mask)
+
         # moe/mtp extra loss, default 0.0
         loss = self.add(loss, extra_loss)
         return loss
@@ -320,8 +348,6 @@ class GPTModel(nn.Cell):
     ):
         """decoder output"""
         bs, seq_len = self.shape(input_ids)
-        if actual_seq_len is not None:
-            actual_seq_len = self.reshape(actual_seq_len, (-1,))
         # Encoder embedding
         if decoder_input is not None:
             pass
@@ -333,7 +359,7 @@ class GPTModel(nn.Cell):
         # rope
         rotary_pos_emb = None
         if self.use_rotary_position_embeddings:
-            rotary_pos_emb = self.rotary_pos_emb(seq_len)
+            rotary_pos_emb = self.rotary_pos_emb(seq_len, position_ids=position_ids)
 
         if prefix_keys_values is not None:
             if attn_mask is None:
@@ -355,6 +381,7 @@ class GPTModel(nn.Cell):
             attn_mask,
             rotary_pos_emb,
             prefix_keys_values,
+            actual_seq_len
         )
 
         return hidden_states, extra_loss
@@ -422,6 +449,8 @@ class GPTModel(nn.Cell):
             loss_mask (Tensor): Loss mask.
         """
         tokens = input_ids
+        if loss_mask is None:
+            loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
         label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
         loss_mask = self.mul(loss_mask, label_mask)
         loss_mask = self.reshape(loss_mask, (-1,))
@@ -431,6 +460,42 @@ class GPTModel(nn.Cell):
         elif attention_mask is None:
             attention_mask = self.casual_mask(tokens)
         return tokens, labels, attention_mask, loss_mask
+
+    def update_topk_bias(self, acc_step_over_expert_num, topk_bias_update_rate):
+        """
+        Will be called by mindformer.core.callback.TopkBiasBalanceCallback to
+        update topk bias and reset expert_load of router in MoELayers.
+        """
+
+        def _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate):
+            expert_load_data = router.expert_load.value()
+            zeros_tensor = ms.Tensor(np.zeros([self.config.num_moe_experts]), ms.float32)
+            if expert_load_data.sum() > 0:
+                err = F.sub(acc_step_over_expert_num, expert_load_data)
+                expert_bias_new = F.add(
+                    router.expert_bias.value(),
+                    F.mul(F.sign(err), topk_bias_update_rate)
+                )
+                F.assign(router.expert_bias, expert_bias_new)
+                F.assign(router.expert_load, zeros_tensor)
+            return expert_load_data
+
+        num_layers = self.config.num_layers
+        mtp_num_layers = self.config.mtp_num_layers
+        expert_loads = []
+        if self.config.moe_router_enable_expert_bias:
+            for i in range(num_layers + mtp_num_layers):
+                if i < self.config.moe_layer_freq:
+                    continue
+                elif i < num_layers:
+                    router = self.decoder.layers[i].mlp.router
+                    expert_load_data = _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate)
+                    expert_loads.append((f"decoder.layers.{i}.mlp.router", expert_load_data))
+                else:
+                    router = self.mtp.layers[i - num_layers].transformer_layer.mlp.router
+                    expert_load_data = _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate)
+                    expert_loads.append((f"mtp.layers.{i - num_layers}.transformer_layer.mlp.router", expert_load_data))
+        return expert_loads
 
     def shard(self, config: TransformerConfig):
         """parallel shard."""

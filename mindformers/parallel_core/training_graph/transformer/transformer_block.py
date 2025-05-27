@@ -175,7 +175,8 @@ class TransformerBlock(nn.Cell):
                   hidden_states: Tensor,
                   attention_mask: Tensor,
                   rotary_pos_emb: Tensor = None,
-                  prefix_keys_values=None):
+                  prefix_keys_values=None,
+                  actual_seq_len=None):
         """ Construct function of transformer. """
         seq_len, bs, hs = self.shape(hidden_states)
         if self.compute_2d:
@@ -194,6 +195,7 @@ class TransformerBlock(nn.Cell):
                 rotary_pos_emb=rotary_pos_emb,
                 prefix_keys_values=prefix_kv,
                 extra_loss=extra_loss,
+                actual_seq_len=actual_seq_len
                 # context/context_mask/inference_context/packed_seq_params/sequence_len_offset is useless,
                 # In Megatron v0.12.0, this is primarily used for inference-related processing and
                 # has no practical impact on training.

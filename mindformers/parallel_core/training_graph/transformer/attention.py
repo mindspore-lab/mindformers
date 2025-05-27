@@ -21,6 +21,7 @@ from mindspore.ops import functional as F
 from mindspore.parallel.shard import Layout
 from mindspore import nn
 import mindspore.common.dtype as mstype
+
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
@@ -121,6 +122,7 @@ class Attention(nn.Cell):
         self.use_flash_attention = self.config.use_flash_attention
         self.parallel_config = self.config
         self.use_attn_mask_compression = self.config.use_attn_mask_compression
+        self.input_layout = config.input_layout
         self.use_ring_attention = self.config.use_ring_attention
         self.attn_mask_type = attn_mask_type
         self.dp = 1 if self.config.data_parallel_size is None else self.config.data_parallel_size
@@ -224,7 +226,8 @@ class Attention(nn.Cell):
             attention_mask,
             key_value_states=None,
             rotary_pos_emb=None,
-            prefix_keys_values=None
+            prefix_keys_values=None,
+            actual_seq_len=None
     ):
         """ Construct function of attention block. """
         ori_dtype = hidden_states.dtype
@@ -248,7 +251,11 @@ class Attention(nn.Cell):
             key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
 
         # with ulysses context parallel, insert all to all before FA
-        if self.cp > 1 and self.cp_ds > 1:
+        if self.input_layout == "TND":
+            query = query.reshape(query, (-1, self.num_heads, self.head_dim))
+            key = key.reshape(key, (-1, self.kv_num_heads, self.head_dim))
+            value = value.reshape(value, (-1, self.kv_num_heads, self.head_dim))
+        elif self.cp > 1 and self.cp_ds > 1:
             # For query & key, transpose from [B, N, S, D] back to [B, S, N, D]
             query = self.transpose_back(query, (0, 2, 1, 3))
             query = self._ulysses_q_a2a(query)
@@ -280,10 +287,15 @@ class Attention(nn.Cell):
             if value.dtype not in (mstype.float16, mstype.bfloat16):
                 value = self.cast(value, mstype.float16)
 
-            output = self.core_attention(query, key, value, attention_mask)
+            output = self.core_attention(
+                query, key, value, attention_mask,
+                actual_seq_qlen=actual_seq_len, actual_seq_kvlen=actual_seq_len
+            )
 
             # with ulysses context parallel, insert all to all after FA
-            if self.cp > 1 and self.cp_ds > 1:
+            if self.input_layout == "TND":
+                context_layer = self.reshape(output, (seq_len, bs, -1))
+            elif self.cp > 1 and self.cp_ds > 1:
                 output = self._ulysses_context_layer_a2a(output)
                 context_layer = output
             elif self.cp > 1:

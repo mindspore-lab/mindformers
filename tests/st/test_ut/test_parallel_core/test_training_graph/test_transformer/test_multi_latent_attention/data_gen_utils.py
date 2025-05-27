@@ -17,13 +17,13 @@
 import numpy as np
 
 
-def get_init_params(loc, scale, config, seq_length, batch_size, hidden_size):
+def get_init_params(loc, scale, config, batch_size):
     """
     Generates initial parameters for Multi-head Latent Attention (MLA).
     Input shape is (seq_length, batch_size, hidden_size).
     """
     rng = np.random.default_rng(42)
-    hidden_state = rng.normal(loc=loc, scale=scale, size=(seq_length, batch_size, hidden_size))
+    hidden_state = rng.normal(loc=loc, scale=scale, size=(config.seq_length, batch_size, config.hidden_size))
     megatron_state_dict = {
         "linear_kv_down_proj.weight": rng.normal(
             loc=loc, scale=scale, size=(config.kv_lora_rank + config.qk_pos_emb_head_dim, config.hidden_size)),
@@ -69,7 +69,12 @@ def get_init_params(loc, scale, config, seq_length, batch_size, hidden_size):
             megatron_state_dict["linear_kv_down_proj.weight"]
         ))
 
-    return hidden_state, megatron_state_dict, mindspeed_state_dict
+    attention_mask = np.ones((batch_size, 1, config.seq_length, config.seq_length), dtype=bool)
+    rotary_pos_emb = np.asarray([[[[0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00]]],
+                                 [[[1.00000000e+00, 2.50000012e-04, 1.00000000e+00, 2.50000012e-04]]],
+                                 [[[2.00000000e+00, 5.00000024e-04, 2.00000000e+00, 5.00000024e-04]]],
+                                 [[[3.00000000e+00, 7.50000007e-04, 3.00000000e+00, 7.50000007e-04]]]])
+    return hidden_state, megatron_state_dict, mindspeed_state_dict, attention_mask, rotary_pos_emb
 
 
 def get_gpu_datas() -> dict[str, np.ndarray]:

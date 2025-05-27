@@ -228,6 +228,8 @@ from mindformers.models import (
     CogVLM2Tokenizer,
     CogVLM2VideoLM,
     CogVLM2VideoLMModel,
+    DeepseekV3Config,
+    DeepseekV3ForCausalLM,
     EVA02Config,
     EVAModel,
     GLMProcessor,
