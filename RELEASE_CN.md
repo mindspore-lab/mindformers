@@ -7,7 +7,8 @@
 ### 新特性
 
 * [分布式并行](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/distributed_parallel.html)：新增序列流水线并行（Seq Pipe）特性，新增混合序列并行特性。
-* [权重](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/safetensors.html)：新增支持Safetensors格式权重。
+* [权重](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/safetensors.html)：新增支持Safetensors格式权重，支持Safetensors去冗余保存。
+* [数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/dataset.html)：对于Hugging Face数据集新增支持Packing功能；新增支持Megatron多源混合数据集，并新增支持EOD mask压缩。
 * [训练监控](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/monitor.html)：新增支持TensorBoard训练指标实时可视化监控功能。
 * [高可用](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/high_availability.html)：新增临终 CKPT 功能、UCE 故障容错恢复功能和进程级重调度恢复功能。
 * [异构存储](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/fine_grained_activations_swap.html)：新增支持训练时细粒度的激活值SWAP功能。
@@ -22,7 +23,7 @@
 | [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) | Llama3.2-3B（推理）、Llama3.2-Vision-11B （微调、推理）      |
 | [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)              | Qwen2.5-0.5B/1.5B（推理）/7B/14B/32B/72B (微调、推理)     |
 | [TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2)          | TeleChat2-7B/35B/115（微调、推理）                      |
-| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B（预训练、微调、推理）                            |
+| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B（预训练、微调）                               |
 
 ### Bugfix
 
@@ -30,6 +31,8 @@
 
 * [!6013](https://gitee.com/mindspore/mindformers/pulls/6013)：修复上下文并行（cp）与序列并行（use_seq_parallel）不兼容的问题。
 * [!6007](https://gitee.com/mindspore/mindformers/pulls/6007)：修复训练时设置最多保留的checkpoint数量（keep_checkpoint_max）对保存纯模型参数的checkpoint不生效的问题。
+* [!83880](https://gitee.com/mindspore/mindspore/pulls/83880)：修复大集群梯度溢出时，溢出检测失效的问题。
+* [!80845](https://gitee.com/mindspore/mindspore/pulls/80845)、[!80861](https://gitee.com/mindspore/mindspore/pulls/80861)：修复Llama模型使能ConstantWarmUpLR时开启编译缓存报错的问题。
 
 ### 变更说明
 

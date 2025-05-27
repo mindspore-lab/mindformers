@@ -1,2 +1,0 @@
-https://www.mindspore.cn/mindformers/docs*/r1.5.0/*
-https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/*

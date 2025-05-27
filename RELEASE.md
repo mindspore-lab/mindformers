@@ -7,7 +7,8 @@ The following is the changelog for the MindSpore Transformers suite version 1.5.
 ### New Features
 
 * [Distributed Parallelism](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/distributed_parallel.html): Added Seq Pipe feature, Hybrid Sequence Parallelization feature.
-* [Weights](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/safetensors.html): Added support for Safetensors format weights.
+* [Weights](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/safetensors.html): Added support for Safetensors format weights, which supports Safetensors remove-redundancy saving.
+* [Datasets](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/dataset.html): For Hugging Face datasets added support for Packing; For Megatron multi-source mixed datasets added support for EOD mask compression.
 * [Training Monitor](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/monitor.html): Added support for TensorBoard real-time visualized monitoring of training metrics.
 * [High Availability](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/high_availability.html): Added end-of-life CKPT function, UCE fault tolerance recovery function and process-level rescheduling recovery function.
 * [Heterogeneous Storage](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/function/fine_grained_activations_swap.html): Added SWAP function for fine-grained activation values during training.
@@ -16,13 +17,13 @@ The following is the changelog for the MindSpore Transformers suite version 1.5.
 
 The following new models are supported:
 
-| Models                                                                                       | Specifications                                                                        |
-|----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| Models                                                                                       | Specifications                                                                      |
+|----------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | [DeepSeek-V3/R1](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek3)     | DeepSeek-V3-671B (pre-training, fine-tuning, inference), DeepSeek-R1-671B (inference) |
-| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) | Llama3.2-3B (inference), Llama3.2-Vision-11B (fine-tuning, inference)                 |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)              | Qwen2.5-0.5B/1.5B (inference) /7B/14B/32B/72B (fine-tuning, inference)                |
-| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2)          | TeleChat2-7B/35B/115 (fine-tuning, inference)                                         |
-| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B (pre-training, fine-tuning, inference)                                     |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) | Llama3.2-3B (inference), Llama3.2-Vision-11B (fine-tuning, inference)               |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2_5)              | Qwen2.5-0.5B/1.5B (inference) /7B/14B/32B/72B (fine-tuning, inference)              |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat2)          | TeleChat2-7B/35B/115 (fine-tuning, inference)                                       |
+| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                | YiZhao-12B (pre-training, fine-tuning)                                     |
 
 ### Bugfix
 
@@ -30,6 +31,8 @@ During the current release cycle, we have bugfixed many aspects of the model/fun
 
 * [!6013](https://gitee.com/mindspore/mindformers/pulls/6013): Fixed incompatibility between context parallelism (cp) and sequence parallelism (use_seq_parallel).
 * [!6007](https://gitee.com/mindspore/mindformers/pulls/6007): Fixed that setting the maximum number of checkpoints to keep during training (keep_checkpoint_max) does not take effect on keeping checkpoints for pure model parameters.
+* [!83880](https://gitee.com/mindspore/mindspore/pulls/83880): Fix overflow detection failure when large cluster gradient overflows.
+* [!80845](https://gitee.com/mindspore/mindspore/pulls/80845), [!80861](https://gitee.com/mindspore/mindspore/pulls/80861): Fix an issue where Llama models report an error when enabling ConstantWarmUpLR with compilation cache turned on.
 
 ### Change Description
 
