@@ -420,7 +420,6 @@ SLOW_TO_FAST_CONVERTERS = {
     "GPT2Tokenizer": GPT2Converter,
     "T5Tokenizer": T5Converter,
     "LlamaTokenizer": LlamaConverter,
-    "CodeLlamaTokenizer": LlamaConverter,
 }
 
 

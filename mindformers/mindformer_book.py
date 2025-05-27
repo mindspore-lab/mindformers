@@ -223,8 +223,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/pretrain_llama2_70b.yaml")),
             ("llama_7b_slora", os.path.join(
                 _PROJECT_PATH, "configs/llama2/predict_llama2_7b_slora.yaml")),
-            ("codellama_34b", os.path.join(
-                _PROJECT_PATH, "configs/codellama/pretrain_codellama_34b.yaml")),
             ("llama2_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
             ("glm3_6b", os.path.join(
@@ -356,8 +354,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/predict_llama2_70b.yaml")),
             ("mllama_11b", os.path.join(
                 _PROJECT_PATH, "configs/mllama/predict_mllama_11b.yaml")),
-            ("codellama_34b", os.path.join(
-                _PROJECT_PATH, "configs/codellama/predict_codellama_34b.yaml")),
             ("llama2_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
             ("glm3_6b", os.path.join(
@@ -453,7 +449,6 @@ class MindFormerBook:
             'llama_7b_lora',
             'internlm_7b',
             'internlm_7b_lora',
-            'codellama_34b',
         ]),
         ('llama2', [
             'llama2_7b',
@@ -462,9 +457,6 @@ class MindFormerBook:
         ]),
         ('mllama', [
             'mllama_11b',
-        ]),
-        ('codellama', [
-            'codellama_34b',
         ]),
         ('glm3', [
             'glm3_6b',
@@ -562,7 +554,6 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
             'llama_7b_lora',
-            'codellama_34b'
         ]),
         ('llama2', [
             'llama2_7b',
@@ -571,9 +562,6 @@ class MindFormerBook:
         ]),
         ('mllama', [
             'mllama_11b',
-        ]),
-        ('codellama', [
-            'codellama_34b',
         ]),
         ('glm3', [
             'glm3_6b',
@@ -704,7 +692,6 @@ class MindFormerBook:
             'llama2_70b',
             'llama3_8b',
             'llama_7b_lora',
-            'codellama_34b',
         ]),
         ('llama2', [
             'llama2_7b',
@@ -716,9 +703,6 @@ class MindFormerBook:
         ]),
         ('mllama', [
             'mllama_11b',
-        ]),
-        ('codellama', [
-            'codellama_34b',
         ]),
         ('glm3', [
             'glm3_6b',
@@ -1072,10 +1056,6 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/tokenizer.model'
           ]),
-        ('codellama_34b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/llama2/tokenizer.model'
-          ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([

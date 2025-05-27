@@ -109,15 +109,6 @@ class TestClipConfig(unittest.TestCase):
         model = CLIPModel(config)
 
 
-class TestCodeLlamaConfig(unittest.TestCase):
-    """test codellama config"""
-    def test_init_model_for_text_generation_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/codellama/predict_codellama_34b_910b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = LlamaForCausalLM(config)
-
-
 class TestGLMConfig(unittest.TestCase):
     """test glm config"""
     def test_init_model_for_pretraining_from_yaml(self):
