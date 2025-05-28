@@ -46,6 +46,24 @@ LAYERNORM_SINGLE_CARD_TEST_CASES = [
     )
 ]
 
+RMSNORM_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
+RMSNORM_SINGLE_CARD_TEST_CASES = [
+    (
+        # 并行策略: 单卡, batch_size: 2, seq_length: 2, hidden_size: 32, eps: 1e-5
+        # expected result: 功能跑通, 精度对齐。
+        {"batch_size": 2, "seq_length": 2, "hidden_size": 32, "eps": 1e-5},
+        {"output": "rmsnorm_output1"},
+        False
+    ),
+    (
+        # 并行策略: 单卡, batch_size: 2, seq_length: 2, hidden_size: 32, eps: 0.1
+        # expected result: 功能跑通, 精度对齐。
+        {"batch_size": 2, "seq_length": 2, "hidden_size": 32, "eps": 0.1},
+        {"output": "rmsnorm_output2"},
+        False
+    )
+]
+
 
 def build_msrun_command_list(
         worker_num, local_worker_num, port, log_dir, run_script_path, module,
@@ -188,7 +206,62 @@ class TestInferLayerNorm:
         LAYERNORM_SINGLE_CARD_TEST_PARAM,
         LAYERNORM_SINGLE_CARD_TEST_CASES
     )
-    def test_single_card_configurations(self, model_args, data_keys, expect_error, tmp_path):
+    def test_single_card_accuracy_case(self, model_args, data_keys, expect_error, tmp_path):
+        """Test single card with various configurations."""
+        self.run_test(
+            worker_num=1, local_worker_num=1,
+            model_args=model_args, expect_error=expect_error,
+            data_keys=data_keys,
+            tmp_path=tmp_path
+        )
+
+
+class TestInferRMSNorm(TestInferLayerNorm):
+    """Test class for RMSNorm with different configurations"""
+    OUTPUT_MS_FILENAME = "output_ms_rmsnorm.npz"
+
+    def run_test(
+            self,
+            worker_num,
+            local_worker_num,
+            model_args,
+            data_keys,
+            tmp_path,
+            expect_error=False,
+    ):
+        """Helper function to run test"""
+        output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
+        log_dir_path = tmp_path / self.LOG_DIR_NAME
+        log_dir_path.mkdir(parents=True, exist_ok=True)
+        worker_log_file = log_dir_path / self.WORKER_LOG_FILENAME
+
+        cmd_list = build_msrun_command_list(
+            worker_num=worker_num,
+            local_worker_num=local_worker_num,
+            port=10001,
+            log_dir=log_dir_path,
+            run_script_path=self.run_script_path,
+            module="RMSNorm",
+            batch_size=model_args["batch_size"],
+            seq_length=model_args["seq_length"],
+            hidden_size=model_args["hidden_size"],
+            eps=model_args["eps"],
+            output_path_param=output_file_path,
+        )
+
+        cmd_result = subprocess.run(
+            cmd_list, shell=False, capture_output=True, text=True, check=False)
+
+        self.check_result(output_file_path, worker_log_file, model_args, data_keys, cmd_result, expect_error)
+
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    @pytest.mark.parametrize(
+        RMSNORM_SINGLE_CARD_TEST_PARAM,
+        RMSNORM_SINGLE_CARD_TEST_CASES
+    )
+    def test_single_card_accuracy_case(self, model_args, data_keys, expect_error, tmp_path):
         """Test single card with various configurations."""
         self.run_test(
             worker_num=1, local_worker_num=1,

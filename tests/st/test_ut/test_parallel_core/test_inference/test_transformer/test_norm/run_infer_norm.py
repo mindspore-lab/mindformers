@@ -62,7 +62,10 @@ class LayerNormRunner:
             init()
             initialize_model_parallel(tensor_model_parallel_size=1)
 
-        self.config = TransformerConfig(
+        self.config = self.get_config()
+
+    def get_config(self):
+        return TransformerConfig(
             num_layers=1,
             hidden_size=self.hidden_size,
             num_attention_heads=2,
@@ -101,6 +104,33 @@ class LayerNormRunner:
             np.savez(output_path, **output_np)
 
 
+class RMSNormRunner(LayerNormRunner):
+    """Class to manage RMSNorm module"""
+
+    def get_config(self):
+        return TransformerConfig(
+            num_layers=1,
+            hidden_size=self.hidden_size,
+            num_attention_heads=2,
+            layernorm_compute_dtype="bfloat16",
+            normalization="RMSNorm"
+        )
+
+    def build_model(self):
+        """Build RMSNorm module"""
+        net = build_module(
+            get_norm_cls(self.config),
+            self.config,
+            hidden_size=self.hidden_size,
+            eps=self.eps
+        )
+        param_dict = {
+            "weight": Parameter(self.weight)
+        }
+        self._load_weights(net, param_dict)
+        return net
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run norm test")
     parser.add_argument("--module", type=str, default="LayerNorm")
@@ -125,8 +155,10 @@ def main():
     # Init Runner to prepare inputs
     if args.module == "LayerNorm":
         runner = LayerNormRunner(args)
+    elif args.module == "RMSNorm":
+        runner = RMSNormRunner(args)
     else:
-        raise ValueError(f"The activation unit test currently supports only LayerNorm, "
+        raise ValueError(f"The activation unit test currently supports only LayerNorm and RMSNorm, "
                          f"but got {args.module}")
     # Execute Runner
     runner.run()
