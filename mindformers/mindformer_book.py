@@ -233,10 +233,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
-            ("yi_6b", os.path.join(
-                _PROJECT_PATH, "research/yi/predict_yi_6b.yaml")),
-            ("yi_34b", os.path.join(
-                _PROJECT_PATH, "research/yi/predict_yi_34b.yaml")),
             ("deepseek_33b", os.path.join(
                 _PROJECT_PATH, "research/deepseek/predict_deepseek_33b.yaml")),
             ("deepseek1_5_7b", os.path.join(
@@ -464,12 +460,6 @@ class MindFormerBook:
         ('glm4', [
             'glm4_9b',
         ]),
-        ('yi', [
-            'yi_6b_finetune',
-            'yi_6b_pretrain',
-            'yi_6b_text_generation',
-            'yi_34b_text_generation',
-        ]),
         ('deepseekv2', [
             'deepseekv2_236b',
         ]),
@@ -572,10 +562,6 @@ class MindFormerBook:
         ('internlm', [
             'internlm_7b',
             'internlm_7b_lora',
-        ]),
-        ('yi', [
-            'yi_6b',
-            'yi_34b',
         ]),
     ])
 
@@ -714,10 +700,6 @@ class MindFormerBook:
             'internlm_7b',
             'internlm_7b_lora',
         ]),
-        ('yi', [
-            'yi_6b',
-            'yi_34b',
-        ])
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
