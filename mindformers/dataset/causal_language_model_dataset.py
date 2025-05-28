@@ -370,7 +370,8 @@ class CausalLanguageModelDataset(BaseDataset):
             dataset = get_dataset_map(dataset,
                                       operations=[cls.perform_token_counting(**kwargs)])
 
-        dataset = dataset.repeat(dataset_config.repeat)
+        if dataset_config.get('repeat', 1) > 1:
+            dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 
     @classmethod
