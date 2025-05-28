@@ -197,7 +197,7 @@ class MindFormerRegister:
                 wrapper of register_class
             """
             class_name = alias if alias is not None else register_class.__name__
-            class_name = cls._add_class_name_prefix(class_name, legacy)
+            class_name = cls._add_class_name_prefix(module_type, class_name, legacy)
             if module_type not in cls.registry:
                 cls.registry[module_type] = {class_name: register_class}
             else:
@@ -222,7 +222,7 @@ class MindFormerRegister:
             Class, the registered class itself.
         """
         class_name = alias if alias is not None else register_class.__name__
-        class_name = cls._add_class_name_prefix(class_name, legacy)
+        class_name = cls._add_class_name_prefix(module_type, class_name, legacy)
         if module_type not in cls.registry:
             cls.registry[module_type] = {class_name: register_class}
         else:
@@ -244,7 +244,7 @@ class MindFormerRegister:
         """
         if not class_name:
             return module_type in cls.registry
-        class_name = cls._add_class_name_prefix(class_name, get_legacy())
+        class_name = cls._add_class_name_prefix(module_type, class_name, get_legacy())
         registered = module_type in cls.registry and class_name in cls.registry.get(module_type)
         return registered
 
@@ -270,7 +270,7 @@ class MindFormerRegister:
 
         if not class_name:
             raise ValueError(f"Can't find class. class type = {class_name}")
-        class_name = cls._add_class_name_prefix(class_name, get_legacy())
+        class_name = cls._add_class_name_prefix(module_type, class_name, get_legacy())
         register_class = cls.registry.get(module_type).get(class_name)
         return register_class
 
@@ -436,7 +436,7 @@ class MindFormerRegister:
         cls.register_cls(module_class, module_type=module_type, legacy=get_legacy())
 
     @classmethod
-    def _add_class_name_prefix(cls, class_name, legacy=True):
-        if not legacy:
+    def _add_class_name_prefix(cls, module_type, class_name, legacy=True):
+        if not legacy and module_type == MindFormerModuleType.MODELS:
             class_name = NEW_CLASS_PREFIX + class_name
         return class_name
