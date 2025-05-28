@@ -53,9 +53,3 @@ swin:
   input_path:
   output_path:
   dtype:
-
-knowlm:
-  input_path:
-  output_path:
-  dtype:
-  model_class: LlamaForCausalLM
