@@ -123,6 +123,15 @@ class TransformerConfig(ModelParallelConfig):
     seq_length: int = None
     """Model Seq Length"""
 
+    is_dynamic: bool = False
+    """Whether model is dynamic shape."""
+
+    pad_token_id: int = 0
+    """Model pad token id."""
+
+    ignore_token_id: int = -100
+    """Model ignore token id when training."""
+
     compute_dtype: str = "bfloat16"
     """Linear layer compute dtype."""
 
