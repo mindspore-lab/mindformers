@@ -120,7 +120,7 @@ class MLP(nn.Cell):
         else:
             self.shard(self.config)
 
-    def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
+    def construct(self, hidden_states: Tensor, extra_loss=0.) -> tuple[Tensor, Tensor, float]:
         """ Construct function of mlp block. """
         # [seq_len, bs, hidden_size] -> [seq_len, bs, ffn_hidden_size]
         intermediate_parallel, bias_parallel = self.linear_fc1(hidden_states)
@@ -140,7 +140,7 @@ class MLP(nn.Cell):
                 intermediate_parallel) if self.activation_type else intermediate_parallel
         # [seq_len, bs, hidden_size] -> [seq_len, bs, ffn_hidden_size]
         output, output_bias = self.linear_fc2(intermediate_parallel)
-        return output, output_bias
+        return output, output_bias, extra_loss
 
     def shard(self, config: TransformerConfig):
         """ shard function of mlp block. """

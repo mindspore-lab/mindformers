@@ -528,17 +528,11 @@ class TransformerConfig(ModelParallelConfig):
     npu_nums_per_device: int = 1
     """Set NPU ranks for each device."""
 
-    enable_gmm_safe_tokens: bool = False
+    use_pad_tokens: bool = False
     """If True, gmm pads an additional protection token to avoid 0-token calculation."""
-
-    use_fused_ops_permute: bool = False
-    """If True, use fused ops for permutation."""
 
     callback_moe_droprate: bool = False
     """Whether to print each expert's load information through callback."""
-
-    return_extra_loss: bool = True
-    """If True, return extra loss for MoE."""
 
     moe_init_method_std: float = 0.01
     """Standard deviation of the zero mean normal for the MoE initialization method."""
