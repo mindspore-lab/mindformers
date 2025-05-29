@@ -22,8 +22,6 @@ class TransformerConfig(ModelParallelConfig):
     ####################
     # Model Architecture
     ####################
-    vocab_size: int = 128000
-    """Vocabulary size"""
 
     num_layers: int = 0
     """Number of transformer layers in a transformer block."""
@@ -85,9 +83,6 @@ class TransformerConfig(ModelParallelConfig):
     (QKV projections, after core attention, and two in MLP layer).
     """
 
-    rotary_base: int = 10000
-    """Rotary base for the rotary embeddings, used by rope and yarn."""
-
     add_qkv_bias: bool = False
     """Add a bias term only for QKV projections."""
 
@@ -146,7 +141,12 @@ class TransformerConfig(ModelParallelConfig):
     rotary_dtype: str = "float32"
     """Custom rotary position embedding compute dtype."""
 
+    vocab_size: int = 128000
+    """Vocabulary size of the model."""
+
     use_eod_reset: bool = False
+    """Whether to use eod reset."""
+
     ####################
     # Flash Attention
     ####################
@@ -229,6 +229,9 @@ class TransformerConfig(ModelParallelConfig):
     position_embedding_type: str = "rope"
     """Position embedding type to use for the attention layer."""
 
+    use_fused_ops_permute: bool = False
+    """If True, use fused ops for permutation."""
+
     ####################
     # Initialization
     ####################
@@ -307,6 +310,10 @@ class TransformerConfig(ModelParallelConfig):
 
     apply_rope_fusion: bool = False
     """If True, use fused RoPE kernel."""
+
+    # MindFormers New
+    bias_swiglu_fusion: bool = False
+    """If True, use fused swiglu kernel."""
 
     ####################
     # Recompute
@@ -525,9 +532,6 @@ class TransformerConfig(ModelParallelConfig):
     use_shared_expert_gating: bool = False
     """If True, use shared expert gating."""
 
-    use_fused_ops_permute: bool = False
-    """If True, use fused ops for permutation."""
-
     topk_method: str = "greedy"
     """Method to use for top-k routing."""
 
@@ -545,6 +549,9 @@ class TransformerConfig(ModelParallelConfig):
 
     moe_init_method_std: float = 0.01
     """Standard deviation of the zero mean normal for the MoE initialization method."""
+
+    use_pad_tokens: bool = False
+    """If True, use pad_tokens."""
 
     ##################
     # Context Parallel
@@ -578,6 +585,36 @@ class TransformerConfig(ModelParallelConfig):
     Only effective when context_parallel > 1
     """
 
+    ##################
+    # Inference Param
+    ##################
+    max_position_embeddings: int = 4096
+    """Maximum sequence length that the model can handle."""
+
+    sandwich_norm: bool = False
+    """Whether to apply `normalization` type of normalization to the transformer layer."""
+
+    rotary_base: float = 10000.0
+    """Rotary base for the rotary embeddings."""
+
+    tie_word_embeddings: bool = False
+    """Whether to share the input and output embedding weights."""
+
+    block_size: int = 16
+    """Size of each memory block used in PagedAttention."""
+
+    num_blocks: int = 512
+    """Size of each memory block used in PagedAttention."""
+
+    parallel_decoding_params: dict = None
+    """Parameters used when hardware decoding."""
+
+    softmax_compute_dtype: str = 'float32'
+    """Data type for computing softmax during attention computation."""
+
+    pad_token_id: int = 0
+    """The id of padding token."""
+
     def __post_init__(self):
         """
         Python dataclass method that is used to modify attributes after initialization.
@@ -590,12 +627,18 @@ class TransformerConfig(ModelParallelConfig):
         self.layernorm_compute_dtype = convert_str_to_mstype(self.layernorm_compute_dtype)
         self.rotary_dtype = convert_str_to_mstype(self.rotary_dtype)
         self.moe_router_dtype = convert_str_to_mstype(self.moe_router_dtype)
+        self.softmax_compute_dtype = convert_str_to_mstype(self.softmax_compute_dtype)
+
+        if self.pad_token_id is None:
+            self.pad_token_id = 0
+
         self.mtp_num_layers = self.mtp_num_layers or 0
         if self.mtp_num_layers is not None:
             if self.mtp_num_layers < 0 or not isinstance(self.mtp_num_layers, int):
                 raise ValueError(
                     f"mtp_num_layers should be `None` or non-negative integer, but get {self.mtp_num_layers}."
                 )
+
         if self.num_attention_heads % self.tensor_model_parallel_size != 0:
             raise ValueError(
                 f"num_attention_heads ({self.num_attention_heads}) must be a multiple of "
@@ -649,18 +692,18 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.moe_shared_expert_intermediate_size is not None:
             if self.shared_expert_num == 0:
-                logger.warning("The hidden-size of shared experts (moe_shared_expert_intermediate_size) is set, "
+                logger.warning(f"The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
                                "but get shared_expert_num = 0. The shared_expert_num will be ignored.")
             elif self.moe_shared_expert_intermediate_size != self.moe_ffn_hidden_size * self.shared_expert_num:
                 logger.warning(
                     f'moe_shared_expert_intermediate_size should be '
                     f'num_shared_experts ({self.shared_expert_num}) * '
                     f'ffn_size_of_each_shared_expert ({self.moe_ffn_hidden_size}), '
-                    f'but get {self.moe_shared_expert_intermediate_size}. '
+                    f'but got {self.moe_shared_expert_intermediate_size}. '
                     f'moe_shared_expert_intermediate_size ({self.moe_shared_expert_intermediate_size}) will be applied.'
                 )
         else:
-            self.moe_shared_expert_intermediate_size = self.moe_ffn_hidden_size * self.shared_expert_num or None
+            self.moe_shared_expert_intermediate_size = self.moe_ffn_hidden_size * self.shared_expert_num
 
         if self.moe_expert_capacity_factor is not None:
             if self.moe_expert_capacity_factor < 0:
@@ -775,6 +818,12 @@ class MLATransformerConfig(TransformerConfig):
 
     normalization: str = "RMSNorm"
     """Default normalization layer for MLA models is RMSNorm."""
+
+    rope_type: str = "yarn"
+    """Type of RoPE to use. Default to yarn, options are rope and yarn."""
+
+    rotary_base: float = 10000.0
+    """Rotary base for the rotary embeddings, used by rope and yarn."""
 
     rotary_percent: float = 1.0
     """Rotary percent for the rotary embeddings, used by rope."""
