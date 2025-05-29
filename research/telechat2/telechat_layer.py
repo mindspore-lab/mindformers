@@ -285,7 +285,7 @@ class TelechatFeedForward(Cell):
             gate, hidden = self.split(gate_hidden_out, (self.hidden_dim, self.hidden_dim), 2)
             gate = self.activate(gate)
         else:
-            # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+            # x shape: [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
             gate = self.w1(x)  # dp,1 -> dp, mp
             hidden = self.w3(x)  # dp,1 -> dp, mp
         hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
