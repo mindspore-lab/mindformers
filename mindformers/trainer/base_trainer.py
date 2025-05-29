@@ -69,7 +69,7 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
-from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid, check_tsp_valid
+from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid, check_tsp_valid, check_is_reboot_node
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -936,9 +936,7 @@ class BaseTrainer:
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
-        if config.arf_skip_load:
-            logger.info(".............Reboot node skip load checkpoint when using ARF..................")
-        if config.resume_training and config.load_checkpoint and not config.arf_skip_load:
+        if config.resume_training and config.load_checkpoint:
             logger.info(".............Start load resume context from checkpoint..................")
             if check_tft_valid() and not config.remove_redundancy:
                 logger.info("..............Start resume checkpoint path from strategy..............")
@@ -961,9 +959,7 @@ class BaseTrainer:
             config.runner_config.initial_step = 0
 
         # check if skip datasets
-        if config.arf_skip_load:
-            logger.info(".............Reboot node skip load checkpoint when using ARF..................")
-        if (config.data_skip_steps or config.resume_training) and not config.arf_skip_load:
+        if config.data_skip_steps or config.resume_training:
             if not config.ignore_data_skip:
                 data_skip_steps = config.data_skip_steps if config.data_skip_steps \
                     else config.runner_config.initial_step
@@ -1177,7 +1173,7 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
 
         # resume checkpoint
-        if config.load_checkpoint or config.only_save_strategy:
+        if (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
