@@ -56,9 +56,6 @@ CONFIG_MAPPING = OrderedDict(
     ]
 )
 
-SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
-
-MA_OUTPUT_ROOT = '/cache/ma-user-work'
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
@@ -188,8 +185,6 @@ def set_strategy_save_path(config):
 
 
 def get_log_path():
-    if check_in_modelarts():
-        return os.path.join(MA_OUTPUT_ROOT, 'log')
     path = os.getenv("LOG_MF_PATH", LOG_DEFAULT_PATH)
     return os.path.expanduser(path)
 

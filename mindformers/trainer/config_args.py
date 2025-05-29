@@ -29,7 +29,6 @@ __all__ = [
     'DataLoaderConfig',
     'ConfigArguments',
     'ContextConfig',
-    'CloudConfig',
     'CheckpointConfig',
     'ParallelContextConfig',
     'OptimizerConfig',

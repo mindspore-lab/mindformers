@@ -138,8 +138,6 @@ runner_wrapper:
   scale_sense: 1.0
   use_clip_grad: True
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'

@@ -74,7 +74,6 @@ callbacks:
     save_checkpoint_steps: 1000
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -144,8 +143,6 @@ processor:
 metric:
   type: EmF1Metric
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'

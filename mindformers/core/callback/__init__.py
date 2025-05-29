@@ -18,7 +18,6 @@ from .callback import (
     CheckpointMonitor,
     EvalCallBack,
     MFLossMonitor,
-    ObsMonitor,
     ProfileMonitor,
     SummaryMonitor,
     StressDetectCallBack,

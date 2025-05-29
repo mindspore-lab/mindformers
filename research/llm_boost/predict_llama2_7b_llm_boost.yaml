@@ -53,7 +53,6 @@ callbacks:
     save_checkpoint_steps: 100
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # mindspore context init config
 context:

@@ -102,7 +102,6 @@ callbacks:
     keep_checkpoint_max: 3
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -198,8 +197,6 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'

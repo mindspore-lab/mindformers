@@ -25,7 +25,6 @@ callbacks:
     keep_checkpoint_max: 3
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:

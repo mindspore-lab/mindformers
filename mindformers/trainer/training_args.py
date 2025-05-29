@@ -1,3 +1,4 @@
+
 # Copyright 2023 Huawei Technologies Co., Ltd
 # Copyright 2020 The HuggingFace Team. All rights reserved.
 #
@@ -448,7 +449,7 @@ class TrainingArguments:
         metadata={
             "help": (
                 "Whether to transform checkpoint according to parallel config. See the [Transform_Ckpt documentation]"
-                "(https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)"
+                "(https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/transform_weight.html)"
                 " for more details. Default: False."
             )
         }
@@ -2239,8 +2240,7 @@ class TrainingArguments:
         """adapt callback config."""
         if not _check_task_config(task_config.callbacks):
             task_config.callbacks = [OrderedDict([("type", "MFLossMonitor")]),
-                                     OrderedDict([("type", "CheckpointMonitor")]),
-                                     OrderedDict([("type", "ObsMonitor")])]
+                                     OrderedDict([("type", "CheckpointMonitor")])]
 
         if not isinstance(task_config.callbacks, list):
             raise ValueError(f"The type of config.callbacks should be List, but got {type(task_config.callbacks)}.")

@@ -126,7 +126,6 @@ callbacks:
     keep_checkpoint_max: 1
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -203,8 +202,6 @@ processor:
 metric:
   type: PerplexityMetric
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'
