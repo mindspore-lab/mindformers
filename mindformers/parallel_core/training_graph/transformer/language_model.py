@@ -127,7 +127,7 @@ class LanguageModelEmbedding(nn.Cell):
                 raise RuntimeError("The 'tokentype_ids' input for Embedding layer is None, "
                                    "but 'tokentype_embeddings' layer is initialized")
 
-        # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
+        # Data format change to avoid explicit transposes : [b s h] --> [s b h].
         embeddings = self.transpose(embeddings, (1, 0, 2))
 
         # Dropout
