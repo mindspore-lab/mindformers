@@ -81,7 +81,6 @@ from ..version_control import check_delay_init_valid, check_tft_valid, check_tre
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
-SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer", "WhisperTokenizer"]
