@@ -14,6 +14,6 @@
 # ============================================================================
 """MindFormers Transform Ckpt API."""
 from .transform_checkpoint import TransformCkpt
-from .utils import *
+from .utils import show_progress, make_soft_link, check_path, check_rank_folders, check_ckpt_file_exist, is_power_of_two
 
 __all__ = ['TransformCkpt']

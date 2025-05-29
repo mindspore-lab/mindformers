@@ -1420,7 +1420,8 @@ class BaseTrainer:
         model.eval_network.set_train(origin_phase)
         return output
 
-    def sort_callbacks(self, default_callbacks):
+    @staticmethod
+    def sort_callbacks(default_callbacks):
         """Sort by execution order."""
         callbacks = [None] * len(CALLBACK_HAS_SORT)
 
