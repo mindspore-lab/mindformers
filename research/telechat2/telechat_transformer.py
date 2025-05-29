@@ -353,7 +353,7 @@ class TelechatAttention(nn.Cell):
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
         # x shape: [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
-        # x_merge: shape [bs, seq/1, hidden_dim]
+        # x_merge shape: [bs, seq/1, hidden_dim]
         new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge

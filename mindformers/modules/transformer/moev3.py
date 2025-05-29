@@ -323,7 +323,7 @@ class MoEV3(Cell):
         return expert_input, sorted_index, expert_cnt, unsort_map
 
     def _normalize(self, router_coeff_raw):
-        # router_coeff_sum: (dp, N, 1) <-- (dp, N, k)
+        # router_coeff_sum shape: (dp, N, 1) <-- (dp, N, k)
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2)
         # router_coeff shape: (dp, N, k) <-- (dp, N, k) (dp, N, 1)
         router_coeff = self.div_3d(router_coeff_raw, self.add_eps(router_coeff_sum, 1e-9))
