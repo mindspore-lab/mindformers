@@ -19,7 +19,7 @@ __all__ = [
 from copy import deepcopy
 from mindspore import Tensor
 from mindspore.nn.layer import Dense
-from mindspore.ops.auto_generate import Mul, Sigmoid
+from mindspore.ops.auto_generate import Cast, Mul, Sigmoid
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
 
@@ -55,6 +55,7 @@ class SharedExpertMLP(MLP):
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
         super().__init__(config, submodules)
 
+        self.cast = Cast()
         self.use_seq_parallel = config.sequence_parallel
         self.router_dense_type = config.moe_router_dtype
         self.use_shared_expert_gate = gate

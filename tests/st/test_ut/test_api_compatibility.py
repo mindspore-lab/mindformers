@@ -31,6 +31,20 @@ import mindformers
 
 CUR_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
+DEPRECATED_CLASS_LIST = [
+    "mindformers.core.loss.loss.L1Loss",
+    "mindformers.core.loss.loss.MSELoss",
+    "mindformers.core.loss.loss.SoftTargetCrossEntropy",
+    "mindformers.core.optim.optim.FP32StateAdamWeightDecay",
+    "mindformers.core.optim.optim.FusedAdamWeightDecay"
+]
+
+
+def special_case_process(api_str, signature):
+    if "MindFormerRegister._add_class_name_prefix" in api_str:
+        signature = signature.replace("module_type, ", "")
+    return signature
+
 
 def is_not_compatibility(base_str, new_str):
     """check whether compatibility"""
@@ -110,8 +124,42 @@ def process_union_order(signature):
 
 def api_signature(obj, api_str, content, base_schema, failure_list, is_update=False):
     """extract and compare api input info"""
-    signature = inspect.signature(obj)
-    signature = str(signature)
+    if api_str in DEPRECATED_CLASS_LIST:
+        return
+    if inspect.isclass(obj):
+        signature_list = [
+            str(inspect.signature(obj.__init__)), str(inspect.signature(obj.__new__)), str(inspect.signature(obj))
+
+        ]
+        if re.search(r"^\(self,? *", signature_list[0]):
+            signature_list[0] = re.sub(r"^\(self,? *", r"(", signature_list[0])
+        if re.search(r"^\(\/, +", signature_list[0]):
+            signature_list[0] = re.sub(r"^\(\/, +", r"(", signature_list[0])
+        if re.search(r"^\(cls,? *", signature_list[1]):
+            signature_list[1] = re.sub(r"^\(cls,? *", r"(", signature_list[1])
+        if re.search(r"^\(class_,? *", signature_list[1]):
+            signature_list[1] = re.sub(r"^\(class_,? *", r"(", signature_list[1])
+
+        if signature_list[0] == signature_list[1] == signature_list[2]:
+            signature = signature_list[0]
+        elif (signature_list[0] == signature_list[1] or signature_list[0] == signature_list[2]) and \
+                signature_list[0] != "(*args, **kwargs)":
+            signature = signature_list[0]
+        elif signature_list[1] == signature_list[2] and signature_list[1] != "(*args, **kwargs)":
+            signature = signature_list[1]
+        else:
+            tmp_len = -1
+            signature = None
+            for i in range(len(signature_list)):
+                if signature_list[i] == "(*args, **kwargs)":
+                    continue
+                if len(signature_list[i]) > tmp_len:
+                    tmp_len = len(signature_list[i])
+                    signature = signature_list[i]
+    else:
+        signature = str(inspect.signature(obj))
+
+    signature = special_case_process(api_str=api_str, signature=signature)
     if re.search("Any = <module 'pickle' from .+.py'>", signature):
         signature = re.sub("Any = <module 'pickle' from .+\\.py'>", "Any = <module 'pickle'>", signature)
     if re.search(" at 0x[\\da-zA-Z]+>", signature):
