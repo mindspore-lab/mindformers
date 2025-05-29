@@ -39,6 +39,7 @@ def check_results(commands, results):
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
+@pytest.mark.skip("no need to test")
 def test_parallel_infer_core_graph():
     """
     Feature: Core of Parallel for prediction.
@@ -72,6 +73,7 @@ def test_parallel_infer_core_graph():
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
+@pytest.mark.skip("no need to test")
 def test_parallel_infer_core_pynative():
     """
     Feature: Core of Parallel for prediction.

@@ -25,7 +25,7 @@ import mindspore.communication.comm_func as comm_func
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, \
     get_pipeline_model_parallel_world_size, get_context_parallel_world_size, get_tensor_model_parallel_world_size, \
     is_pipeline_last_stage, is_pipeline_first_stage, is_rank_in_embedding_group, get_embedding_group, \
-    set_virtual_pipeline_model_parallel_rank, get_stream
+    set_virtual_pipeline_model_parallel_rank, get_stream, get_data_parallel_world_size, get_data_parallel_rank
 
 from .p2p_communication import P2PPrimitive
 
@@ -59,6 +59,8 @@ def run_forward(*input_data,
                 recv_data=None,
                 calculate_per_token_loss=False,
                 tokens_nums_list=None,
+                heterogeneous_pipeline=False,
+                pipeline_stage_device=None,
                 **kwargs):
     """
     Run forward step.
@@ -80,10 +82,12 @@ def run_forward(*input_data,
     if isinstance(recv_data, (list, tuple)):
         recv_data = recv_data[0]
 
-    if not is_pipeline_first_stage() and recv_data is not None:
+    if not is_pipeline_first_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                   pipeline_stage_device=pipeline_stage_device) and recv_data is not None:
         model.set_input_tensor(recv_data)
 
-    if is_pipeline_last_stage():
+    if is_pipeline_last_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                              pipeline_stage_device=pipeline_stage_device):
         # get loss
         output_tensors = model(*input_data)
 
@@ -130,6 +134,8 @@ def run_backward(*input_tensor,
                  total_tokens_nums=None,
                  tokens_nums_list=None,
                  wrap_with_ddp=False,
+                 heterogeneous_pipeline=False,
+                 pipeline_stage_device=None,
                  **kwargs):
     """
     Run backward step.
@@ -146,7 +152,8 @@ def run_backward(*input_tensor,
         recv_grads = recv_grads[0]
 
     # init dout if in last stage
-    if is_pipeline_last_stage():
+    if is_pipeline_last_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                              pipeline_stage_device=pipeline_stage_device):
         # scaling grad base on micro_size or tokens nums
         if calculate_per_token_loss:
             micro_tokens_num = tokens_nums_list.pop(0)
@@ -174,7 +181,8 @@ def run_backward(*input_tensor,
     input_tensor = tuple(input_tensor[:-1])
 
     # set input tensor for backpropagation
-    if not is_pipeline_first_stage():
+    if not is_pipeline_first_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                   pipeline_stage_device=pipeline_stage_device):
         model.set_input_tensor(recv_data)
 
     # get grad function
@@ -189,7 +197,8 @@ def run_backward(*input_tensor,
     weight_grad_tuple = tuple(weight_grad)
 
     # the first stage do not require backpropagation
-    if is_pipeline_first_stage():
+    if is_pipeline_first_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                               pipeline_stage_device=pipeline_stage_device):
         dout = None
 
     # accumulate grads between multi-micro input
@@ -741,6 +750,8 @@ def forward_backward_pipelining_without_interleaving(
     wrap_with_ddp = config.training_config.wrap_with_ddp
     overlap_grad_reduce = config.training_config.overlap_grad_reduce
     delay_grad_reduce = config.training_config.delay_grad_reduce
+    heterogeneous_pipeline = config.model_config.parallel_config.heterogeneous_pipeline
+    pipeline_stage_device = config.model_config.parallel_config.pipeline_stage_device
 
     # correct tensor shape if use seq parallel or context parallel
     recv_tensor_shapes = correct_p2p_shape(seq_length, hidden_size, \
@@ -748,6 +759,9 @@ def forward_backward_pipelining_without_interleaving(
     send_tensor_shapes = correct_p2p_shape(seq_length, hidden_size, \
                                            micro_batch_size, data_layout, use_sequence_parallel)
 
+    if heterogeneous_pipeline:
+        recv_tensor_shapes = correct_hetero_p2p_recv_shape(seq_length, hidden_size, \
+                                                           micro_batch_size, data_layout, use_sequence_parallel)
     # save each forward process input data for running backward
     if not forward_only:
         input_tensors = []
@@ -760,8 +774,8 @@ def forward_backward_pipelining_without_interleaving(
         model.enable_sync(False)
 
     # get warm up stage steps
-    pp_world_size = get_pipeline_model_parallel_world_size()
-    pp_rank = get_pipeline_model_parallel_rank()
+    pp_world_size = get_pipeline_model_parallel_world_size(heterogeneous_pipeline, pipeline_stage_device)
+    pp_rank = get_pipeline_model_parallel_rank(heterogeneous_pipeline, pipeline_stage_device)
     warm_up_steps = min(pp_world_size - pp_rank - 1, num_microbatches)
     input_tensor = None
 
@@ -777,17 +791,20 @@ def forward_backward_pipelining_without_interleaving(
                                            model,
                                            wrap_with_ddp,
                                            *input_data_tuple,
+                                           heterogeneous_pipeline,
                                            **input_data_dict)
 
         # run forward
-        output_tensor, accumulate_loss, \
+        output_tensor, accumulate_loss,\
             micro_input_data = run_forward(*micro_input_data,
                                            model=model,
                                            accumulate_loss=accumulate_loss,
                                            logits=logits,
                                            recv_data=input_tensor,
                                            calculate_per_token_loss=calculate_per_token_loss,
-                                           tokens_nums_list=tokens_nums_list)
+                                           tokens_nums_list=tokens_nums_list,
+                                           heterogeneous_pipeline=heterogeneous_pipeline,
+                                           pipeline_stage_device=pipeline_stage_device)
 
         # save micro input data for backward
         if not forward_only:
@@ -799,12 +816,14 @@ def forward_backward_pipelining_without_interleaving(
     # prepare input data for 1F1B
     steady_steps = num_microbatches - warm_up_steps
     if steady_steps > 0:
-        slice_index = 0 if is_pipeline_last_stage() else slice_index + 1
+        slice_index = 0 if is_pipeline_last_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                  pipeline_stage_device=pipeline_stage_device) else slice_index + 1
         micro_input_data = get_micro_input(slice_index,
                                            micro_batch_size,
                                            model,
                                            wrap_with_ddp,
                                            *input_data_tuple,
+                                           heterogeneous_pipeline,
                                            **input_data_dict)
         input_tensor = recv_forward(recv_tensor_shapes, p2p_primitive)
 
@@ -818,7 +837,9 @@ def forward_backward_pipelining_without_interleaving(
                                            logits=logits,
                                            recv_data=input_tensor,
                                            calculate_per_token_loss=calculate_per_token_loss,
-                                           tokens_nums_list=tokens_nums_list)
+                                           tokens_nums_list=tokens_nums_list,
+                                           heterogeneous_pipeline=heterogeneous_pipeline,
+                                           pipeline_stage_device=pipeline_stage_device)
 
         if forward_only:
             # only send forward result
@@ -832,10 +853,11 @@ def forward_backward_pipelining_without_interleaving(
                                                    model,
                                                    wrap_with_ddp,
                                                    *input_data_tuple,
+                                                   heterogeneous_pipeline,
                                                    **input_data_dict)
                 input_tensor = recv_forward(recv_tensor_shapes, p2p_primitive)
         else:
-            recv_grads = send_forward_recv_backward(output_tensor, send_tensor_shapes, p2p_primitive)
+            recv_grads = send_forward_recv_backward(output_tensor, recv_tensor_shapes, p2p_primitive)
             input_tensors.append(micro_input_data)
 
             # bprop func need forward's input data
@@ -859,7 +881,9 @@ def forward_backward_pipelining_without_interleaving(
                                                   calculate_per_token_loss=calculate_per_token_loss,
                                                   total_tokens_nums=total_tokens_nums,
                                                   tokens_nums_list=tokens_nums_list,
-                                                  wrap_with_ddp=wrap_with_ddp)
+                                                  wrap_with_ddp=wrap_with_ddp,
+                                                  heterogeneous_pipeline=heterogeneous_pipeline,
+                                                  pipeline_stage_device=pipeline_stage_device)
 
             if i == steady_steps - 1:
                 input_tensor = None
@@ -871,6 +895,7 @@ def forward_backward_pipelining_without_interleaving(
                                                    model,
                                                    wrap_with_ddp,
                                                    *input_data_tuple,
+                                                   heterogeneous_pipeline,
                                                    **input_data_dict)
                 input_tensor = send_backward_recv_forward(dout, recv_tensor_shapes, p2p_primitive)
 
@@ -885,7 +910,7 @@ def forward_backward_pipelining_without_interleaving(
 
             # run backward
             input_tensor = input_tensors.pop(0)
-            recv_grads = recv_backward(send_tensor_shapes, p2p_primitive)
+            recv_grads = recv_backward(recv_tensor_shapes, p2p_primitive)
             dout, accumulate_grads = run_backward(*input_tensor,
                                                   recv_grads=recv_grads,
                                                   model=model,
@@ -898,7 +923,9 @@ def forward_backward_pipelining_without_interleaving(
                                                   calculate_per_token_loss=calculate_per_token_loss,
                                                   total_tokens_nums=total_tokens_nums,
                                                   tokens_nums_list=tokens_nums_list,
-                                                  wrap_with_ddp=wrap_with_ddp)
+                                                  wrap_with_ddp=wrap_with_ddp,
+                                                  heterogeneous_pipeline=heterogeneous_pipeline,
+                                                  pipeline_stage_device=pipeline_stage_device)
             send_backward(dout, recv_tensor_shapes, p2p_primitive)
 
         # ddp grad sync
@@ -914,7 +941,9 @@ def forward_backward_pipelining_without_interleaving(
         accumulate_grads = all_reduce_share_embedding(list(accumulate_grads),
                                                       weights,
                                                       model,
-                                                      wrap_with_ddp)
+                                                      wrap_with_ddp,
+                                                      heterogeneous_pipeline,
+                                                      pipeline_stage_device)
 
     # get return value of loss and logits
     accumulate_loss, logits = calculate_loss_and_logits(accumulate_loss,
@@ -922,7 +951,9 @@ def forward_backward_pipelining_without_interleaving(
                                                         num_microbatches,
                                                         tokens_nums_list,
                                                         total_tokens_nums,
-                                                        calculate_per_token_loss)
+                                                        calculate_per_token_loss,
+                                                        heterogeneous_pipeline,
+                                                        pipeline_stage_device)
 
     # reset set_hidden_states attr
     set_hidden_states_param.requires_grad = False
@@ -960,6 +991,18 @@ def correct_p2p_shape(seq_length, hidden_size, micro_batch_size, data_layout, us
     if data_layout == "BSH":
         return ((micro_batch_size, seq_length, hidden_size),)
     return ((seq_length, micro_batch_size, hidden_size),)
+
+
+def correct_hetero_p2p_recv_shape(seq_length, hidden_size, mirco_batch_size, data_layout, use_sequence_parallel=False):
+    """
+    Correct right recv tensor shape under heterogeneous pipeline parallel
+    """
+    recv_tensor_shapes = correct_p2p_shape(seq_length, hidden_size, \
+                                           mirco_batch_size, data_layout, use_sequence_parallel)[0]
+    if data_layout == "BSH":
+        return (int(recv_tensor_shapes[0] / get_data_parallel_world_size()), \
+            recv_tensor_shapes[1], recv_tensor_shapes[2])
+    return (recv_tensor_shapes[1], int(recv_tensor_shapes[0] / get_data_parallel_world_size()), recv_tensor_shapes[2])
 
 
 def recv_forward(tensor_shapes: Union[tuple, list],
@@ -1059,7 +1102,8 @@ def send_backward_recv_forward(input_grads: Union[Tensor, list],
     return input_tensors
 
 
-def get_micro_input(i, micro_batch_size, model, wrap_with_ddp, *input_data_tuple, **input_data_dict):
+def get_micro_input(i, micro_batch_size, model, wrap_with_ddp,
+                    *input_data_tuple, heterogeneous_pipeline=False, **input_data_dict):
     """ Get current micro batch from data inputs """
     # get model construct func input attr
     if wrap_with_ddp:
@@ -1071,6 +1115,12 @@ def get_micro_input(i, micro_batch_size, model, wrap_with_ddp, *input_data_tuple
     # get current slice start and end idx
     current_micro_begin = micro_batch_size * i
     current_micro_end = micro_batch_size * (i + 1)
+
+    if heterogeneous_pipeline:
+        dp_rank = get_data_parallel_rank()
+        current_micro_begin = int(current_micro_begin + micro_batch_size / get_data_parallel_world_size() * dp_rank)
+        current_micro_end = int(current_micro_end - micro_batch_size / get_data_parallel_world_size() \
+                                * (get_data_parallel_world_size() - 1 - dp_rank))
 
     if input_data_tuple:
         for idx, input_tensor in enumerate(input_data_tuple):
@@ -1088,7 +1138,8 @@ def get_micro_input(i, micro_batch_size, model, wrap_with_ddp, *input_data_tuple
     return tuple(micro_inputs)
 
 
-def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False):
+def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False,
+                               heterogeneous_pipeline=False, pipeline_stage_device=None):
     """ Reduce share embedding grads in embedding comm group """
     if is_rank_in_embedding_group(ignore_virtual=True):
         # get share weight name
@@ -1113,7 +1164,8 @@ def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False):
                                f"But got a couple of share weights: {shared_weight_name_list}")
 
         # sync for share weight
-        if get_pipeline_model_parallel_world_size() > 1 and share_embeddings_and_output_weights:
+        if get_pipeline_model_parallel_world_size(heterogeneous_pipeline, pipeline_stage_device) > 1 \
+                                                  and share_embeddings_and_output_weights:
             shared_weight_index = []
             weight_grad = None
             for i, name in enumerate(weight_name):
@@ -1134,10 +1186,13 @@ def calculate_loss_and_logits(accumulate_loss,
                               num_microbatches,
                               tokens_nums_list,
                               total_tokens_nums,
-                              calculate_per_token_loss):
+                              calculate_per_token_loss,
+                              heterogeneous_pipeline=False,
+                              pipeline_stage_device=None):
     """ calculate loss and logits"""
     total_loss = Tensor(0.0, mstype.float32)
-    if is_pipeline_last_stage(ignore_virtual=True):
+    if is_pipeline_last_stage(ignore_virtual=True, heterogeneous_pipeline=heterogeneous_pipeline,
+                              pipeline_stage_device=pipeline_stage_device):
         # calculate final loss
         if not accumulate_loss:
             accumulate_loss = total_loss

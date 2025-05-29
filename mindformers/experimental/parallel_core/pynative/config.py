@@ -922,6 +922,8 @@ class ModelParallelConfig(BaseConfig):
             recompute: str = None,
             select_recompute: str = None,
             select_comm_recompute: str = None,
+            heterogeneous_pipeline: bool = False,
+            pipeline_stage_device: list = None,
             **kwargs,
     ):
         super().__init__()
@@ -942,6 +944,8 @@ class ModelParallelConfig(BaseConfig):
         self.deterministic_mode = deterministic_mode
         self.num_layer_list = num_layer_list
         self.recompute_config = recompute_config if recompute_config is not None else {}
+        self.heterogeneous_pipeline = heterogeneous_pipeline
+        self.pipeline_stage_device = pipeline_stage_device
         if recompute is not None:
             self.recompute_config['recompute'] = list(ast.literal_eval(recompute))
         if select_recompute is not None:
@@ -957,7 +961,7 @@ class ModelParallelConfig(BaseConfig):
 @ModelParallelConfig.validator("tensor_model_parallel_size")
 def validate_tensor_model_parallel_size(config_instance, tensor_model_parallel_size):
     """Validate tensor_model_parallel_size."""
-    Validator.check_positive_int(tensor_model_parallel_size, "tensor_model_parallel_size")
+    Validator.check_isinstance("tensor_model_parallel_size", tensor_model_parallel_size, (list, int))
     return tensor_model_parallel_size
 
 
@@ -1078,6 +1082,13 @@ def validate_recompute_config(config_instance, recompute_config):
             if value and not isinstance(value, list):
                 raise TypeError(f"Key '{key}' should be list in recompute_config.")
     return recompute_config
+
+
+@ModelParallelConfig.validator("heterogeneous_pipeline")
+def validate_heterogeneous_pipeline(config_instance, heterogeneous_pipeline):
+    """Validate heterogeneous pipeline"""
+    Validator.check_bool(heterogeneous_pipeline, "heterogeneous_pipeline")
+    return heterogeneous_pipeline
 
 
 class DatasetConfig(BaseConfig):
@@ -1557,6 +1568,10 @@ class TrainingConfig(BaseConfig):
             profile_op_time: bool = True,
             profile_offline_analyse: bool = False,
             profile_dynamic_profiler_config_path: str = "",
+            search_parallel: bool = False,
+            search_parallel_data_path: str = "",
+            nnodes: int = 0,
+            nproc_per_node: list = None,
             **kwargs,
     ):
         super().__init__()
@@ -1630,6 +1645,10 @@ class TrainingConfig(BaseConfig):
         self.profile_op_time = profile_op_time
         self.profile_offline_analyse = profile_offline_analyse
         self.profile_dynamic_profiler_config_path = profile_dynamic_profiler_config_path
+        self.search_parallel = search_parallel
+        self.search_parallel_data_path = search_parallel_data_path
+        self.nnodes = nnodes
+        self.nproc_per_node = nproc_per_node
         self.update_attrs(**kwargs)
 
 

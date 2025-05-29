@@ -103,7 +103,6 @@ class Embedding(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import mindspore as ms
@@ -332,7 +331,6 @@ class TransformerLanguageModel(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os
@@ -388,7 +386,10 @@ class TransformerLanguageModel(Module):
 
         self.pre_process = pre_process
         self.post_process = post_process
-        self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
+        self.heterogeneous_pipeline = config.parallel_config.heterogeneous_pipeline
+        self.pipeline_stage_device = config.parallel_config.pipeline_stage_device
+        self.pipeline_parallel = get_pipeline_model_parallel_world_size(self.heterogeneous_pipeline,
+                                                                        self.pipeline_stage_device) > 1
         self.add_encoder = add_encoder
         self.num_tokentypes = num_tokentypes
         self.encoder_attn_mask_type = encoder_attn_mask_type
@@ -629,7 +630,6 @@ def get_language_model(config, num_tokentypes, add_pooler,
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os

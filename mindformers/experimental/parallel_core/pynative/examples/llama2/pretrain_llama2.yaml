@@ -1,0 +1,58 @@
+training_config:
+  seed: 42
+  output_dir: './output'
+  training_iters: 5
+  log_interval: 1
+  eval_interval: 500
+  save_interval: null
+  loss_scale: 4096
+  loss_reduction: "mean"
+  loss_func_kwargs:
+    loss_func_type: "VocabParallelCrossEntropy"
+  best_metric_comparison: "less_equal"
+  eval_metric: "perplexity"
+  wrap_with_ddp: False
+  overlap_grad_reduce: False
+  use_distributed_optimizer: False
+  bucket_size: null
+  bf16: False
+
+parallel_config:
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  context_parallel_size: 1
+  expert_model_parallel_size: 1
+  virtual_pipeline_model_parallel_size: null
+  overlap_p2p_comm: False
+  sequence_parallel: False
+  recv_dtype: "float32" # for pp
+  async_tensor_model_parallel_allreduce: True
+
+llama2_config:
+  model_type: "7B"
+  params_dtype: "float32"
+  embedding_init_dtype: "float32"
+  compute_dtype: "float32"
+  num_layers: 6
+  position_embedding_type: 'rope'
+  fp16_lm_cross_entropy: False
+  untie_embeddings_and_output_weights: True
+  encoder_attn_mask_type: "causal"
+
+dataset_config:
+  batch_size: 4
+  micro_batch_num: 2
+  dataset_dir: './dataset'
+  shuffle: False
+  drop_remainder: True # no pad for pre_training
+  pad_token_id: -1 # no pad for pre_training
+  eos_token_id: 2
+
+optimizer_config:
+  optimizer_type: "mint.AdamW"
+  betas: 
+    - 0.9
+    - 0.95
+  eps: 1.e-8
+  learning_rate: 1.25e-6
+  weight_decay: 1.e-1

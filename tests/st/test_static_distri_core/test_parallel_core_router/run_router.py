@@ -146,6 +146,8 @@ def add_attr_for_pynative(config):
     config.parallel_config.use_cpu_initialization = False
     config.parallel_config.recompute_config = None
     config.parallel_config.expert_model_parallel_size = 1
+    config.parallel_config.heterogeneous_pipeline = False
+    config.parallel_config.pipeline_stage_device = None
     config.use_flash_attention = False
     config.qkv_has_bias = False
     config.bias_init = 'zeros'

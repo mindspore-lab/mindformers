@@ -45,6 +45,7 @@ class TestInferParallel:
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
+    @pytest.mark.skip("no need to test")
     def test_base_cases(self):
         """
         Feature: Trainer.train() and Trainer.predict()

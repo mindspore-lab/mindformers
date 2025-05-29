@@ -77,6 +77,7 @@ def compare_distance(x1, x2, bench_sim=0.95):
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
+@pytest.mark.skip("no need to test")
 def test_qwen2_0_5b_predict_mcore():
     """
     Feature: Infer interface

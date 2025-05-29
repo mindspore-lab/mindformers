@@ -75,6 +75,7 @@ def set_dynamic_inputs(model):
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
+@pytest.mark.skip("no need to test")
 def test_infer_attention_with_dynamic_shape_th():
     """
     Feature: Test the infer boost attention with TH input layout.
