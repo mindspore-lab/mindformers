@@ -390,7 +390,7 @@ class MultiSourceRandomAccessDataset:
                 if self.size - current_samples_sum < sum(self.shuffle_num_list_base):
                     buffer_sizes = self.sample_nums - current_samples
                     current_samples += buffer_sizes
-                    index_buffer = np.repeat(np.arange(self.dataloader_num), buffer_sizes).astype(np.uint8)
+                    index_buffer = np.repeat(np.arange(self.dataloader_num), buffer_sizes).astype(np.int32)
                     random.shuffle(index_buffer)
                     dataloader_index.extend(index_buffer)
                     pbar.update(len(index_buffer))
@@ -399,7 +399,7 @@ class MultiSourceRandomAccessDataset:
 
                 buffer_sizes = np.minimum(self.shuffle_num_list_base, self.sample_nums - current_samples)
                 current_samples += buffer_sizes
-                index_buffer = np.repeat(np.arange(self.dataloader_num), buffer_sizes).astype(np.uint8)
+                index_buffer = np.repeat(np.arange(self.dataloader_num), buffer_sizes).astype(np.int32)
                 random.shuffle(index_buffer)
                 dataloader_index.extend(index_buffer)
                 pbar.update(len(index_buffer))
@@ -416,7 +416,7 @@ class MultiSourceRandomAccessDataset:
                     self.shuffle_num_list_base[over_sampling_index] -= 1
                 self.shuffle_num_list_base[under_sampling_index] += 1
 
-        return np.array(dataloader_index, np.uint8)
+        return np.array(dataloader_index, np.int32)
 
     def _build_seq_dataloader_indices(self):
         cur_dataset_index = 0
@@ -425,7 +425,7 @@ class MultiSourceRandomAccessDataset:
             seq_index = np.ones(shape=(sample_num,), dtype=np.int32) * cur_dataset_index
             cur_dataset_index += 1
             dataloader_index.extend(seq_index)
-        return np.array(dataloader_index, np.uint8)
+        return np.array(dataloader_index, np.int32)
 
     def _build_data_sample_indices(self, dataloader_index):
         data_sample_index = np.zeros(self.size, dtype=np.int32)
