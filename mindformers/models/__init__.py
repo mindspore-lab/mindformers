@@ -49,19 +49,9 @@ from .bert import (
     BertTokenizer,
     BertTokenizerFast
 )
-
 from .deepseek3 import (
     DeepseekV3Config,
     DeepseekV3ForCausalLM
-)
-from .clip import (
-    CLIPConfig,
-    CLIPImageProcessor,
-    CLIPModel,
-    CLIPProcessor,
-    CLIPTextConfig,
-    CLIPTokenizer,
-    CLIPVisionConfig
 )
 from .t5 import (
     MT5ForConditionalGeneration,

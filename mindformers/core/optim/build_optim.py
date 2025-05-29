@@ -16,13 +16,12 @@
 import inspect
 
 from mindspore import nn
-from mindspore.nn.optim import AdaFactor, AdamWeightDecay, SGD, Adagrad, Adam
+from mindspore.nn.optim import AdaFactor, SGD, Adagrad, Adam
 
 from mindformers.core.lr import build_lr
 from mindformers.version_control import check_tft_valid
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.tools import logger
-from .optim import FusedAdamWeightDecay, FP32StateAdamWeightDecay
 
 
 def get_tft_wrapped_cls(class_name, config):
@@ -113,9 +112,6 @@ def register_mf_optim():
     """ register MindFormers builtin optimizer class. """
     # adapt huggingface
     MindFormerRegister.register_cls(
-        AdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="adamw")
-
-    MindFormerRegister.register_cls(
         AdaFactor, module_type=MindFormerModuleType.OPTIMIZER, alias="adafactor")
 
     MindFormerRegister.register_cls(
@@ -126,12 +122,6 @@ def register_mf_optim():
 
     MindFormerRegister.register_cls(
         Adagrad, module_type=MindFormerModuleType.OPTIMIZER, alias="adagrad")
-
-    MindFormerRegister.register_cls(
-        FusedAdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="fused_adamw")
-
-    MindFormerRegister.register_cls(
-        FP32StateAdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="fp32_adamw")
 
 
 register_ms_optim()

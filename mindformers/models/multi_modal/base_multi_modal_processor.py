@@ -25,7 +25,7 @@ import numpy as np
 import mindspore as ms
 from mindspore.dataset import vision
 
-from mindformers.dataset import build_transforms
+from mindformers.dataset.transforms import build_transforms
 from mindformers.dataset.transforms.vision_transforms import BatchPILize, BatchResize, BatchToTensor, BatchNormalize
 from mindformers.models.base_processor import BaseProcessor
 from mindformers.models.image_processing_utils import BaseImageProcessor

@@ -22,10 +22,6 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .build_optim import build_optim
 from .came import Came
-from .optim import (
-    FP32StateAdamWeightDecay,
-    FusedAdamWeightDecay
-)
 from .adamw import AdamW as BasicAdamW
 from .fused_adamw import FusedAdamW
 

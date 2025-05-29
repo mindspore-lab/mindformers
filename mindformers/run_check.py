@@ -32,7 +32,8 @@ from mindspore.dataset import GeneratorDataset
 import mindformers as mf
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
-from mindformers import Trainer, TrainingArguments, AdamW
+from mindformers import Trainer, TrainingArguments
+from mindformers.core.optim.adamw import AdamW
 from mindformers.tools.logger import logger
 
 

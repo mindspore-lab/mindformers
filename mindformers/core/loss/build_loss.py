@@ -38,15 +38,15 @@ def build_loss(
 
     Examples:
         >>> from mindformers.core import build_loss
-        >>> loss_config = {'type': 'L1Loss'}
+        >>> loss_config = {'type': 'CrossEntropyLoss'}
         >>> # use config dict to build loss
         >>> loss_from_config = build_loss(loss_config)
         >>> type(loss_from_config)
-        <class 'mindformers.core.loss.loss.L1Loss'>
+        <class 'mindformers.core.loss.loss.CrossEntropyLoss'>
         >>> # use class name to build loss
-        >>> loss_class_name = build_loss(class_name='L1Loss')
+        >>> loss_class_name = build_loss(class_name='CrossEntropyLoss')
         >>> type(loss_from_config)
-        <class 'mindformers.core.loss.loss.L1Loss'>
+        <class 'mindformers.core.loss.loss.CrossEntropyLoss'>
     """
     if config is None and class_name is None:
         return None
