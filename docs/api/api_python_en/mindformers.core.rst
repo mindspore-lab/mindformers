@@ -45,6 +45,7 @@ Learning Rate
     :template: classtemplate.rst
 
     mindformers.core.ConstantWarmUpLR
+    mindformers.core.ConstantWithCoolDownLR
     mindformers.core.CosineAnnealingLR
     mindformers.core.CosineAnnealingWarmRestarts
     mindformers.core.CosineWithRestartsAndWarmUpLR
