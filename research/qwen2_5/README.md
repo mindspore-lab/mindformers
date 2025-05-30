@@ -120,7 +120,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 #### 模型权重下载
 
-用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`vocab.json`和`merges.txt`文件也在链接中下载。
+用户可以从HuggingFace官方下载预训练权重，`vocab.json`和`merges.txt`文件也在链接中下载。
 
 词表下载链接：[vocab.json](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct/blob/main/vocab.json)和[merges.txt](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct/blob/main/merges.txt)
 
@@ -131,7 +131,28 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 | qwen2_5-32b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2.5-32B) | [Link](https://huggingface.co/Qwen/Qwen2.5-32B-Instruct) |
 | qwen2_5-72b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2.5-72B) | [Link](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) |
 
-#### 模型权重转换
+#### Safetensors格式权重（推荐）
+
+MindFormers 1.5.0及以上版本已支持safetensor格式的权重直接加载及保存，无需转换成ckpt。下文中的[微调](#微调)和[推理](#推理)样例将使用safetensors格式权重运行。
+
+safetensors相关配置项，更多介绍请参考[Safetensors权重使用文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/safetensors.html)：
+
+```yaml
+# 指定加载的权重格式
+load_ckpt_format: 'safetensors'
+# 指定保存的权重格式
+callbacks:
+  - type: CheckpointMonitor
+    checkpoint_format: safetensors
+```
+
+#### Ckpt格式权重
+
+注：MindFormers 1.5.0以下版本仅支持ckpt格式权重，已计划日落。
+
+对于存量ckpt权重文件可通过修改配置项将保存格式改为safetensors后启动训练任务或者通过[格式转换接口](https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore/mindspore.ckpt_to_safetensors.html)，将ckpt格式转为safetensors格式。
+
+##### 模型权重转换
 
 下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
@@ -147,7 +168,7 @@ is_lora:     转换的权重是否是lora
 align_rank:  lora配置中rank的值是否对齐
 ```
 
-#### lora模型权重转换
+##### lora模型权重转换
 
 注：align_rank参数控制lora配置文件参数 'r' 的是否对齐16。Atlas 300V Pro型号机器需要开启对齐。
 
@@ -163,7 +184,7 @@ python convert_weight.py --model qwen2_5 --input_path TORCH_CKPT_DIR --output_pa
 
   以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)
 
-#### 模型权重qkv_concat转换
+##### 模型权重qkv_concat转换
 
 - Qwen2.5系列默认打开qkv_concat参数，使用的权重需经过qkv_concat转换
 
@@ -183,17 +204,18 @@ mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重
 注意事项：
 
 1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
+2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-2. 运行下面的代码需要在`research/qwen2_5`目录下，或者先将`research/qwen2_5`目录所在路径加入到`PYTHONPATH`环境变量中。
-
-以``qwen2_5-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)切分权重。
+以``qwen2_5-7b` 8卡微调为例，执行如下命令进行微调。
 
 1. 主要参数配置参考:
 
 - 基本配置：
 
   ```yaml
-   load_checkpoint: './path/qwen2_5_7b.ckpt' # 权重转换后的文件
+   load_checkpoint: './path/Qwen2_5_7b_Base'     # HuggingFace下载的safetensors权重文件目录
+   load_ckpt_format: 'safetensors'               # 指定加载的权重文件格式为safetensors
+   auto_trans_ckpt: True                         # 加载完整权重时需打开此配置项，开启在线切分功能
    train_dataset: &train_dataset
     data_loader:
       type: MindDataset
@@ -216,6 +238,10 @@ mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重
       model_max_length: 32768
       vocab_file: "./path/vocab.json" # 参考qwen2_5-7b官网下载的词表
       merges_file: "./path/merges.txt" # # 参考qwen2_5-7b官网下载的merge文件
+   #callbacks config
+   callbacks:
+    - type: CheckpointMonitor
+      checkpoint_format: safetensors   # 指定微调后保存的权重文件格式为safetensors
   ```
 
 - 动态shape配置：
@@ -338,18 +364,20 @@ train_dataset: &train_dataset
 注意事项：
 
 1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
-
-2. 运行下面的代码需要在`research/qwen2_5`目录下，或者先将`research/qwen2_5`目录所在路径加入到`PYTHONPATH`环境变量中。
+2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
 ### 基于高阶接口的推理
 
 #### 多卡推理
 
-以`qwen2_5_72b`4卡推理为例，执行如下命令进行推理, 推理前先参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)切分权重。
+以`qwen2_5_72b`4卡推理为例，执行如下命令进行推理。
 
 1. 主要参数配置参考：
 
    ```yaml
+    load_checkpoint: './path/Qwen2_5_72b_instruct' # HuggingFace下载的safetensors权重文件目录
+    load_ckpt_format: 'safetensors'                # 指定加载的权重文件格式为safetensors
+    auto_trans_ckpt: True                          # 加载完整权重时需打开此配置项，开启在线切分功能
    parallel_config:
      data_parallel: 1
      model_parallel: 4
@@ -357,22 +385,23 @@ train_dataset: &train_dataset
      micro_batch_num: 1
      vocab_emb_dp: False
      gradient_aggregation_group: 4
+   processor:
+     tokenizer:
+       vocab_file: "/path/to/vocab.json"          #HuggingFace下载的vocab.json文件
+       merges_file: "/path/to/merges.txt"         #HuggingFace下载的merges.txt文件
    ```
 
 2. 启动多卡推理：
 
    ```shell
-   cd research/qwen2_5
    # 推理命令中参数会覆盖yaml文件中的相同参数
-   bash ../../scripts/msrun_launcher.sh "run_qwen2_5.py \
-    --config predict_qwen2_5_72b_instruct.yaml \
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config research/qwen2_5/qwen2_5_72b/predict_qwen2_5_72b_instruct.yaml \
     --load_checkpoint /path/model_dir \
-    --vocab_file /path/vocab.json \
-    --merges_file /path/merges.txt \
+    --register_path research/qwen2_5 \
     --run_mode predict \
     --use_parallel True \
-    --auto_trans_ckpt False \
+    --auto_trans_ckpt True \
     --predict_data 帮助我制定一份去上海的旅游攻略" 4
-
    # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
    ```
