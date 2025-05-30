@@ -32,7 +32,7 @@ from mindformers import build_context, MindFormerConfig, build_parallel_config, 
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
-from mindformers.experimental.infer.core.moe import SharedParallelMLP
+from research.deepseek3.moe import SharedParallelMLP
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 

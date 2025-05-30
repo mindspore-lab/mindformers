@@ -113,6 +113,8 @@ class MoEConfig:
             use_gmm (bool): Whether to enable MOVE3 module, which uses gmm op instead of bmm. Default: False.
             enable_gmm_safe_tokens (bool): Whether to pad safe token. If use MOVE3 module,
                 when an expert accept 0 token, gmm will report error. Default: False.
+            dispatch_global_max_bs (int): In decode of infer, it should be 0 or global max batch_size * seq_len(1)
+                for dispatch ops and combine ops. Default: 0.
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -135,7 +137,7 @@ class MoEConfig:
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
                  topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
                  expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False,
-                 use_fused_ops_permute=False, callback_moe_droprate=False):
+                 use_fused_ops_permute=False, callback_moe_droprate=False, dispatch_global_max_bs=0):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -207,6 +209,7 @@ class MoEConfig:
         self.enable_gmm_safe_tokens = enable_gmm_safe_tokens
         self.use_fused_ops_permute = use_fused_ops_permute
         self.callback_moe_droprate = callback_moe_droprate
+        self.dispatch_global_max_bs = dispatch_global_max_bs
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())

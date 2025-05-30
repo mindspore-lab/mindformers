@@ -31,9 +31,11 @@ class AttentionNet(nn.Cell):
         self.attention = ParallelAttention(config=config, layer_number=0)
         self.is_first_iteration = False
 
-    def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None):
+    def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
+                  attn_mask=None, q_seq_lens=None):
         output = self.attention(x, batch_valid_length, block_tables, slot_mapping, freqs_cis=freqs_cis,
-                                attn_mask=attn_mask, alibi_mask=None, prefix_keys_values=None, encoder_output=None,)
+                                attn_mask=attn_mask, alibi_mask=None, prefix_keys_values=None,
+                                encoder_output=None, q_seq_lens=q_seq_lens)
         return output
 
 
@@ -58,10 +60,10 @@ class TransformerLayerNet(nn.Cell):
                                               layer_number=1)
 
     def construct(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None):
+                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
         output = self.layer(x, freqs_cis=freqs_cis, mask=mask, batch_valid_length=batch_valid_length,
                             block_tables=block_tables, slot_mapping=slot_mapping,
-                            prefix_keys_values=prefix_keys_values)
+                            prefix_keys_values=prefix_keys_values, q_seq_lens=q_seq_lens)
         return output
 
 
@@ -73,10 +75,11 @@ class TransformerNet(nn.Cell):
         self.model = ParallelTransformer(config=config)
 
     def construct(self, tokens, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
         output = self.model(tokens, batch_valid_length=batch_valid_length, batch_index=batch_index,
                             zactivate_len=zactivate_len, block_tables=block_tables,
-                            slot_mapping=slot_mapping, prefix_keys_values=prefix_keys_values)
+                            slot_mapping=slot_mapping, prefix_keys_values=prefix_keys_values,
+                            q_seq_lens=q_seq_lens)
         return output
 
 

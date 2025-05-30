@@ -298,7 +298,7 @@ class RowParallelLinear(nn.Cell):
             param_init_type=mstype.float32,
             compute_dtype=mstype.float16,
             expert_num=1,
-            moe_delay_allreduce=False,
+            delay_allreduce=False,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -323,11 +323,17 @@ class RowParallelLinear(nn.Cell):
         self.expert_num = expert_num
         self.is_expert = is_expert
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
-        self.moe_delay_allreduce = moe_delay_allreduce
+        self.delay_allreduce = delay_allreduce
 
         if self.sequence_parallel and not self.input_is_parallel:
             raise RuntimeError(
                 "To enable `sequence_arallel`, `input_is_parallel` must be `True`"
+            )
+
+        if self.delay_allreduce and self.has_bias:
+            raise RuntimeError(
+                "In RowParallelLinear, `delay_allreduce` and `has_bias` cannot be enabled simultaneously, "
+                "otherwise the accuracy will be incorrect"
             )
 
         weight_shape = (self.output_size, self.input_size_per_partition) if self.transpose_b else (
@@ -402,7 +408,7 @@ class RowParallelLinear(nn.Cell):
             output = self.reduce_scatter_to_sp_region(output_parallel)
             output = output.swapaxes(0, 1).contiguous()
         else:
-            if self.moe_delay_allreduce or self.skip_bias_add:
+            if self.delay_allreduce or self.skip_bias_add:
                 output = output_parallel
             else:
                 output = self.reduce_from_mp_region(output_parallel)

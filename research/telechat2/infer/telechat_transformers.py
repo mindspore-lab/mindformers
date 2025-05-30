@@ -22,11 +22,11 @@ from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.infer.core.transformer import \
     ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
-from mindformers.experimental.infer.core.moe import ParallelMoE, RoutedParallelMLP
 from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
+from research.deepseek3.moe import ParallelMoE, RoutedParallelMLP
 
 
 class TelechatParallelMoE(ParallelMoE):

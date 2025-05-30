@@ -14,10 +14,10 @@ trainer:
 
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
-  model_parallel: 16
+  data_parallel: 4
+  model_parallel: 4
   pipeline_stage: 1
-  expert_parallel: 1
+  expert_parallel: 16
   vocab_emb_dp: False
 
 # mindspore context init config
@@ -85,7 +85,7 @@ model:
     do_sample: False
     is_dynamic: True
     qkv_concat: False
-    ffn_concat: False
+    ffn_concat: True
     quantization_config:
       quant_method: 'ptq'
       weight_dtype: 'int8'

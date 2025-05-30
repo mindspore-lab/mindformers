@@ -27,6 +27,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
+from mindspore.communication import get_rank
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -143,6 +144,9 @@ class GenerationMixin:
                                                                             batch_valid_length,
                                                                             slot_mapping,
                                                                             model_inputs)
+        return model_inputs
+
+    def update_padding_index_to_inputs(self, model_inputs):
         return model_inputs
 
     def add_flags_custom(self, is_first_iteration):
@@ -339,7 +343,8 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None):
+    def _incremental_infer(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None,
+                           need_flatten=False):
         """model forward for incremental infer."""
         # Claim the first graph
         if key_cache is not None:
@@ -352,6 +357,9 @@ class GenerationMixin:
             if self._exec_add_flags:
                 self.add_flags_custom(is_first_iteration=True)
             self.detailed_latency.start_predict_timer()
+            if need_flatten:
+                model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
+                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape(-1)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -370,6 +378,9 @@ class GenerationMixin:
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
             self.detailed_latency.start_predict_timer()
+            if need_flatten:
+                model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
+                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape(-1)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -653,6 +664,29 @@ class GenerationMixin:
 
         return sequence_outputs["sequences"]
 
+    def split_input_ids(self, input_ids):
+        """split input in dp region."""
+        data_parallel = self.config.parallel_config.data_parallel
+        model_parallel = self.config.parallel_config.model_parallel
+        batch = input_ids.shape[0]
+
+        if batch % data_parallel != 0:
+            logger.warning('batch size {batch} can not be divisible by data_parallel {data_parallel}, '
+                           'and would not split.')
+            return input_ids
+
+        split_size = (batch // data_parallel)
+        global_rank_id = get_rank()
+        dp_rank_id = global_rank_id // model_parallel
+        start = dp_rank_id * split_size
+        stop = (dp_rank_id+1) * split_size
+        logger.info(f"The batch is: {batch}, and the split_size is: {split_size}, "
+                    f"and the global_rank_id is: {global_rank_id}, and the dp_rank_id is: {dp_rank_id} "
+                    f"and start is: {start}, and stop is: {stop}")
+
+        input_ids = input_ids[start:stop]
+        return input_ids
+
     def generate(self,
                  input_ids: Optional[Union[List[int], List[List[int]]]],
                  generation_config: Optional[GenerationConfig] = None,
@@ -766,6 +800,8 @@ class GenerationMixin:
             raise ValueError(str(e) + " Please check your inputs of model.generate(),"
                                       " and make sure the inputs are padded to same length.") from e
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
+
+        input_ids = self.split_input_ids(input_ids)
         batch_size = input_ids.shape[0]
 
         if seed is not None:
@@ -1032,7 +1068,6 @@ class GenerationMixin:
                 for i in range(batch_size):
                     if is_finished[i]:
                         continue
-
                     input_ids[i, valid_length_each_example[i]] = target_list[i]
 
                     if self.config.is_encoder_decoder:
@@ -1084,7 +1119,6 @@ class GenerationMixin:
                 logits=raw_logits
             )
             return result
-
         return output_ids
 
     def infer(self,
@@ -1266,12 +1300,20 @@ class GenerationMixin:
                     model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
                 if slot_mapping is not None and "slot_mapping" not in model_inputs:
                     model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
+
+                model_inputs = self.update_padding_index_to_inputs(model_inputs)
+
+                need_flatten = False
+                if "need_flatten" in model_inputs:
+                    need_flatten = model_inputs["need_flatten"]
+                    model_inputs.pop("need_flatten")
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
                     current_index=current_index,
                     key_cache=key_cache,
-                    value_cache=value_cache
+                    value_cache=value_cache,
+                    need_flatten=need_flatten
                 )
             else:
                 if self._pre_set_phase:
