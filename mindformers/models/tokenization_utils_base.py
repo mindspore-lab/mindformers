@@ -37,8 +37,11 @@ from ..tools.generic import add_model_info_to_auto_map
 from ..utils.import_utils import is_tokenizers_available
 from ..tools.register import MindFormerConfig
 from .build_tokenizer import build_tokenizer
-from ..mindformer_book import MindFormerBook
+from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.hub import is_offline_mode, cached_file, extract_commit_hash, custom_object_save, PushToHubMixin
+
+
+TOKENIZER_URL_SUPPORT_LIST = MindFormerBook.get_tokenizer_url_support_list()
 
 
 def add_end_docstrings(*docstr):
@@ -112,7 +115,7 @@ def is_experimental_mode(path):
         if not yaml_list and json_list:
             experimental_mode = True
     else:
-        if is_exist:
+        if path not in TOKENIZER_URL_SUPPORT_LIST or is_exist:
             experimental_mode = True
 
     return experimental_mode
@@ -1574,6 +1577,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
     _model_type = 0
 
     _model_name = 1
+
+    _support_list = TOKENIZER_URL_SUPPORT_LIST
 
     def __init__(self, **kwargs):
         super().__init__(self)
@@ -4221,12 +4226,13 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
     @classmethod
     def show_support_list(cls):
         """show_support_list method"""
-        logger.info("you can get support list in mindformers/models.")
+        logger.info("support list of %s is:", cls.__name__)
+        print_path_or_list(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
         """get_support_list method"""
-        logger.info("you can get support list in mindformers/models.")
+        return cls._support_list
 
 
 def get_fast_tokenizer_file(tokenization_files: List[str]) -> str:
