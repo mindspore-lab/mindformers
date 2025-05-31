@@ -25,7 +25,7 @@ import numpy as np
 
 from mindspore.mindrecord import FileWriter
 from mindformers.tools.logger import logger
-from mindformers import AutoTokenizer
+from mindformers import AutoTokenizer, MindFormerBook
 
 
 def create_instance(ds_name, tokenizer, text, max_length):
@@ -68,6 +68,7 @@ def write_instance_to_file(writer, instance):
 
 def main():
     dataset_support_list = ['cola', 'sst_2', 'ag_news', 'imdb']
+    tokenizer_support_list = list(MindFormerBook.get_tokenizer_url_support_list().keys())
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_name",
@@ -79,7 +80,8 @@ def main():
                         type=str,
                         default="gpt2",
                         help="Tokenizer type, can be set to any tokenizer "
-                             "if its relevant model supports prompt text classification. ")
+                             "if its relevant model supports prompt text classification. ",
+                        choices=tokenizer_support_list)
     parser.add_argument("--data_columns", type=list, default=["input_ids", "labels", "attention_mask"],
                         help="The data columns which should be saved in mindrecord. This can refer used yaml file. ")
     parser.add_argument("--input_file", type=str, required=True, help='Input raw text file. ')

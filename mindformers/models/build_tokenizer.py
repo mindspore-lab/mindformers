@@ -17,6 +17,7 @@
 import os.path
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+from ..mindformer_book import MindFormerBook
 
 
 def check_and_add_vocab_file_path(config, **kwargs):
@@ -28,8 +29,10 @@ def check_and_add_vocab_file_path(config, **kwargs):
     # If the tokenizer does not require the vocab_file, just stop
     if not dynamic_class.vocab_files_names:
         return
+    name_or_path = class_name
     path = kwargs.pop('lib_path', None)
-    if path:
+    remote_tokenizer_support_list = MindFormerBook.get_tokenizer_url_support_list().keys()
+    if name_or_path not in remote_tokenizer_support_list and path:
         read_vocab_file_dict, read_tokenizer_file_dict = \
             dynamic_class.read_files_according_specific_by_tokenizer(name_or_path=path)
         config.update(read_vocab_file_dict)

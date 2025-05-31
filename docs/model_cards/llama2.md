@@ -193,15 +193,15 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
 
 #### 模型权重下载
 
-用户可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
+MindFormers提供已经转换完成的预训练权重、词表文件用于预训练、微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
-词表下载链接：[tokenizer.model](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+词表下载链接：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/tokenizer.model)
 
-| 模型名称          |                      HuggingFace权重                       |
-|:----------------|:--------------------------------------------------------:|
-| llama2-7b       | [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf)  |
-| llama2-13b      | [Link](https://huggingface.co/meta-llama/Llama-2-13b-hf) |
-| llama2-70b      | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) |
+| 模型名称            |                                                 MindSpore权重                                                  |                      HuggingFace权重                       |
+|:----------------|:------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------:|
+| llama2-7b       |    [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2_7b.ckpt)    | [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf)  |
+| llama2-13b      | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2-13b-fp16.ckpt) | [Link](https://huggingface.co/meta-llama/Llama-2-13b-hf) |
+| llama2-70b      |                                                      /                                                       | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) |
 
 > 注：Llama2的所有权重都需要通过向Meta[提交申请](https://ai.meta.com/resources/models-and-libraries/llama-downloads)来获取，如有需要请自行申请。
 
