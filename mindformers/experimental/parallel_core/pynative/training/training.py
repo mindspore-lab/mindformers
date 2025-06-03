@@ -44,7 +44,8 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_data_modulo_expert_parallel_group,
     get_expert_model_parallel_world_size,
     get_pipeline_model_parallel_rank,
-    get_tensor_model_parallel_rank
+    get_tensor_model_parallel_rank,
+    get_hetero_dp_world_size
 )
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallelConfig, \
     DistributedDataParallel
@@ -132,6 +133,9 @@ class ParallelTrainingReducer:
         self.expert_params = ["mlp.experts.local_experts"]
 
         self.batch_reduction = training_config.loss_reduction
+        self.heterogeneous_pipeline = training_config.parallel_config.heterogeneous_pipeline
+        self.pipeline_stage_device = training_config.parallel_config.pipeline_stage_device
+        self.tensor_model_parallel_size = training_config.parallel_config.tensor_model_parallel_size
         # dp
         if get_data_parallel_world_size() > 1:
             self.enable_loss_reduce["dp"] = True
@@ -141,15 +145,17 @@ class ParallelTrainingReducer:
             else:
                 self.enable_grad_flag_reduce["dp"] = True
 
+        if self.heterogeneous_pipeline and get_hetero_dp_world_size(self.pipeline_stage_device,
+                                                                    self.tensor_model_parallel_size) > 1:
+            self.enable_grad_reduce["dp"] = True
+
         # tp / sp
         if get_tensor_model_parallel_world_size() > 1:
             self.enable_grad_flag_reduce["tp"] = True
             if training_config.parallel_config.sequence_parallel:
                 self.enable_grad_reduce["tp"] = True
                 self.sp_reduce_filter = [
-                    any([sp_param in param.name
-                         for sp_param in self.sp_reduce_params])
-                    for param in params
+                    any([sp_param in param.name for sp_param in self.sp_reduce_params]) for param in params
                 ]
 
         # pp
@@ -160,9 +166,7 @@ class ParallelTrainingReducer:
         if get_expert_model_parallel_world_size() > 1:
             self.enable_grad_reduce["ep-dp"] = True
             self.expert_filter = [
-                any([ep_param in param.name
-                     for ep_param in self.expert_params])
-                for param in params
+                any([ep_param in param.name for ep_param in self.expert_params]) for param in params
             ]
 
     def get_reduce_group(self, idx):
@@ -275,7 +279,8 @@ def get_model(model_provider_func, training_config):
             not training_config.accumulate_allreduce_grads_in_fp32:
         logger.warning("Using bf16 with ddp, automatically set 'accumulate_allreduce_grads_in_fp32=True'.")
         training_config.accumulate_allreduce_grads_in_fp32 = True
-    if get_pipeline_model_parallel_world_size() > 1:
+    if get_pipeline_model_parallel_world_size(heterogeneous_pipeline=parallel_config.heterogeneous_pipeline,
+                                              pipeline_stage_device=parallel_config.pipeline_stage_device) > 1:
         if parallel_config.virtual_pipeline_model_parallel_size is not None and \
            parallel_config.virtual_pipeline_model_parallel_size > 1:
             for i in range(parallel_config.virtual_pipeline_model_parallel_size):
@@ -287,8 +292,10 @@ def get_model(model_provider_func, training_config):
                 rename_set_hidden_states_parameter(this_model, i)
                 model.append(this_model)
         else:
-            pre_process = is_pipeline_first_stage()
-            post_process = is_pipeline_last_stage()
+            pre_process = is_pipeline_first_stage(heterogeneous_pipeline=parallel_config.heterogeneous_pipeline,
+                                                  pipeline_stage_device=parallel_config.pipeline_stage_device)
+            post_process = is_pipeline_last_stage(heterogeneous_pipeline=parallel_config.heterogeneous_pipeline,
+                                                  pipeline_stage_device=parallel_config.pipeline_stage_device)
             this_model = model_provider_func(pre_process=pre_process,
                                              post_process=post_process)
             # wrap with PP cell if pipeline parallelism is used
@@ -339,9 +346,12 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
     micro_batch_num = training_config.dataset_config.micro_batch_num
     micro_batch_size = training_config.dataset_config.batch_size
     data_layout = model_config.dataset_config.data_layout
+    heterogeneous_pipeline = model_config.parallel_config.heterogeneous_pipeline
+    pipeline_stage_device = model_config.parallel_config.pipeline_stage_device
 
     # no pipeline parallel
-    if get_pipeline_model_parallel_world_size() == 1:
+    if get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                              pipeline_stage_device=pipeline_stage_device) == 1:
 
         def forward_with_loss_scale(*inputs_tuple, loss_scale=None, **inputs_dict):
             logits = None
@@ -396,8 +406,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
                 # slice inputs over batch size dimension
                 inputs_tuple_micro = [
-                    input_data[idx * micro_batch_size: (idx + 1) * micro_batch_size]
-                    for input_data in inputs_tuple
+                    input_data[idx * micro_batch_size: (idx + 1) * micro_batch_size] for input_data in inputs_tuple
                 ]
                 inputs_dict_micro = {
                     key: value[idx * micro_batch_size: (idx + 1) * micro_batch_size]
@@ -819,7 +828,10 @@ def train(
         and training_config.eval_metric is not None
     )
     save_ckpt_flag = training_config.save_interval is not None and training_config.training_iters != 0
-    correct_metric_flag = is_pipeline_last_stage() # not use pp or pp last_stage
+    heterogeneous_pipeline = training_config.parallel_config.heterogeneous_pipeline
+    pipeline_stage_device = training_config.parallel_config.pipeline_stage_device
+    correct_metric_flag = is_pipeline_last_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                 pipeline_stage_device=pipeline_stage_device) # not use pp or pp last_stage
 
     if evaluation_flag:
         if training_config.best_metric_comparison == "less_equal":

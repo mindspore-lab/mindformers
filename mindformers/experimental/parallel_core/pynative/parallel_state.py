@@ -36,6 +36,9 @@ valid_groups = normal_groups + special_groups
 # A list of global ranks for pipeline group
 _PIPELINE_GLOBAL_RANKS = None
 
+# A list of global ranks for tensor group
+_TENSOR_GLOBAL_RANKS = None
+
 
 class GroupInfo:
     """ Comm Group Info """
@@ -65,16 +68,28 @@ def get_group_info(mode):
     return group_info_maps[mode]
 
 
+def generate_hetero_group_info(pipeline_stage_device=None):
+    if pipeline_stage_device is not None:
+        for i in range(len(pipeline_stage_device) - 1):
+            fwd_mode = f"hetero_pp_fwd_{i}_{i+1}"
+            valid_groups.append(fwd_mode)
+            bwd_mode = f"hetero_pp_bwd_{i}_{i+1}"
+            valid_groups.append(bwd_mode)
+
+
 class CreateCommGroups():
     '''Generate ranks for each parallel type.'''
 
-    def __init__(self, tp, ep, dp, pp, cp, order):
+    def __init__(self, tp, ep, dp, pp, cp, order, heterogeneous_pipeline=False, pipeline_stage_device=None):
         self.tp = tp
         self.ep = ep
         self.dp = dp
         self.pp = pp
         self.cp = cp
-        self.world_size = tp * dp * pp * cp
+        self.heterogeneous_pipeline = heterogeneous_pipeline
+        self.pipeline_stage_device = pipeline_stage_device
+        if not heterogeneous_pipeline:
+            self.world_size = tp * dp * pp * cp
 
         self.name_to_size = {
             "tp": self.tp,
@@ -101,18 +116,18 @@ class CreateCommGroups():
         self.ordered_size_wo_ep = []
         self.ordered_size_w_ep = []
 
-        for token in order.split('-'):
-            if token == 'dp':
-                self.ordered_size_w_ep.append(self.dp // self.ep)
-                self.ordered_size_wo_ep.append(self.dp)
-            elif token == 'ep':
-                self.ordered_size_w_ep.append(self.ep)
-            else:
-                self.ordered_size_w_ep.append(self.name_to_size.get(token))
-                self.ordered_size_wo_ep.append(self.name_to_size.get(token))
+        if not self.heterogeneous_pipeline:
+            for token in order.split('-'):
+                if token == 'dp':
+                    self.ordered_size_w_ep.append(self.dp // self.ep)
+                    self.ordered_size_wo_ep.append(self.dp)
+                elif token == 'ep':
+                    self.ordered_size_w_ep.append(self.ep)
+                else:
+                    self.ordered_size_w_ep.append(self.name_to_size.get(token))
+                    self.ordered_size_wo_ep.append(self.name_to_size.get(token))
 
-    @staticmethod
-    def get_mask(order, token):
+    def get_mask(self, order, token):
         ordered_token = order.split('-')
         token = token.split('-')
         mask = [False] * len(ordered_token)
@@ -133,8 +148,13 @@ class CreateCommGroups():
         else:
             parallel_size = self.ordered_size_wo_ep
             order = self.order_wo_ep
+        if self.heterogeneous_pipeline and 'pp' in token:
+            token = 'tp-dp'
         mask = self.get_mask(order, token)
-        ranks = self._dispatch_comm_ranks(self.world_size, parallel_size, mask)
+        if self.heterogeneous_pipeline:
+            ranks = self._dispatch_heterogeneous_comm_ranks(self.pp, self.tp, self.dp, mask)
+        else:
+            ranks = self._dispatch_comm_ranks(self.world_size, parallel_size, mask)
         return ranks
 
     def init_group(self, input_mode, independent_ep=False):
@@ -151,6 +171,49 @@ class CreateCommGroups():
                 comm_group.group = group
                 comm_group.global_ranks = ranks
                 comm_group.world_size = len(ranks)
+
+    def init_hetero_pp_group(self, input_mode, cur_stage_send=True):
+        """Create hetero send/recv forward and backward group.
+        input_mode: 'hetero_pp_fwd' or 'hetero_pp_bwd'
+        cur_stage_send: True means that the output is send by cur stage, False means that the
+                        output is received by prev/next stage. default is True
+        """
+        cur_pp_stage = get_pipeline_model_parallel_rank(self.heterogeneous_pipeline, self.pipeline_stage_device)
+        ranks = []
+        if cur_stage_send: # currend stage send forward or backward
+            ranks.append(get_rank())
+            if input_mode == "hetero_pp_fwd":
+                mode = input_mode + f'_{cur_pp_stage}_{cur_pp_stage + 1}'
+                stage_offset = sum(self.pipeline_stage_device[:cur_pp_stage + 1])
+                stage_device = self.pipeline_stage_device[cur_pp_stage + 1]
+                stage_tensor_parallel_size = self.tp[cur_pp_stage + 1]
+            elif input_mode == "hetero_pp_bwd":
+                mode = input_mode + f'_{cur_pp_stage - 1}_{cur_pp_stage}'
+                stage_offset = sum(self.pipeline_stage_device[:cur_pp_stage - 1])
+                stage_device = self.pipeline_stage_device[cur_pp_stage - 1]
+                stage_tensor_parallel_size = self.tp[cur_pp_stage - 1]
+        else:
+            if input_mode == "hetero_pp_fwd":
+                mode = input_mode + f'_{cur_pp_stage - 1}_{cur_pp_stage}'
+                send_rank = sum(self.pipeline_stage_device[:cur_pp_stage - 1])
+            elif input_mode == "hetero_pp_bwd":
+                mode = input_mode + f'_{cur_pp_stage}_{cur_pp_stage + 1}'
+                send_rank = sum(self.pipeline_stage_device[:cur_pp_stage + 1])
+            ranks.append(send_rank)
+            stage_offset = sum(self.pipeline_stage_device[:cur_pp_stage])
+            stage_device = self.pipeline_stage_device[cur_pp_stage]
+            stage_tensor_parallel_size = self.tp[cur_pp_stage]
+
+        for i in range(stage_device):
+            if i % stage_tensor_parallel_size == 0:
+                ranks.append(stage_offset + i)
+
+        comm_group = get_group_info(mode)
+        if comm_group.group is not None:
+            raise RuntimeError(f'{mode} parallel group is already initialized')
+        comm_group.group = mode
+        comm_group.global_ranks = ranks
+        comm_group.world_size = len(ranks)
 
     def init_embedding_group(self, pipeline_model_parallel_split_rank):
         '''Init pipeline parallel group.'''
@@ -188,8 +251,7 @@ class CreateCommGroups():
                 position_embedding_group.group = group
                 position_embedding_group.global_ranks = position_embedding_ranks
 
-    @staticmethod
-    def _dispatch_comm_ranks(world_size, parallel_size, mask):
+    def _dispatch_comm_ranks(self, world_size, parallel_size, mask):
         """dispatch comm ranks"""
         def prefix_product(a, init=1):
             r = [init]
@@ -232,6 +294,17 @@ class CreateCommGroups():
             ranks.append(rank)
         return ranks
 
+    def _dispatch_heterogeneous_comm_ranks(self, pp, tp, dp, mask):
+        ranks = []
+        for i, p in enumerate(pp):
+            offset = sum(pp[0:i])
+            parallel_size = [tp[i], self.cp, dp[i], 1] # tp,cp,dp,pp
+            stage_ranks = self._dispatch_comm_ranks(p, parallel_size, mask)
+            stage_ranks = [[offset + rank for rank in stage_rank] for stage_rank in stage_ranks]
+            for rank in stage_ranks:
+                ranks.append(rank)
+        return ranks
+
 
 # pylint: disable=W0613
 def initialize_model_parallel(tensor_model_parallel_size=1,
@@ -242,6 +315,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
                               expert_model_parallel_size=1,
                               order="tp-cp-ep-dp-pp",
                               communicator_config_path=None,
+                              pp_stage_device=None,
+                              heterogeneous_pipeline=False,
                               **kwargs):
     """Initialize model data parallel groups.
     """
@@ -253,33 +328,62 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
 
     minimum_world_size = (tensor_model_parallel_size * pipeline_model_parallel_size * context_parallel_size)
 
-    if world_size % minimum_world_size != 0:
-        raise RuntimeError(
-            f"world_size ({world_size}) is not divisible by tensor_model_parallel_size "
-            f"({tensor_model_parallel_size}) x pipeline_model_parallel_size ({pipeline_model_parallel_size}) "
-            f"x context_parallel_size ({context_parallel_size})"
-        )
+    if heterogeneous_pipeline:
+        assert len(pp_stage_device) == pipeline_model_parallel_size, \
+            "The len of pipeline stage device list must be equal to pipeline model parallel size"
+        assert sum(pp_stage_device) == world_size, "Total number of NPUs used across all stages \
+                                                must be equal to world size"
+        if not tensor_model_parallel_size:
+            tensor_model_parallel_size = [1] * pipeline_model_parallel_size
+        assert (pipeline_model_parallel_size == len(tensor_model_parallel_size)), "The len of \
+            tensor model parallel size must be equal to pipeline model parallel size"
+        assert all(device >= 1 for device in pp_stage_device), "each pipeline stage device must >= 1"
+        assert all(tp >= 1 for tp in tensor_model_parallel_size), "each tensor model parallel size must >= 1"
+        assert all(pp_stage_device[i] % tensor_model_parallel_size[i] == 0
+                   for i in range(pipeline_model_parallel_size)), \
+                "pipeline stage device must div tensor model parallel size"
 
-    data_parallel_size = world_size // minimum_world_size
+        generate_hetero_group_info(pp_stage_device)
+        data_parallel_size = [int(pp_stage_device[i] / tensor_model_parallel_size[i])
+                              for i in range(pipeline_model_parallel_size)]
+        rank_generator = CreateCommGroups(tp=tensor_model_parallel_size, pp=pp_stage_device, \
+                                        dp=data_parallel_size, ep=1, cp=1, order=order, \
+                                        heterogeneous_pipeline=heterogeneous_pipeline, \
+                                        pipeline_stage_device=pp_stage_device)
+    else:
 
-    if data_parallel_size % expert_model_parallel_size != 0:
-        raise RuntimeError(
-            f"data_parallel_size ({data_parallel_size}) is not divisible by expert_model_parallel_size "
-        )
-
-    if expert_model_parallel_size > 1 and context_parallel_size > 1:
-        raise RuntimeError(
-            f"combination of expert model prallellism and context parallelism is not supported"
-        )
-
-    if virtual_pipeline_model_parallel_size is not None:
-        if pipeline_model_parallel_size < 2:
+        if world_size % minimum_world_size != 0:
             raise RuntimeError(
-                "pipeline-model-parallel size should be greater than 1 with interleaved schedule"
+                f"world_size ({world_size}) is not divisible by tensor_model_parallel_size "
+                f"({tensor_model_parallel_size}) x pipeline_model_parallel_size ({pipeline_model_parallel_size}) "
+                f"x context_parallel_size ({context_parallel_size})"
             )
-        vpp_group = get_group_info('vpp')
-        vpp_group.rank = 0
-        vpp_group.world_size = virtual_pipeline_model_parallel_size
+
+        data_parallel_size = world_size // minimum_world_size
+
+        if data_parallel_size % expert_model_parallel_size != 0:
+            raise RuntimeError(
+                f"data_parallel_size ({data_parallel_size}) is not divisible by expert_model_parallel_size "
+            )
+
+        if expert_model_parallel_size > 1 and context_parallel_size > 1:
+            raise RuntimeError(
+                f"combination of expert model prallellism and context parallelism is not supported"
+            )
+
+        if virtual_pipeline_model_parallel_size is not None:
+            if pipeline_model_parallel_size < 2:
+                raise RuntimeError(
+                    "pipeline-model-parallel size should be greater than 1 with interleaved schedule"
+                )
+            vpp_group = get_group_info('vpp')
+            vpp_group.rank = 0
+            vpp_group.world_size = virtual_pipeline_model_parallel_size
+
+        rank_generator = CreateCommGroups(tp=tensor_model_parallel_size, \
+                                    ep=expert_model_parallel_size, \
+                                    dp=data_parallel_size, pp=pipeline_model_parallel_size, \
+                                    cp=context_parallel_size, order=order)
 
     order = order.lower()
     order_list = order.split('-')
@@ -294,11 +398,6 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     for key in kwargs:
         logger.warning(f"The parameter '{key}' is not used in initialize_model_parallel.")
 
-    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size, \
-                                      ep=expert_model_parallel_size, \
-                                      dp=data_parallel_size, pp=pipeline_model_parallel_size, \
-                                      cp=context_parallel_size, order=order)
-
     # Build the basic parallel groups.
     for mode in normal_groups:
         rank_generator.init_group(mode)
@@ -308,6 +407,19 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     rank_generator.init_group('tp-ep', independent_ep=True)
     rank_generator.init_group('tp-ep-pp', independent_ep=True)
     rank_generator.init_group('dp', independent_ep=True)
+    if heterogeneous_pipeline:
+        if not is_pipeline_first_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                       pipeline_stage_device=pp_stage_device):
+            if get_tensor_model_parallel_rank() == 0:
+                rank_generator.init_hetero_pp_group("hetero_pp_fwd", cur_stage_send=False)
+                if get_data_parallel_rank() == 0:
+                    rank_generator.init_hetero_pp_group("hetero_pp_bwd", cur_stage_send=True)
+        if not is_pipeline_last_stage(heterogeneous_pipeline=heterogeneous_pipeline,
+                                      pipeline_stage_device=pp_stage_device):
+            if get_tensor_model_parallel_rank() == 0:
+                rank_generator.init_hetero_pp_group("hetero_pp_bwd", cur_stage_send=False)
+                if get_data_parallel_rank() == 0:
+                    rank_generator.init_hetero_pp_group("hetero_pp_fwd", cur_stage_send=True)
 
     # Build the pipeline-parallel related groups.
     rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
@@ -316,6 +428,13 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     for pp_ranks in all_pp_ranks:
         if rank_generator.rank in pp_ranks:
             _PIPELINE_GLOBAL_RANKS = pp_ranks
+            break
+
+    global _TENSOR_GLOBAL_RANKS
+    all_tp_ranks = rank_generator.get_ranks('tp')
+    for tp_ranks in all_tp_ranks:
+        if rank_generator.rank in tp_ranks:
+            _TENSOR_GLOBAL_RANKS = tp_ranks
             break
 
     global _GLOBAL_STREAM
@@ -402,6 +521,24 @@ def get_pipeline_model_parallel_group():
     return _get_group_helper('pp')
 
 
+def get_hetero_pp_fwd_group(pp_rank, cur_stage_send=True):
+    """Get the heterogeneous pipeline send forward model parallel group the caller rank belongs to."""
+    if cur_stage_send:
+        group = _get_group_helper(f'hetero_pp_fwd_{pp_rank}_{pp_rank+1}')
+    else:
+        group = _get_group_helper(f'hetero_pp_fwd_{pp_rank-1}_{pp_rank}')
+    return group
+
+
+def get_hetero_pp_bwd_group(pp_rank, cur_stage_send=True):
+    """Get the heterogeneoues pipeline send backward model parallel group the caller rank belongs to."""
+    if cur_stage_send:
+        group = _get_group_helper(f'hetero_pp_bwd_{pp_rank-1}_{pp_rank}')
+    else:
+        group = _get_group_helper(f'hetero_pp_bwd_{pp_rank}_{pp_rank+1}')
+    return group
+
+
 def get_embedding_group():
     """Get the embedding group the caller rank belongs to."""
     return _get_group_helper('embedding')
@@ -476,9 +613,13 @@ def get_data_parallel_world_size(with_context_parallel=False):
     return _get_world_size_helper('dp-cp') if with_context_parallel else _get_world_size_helper('dp')
 
 
-def get_pipeline_model_parallel_world_size():
+def get_pipeline_model_parallel_world_size(heterogeneous_pipeline=False, pipeline_stage_device=None):
     """Return world size for the pipeline model parallel group."""
-    return _get_world_size_helper('pp')
+    if heterogeneous_pipeline and pipeline_stage_device is not None:
+        pipeline_model_parallel_world_size = len(pipeline_stage_device)
+    else:
+        pipeline_model_parallel_world_size = _get_world_size_helper('pp')
+    return pipeline_model_parallel_world_size
 
 
 def get_virtual_pipeline_model_parallel_world_size():
@@ -500,6 +641,30 @@ def get_tensor_and_context_parallel_world_size():
 
 def get_data_modulo_expert_parallel_world_size():
     return _get_world_size_helper('dp-independent_ep')
+
+
+def get_hetero_pp_fwd_world_size(pp_rank, cur_stage_send=True):
+    """Return world size for hetero pp forward group."""
+    if cur_stage_send:
+        return _get_world_size_helper(f"hetero_pp_fwd_{pp_rank}_{pp_rank+1}")
+    return _get_world_size_helper(f"hetero_pp_fwd_{pp_rank-1}_{pp_rank}")
+
+
+def get_hetero_pp_bwd_world_size(pp_rank, cur_stage_send=True):
+    """Return world size for hetero pp backward group."""
+    if cur_stage_send:
+        return _get_world_size_helper(f"hetero_pp_bwd_{pp_rank-1}_{pp_rank}")
+    return _get_world_size_helper(f"hetero_pp_bwd_{pp_rank}_{pp_rank+1}")
+
+
+def get_hetero_dp_world_size(pipeline_stage_device=None, tensor_parallel=None):
+    """Return global max world size for the heterogeneous pipeline."""
+    hetero_dp_world_size = get_data_parallel_world_size()
+    if pipeline_stage_device is not None and tensor_parallel is not None:
+        data_parallel_size = [int(pipeline_stage_device[i] / tensor_parallel[i])
+                            for i in range(len(pipeline_stage_device))]
+        hetero_dp_world_size = max(data_parallel_size)
+    return hetero_dp_world_size
 
 
 ### get rank
@@ -532,9 +697,24 @@ def get_data_parallel_rank(with_context_parallel=False):
     return _get_rank_helper('dp-cp') if with_context_parallel else _get_rank_helper('dp')
 
 
-def get_pipeline_model_parallel_rank():
+def get_pipeline_model_parallel_rank(heterogeneous_pipeline=False, pipeline_stage_device=None):
     """Return my rank for the pipeline model parallel group."""
-    return _get_rank_helper('pp')
+    if heterogeneous_pipeline and pipeline_stage_device is not None:
+        stage_device_sum = 0
+        for index, stage_device in enumerate(pipeline_stage_device):
+            stage_device_sum += stage_device
+            if get_rank() < stage_device_sum:
+                rank = index
+                break
+    else:
+        rank = _get_rank_helper('pp')
+    return rank
+
+
+def get_tensor_model_parallel_first_rank():
+    """Return the global ranks of the first process in the tensor"""
+    assert _TENSOR_GLOBAL_RANKS is not None, "tensor parallel group is not initialized"
+    return _TENSOR_GLOBAL_RANKS[0]
 
 
 def get_pipeline_model_parallel_first_rank():
@@ -570,8 +750,10 @@ def get_pipeline_model_parallel_next_rank():
     return _PIPELINE_GLOBAL_RANKS[(rank_in_pipeline + 1) % world_size]
 
 
-def is_pipeline_first_stage(ignore_virtual=False):
+def is_pipeline_first_stage(ignore_virtual=False, heterogeneous_pipeline=False, pipeline_stage_device=None):
     """Return True if in the first pipeline model-parallel stage, False otherwise."""
+    if heterogeneous_pipeline and pipeline_stage_device is not None:
+        return get_rank() < pipeline_stage_device[0]
     if not ignore_virtual:
         if get_virtual_pipeline_model_parallel_world_size() is not None \
             and get_virtual_pipeline_model_parallel_rank() != 0:
@@ -579,8 +761,10 @@ def is_pipeline_first_stage(ignore_virtual=False):
     return get_pipeline_model_parallel_rank() == 0
 
 
-def is_pipeline_last_stage(ignore_virtual=False):
+def is_pipeline_last_stage(ignore_virtual=False, heterogeneous_pipeline=False, pipeline_stage_device=None):
     """Return True if in the last pipeline model-parallel stage, False otherwise."""
+    if heterogeneous_pipeline and pipeline_stage_device is not None:
+        return get_rank() >= sum(pipeline_stage_device) - pipeline_stage_device[-1]
     if not ignore_virtual:
         vpp_world_size = get_virtual_pipeline_model_parallel_world_size()
         if vpp_world_size is not None and get_virtual_pipeline_model_parallel_rank() != (vpp_world_size - 1):
@@ -588,7 +772,7 @@ def is_pipeline_last_stage(ignore_virtual=False):
     return get_pipeline_model_parallel_rank() == (get_pipeline_model_parallel_world_size() - 1)
 
 
-def is_rank_in_embedding_group(ignore_virtual=False):
+def is_rank_in_embedding_group(ignore_virtual=False, heterogeneous_pipeline=False, pipeline_stage_device=None):
     """Return true if current rank is in embedding group, False otherwise."""
     ret = False
     rank = get_rank()
@@ -600,9 +784,11 @@ def is_rank_in_embedding_group(ignore_virtual=False):
         return rank in global_ranks
     if rank in global_ranks:
         if rank == global_ranks[0]:
-            ret = is_pipeline_first_stage(ignore_virtual=False)
+            ret = is_pipeline_first_stage(ignore_virtual=False, heterogeneous_pipeline=heterogeneous_pipeline,
+                                          pipeline_stage_device=pipeline_stage_device)
         elif rank == global_ranks[-1]:
-            ret = is_pipeline_last_stage(ignore_virtual=False)
+            ret = is_pipeline_last_stage(ignore_virtual=False, heterogeneous_pipeline=heterogeneous_pipeline,
+                                         pipeline_stage_device=pipeline_stage_device)
         else:
             ret = True
     return ret

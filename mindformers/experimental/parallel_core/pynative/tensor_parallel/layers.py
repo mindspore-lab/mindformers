@@ -104,7 +104,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import mindspore as ms
@@ -312,7 +311,6 @@ class LinearWithFrozenWeight(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os
@@ -428,7 +426,6 @@ class ColumnParallelLinear(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -605,7 +602,8 @@ class ColumnParallelLinear(nn.Cell):
                 )
 
         self.explicit_expert_comm = self.is_expert and (
-            config.parallel_config.tensor_model_parallel_size > 1 or self.expert_parallel
+            (not config.parallel_config.heterogeneous_pipeline \
+             and config.parallel_config.tensor_model_parallel_size > 1) or self.expert_parallel
         )
 
         self.copy_to_mp_region = CopyToModelParallelRegion()
@@ -772,7 +770,6 @@ class RowParallelLinear(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -1054,7 +1051,6 @@ class VocabParallelEmbedding(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method without any third-party
             or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
             This example should be run with 4 devices.

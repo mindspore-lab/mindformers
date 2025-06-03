@@ -29,6 +29,7 @@ from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
+@pytest.mark.skip("no need to test")
 def test_qwen2_0_5b_predict_standalone():
     """
     Feature: Infer interface

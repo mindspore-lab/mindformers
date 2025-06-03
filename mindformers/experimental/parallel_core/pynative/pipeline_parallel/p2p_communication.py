@@ -14,13 +14,18 @@
 # ======================
 """p2p primitives."""
 
+import mindspore as ms
 from mindspore import nn
 from mindspore.ops.auto_generate.gen_ops_prim import inner_comm_irecv_op, inner_comm_isend_op
+from mindspore.ops import operations as P
+from mindspore.communication.comm_func import broadcast
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, \
-    get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, \
+    get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, get_data_parallel_world_size, \
+    get_data_parallel_group, get_hetero_pp_fwd_group, get_hetero_pp_bwd_group, get_hetero_pp_fwd_world_size, \
+    get_hetero_pp_bwd_world_size, get_data_parallel_rank, get_tensor_model_parallel_rank, \
+    get_tensor_model_parallel_world_size, get_tensor_model_parallel_group, get_tensor_model_parallel_first_rank, \
     get_pipeline_model_parallel_world_size
-
 
 class ISend(nn.Cell):
     """ Send a tensor asynchronously """
@@ -57,36 +62,52 @@ class P2PPrimitive():
     """ A class that includes P2P communication methods """
     def __init__(self, config):
         self.config = config
+        self.heterogeneous_pipeline = self.config.parallel_config.heterogeneous_pipeline
+        self.pipeline_stage_device = self.config.parallel_config.pipeline_stage_device
+        self.recv_dtype = self.config.parallel_config.recv_dtype
 
     def send_forward(self,
                      output_tensor):
         """
         Except for the last stage, send forward tensor.
         """
-        if not is_pipeline_last_stage():
-            self.node_p2p_comm(
-                tensor_send_next=output_tensor,
-                tensor_send_prev=None,
-                recv_prev=False,
-                recv_next=False,
-                tensor_shape=None
-            )
+        if not is_pipeline_last_stage(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                      pipeline_stage_device=self.pipeline_stage_device):
+            if self.heterogeneous_pipeline and get_data_parallel_world_size() > 1:
+                allgather = P.AllGather(get_data_parallel_group())
+                output_tensor = allgather(output_tensor)
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                self.node_p2p_comm(
+                    tensor_send_next=output_tensor,
+                    tensor_send_prev=None,
+                    recv_prev=False,
+                    recv_next=False,
+                    tensor_shape=None
+                )
 
     def recv_forward(self,
                      tensor_shape):
         """
         Except for the first stage, send forward tensor.
         """
-        if is_pipeline_first_stage():
+        if is_pipeline_first_stage(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                   pipeline_stage_device=self.pipeline_stage_device):
             input_tensor = None
         else:
-            input_tensor, _, _ = self.node_p2p_comm(
-                tensor_send_next=None,
-                tensor_send_prev=None,
-                recv_prev=True,
-                recv_next=False,
-                tensor_shape=tensor_shape
-            )
+            input_tensor = ms.numpy.empty(tensor_shape, dtype=self.recv_dtype)
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                input_tensor, _, _ = self.node_p2p_comm(
+                    tensor_send_next=None,
+                    tensor_send_prev=None,
+                    recv_prev=True,
+                    recv_next=False,
+                    tensor_shape=tensor_shape
+                )
+            if self.heterogeneous_pipeline and get_tensor_model_parallel_world_size() > 1:
+                input_tensor = broadcast(input_tensor, get_tensor_model_parallel_first_rank(), \
+                                         get_tensor_model_parallel_group())
         return input_tensor
 
     def send_backward(self,
@@ -94,30 +115,44 @@ class P2PPrimitive():
         """
         Except for the first stage, send backward tensor.
         """
-        if not is_pipeline_first_stage():
-            self.node_p2p_comm(
-                tensor_send_next=None,
-                tensor_send_prev=input_tensor_grad,
-                recv_prev=False,
-                recv_next=False,
-                tensor_shape=None
-            )
+        if not is_pipeline_first_stage(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                       pipeline_stage_device=self.pipeline_stage_device):
+            if self.heterogeneous_pipeline and get_data_parallel_world_size() > 1:
+                allgather = P.AllGather(get_data_parallel_group())
+                input_tensor_grad = allgather(input_tensor_grad)
+
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                self.node_p2p_comm(
+                    tensor_send_next=None,
+                    tensor_send_prev=input_tensor_grad,
+                    recv_prev=False,
+                    recv_next=False,
+                    tensor_shape=None
+                )
 
     def recv_backward(self,
                       tensor_shape):
         """
         Except for the last stage, recv backward tensor.
         """
-        if is_pipeline_last_stage():
+        if is_pipeline_last_stage(heterogeneous_pipeline=self.pipeline_stage_device,
+                                  pipeline_stage_device=self.pipeline_stage_device):
             output_tensor_grad = None
         else:
-            _, output_tensor_grad, _ = self.node_p2p_comm(
-                tensor_send_next=None,
-                tensor_send_prev=None,
-                recv_prev=False,
-                recv_next=True,
-                tensor_shape=tensor_shape
-            )
+            output_tensor_grad = ms.numpy.empty(tensor_shape, dtype=self.recv_dtype)
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                _, output_tensor_grad, _ = self.node_p2p_comm(
+                    tensor_send_next=None,
+                    tensor_send_prev=None,
+                    recv_prev=False,
+                    recv_next=True,
+                    tensor_shape=tensor_shape
+                )
+            if self.heterogeneous_pipeline and get_tensor_model_parallel_world_size() > 1:
+                output_tensor_grad = broadcast(output_tensor_grad, get_tensor_model_parallel_first_rank(), \
+                                               get_tensor_model_parallel_group())
         return output_tensor_grad
 
     def send_forward_recv_backward(self,
@@ -126,16 +161,27 @@ class P2PPrimitive():
         """
         Except for the last stage, send forward tensor, while receiving backward tensor.
         """
-        if is_pipeline_last_stage():
+        if is_pipeline_last_stage(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                  pipeline_stage_device=self.pipeline_stage_device):
             output_tensor_grad = None
         else:
-            _, output_tensor_grad, _ = self.node_p2p_comm(
-                tensor_send_next=output_tensor,
-                tensor_send_prev=None,
-                recv_prev=False,
-                recv_next=True,
-                tensor_shape=tensor_shape
-            )
+            output_tensor_grad = ms.numpy.empty(tensor_shape, dtype=self.recv_dtype)
+            if self.heterogeneous_pipeline and get_data_parallel_world_size() > 1:
+                allgather = P.AllGather(get_data_parallel_group())
+                output_tensor = allgather(output_tensor)
+
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                _, output_tensor_grad, _ = self.node_p2p_comm(
+                    tensor_send_next=output_tensor,
+                    tensor_send_prev=None,
+                    recv_prev=False,
+                    recv_next=True,
+                    tensor_shape=tensor_shape
+                )
+            if self.heterogeneous_pipeline and get_tensor_model_parallel_world_size() > 1:
+                output_tensor_grad = broadcast(output_tensor_grad, get_tensor_model_parallel_first_rank(), \
+                                               get_tensor_model_parallel_group())
         return output_tensor_grad
 
     def send_backward_recv_forward(self,
@@ -144,16 +190,27 @@ class P2PPrimitive():
         """
         Except for the first stage, send backward tensor, while receiving forward tensor.
         """
-        if is_pipeline_first_stage():
+        if is_pipeline_first_stage(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                   pipeline_stage_device=self.pipeline_stage_device):
             input_tensor = None
         else:
-            input_tensor, _, _ = self.node_p2p_comm(
-                tensor_send_next=None,
-                tensor_send_prev=input_tensor_grad,
-                recv_prev=True,
-                recv_next=False,
-                tensor_shape=tensor_shape
-            )
+            input_tensor = ms.numpy.empty(tensor_shape, dtype=self.recv_dtype)
+            if self.heterogeneous_pipeline and get_data_parallel_world_size() > 1:
+                allgather = P.AllGather(get_data_parallel_group())
+                input_tensor_grad = allgather(input_tensor_grad)
+
+            if not self.heterogeneous_pipeline or \
+                (self.heterogeneous_pipeline and get_tensor_model_parallel_rank() == 0):
+                input_tensor, _, _ = self.node_p2p_comm(
+                    tensor_send_next=None,
+                    tensor_send_prev=input_tensor_grad,
+                    recv_prev=True,
+                    recv_next=False,
+                    tensor_shape=tensor_shape
+                )
+            if self.heterogeneous_pipeline and get_tensor_model_parallel_world_size() > 1:
+                input_tensor = broadcast(input_tensor, get_tensor_model_parallel_first_rank(), \
+                                         get_tensor_model_parallel_group())
         return input_tensor
 
     def send_forward_recv_forward(self,
@@ -252,13 +309,21 @@ class P2PPrimitive():
 
         # if tensor_send_prev or tensor_send_next is not None, send a tensor to specific stage
         # if tensor_info_recv_prev or tensor_info_recv_next is not None, recv a tensor from specific stage
-        reqs, tensor_recv_prev, tensor_recv_next = self._isend_and_irecv(
-            tensor_send_prev=tensor_send_prev,
-            tensor_info_recv_prev=tensor_info_recv_prev,
-            tensor_send_next=tensor_send_next,
-            tensor_info_recv_next=tensor_info_recv_next,
-            group=get_pipeline_model_parallel_group(),
-        )
+        if self.heterogeneous_pipeline:
+            reqs, tensor_recv_prev, tensor_recv_next = self._hetero_isend_and_irecv(
+                tensor_send_prev=tensor_send_prev,
+                tensor_recv_prev=tensor_info_recv_prev,
+                tensor_send_next=tensor_send_next,
+                tensor_recv_next=tensor_info_recv_next
+            )
+        else:
+            reqs, tensor_recv_prev, tensor_recv_next = self._isend_and_irecv(
+                tensor_send_prev=tensor_send_prev,
+                tensor_info_recv_prev=tensor_info_recv_prev,
+                tensor_send_next=tensor_send_next,
+                tensor_info_recv_next=tensor_info_recv_next,
+                group=get_pipeline_model_parallel_group(),
+            )
 
         # stream synchronize
         if wait_on_reqs and reqs:
@@ -324,4 +389,80 @@ class P2PPrimitive():
                 send_prev_req = ISend(1, (rank_in_pipeline - 1) % world_size, group=group)
                 send_prev_handle = send_prev_req(tensor_send_prev)
                 reqs.append(send_prev_handle)
+        return reqs, tensor_recv_prev, tensor_recv_next
+
+    def _hetero_isend_and_irecv(self,
+                                tensor_send_prev,
+                                tensor_recv_prev,
+                                tensor_send_next,
+                                tensor_recv_next):
+        """Use 'ISend' and 'IRecv' for heterogeneous pipeline p2p communication."""
+        reqs = []
+        rank_in_pipeline = get_pipeline_model_parallel_rank(heterogeneous_pipeline=self.heterogeneous_pipeline,
+                                                            pipeline_stage_device=self.pipeline_stage_device)
+        if rank_in_pipeline % 2 == 0:
+            if tensor_send_next is not None and get_data_parallel_rank() == 0:
+                fwd_group_size = get_hetero_pp_fwd_world_size(rank_in_pipeline, cur_stage_send=True)
+                group = get_hetero_pp_fwd_group(rank_in_pipeline, cur_stage_send=True)
+                for i in range(1, fwd_group_size):
+                    send_next_req = ISend(0, i % fwd_group_size, group=group)
+                    micro_batch_size = int(tensor_send_next.shape[0] / (fwd_group_size - 1))
+                    send_next_stream = send_next_req(tensor_send_next[(i - 1) * micro_batch_size: i * micro_batch_size])
+                    reqs.append(send_next_stream)
+
+            if tensor_recv_prev is not None:
+                group = get_hetero_pp_fwd_group(rank_in_pipeline, cur_stage_send=False)
+                recv_prev_req = IRecv(0, 0,
+                                      tensor_recv_prev[0], tensor_recv_prev[1], group=group)
+                recv_prev_stream, tensor_recv_prev = recv_prev_req()
+                reqs.append(recv_prev_stream)
+
+            if tensor_send_prev is not None and get_data_parallel_rank() == 0:
+                bwd_group_size = get_hetero_pp_bwd_world_size(rank_in_pipeline, cur_stage_send=True)
+                group = get_hetero_pp_bwd_group(rank_in_pipeline, cur_stage_send=True)
+                for i in range(1, bwd_group_size):
+                    send_prev_req = ISend(0, i % bwd_group_size, group=group)
+                    micro_batch_size = int(tensor_send_prev.shape[0] / (bwd_group_size - 1))
+                    send_prev_stream = send_prev_req(tensor_send_prev[(i - 1) * micro_batch_size: i * micro_batch_size])
+                    reqs.append(send_prev_stream)
+
+            if tensor_recv_next is not None:
+                group = get_hetero_pp_bwd_group(rank_in_pipeline, cur_stage_send=False)
+                recv_next_req = IRecv(0, 0,
+                                      tensor_recv_next[0], tensor_recv_next[1], group=group)
+                recv_next_stream, tensor_recv_next = recv_next_req()
+                reqs.append(recv_next_stream)
+        else:
+            if tensor_recv_prev is not None:
+                group = get_hetero_pp_fwd_group(rank_in_pipeline, cur_stage_send=False)
+                recv_prev_req = IRecv(1, 0,
+                                      tensor_recv_prev[0], tensor_recv_prev[1], group=group)
+                recv_prev_stream, tensor_recv_prev = recv_prev_req()
+                reqs.append(recv_prev_stream)
+
+            if tensor_send_next is not None and get_data_parallel_rank() == 0:
+                fwd_group_size = get_hetero_pp_fwd_world_size(rank_in_pipeline, cur_stage_send=True)
+                group = get_hetero_pp_fwd_group(rank_in_pipeline, cur_stage_send=True)
+                for i in range(1, fwd_group_size):
+                    send_next_req = ISend(1, i % fwd_group_size, group=group)
+                    micro_batch_size = int(tensor_send_next.shape[0] / (fwd_group_size - 1))
+                    send_next_stream = send_next_req(tensor_send_next[(i - 1) * micro_batch_size: i * micro_batch_size])
+                    reqs.append(send_next_stream)
+
+            if tensor_recv_next is not None:
+                group = get_hetero_pp_bwd_group(rank_in_pipeline, cur_stage_send=False)
+                recv_next_req = IRecv(1, 0,
+                                      tensor_recv_next[0], tensor_recv_next[1], group=group)
+                recv_next_stream, tensor_recv_next = recv_next_req()
+                reqs.append(recv_next_stream)
+
+            if tensor_send_prev is not None and get_data_parallel_rank() == 0:
+                bwd_group_size = get_hetero_pp_bwd_world_size(rank_in_pipeline, cur_stage_send=True)
+                group = get_hetero_pp_bwd_group(rank_in_pipeline, cur_stage_send=True)
+                for i in range(1, bwd_group_size):
+                    send_prev_req = ISend(1, i % bwd_group_size, group=group)
+                    micro_batch_size = int(tensor_send_prev.shape[0] / (bwd_group_size - 1))
+                    send_prev_stream = send_prev_req(tensor_send_prev[(i - 1) * micro_batch_size: i * micro_batch_size])
+                    reqs.append(send_prev_stream)
+
         return reqs, tensor_recv_prev, tensor_recv_next

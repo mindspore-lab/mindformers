@@ -1006,9 +1006,12 @@ def _get_custom_num_layers(num_layer_list, pp_stage, pp_rank, vpp_stage=None, vp
 # pylint: disable=W0613
 def _get_num_layers(config, model_type, is_decoder=False):
     """get transformer layers nums for current rank"""
+    heterogeneous_pipeline = config.parallel_config.heterogeneous_pipeline
+    pipeline_stage_device = config.parallel_config.pipeline_stage_device
     vpp = get_virtual_pipeline_model_parallel_world_size() \
         if get_virtual_pipeline_model_parallel_world_size() is not None else 1
-    pp_split_num = vpp * get_pipeline_model_parallel_world_size()
+    pp_split_num = vpp * get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                                pipeline_stage_device=pipeline_stage_device)
     if config.num_layers < pp_split_num:
         raise RuntimeError(f"The number of model layers is {config.num_layers}, "
                            f"but using pipeline parallel requires at least "
@@ -1019,17 +1022,24 @@ def _get_num_layers(config, model_type, is_decoder=False):
         raise NotImplementedError(
             "`encoder_num_layers` and `decoder_num_layers` are not supported for now."
         )
-    if get_pipeline_model_parallel_world_size() > 1:
-        if standalone_embedding_stage and get_pipeline_model_parallel_rank() == 0:
+    if get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                              pipeline_stage_device=pipeline_stage_device) > 1:
+        if standalone_embedding_stage and \
+            get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                             pipeline_stage_device=pipeline_stage_device) == 0:
             num_layers = 0
             offset = 0
         else:
             if config.parallel_config.num_layer_list:
-                pp_stage = get_pipeline_model_parallel_world_size()
-                pp_rank = get_pipeline_model_parallel_rank()
+                pp_stage = get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                                  pipeline_stage_device=pipeline_stage_device)
+                pp_rank = get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                           pipeline_stage_device=pipeline_stage_device)
                 if standalone_embedding_stage:
-                    pp_stage = get_pipeline_model_parallel_world_size() - 1
-                    pp_rank = get_pipeline_model_parallel_rank() - 1
+                    pp_stage = get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                                      pipeline_stage_device=pipeline_stage_device) - 1
+                    pp_rank = get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                               pipeline_stage_device=pipeline_stage_device) - 1
                 vpp_stage = get_virtual_pipeline_model_parallel_world_size()
                 vpp_rank = get_virtual_pipeline_model_parallel_rank() if vpp_stage is not None else 0
                 num_layer_array = np.array(config.parallel_config.num_layer_list)
@@ -1070,15 +1080,22 @@ def _get_num_layers(config, model_type, is_decoder=False):
                 num_layers, offset_vpp = divide_layers(num_layers, vpp_stage, vpp_rank)
                 offset = offset + offset_vpp
 
-            pp_stage = get_pipeline_model_parallel_world_size() - 1 \
-                if standalone_embedding_stage else get_pipeline_model_parallel_world_size()
-            pp_rank = get_pipeline_model_parallel_rank() - 1 \
-                if standalone_embedding_stage else get_pipeline_model_parallel_rank()
+            pp_stage = get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                              pipeline_stage_device=pipeline_stage_device) - 1 \
+                if standalone_embedding_stage else \
+                    get_pipeline_model_parallel_world_size(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                           pipeline_stage_device=pipeline_stage_device)
+            pp_rank = get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                       pipeline_stage_device=pipeline_stage_device) - 1 \
+                if standalone_embedding_stage else \
+                    get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                     pipeline_stage_device=pipeline_stage_device)
             num_layers, offset_pp = divide_layers(num_layers, pp_stage, pp_rank)
             offset = offset + offset_pp
     else:
         num_layers = config.num_layers
-        offset = get_pipeline_model_parallel_rank() * num_layers
+        offset = get_pipeline_model_parallel_rank(heterogeneous_pipeline=heterogeneous_pipeline,
+                                                  pipeline_stage_device=pipeline_stage_device) * num_layers
     return num_layers, offset
 
 
@@ -1202,6 +1219,8 @@ class ParallelTransformer(Module):
         self.drop_path_rate = drop_path_rate
         self.transformer_impl = config.transformer_impl
         self.retro_add_retriever = config.retro_add_retriever
+        self.heterogeneous_pipeline = config.parallel_config.heterogeneous_pipeline
+        self.pipeline_stage_device = config.parallel_config.pipeline_stage_device
 
         self.distribute_saved_activations = \
             config.distribute_saved_activations and not config.sequence_parallel
@@ -1328,7 +1347,8 @@ class ParallelTransformer(Module):
             # final layernorm before output.
             self.final_norm = get_norm(config)
 
-        self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
+        self.pipeline_parallel = get_pipeline_model_parallel_world_size(self.heterogeneous_pipeline,
+                                                                        self.pipeline_stage_device) > 1
         if self.pipeline_parallel:
             batch_size = config.dataset_config.batch_size
             if config.dataset_config.data_layout == "BSH":
@@ -1536,7 +1556,7 @@ class ParallelLMLogits(nn.Cell):
         >>> init()
         >>> initialize_model_parallel()
         >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
-        >>> config = TransformerConfig #The config of Transformer model. For details, please refer to TransformerConfig
+        >>> config = TransformerConfig      #The config of Transformer model. For details, please refer to TransformerConfig
         >>> model = ParallelLMLogits(config=config, bias=False, compute_dtype=ms.float32)
         >>> input = Tensor(np.random.random((2, 3, 3)).astype(np.float32))
         >>> weight = Tensor(np.random.random((3, 3)).astype(np.float32))

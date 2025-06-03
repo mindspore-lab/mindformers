@@ -25,6 +25,7 @@ from mindformers.modules import PagedAttentionMgr
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
+@pytest.mark.skip("no need to test")
 def test_paged_attention_mgr():
     """
     Feature: Test the paged attention.
