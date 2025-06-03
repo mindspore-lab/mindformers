@@ -42,6 +42,7 @@ mindformers.core
 
     mindformers.core.LearningRateWiseLayer
     mindformers.core.ConstantWarmUpLR
+    mindformers.core.ConstantWithCoolDownLR
     mindformers.core.LinearWithWarmUpLR
     mindformers.core.CosineWithWarmUpLR
     mindformers.core.CosineWithRestartsAndWarmUpLR
