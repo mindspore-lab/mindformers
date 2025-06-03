@@ -76,7 +76,7 @@ class LayerNormRunner:
     def build_model(self):
         """Build LayerNorm module"""
         net = build_module(
-            get_norm_cls(self.config),
+            get_norm_cls(self.config.normalization),
             self.config,
             hidden_size=self.hidden_size,
             eps=self.eps
@@ -119,7 +119,7 @@ class RMSNormRunner(LayerNormRunner):
     def build_model(self):
         """Build RMSNorm module"""
         net = build_module(
-            get_norm_cls(self.config),
+            get_norm_cls(self.config.normalization),
             self.config,
             hidden_size=self.hidden_size,
             eps=self.eps

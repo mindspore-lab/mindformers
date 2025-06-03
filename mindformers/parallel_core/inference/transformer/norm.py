@@ -141,12 +141,12 @@ class RMSNorm(nn.Cell):
         return state_dict
 
 
-def get_norm_cls(config: TransformerConfig):
+def get_norm_cls(normalization: str):
     r"""
     Get the class of normalization layer.
 
     Args:
-        config: The transformer config of the model.
+        normalization (str): The normalization type.
 
     Returns:
         callable, the class of normalization layer.
@@ -155,6 +155,6 @@ def get_norm_cls(config: TransformerConfig):
         "LayerNorm": LayerNorm,
         "RMSNorm": RMSNorm,
     }
-    if config.normalization not in norm_map.keys():
-        raise Exception(f"unsupported norm type '{config.normalization}'.")
-    return norm_map[config.normalization]
+    if normalization not in norm_map.keys():
+        raise Exception(f"unsupported norm type '{normalization}'.")
+    return norm_map[normalization]
