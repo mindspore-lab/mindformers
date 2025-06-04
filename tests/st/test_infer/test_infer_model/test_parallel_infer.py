@@ -42,7 +42,7 @@ def check_results(commands, results):
 class TestInferParallel:
     """A test class for testing pipeline."""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_base_cases(self):

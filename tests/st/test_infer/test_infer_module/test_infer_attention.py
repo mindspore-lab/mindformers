@@ -72,7 +72,7 @@ def set_dynamic_inputs(model):
                      None)
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_infer_attention_with_dynamic_shape_th():
@@ -173,7 +173,7 @@ def test_infer_attention_with_dynamic_shape_th():
     assert decode_output.shape == (bsz, 1, hidden_size)
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_infer_attention_with_static_shape_bsh():

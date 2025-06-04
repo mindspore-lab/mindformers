@@ -26,7 +26,7 @@ from mindformers import build_context, MindFormerConfig, LlamaConfig, LlamaForCa
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_qwen2_0_5b_predict_standalone():

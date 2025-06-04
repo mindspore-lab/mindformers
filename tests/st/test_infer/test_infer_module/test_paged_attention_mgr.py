@@ -22,7 +22,7 @@ from mindspore import Tensor
 from mindformers.modules import PagedAttentionMgr
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_paged_attention_mgr():
