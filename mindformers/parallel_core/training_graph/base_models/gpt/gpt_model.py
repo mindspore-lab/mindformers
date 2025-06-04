@@ -17,7 +17,7 @@ __all__ = ['GPTModel']
 
 from typing import Literal, Optional
 from mindspore.ops import operations as P
-import mindspore as ms
+from mindspore.ops import auto_generate as aclnn_ops
 from mindspore import Tensor, dtype, nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -65,6 +65,8 @@ class GPTModel(nn.Cell):
             Base period for rotary position embeddings. Ignored unless
             position_embedding_type is 'rope'.
             Defaults to 10000.
+        rope_scaling (bool, optional): Toggle RoPE scaling.
+        rope_scaling_factor (float): RoPE scaling factor. Default 8.
         scatter_embedding_sequence_parallel (bool, optional):
             Whether embeddings should be scattered across sequence parallel
             region or not. Defaults to True.
@@ -97,8 +99,8 @@ class GPTModel(nn.Cell):
         super().__init__()
         if scatter_embedding_sequence_parallel:
             raise NotImplementedError('scatter_embedding_sequence_parallel is not supported for now.')
+
         self.config = config
-        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length
@@ -107,21 +109,38 @@ class GPTModel(nn.Cell):
         self.fp16_lm_cross_entropy = fp16_lm_cross_entropy
         self.parallel_output = parallel_output
         self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
-        self.position_embedding_type = position_embedding_type
+
+        if hasattr(self.config, 'position_embedding_type'):
+            # By default, use the position_embedding_type configuration in TransformerConfig.
+            self.position_embedding_type = self.config.position_embedding_type
+        else:
+            self.position_embedding_type = position_embedding_type
+
         self.rotary_percent = rotary_percent
-        self.rotary_base = rotary_base
+        if hasattr(self.config, 'rotary_base'):
+            # By default, use the rotary_base configuration in TransformerConfig.
+            self.rotary_base = self.config.rotary_base
+        else:
+            self.rotary_base = rotary_base
+
         self.rotary_scaling = rope_scaling
+        self.mtp_block_spec = mtp_layer_spec
+        self.mtp_process = mtp_layer_spec is not None
+
         self.rope_scaling_factor = rope_scaling_factor
         self.rotary_seq_len_interpolation_factor = seq_len_interpolation_factor \
             if seq_len_interpolation_factor is not None else config.rotary_seq_len_interpolation_factor
 
         # get value from config
+        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.init_method = config.init_method
         self.compute_dtype = config.compute_dtype
         self.hidden_size = config.hidden_size
         self.hidden_dropout = config.hidden_dropout
         self.pad_token_id = config.pad_token_id
         self.ignore_token_id = config.ignore_token_id
+
+        # Internally generates AttentionMask.
         self.casual_mask = CausalMaskGenerate(
             seq_length=config.seq_length,
             compute_type=config.compute_dtype,
@@ -131,14 +150,19 @@ class GPTModel(nn.Cell):
             use_attn_mask_compression=config.use_eod_attn_mask_compression,
             config=config
         )
+
         # Embeddings
-        if self.pre_process:
-            self.embedding = LanguageModelEmbedding(config,
-                                                    self.vocab_size,
-                                                    self.max_sequence_length,
-                                                    self.position_embedding_type)
+        if self.pre_process or self.mtp_process:
+            self.embedding = LanguageModelEmbedding(
+                config=self.config,
+                vocab_size=self.vocab_size,
+                max_sequence_length=self.max_sequence_length,
+                position_embedding_type=self.position_embedding_type,
+                scatter_to_sequence_parallel=scatter_embedding_sequence_parallel)
 
         # rope
+        # The MTP implementation pre-computes RotaryEmbedding
+        # (unlike Megatron's real-time generation) to minimize dynamic memory usage.
         self.use_rotary_position_embeddings = self.position_embedding_type in ['rope', 'yarn']
         if self.position_embedding_type == 'rope':
             if config.multi_latent_attention:
@@ -169,14 +193,28 @@ class GPTModel(nn.Cell):
                 mscale=config.mscale,
                 mscale_all_dim=config.mscale_all_dim,
             )
+        elif self.position_embedding_type == 'mrope':
+            raise NotImplementedError("position_embedding_type=mrope not support.")
 
         # Transformer.
         self.decoder = TransformerBlock(
             config=self.config,
             spec=transformer_layer_spec,
+            pre_process=False,
+            post_process=False,
+            # pre_process/post_process=True is not supported in TransformerBlock.
+            # The corresponding Megatron module's forward pass has this logic disabled by default,
+            # so it won't cause significant impact.
         )
 
-        if self.post_process:
+        # multi token prediction block
+        if self.mtp_process:
+            self.mtp = build_module(mtp_layer_spec.module, config=config, submodules=mtp_layer_spec.submodules)
+            # remove parameters name prefix 'mtp_block'
+            self.mtp.update_parameters_name(prefix='')
+
+        # Output
+        if self.post_process or self.mtp_process:
             skip_weight_param_allocation = self.pre_process and self.share_embeddings_and_output_weights
             self.output_layer = ColumnParallelLinear(input_size=self.hidden_size,
                                                      output_size=self.vocab_size,
@@ -191,23 +229,16 @@ class GPTModel(nn.Cell):
             self.loss = CrossEntropyLoss(parallel_config=config)
 
         # operations
-        self.cast = ms.ops.auto_generate.Cast()
-        self.concat_prefix = ms.ops.auto_generate.Concat(-1)
+        self.cast = aclnn_ops.Cast()
+        self.concat_prefix = aclnn_ops.Concat(-1)
         self.zeros = P.Zeros()
-        self.shape = ms.ops.auto_generate.Shape()
-        self.slice = ms.ops.auto_generate.StridedSlice()
+        self.shape = aclnn_ops.Shape()
+        self.slice = aclnn_ops.StridedSlice()
         self.not_equal = P.NotEqual()
-        self.reshape = ms.ops.auto_generate.Reshape()
-        self.mul = ms.ops.auto_generate.Mul()
-        self.add = ms.ops.auto_generate.AddExt()
-        self.transpose = ms.ops.auto_generate.Transpose()
-
-        # multi token prediction block
-        self.num_nextn_predict_layers = 0 if not config.mtp_num_layers else config.mtp_num_layers
-        if self.num_nextn_predict_layers > 0:
-            self.mtp_block = build_module(mtp_layer_spec.module, config=config, submodules=mtp_layer_spec.submodules)
-            # remove parameters name prefix 'mtp_block'
-            self.mtp_block.update_parameters_name(prefix='')
+        self.reshape = aclnn_ops.Reshape()
+        self.mul = aclnn_ops.Mul()
+        self.add = aclnn_ops.AddExt()
+        self.transpose = aclnn_ops.Transpose()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -240,15 +271,12 @@ class GPTModel(nn.Cell):
             **(extra_block_kwargs or {}),
         )
 
-        if not self.post_process:
-            return hidden_states
-
         # multi token prediction
-        if self.num_nextn_predict_layers > 0:
+        if self.mtp_process:
             rotary_pos_emb = None
             if self.use_rotary_position_embeddings:
                 rotary_pos_emb = self.rotary_pos_emb(self.seq_length, position_ids=position_ids)
-            mtp_loss, extra_loss = self.mtp_block(
+            mtp_loss, extra_loss = self.mtp(
                 mtp_tokens=tokens,
                 hidden_states=hidden_states,
                 shared_emb_weight=self.embedding.word_embeddings.weight,
@@ -267,8 +295,13 @@ class GPTModel(nn.Cell):
         if self.share_embeddings_and_output_weights:
             output_weight = self.shared_embedding_or_output_weight()
 
+        if not self.post_process:
+            return hidden_states
+
+        # labels origin shape is [b s h], Transpose is not required.
         loss = self.compute_language_model_loss(hidden_states, labels, output_weight,
                                                 self.fp16_lm_cross_entropy, loss_mask)
+        # moe/mtp extra loss, default 0.0
         loss = self.add(loss, extra_loss)
         return loss
 
