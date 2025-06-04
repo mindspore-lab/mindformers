@@ -18,7 +18,7 @@ import mindspore as ms
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 
 
-def get_inputs(config: MLATransformerConfig, seq_length=8, batch_size=2):
+def get_init_params(config: MLATransformerConfig, seq_length=8, batch_size=2):
     """Generate SBND-format input tensors for FlashAttention."""
     np.random.seed(1)
     shape = (seq_length, batch_size, config.num_attention_heads, config.kv_channels)

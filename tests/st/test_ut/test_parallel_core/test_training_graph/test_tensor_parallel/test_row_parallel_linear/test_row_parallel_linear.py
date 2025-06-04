@@ -17,10 +17,10 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from data_gen_utils import GOLDEN_DATA, GPU_DATA
 from mindformers.tools.logger import logger
-
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
+
+from .data_gen_utils import GOLDEN_DATA, GPU_DATA
 
 INPUT_SIZE = 32
 OUTPUT_SIZE = 32
@@ -44,16 +44,6 @@ SINGLE_CARD_TEST_CASES = [
         {"output": "output_only"},
     ),
 ]
-
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
-    (
-        {"bias": True, "skip_bias_add": True},
-        {"output": "output_only", "bias": "output_bias"},
-        2
-    ),
-]
-
 
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
@@ -172,6 +162,8 @@ class TestRowParallelLinear:
         self.check_output_keys(output_ms_dict, should_bias_key_be_present)
         self.check_acc(output_ms_dict, data_keys)
 
+class TestRowParallelLinearSingleCard(TestRowParallelLinear):
+    """Test class for RowParallelLinear with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -186,21 +178,4 @@ class TestRowParallelLinear:
             model_args=model_args,
             data_keys=data_keys,
             tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        FOUR_CARD_TEST_PARAM,
-        FOUR_CARD_TEST_CASES
-    )
-    def test_row_tp_4_case(self, model_args, data_keys, tensor_parallel, tmp_path):
-        """Test four cards with various configurations."""
-        self.run_test(
-            worker_num=4, local_worker_num=4,
-            model_args=model_args,
-            data_keys=data_keys,
-            tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
         )

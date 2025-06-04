@@ -17,7 +17,7 @@ import pytest
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from tests.utils.double_benchmark import DoubleBenchmarkComparator
-from data_gen_utils import get_inputs, GOLDEN_DATA, GPU_DATA
+from .data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
 
 
 class TestFlashAttention:
@@ -30,7 +30,7 @@ class TestFlashAttention:
                                            num_attention_heads=2,
                                            num_layers=1
                                            )
-        self.inputs = get_inputs(self.config)
+        self.inputs = get_init_params(self.config)
 
     def run_test(self, attention_dropout=0.0, soft_max_scale=None, accuracy=True):
         """Helper function to run test and check results"""
@@ -49,7 +49,7 @@ class TestFlashAttention:
             )
 
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.platform_arm_ascend910b_training # testset
     @pytest.mark.env_onecard
     def test_dropout_0_case(self):
         """

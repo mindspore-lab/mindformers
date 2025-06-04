@@ -17,9 +17,10 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from data_gen_utils import GOLDEN_DATA, GPU_DATA
 from mindformers.tools.logger import logger
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
+
+from .data_gen_utils import GOLDEN_DATA, GPU_DATA
 
 SEQ_LEN = 2
 BATCH_SIZE = 2
@@ -43,28 +44,6 @@ SINGLE_CARD_TEST_CASES = [
         {"use_flash_attn": True, "num_query_groups": 4, "q_layernorm": "Norm", "k_layernorm": "Norm"},
         {"output": "output_query_group_4", "bias": "bias_query_group_4"},
         False
-    ),
-]
-
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
-    (
-        {"use_flash_attn": True, "num_query_groups": 4, "q_layernorm": None, "k_layernorm": None},
-        {"output": "output_query_group_4", "bias": "bias_query_group_4"},
-        False,
-        2
-    ),
-    (
-        {"use_flash_attn": True, "num_query_groups": 8, "q_layernorm": None, "k_layernorm": None},
-        {"output": "output_query_group_8", "bias": "bias_query_group_8"},
-        False,
-        2
-    ),
-    (
-        {"use_flash_attn": True, "num_query_groups": 4, "q_layernorm": "Norm", "k_layernorm": "Norm"},
-        {"output": "output_query_group_4", "bias": "bias_query_group_4"},
-        False,
-        2
     ),
 ]
 
@@ -184,7 +163,8 @@ class TestSelfAttentionMegatron:
             output_ms_dict = np.load(output_file_path)
 
             self.check_acc(output_ms_dict, data_keys)
-
+class TestSelfAttentionMegatronSingleCard(TestSelfAttentionMegatron):
+    """Test SelfAttentionMegatron with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -198,20 +178,4 @@ class TestSelfAttentionMegatron:
             worker_num=1, local_worker_num=1,
             model_args=model_args, data_keys=data_keys,
             expect_error=expect_error, tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        FOUR_CARD_TEST_PARAM,
-        FOUR_CARD_TEST_CASES
-    )
-    def test_four_cards_configurations(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
-        """Test four cards with various configurations."""
-        self.run_test(
-            worker_num=4, local_worker_num=4,
-            model_args=model_args, data_keys=data_keys,
-            expect_error=expect_error, tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
         )

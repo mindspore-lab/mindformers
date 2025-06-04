@@ -12,24 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Run VocabParallelCrossEntropy accuracy test with configurable parameters via args"""
-
+"""Test ColumnParallelLinear with various configurations"""
 import pytest
-from .test_vocab_parallel_cross_entropy import TestVocabParallelCrossEntropy
+from .test_column_parallel_linear import TestColumnParallelLinear
 
 FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
 FOUR_CARD_TEST_CASES = [
-    # Test Case 3: Four Cards (DP=2, TP=2), check_for_nan=False, calculate_per_token=True
     (
-        {"check_for_nan_in_loss_and_grad": False, "calculate_per_token_loss": True},
-        {"numerator": "numerator", "denominator": "denominator"},
+        {"bias": True, "skip_bias_add": True, "skip_weight_param_allocation": False, "use_weight_tensor": False},
+        {"output": "output_only", "bias": "output_bias"},
         False,
-        2,
+        2
     ),
 ]
 
-class TestVocabParallelCrossEntropyFourCards(TestVocabParallelCrossEntropy):
-    """Test VocabParallelCrossEntropy with four cards and various configurations."""
+class TestColumnParallelLinearFourCards(TestColumnParallelLinear):
+    """Test class for ColumnParallelLinear with four cards configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
@@ -37,14 +35,12 @@ class TestVocabParallelCrossEntropyFourCards(TestVocabParallelCrossEntropy):
         FOUR_CARD_TEST_PARAM,
         FOUR_CARD_TEST_CASES
     )
-    def test_four_cards_case(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
+    def test_four_cards_configurations(self, model_args, expect_error, data_keys, tensor_parallel, tmp_path):
         """Test four cards with various configurations."""
         self.run_test(
-            worker_num=4,
-            local_worker_num=4,
-            model_args=model_args,
+            worker_num=4, local_worker_num=4,
+            model_args=model_args, expect_error=expect_error,
             data_keys=data_keys,
-            expect_error=expect_error,
             tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel,
+            tensor_parallel=tensor_parallel
         )

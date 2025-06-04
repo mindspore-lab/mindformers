@@ -88,32 +88,6 @@ SINGLE_CARD_TEST_CASES = [
     )
 ]
 
-MULTI_CARD_TEST_PARAM = 'model_args, golden_data_key, tensor_parallel'
-MULTI_CARD_TEST_CASES = [
-    (
-        # case 1
-        # Input:
-        #   - model_args: {
-        #       'q_lora_rank': 8,        # Enable q_lora_rank with rank 8 for query projection
-        #       'use_flash_attn': True,  # Use flash attention optimization
-        #       'q_layernorm': 'RMSNorm', # Use RMSNorm for query layer normalization
-        #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
-        #     }
-        #   - golden_data_key: 'multi_q8_flash_ql_kl' (reference output key for multi-card scenario)
-        #   - tensor_parallel: 2 (use 2 GPUs with tensor parallelism)
-        # Expected Output: Model output from two structures should match with each other
-        {
-            'q_lora_rank': 8,
-            'use_flash_attn': True,
-            'q_layernorm': 'RMSNorm',
-            'k_layernorm': 'RMSNorm'
-        },
-        'multi_q8_flash_ql_kl',
-        2
-    ),
-]
-
-
 def get_free_port():
     """Getting a random free port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -256,6 +230,8 @@ class TestMultiLatentAttention:
                 output_ms_dict_mind = np.load(output_file_path, allow_pickle=True)['output']
                 assert np.allclose(output_ms_dict_mind, output_ms_dict_mega)
 
+class TestMultiLatentAttentionSingleCard(TestMultiLatentAttention):
+    """Test class for Multi-head Latent Attention on single card"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -278,32 +254,5 @@ class TestMultiLatentAttention:
             struct=struct,
             model_args=model_args,
             golden_data_key=golden_data_key,
-            tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize('struct', ['megatron', 'a2'])
-    @pytest.mark.parametrize(
-        MULTI_CARD_TEST_PARAM,
-        MULTI_CARD_TEST_CASES
-    )
-    def test_multi_card_mla_cases(
-            self,
-            struct,
-            model_args,
-            golden_data_key,
-            tensor_parallel,
-            tmp_path
-    ):
-        """Test Multi-head Latent Attention on multiple cards with various configurations."""
-        self.run_mla_test(
-            worker_num=4,
-            local_worker_num=4,
-            struct=struct,
-            model_args=model_args,
-            golden_data_key=golden_data_key,
-            tensor_parallel=tensor_parallel,
             tmp_path=tmp_path
         )

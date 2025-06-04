@@ -18,7 +18,7 @@ import mindspore as ms
 from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
-from data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
+from .data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
 
 
 class TestFusedNorm:
@@ -36,7 +36,7 @@ class TestFusedNorm:
                                         layernorm_compute_dtype=ms.float32, num_layers=1, num_attention_heads=2)
         self.norm = FusedNorm(config=self.config, dim=hidden_size, param_init_type=self.config.params_dtype,
                               layernorm_compute_dtype=self.config.layernorm_compute_dtype)
-        output = self.norm(self.inputs)
+        output = self.norm.construct(self.inputs)
         npu_output = output.asnumpy()
         gpu_output = GPU_DATA[normalization]
         golden_output = GOLDEN_DATA[normalization]

@@ -17,10 +17,10 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from data_gen_utils import GOLDEN_DATA, GPU_DATA
 from mindformers.tools.logger import logger
-
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
+
+from .data_gen_utils import GOLDEN_DATA, GPU_DATA
 
 KV_CHANNELS = 32
 
