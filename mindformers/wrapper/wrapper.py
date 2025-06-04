@@ -476,6 +476,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1``.
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
+        global_norm_spike_threshold (float, optional): The threshold of global norm when use
+            the skip data function. Default: ``1.0``.
+        use_skip_data_by_global_norm (bool, optional): The switch of the skip data function. Default: ``False``.
         **kwargs (Any): Additional parameters.
 
     Inputs:
@@ -501,7 +504,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     """
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
-                 scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, **kwargs):
+                 scale_sense=1.0, micro_batch_num=1, local_norm=False,
+                 calculate_per_token_loss=False, global_norm_spike_threshold=1.0,
+                 use_skip_data_by_global_norm=False, **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
@@ -571,6 +576,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             self.finish_step_filename = os.path.join(self.dump_path, "finish_step")
         if self.dump_device_local_norm:
             self.squared_device_local_norm = get_squared_device_local_norm_param()
+        self.global_norm_spike_threshold = global_norm_spike_threshold
+        self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
@@ -633,7 +640,11 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             grads = self.graceful_exit.exit_by_request(grads, self.init_param, self.exit_param)
 
         if not overflow:
-            loss = F.depend(loss, self.optimizer(grads))
+            if self.use_skip_data_by_global_norm:
+                if global_norm < self.global_norm_spike_threshold:
+                    loss = F.depend(loss, self.optimizer(grads))
+            else:
+                loss = F.depend(loss, self.optimizer(grads))
 
         if self.if_dump:
             zero = Tensor(0.0, mstype.float32)

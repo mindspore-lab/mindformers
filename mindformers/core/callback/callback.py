@@ -688,6 +688,11 @@ class TrainingStateMonitor(Callback):
         initial_step (int, optional): The beginning step. Default: ``0``.
         global_batch_size (int, optional): The total batch size. Default: ``0``.
         check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
+        use_skip_data_by_global_norm (bool, optional): Whether to use the skip data function
+            by global norm. Default: ``False``.
+        embedding_size (int, optional): The size of embedding norm which is get
+            by hidden_size * vocab_size. Default: ``4096``.
+        use_local_norm (bool, optional): Whether to turn on the local norm. Default: ``False``.
             Default: ``False``.
     """
     def __init__(self,
@@ -698,7 +703,10 @@ class TrainingStateMonitor(Callback):
                  initial_epoch: int = 0,
                  initial_step: int = 0,
                  global_batch_size: int = 0,
-                 check_for_nan_in_loss_and_grad: bool = False):
+                 check_for_nan_in_loss_and_grad: bool = False,
+                 use_skip_data_by_global_norm: bool = False,
+                 embedding_size: int = 4096,
+                 use_local_norm: bool = False):
         super(TrainingStateMonitor, self).__init__()
         if not (isinstance(step_interval, int) and step_interval > 0):
             logger.warning(f"The value of 'monitor_config.step_interval' should be positive integer, "
@@ -714,6 +722,10 @@ class TrainingStateMonitor(Callback):
         self.initial_epoch = initial_epoch
         self.initial_step = initial_step
         self.global_batch_size = global_batch_size
+        self.global_norm_spike_count = 0
+        self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
+        self.embedding_size = embedding_size
+        self.use_local_norm = use_local_norm
         self.device_num = get_real_group_size()
         self.tensor_writer = get_tensorboard_writer()
         self.outputer = {'tensorboard': self._to_tensorboard, 'log': self._to_log}
@@ -808,8 +820,11 @@ class TrainingStateMonitor(Callback):
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
-        if self.check_for_global_norm:
-            self.abnormal_global_norm_check(cb_params)
+        if self.use_local_norm and self.embedding_size is not None:
+            embedding_local_norm = get_embedding_info(cb_params, self.embedding_size)
+            logger.info("embedding_local_norm: %s", embedding_local_norm)
+
+        self.abnormal_global_norm_check(cb_params)
 
         device_local_loss = None
         if self.device_local_loss_format:
@@ -837,8 +852,13 @@ class TrainingStateMonitor(Callback):
             cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
         net_outputs = cb_params.net_outputs
         global_norm = self._get_loss_output(net_outputs)[1]
-        if self.check_for_global_norm and global_norm >= self.global_norm_error_threshold:
-            global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+        global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+
+        if self.check_for_global_norm and self.use_skip_data_by_global_norm:
+            raise ValueError("The check_for_global_norm and use_skip_data_by_global_norm"
+                             " cannot be turned on at the same time, please choose one.")
+
+        if self.check_for_global_norm and global_norm >= self.global_norm_spike_threshold:
             if str(global_step) not in self.abnormal_global_norms:
                 # Because json cannot use number as key, so we convert it to string
                 self.abnormal_global_norms[str(global_step)] = [global_norm.item()]
@@ -851,7 +871,7 @@ class TrainingStateMonitor(Callback):
                     with open(self.global_norm_record_path, 'w') as file:
                         json.dump(self.abnormal_global_norms, file)
                 logger.info(f"Current global norm {global_norm} is greater equal than "
-                            f"threshold {self.global_norm_error_threshold}, stop training...")
+                            f"threshold {self.global_norm_spike_threshold}, stop training...")
                 barrier_world()
                 logger.info(f"Call barrier before throw TREError.")
                 ms.runtime.synchronize()
@@ -859,7 +879,29 @@ class TrainingStateMonitor(Callback):
                 raise RuntimeError("TREError occurred......")
             self.abnormal_global_norms[str(global_step)].append(global_norm.item())
             logger.info(f"The global norm {global_norm} of step {global_step} is still greater or equal "
-                        f"than threshold {self.global_norm_error_threshold}, continue training.")
+                        f"than threshold {self.global_norm_spike_threshold}, continue training.")
+
+        if self.use_skip_data_by_global_norm:
+            opt_global_step = cb_params.optimizer.global_step \
+                if cb_params.optimizer is not None else cb_params.network.optimizer.global_step
+            is_skip = global_norm >= self.global_norm_spike_threshold
+            if is_skip:
+                logger.info("opt_global_step: %d, skip_data_grad_norm_threshold: %s, is_skip: %s",
+                            opt_global_step, self.global_norm_spike_threshold, is_skip)
+                self.global_norm_spike_count += 1
+                if self.global_norm_spike_count < self.global_norm_spike_count_threshold:
+                    logger.info(f"Current global norm {global_norm} of step {global_step} "
+                                f"has been {self.global_norm_spike_count} "
+                                f"consecutive times smaller than threshold: "
+                                f"{self.global_norm_spike_threshold}")
+                else:
+                    raise ValueError(
+                        f"Current global norm {global_norm} of step {global_step} "
+                        f"has been {self.global_norm_spike_count_threshold} "
+                        f"consecutive times greater equal than threshold "
+                        f"{self.global_norm_spike_threshold}, stop training...")
+            else:
+                self.global_norm_spike_count = 0
 
     def _init_config(self, config):
         """Initialize members from config"""
@@ -885,7 +927,8 @@ class TrainingStateMonitor(Callback):
 
         self.check_for_global_norm = config.get('check_for_global_norm')
         self.global_norm_record_path = config.get('global_norm_record_path')
-        self.global_norm_error_threshold = config.get('global_norm_error_threshold')
+        self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
+        self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold')
         self.abnormal_global_norms: dict[str, list[float]] = {}
 
         if self.print_struct is None:
@@ -1198,6 +1241,13 @@ class CheckpointMonitor(ModelCheckpoint):
         checkpoint_format (str, optional): The format of checkpoint to save. Support 'ckpt' or 'safetensors'.
             Default: ``'ckpt'``.
         remove_redundancy (bool, optional): Whether to remove redundancy when saving checkpoint. Default: ``False``.
+        embedding_size (int, optional): The size of embedding norm which is get
+            by hidden_size * vocab_size. Default: ``4096``.
+        use_checkpoint_health_monitor (bool, optional): Whether to use the checkpoint health
+            monitor function by embedding norm. Default: ``False``.
+        embedding_local_norm_threshold (Float, optional): The threshold of the embedding norm. Default: ``1.0``.
+        health_ckpts_record_dir (str, optional): The path of the file which is used to record the health of checkpoint.
+            Default: ``./output``.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -1227,12 +1277,21 @@ class CheckpointMonitor(ModelCheckpoint):
                  exception_save=False,
                  global_batch_size=None,
                  checkpoint_format='ckpt',
-                 remove_redundancy=False):
+                 remove_redundancy=False,
+                 embedding_size=4096,
+                 embedding_local_norm_threshold=1.0,
+                 use_checkpoint_health_monitor=False,
+                 health_ckpts_record_dir="./output"):
 
         self.config = config
         self.save_network_params = save_network_params
         self.save_trainable_params = save_trainable_params
         self.rank_id = get_real_rank()
+        self.embedding_local_norm_threshold = embedding_local_norm_threshold
+        self.use_checkpoint_health_monitor = use_checkpoint_health_monitor
+        self.embedding_size = embedding_size
+        self.health_ckpts_record_dir = health_ckpts_record_dir
+
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         self.global_batch_size = global_batch_size
@@ -1347,6 +1406,40 @@ class CheckpointMonitor(ModelCheckpoint):
             if not self._config.async_save:
                 self.print_savetime(cb_params.cur_step_num, cb_params.batch_num)
 
+
+    def get_checkpoint_health_info(self, cb_params):
+        """get the health of checkpoint."""
+        embedding_local_norm = get_embedding_info(cb_params, self.embedding_size)
+
+        stage_nums = auto_parallel_context().get_pipeline_stages()
+        device_nums = get_group_size()
+        per_stage_device_nums = device_nums // stage_nums
+        health_flag = ms.Tensor([0], dtype=ms.float32)
+        is_health = 0
+        if stage_nums > 1:
+            parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+            ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.STAND_ALONE)
+            if get_rank() < per_stage_device_nums:
+                rank_list = list(range(0, per_stage_device_nums))
+                if embedding_local_norm >= self.embedding_local_norm_threshold:
+                    health_flag = ms.Tensor([1], dtype=ms.float32)
+                group_name = self.create_group_pipeline(rank_list)
+                final_health = AllReduceNet(group_name)(health_flag)
+                if final_health.asnumpy() != 0:
+                    is_health = 1
+            ms.set_auto_parallel_context(parallel_mode=parallel_mode)
+        return is_health
+
+    def create_group_pipeline(self, rank_list):
+        rank_str_list = [str(r) for r in rank_list]
+        rank_list_str = "-".join(rank_str_list)
+        # To make the name of group unique.
+        hashed = hashlib.md5(
+            rank_list_str.encode()).hexdigest()[:48]
+        pipeline_group_name = str(hashed)
+        create_group(pipeline_group_name, rank_list)
+        return pipeline_group_name
+
     def save_checkpoint(self, cb_params):
         """save checkpoint suitable for resume training."""
         logger.info('......Saving ckpt......')
@@ -1374,6 +1467,24 @@ class CheckpointMonitor(ModelCheckpoint):
         cur_file = os.path.join(self._directory, cur_ckpoint_file)
         self._last_time_for_keep = time.time()
         self._last_triggered_step = cb_params.cur_step_num
+
+        if self.use_checkpoint_health_monitor:
+            is_health = self.get_checkpoint_health_info(cb_params)
+            # check the health of checkpoint and save the record file
+            if get_rank() == 0:
+                dump_health_json_path = os.path.join(self.health_ckpts_record_dir, "health_ckpts.json")
+                health_step_data = {
+                    'is_health': is_health,
+                    'ckpt_name': cur_ckpoint_file
+                }
+                all_step_health_data = []
+                if os.path.exists(dump_health_json_path):
+                    with open(dump_health_json_path, 'r') as file:
+                        data = json.load(file)
+                        all_step_health_data = list(data)
+                all_step_health_data.append(health_step_data)
+                with open(dump_health_json_path, 'w') as file:
+                    json.dump(all_step_health_data, file, indent=4)
 
         if "epoch_num" in self._append_dict:
             self._append_dict["epoch_num"] = cb_params.cur_epoch_num
@@ -2232,3 +2343,19 @@ class MoEDropRateCallback(Callback):
         cb_params = run_context.original_args()
         # pylint: disable=W0212
         self._callback_droprate(cb_params.train_network.network.network._backbone)
+
+
+def get_embedding_info(cb_params, embedding_size):
+    """print embedding info and get the health of checkpoint."""
+    if len(cb_params.net_outputs) < 7:
+        raise ValueError("You should turn on the local norm while using the skip data by global norm function.")
+    embedding_local_norm = 0
+    pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
+    device_nums = get_group_size()
+    rank = get_rank()
+    if rank < device_nums // pipeline_stages:
+        for local_norm, local_norm_size in zip(cb_params.net_outputs[5], cb_params.net_outputs[6]):
+            if local_norm_size == embedding_size:
+                embedding_local_norm = local_norm
+                break
+    return embedding_local_norm

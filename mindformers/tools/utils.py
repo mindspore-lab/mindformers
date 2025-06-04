@@ -637,6 +637,28 @@ def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):
                      f"llama_7b_rank_0-3_2.{ckpt_fmt}.")
 
 
+def get_times_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):
+    """Get times epoch and step from ckpt name."""
+    ckpt_name = os.path.basename(ckpt_file)
+    pattern = r'_(\d+)-(\d+)_(\d+)\.' + ckpt_fmt
+    pattern_1 = r'-(\d+)_(\d+)\.' + ckpt_fmt
+    match = re.search(pattern, ckpt_name)
+    if match:
+        times = int(match.group(1))
+        epoch = int(match.group(2))
+        step = int(match.group(3))
+        return times, epoch, step
+    match_1 = re.search(pattern_1, ckpt_name)
+    if match_1:
+        times = 0
+        epoch = int(match.group(1))
+        step = int(match.group(2))
+        return times, epoch, step
+    raise ValueError(f"Can't match epoch and step from checkpoint file: {ckpt_file}. Please ensure the format "
+                     f"of the checkpoint file name is {{prefix}}-{{epoch}}_{{step}}.{ckpt_fmt}, for example, "
+                     f"llama_7b_rank_0-3_2.{ckpt_fmt}.")
+
+
 def get_rank_id_from_ckpt_name(ckpt_file):
     """Get rank id from ckpt name."""
     ckpt_name = os.path.basename(ckpt_file)

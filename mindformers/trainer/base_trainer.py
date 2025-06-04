@@ -679,11 +679,18 @@ class BaseTrainer:
         """Create the model wrapper for training."""
         logger.info(".........Build Model Wrapper for Train From Config..........")
         calculate_per_token_loss = getattr(self.config, "calculate_per_token_loss", False)
+        use_skip_data_by_global_norm = getattr(self.config, "use_skip_data_by_global_norm", False)
+        global_norm_spike_threshold = 1.0
+        if self.config.get('monitor_config') is not None and isinstance(self.config.get('monitor_config'), float):
+            global_norm_spike_threshold = getattr(self.config.monitor_config, "global_norm_spike_threshold", 1.0)
         model_wrapper = build_wrapper(self.config.runner_wrapper,
                                       default_args={"network": network,
                                                     "optimizer": optimizer,
                                                     "parallel_config": self.config.parallel_config,
-                                                    "calculate_per_token_loss": calculate_per_token_loss})
+                                                    "calculate_per_token_loss": calculate_per_token_loss,
+                                                    "global_norm_spike_threshold": global_norm_spike_threshold,
+                                                    "use_skip_data_by_global_norm": use_skip_data_by_global_norm
+                                                    })
         return model_wrapper
 
     def create_callbacks(self, default_args: dict = None):
@@ -1067,6 +1074,17 @@ class BaseTrainer:
             stop_step_dict['type'] = "TrainCallBack"
             stop_step_dict['stop_step'] = self.config.runner_config.stop_step
         ckpt_config = None
+        hidden_size = config.model.model_config.hidden_size
+        vocab_size = config.model.model_config.vocab_size
+        embedding_size = None
+        use_checkpoint_health_monitor = getattr(config, "use_checkpoint_health_monitor", False)
+        if use_checkpoint_health_monitor and isinstance(use_checkpoint_health_monitor, bool):
+            if hidden_size is None:
+                raise ValueError("You should set the hidden_size while use the checkpoint health monitor function.")
+            if vocab_size is None:
+                raise ValueError("You should set the vocab_size while use the checkpoint health monitor function.")
+            embedding_size = hidden_size * vocab_size
+
         for callback in self.config.callbacks:
             default_args = None
             if "type" in callback and callback["type"] == "MFLossMonitor":
@@ -1089,7 +1107,10 @@ class BaseTrainer:
                     "initial_epoch": config.runner_config.initial_epoch,
                     "initial_step": config.runner_config.initial_step,
                     "global_batch_size": self.global_batch_size,
-                    "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
+                    "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False),
+                    "use_skip_data_by_global_norm": getattr(config, "use_skip_data_by_global_norm", False),
+                    "embedding_size": embedding_size,
+                    "use_local_norm": getattr(config.runner_wrapper, "local_norm", False)
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
@@ -1097,7 +1118,11 @@ class BaseTrainer:
                 default_args = {"append_info": append_info,
                                 "global_batch_size": self.global_batch_size,
                                 "remove_redundancy": callback.get("remove_redundancy", False),
-                                "checkpoint_format": callback.get("checkpoint_format", "ckpt")
+                                "checkpoint_format": callback.get("checkpoint_format", "ckpt"),
+                                "embedding_size": embedding_size,
+                                "embedding_local_norm_threshold": callback.get("embedding_local_norm_threshold", 1.0),
+                                "use_checkpoint_health_monitor": use_checkpoint_health_monitor,
+                                "health_ckpts_record_dir": config.output_dir
                                 }
                 if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")

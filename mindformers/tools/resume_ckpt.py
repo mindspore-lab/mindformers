@@ -24,6 +24,7 @@ from mindformers.tools.utils import (
     get_real_rank,
     get_real_group_size,
     get_epoch_and_step_from_ckpt_name,
+    get_times_epoch_and_step_from_ckpt_name,
     get_rank_id_from_ckpt_name,
     get_remote_save_url,
     replace_rank_id_in_ckpt_name,
@@ -41,7 +42,9 @@ if check_in_modelarts():
 NO_META = "FOUND NO META.JSON"
 
 
-def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True, ckpt_format='ckpt'):
+def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True,
+                          ckpt_format='ckpt', use_checkpoint_health_monitor=False,
+                          health_ckpts_record_dir="./output"):
     """get resume checkpoint."""
     rank_id = get_real_rank()
     if isinstance(resume_training, str):
@@ -65,11 +68,13 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True, 
             and it can't ensure that the step of the checkpoints are consistent.")
         return True
 
-    resume_ckpt = get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format)
+    resume_ckpt = get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format,
+                                                use_checkpoint_health_monitor, health_ckpts_record_dir)
     return resume_ckpt
 
 
-def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt'):
+def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
+                                  use_checkpoint_health_monitor=False, health_ckpts_record_dir="./output"):
     """get resume checkpoint by meta."""
     rank_id = get_real_rank()
     device_num = get_real_group_size()
@@ -101,7 +106,11 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt'):
 
                 # 2. get ckpt files suitable for resume training per rank
                 resume_ckpt_list = get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id,
-                                                        device_num, ckpt_format)
+                                                        device_num, ckpt_format, use_checkpoint_health_monitor)
+
+                if use_checkpoint_health_monitor:
+                    resume_ckpt_list = checkpoint_health_monitor(health_ckpts_record_dir, resume_ckpt_list)
+
                 create_file(latest_checkpointed_iteration_txt, resume_ckpt_list)
                 logger.info("Get resume checkpoint: %s", resume_ckpt_list[-1])
                 resume_ckpt = os.path.basename(resume_ckpt_list[-1])
@@ -117,6 +126,35 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt'):
         resume_ckpt = get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id)
 
     return resume_ckpt
+
+
+def checkpoint_health_monitor(health_ckpts_record_dir, resume_ckpt_list):
+    """get health of ckpt files from health_ckpts.json."""
+    not_health_ckpts = []
+    health_ckpts = []
+    health_monitoring_json = os.path.join(health_ckpts_record_dir, 'health_ckpts.json')
+    if os.path.exists(health_monitoring_json):
+        with open(health_monitoring_json, "r") as json_file:
+            json_data = json.load(json_file)
+            if not json_data:
+                logger.warning(f"Get nothing from {json_file}.")
+            if json_data:
+                # Generation 0 represents health, while other numbers indicate the number of unhealthy data.
+                for item in json_data:
+                    if item.get("is_health", -1) != 0:
+                        not_health_ckpts.append(item)
+                    else:
+                        health_ckpts.append(item)
+
+    if not health_ckpts:
+        raise ValueError("The training has no healthy checkpoints yet, please start training again.")
+
+    if not not_health_ckpts:
+        not_health_ckpts_set = set(not_health_ckpts)
+        resume_ckpt_list = \
+            [item for item in resume_ckpt_list if os.path.basename(item) not in not_health_ckpts_set]
+
+    return resume_ckpt_list
 
 
 def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
@@ -185,7 +223,8 @@ def get_info_from_meta(checkpoint_dir, ckpt_format='ckpt'):
     return last_epoch, last_step, last_ckpt_file
 
 
-def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num, ckpt_format='ckpt'):
+def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num,
+                         ckpt_format='ckpt', use_checkpoint_health_monitor=False):
     """
     get ckpts suitable for resuming, where their rank numbers are intact,
     epoch and step are consistent, and the path exists.
@@ -201,7 +240,10 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num, ck
         if not os.path.exists(checkpoint_rank_dir):
             raise FileNotFoundError(f"{checkpoint_rank_dir} is not found!")
         for ckpt_file in os.listdir(checkpoint_rank_dir):
-            if ckpt_file.startswith(ckpt_prefix_tmp) and ckpt_file.endswith(f".{ckpt_format}"):
+            health_ckpt_match = (ckpt_file.startswith(ckpt_prefix_tmp[:ckpt_prefix_tmp.rfind("_")])
+                                 and use_checkpoint_health_monitor)
+            if ((ckpt_file.startswith(ckpt_prefix_tmp) or health_ckpt_match)
+                    and ckpt_file.endswith(f".{ckpt_format}")):
                 epoch, step = get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_format)
                 if epoch < last_epoch or (epoch == last_epoch and step <= last_step):
                     key = f"{epoch}_{step}"
@@ -220,7 +262,11 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num, ck
             resume_ckpt_list.append(resume_ckpt)
     if not resume_ckpt_list:
         raise RuntimeError("No checkpoint could be resumed.")
-    resume_ckpt_list.sort(key=lambda x: get_epoch_and_step_from_ckpt_name(x, ckpt_format))
+
+    if use_checkpoint_health_monitor:
+        resume_ckpt_list.sort(key=lambda x: get_times_epoch_and_step_from_ckpt_name(x, ckpt_format))
+    else:
+        resume_ckpt_list.sort(key=lambda x: get_epoch_and_step_from_ckpt_name(x, ckpt_format))
     logger.info("Find resume-able checkpoints as follow:")
     for ckpt in resume_ckpt_list:
         logger.info(ckpt)
