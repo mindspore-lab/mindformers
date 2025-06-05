@@ -15,7 +15,7 @@
 """Deepseek-V3 Model for training."""
 from typing import Union
 
-from mindformers.models.modeling_utils import PreTrainedModel, ModuleUtilsMixin
+from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import (
     LinearNoTP,
@@ -178,7 +178,7 @@ def get_mtp_spec(transformer_spec: Union[list[ModuleSpec], ModuleSpec], config: 
     return mtp_block
 
 
-class DeepseekV3PreTrainedModel(PreTrainedModel, ModuleUtilsMixin):
+class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.

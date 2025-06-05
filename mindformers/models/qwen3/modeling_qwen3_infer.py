@@ -18,8 +18,8 @@ __all__ = ['InferenceQwen3ForCausalLM']
 from typing import Dict
 import gc
 import os
-from tqdm import tqdm
 from safetensors import safe_open
+from tqdm import tqdm
 
 import mindspore as ms
 import mindspore.common.dtype as mstype
@@ -79,7 +79,8 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel):
                               vocab_size=self.vocab_size,
                               max_sequence_length=self.max_position_embeddings,
                               position_embedding_type=config.position_embedding_type,
-                              rotary_base=config.rotary_base)
+                              rotary_base=config.rotary_base,
+                              tie_word_embeddings=config.tie_word_embeddings)
 
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
