@@ -21,7 +21,6 @@ from PIL import Image
 from mindspore import Tensor
 from mindspore.dataset.vision.transforms import ToTensor, Normalize
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
@@ -168,7 +167,6 @@ class ViTMAEProcessor(ProcessorMixin):
         >>> type(pro_a)
         <class 'mindformers.models.mae.mae_processor.ViTMAEProcessor'>
     """
-    _support_list = MindFormerBook.get_processor_support_list()['mae']
 
     attributes = ["image_processor"]
     image_processor_class = "ViTMAEImageProcessor"

@@ -24,7 +24,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
-from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['LlamaConfig']
 
@@ -128,7 +127,6 @@ class LlamaConfig(PretrainedConfig):
     """
 
     model_type = "llama"
-    _support_list = MindFormerBook.get_config_support_list()['llama']
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,

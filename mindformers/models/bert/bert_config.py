@@ -24,7 +24,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
     TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['BertConfig']
 
@@ -90,10 +89,7 @@ class BertConfig(PretrainedConfig):
     """
 
     model_type = "bert"
-    _support_list = MindFormerBook.get_config_support_list()['bert']
-    _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['qa']['bert'])
+    _support_list = []
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      moe_config=(dict, MoEConfig))

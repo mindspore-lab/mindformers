@@ -27,7 +27,6 @@ from mindformers.modules.transformer.transformer import (
     default_dpmp_config,
 )
 
-from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerModuleType, MindFormerRegister
 from .t5 import T5Config, T5Model, T5PreTrainedModel
 
@@ -204,8 +203,6 @@ class MT5ForConditionalGeneration(T5PreTrainedModel):
     Args:
         config(T5Config) : The network config of mt5.
     """
-
-    _support_list = MindFormerBook.get_model_support_list()["mt5"]
 
     def __init__(self, config: T5Config):
         super(MT5ForConditionalGeneration, self).__init__(config)

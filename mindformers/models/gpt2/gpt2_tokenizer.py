@@ -23,7 +23,6 @@ import regex as re
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
 from mindformers.tools.logger import logger
-from ...mindformer_book import MindFormerBook
 
 __all__ = ['GPT2Tokenizer']
 
@@ -143,7 +142,7 @@ class GPT2Tokenizer(PreTrainedTokenizer):
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
     FILE_LIST = ['tokenizer_config.json']
-    _support_list = MindFormerBook.get_tokenizer_support_list()['gpt2']
+    _support_list = []
 
     def __init__(
             self,

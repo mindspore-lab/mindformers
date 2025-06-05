@@ -21,7 +21,6 @@ from PIL import Image
 from mindspore import Tensor
 from mindspore.dataset.vision.transforms import CenterCrop, ToTensor, Normalize
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.models.processing_utils import ProcessorMixin
@@ -149,7 +148,6 @@ class SwinProcessor(ProcessorMixin):
         >>> type(pro_b)
         <class 'mindformers.models.swin.swin_processor.SwinProcessor'>
     """
-    _support_list = MindFormerBook.get_processor_support_list()['swin']
 
     attributes = ["image_processor"]
     image_processor_class = "SwinImageProcessor"

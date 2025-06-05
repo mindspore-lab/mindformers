@@ -24,7 +24,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.utils import convert_mstype
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['GPT2Config']
 
@@ -101,7 +100,7 @@ class GPT2Config(PretrainedConfig):
     """
 
     model_type = 'gpt2'
-    _support_list = MindFormerBook.get_config_support_list()['gpt2']
+    _support_list = []
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      moe_config=(dict, MoEConfig))

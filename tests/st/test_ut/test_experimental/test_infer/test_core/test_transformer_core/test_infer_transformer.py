@@ -17,7 +17,7 @@ import os
 import pytest
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_infer_transformer_block():
@@ -31,7 +31,7 @@ def test_infer_transformer_block():
     ret = os.system(f"python {sh_path}/run_infer_transformer.py --module transformerblock")
     assert ret == 0
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_infer_transformer_layer():

@@ -16,7 +16,6 @@
 """
 GPT2Processor
 """
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -48,7 +47,7 @@ class GPT2Processor(ProcessorMixin):
             - `'np'`: Return Numpy `np.ndarray` objects.
             - `'ms'`: Return Numpy `ms.Tensor` objects.
     """
-    _support_list = MindFormerBook.get_processor_support_list()['gpt2']
+    _support_list = []
 
     attributes = ["tokenizer"]
     tokenizer_class = ("GPT2Tokenizer", "GPT2TokenizerFast")

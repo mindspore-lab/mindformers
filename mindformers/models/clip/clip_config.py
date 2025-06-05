@@ -21,7 +21,6 @@ from typing import Optional
 
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
 
 
@@ -157,7 +156,7 @@ class CLIPConfig(PretrainedConfig):
     """
 
     model_type = "clip"
-    _support_list = MindFormerBook.get_config_support_list()['clip']
+    _support_list = []
 
     def __init__(self, text_config: Optional[CLIPTextConfig] = None,
                  vision_config: Optional[CLIPVisionConfig] = None, projection_dim: Optional[int] = 512,

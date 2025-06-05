@@ -23,7 +23,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.utils import convert_mstype
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['T5Config']
 
@@ -130,7 +129,6 @@ class T5Config(PretrainedConfig):
     """
 
     model_type = "t5"
-    _support_list = MindFormerBook.get_config_support_list()['t5']
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      moe_config=(dict, MoEConfig))

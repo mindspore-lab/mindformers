@@ -25,7 +25,6 @@ from mindformers.tools.logger import logger
 from ..tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
 from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .gpt2_tokenizer import GPT2Tokenizer
-from ...mindformer_book import MindFormerBook
 
 __all__ = ['GPT2TokenizerFast']
 
@@ -91,7 +90,7 @@ class GPT2TokenizerFast(PreTrainedTokenizerFast):
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
     FILE_LIST = ['tokenizer_config.json']
-    _support_list = MindFormerBook.get_tokenizer_support_list()['gpt2']
+    _support_list = []
     slow_tokenizer_class = GPT2Tokenizer
 
     def __init__(

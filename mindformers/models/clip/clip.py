@@ -29,7 +29,6 @@ import mindspore.ops as ops
 
 from mindformers.version_control import get_norm
 from mindformers.models.modeling_utils import PreTrainedModel
-from ...mindformer_book import MindFormerBook
 from .clip_modules import VisionTransformer, Transformer, LayerNorm
 from .clip_config import CLIPConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -59,7 +58,7 @@ class CLIPModel(ClipPreTrainedModel):
         >>> type(model)
         <class 'mindformers.models.clip.clip.CLIPModel'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['clip']
+    _support_list = []
 
     def __init__(self, config: CLIPConfig):
         super(CLIPModel, self).__init__(config)

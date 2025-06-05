@@ -21,7 +21,6 @@ from PIL import Image
 from mindspore import Tensor
 from mindspore.dataset.vision import CenterCrop, ToTensor, Normalize
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
@@ -140,7 +139,6 @@ class ViTProcessor(ProcessorMixin):
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
     and a tokenizer (PreTrainedTokenizerBase) for text input.
     """
-    _support_list = MindFormerBook.get_processor_support_list()['vit']
 
     attributes = ["image_processor"]
     image_processor_class = "ViTImageProcessor"

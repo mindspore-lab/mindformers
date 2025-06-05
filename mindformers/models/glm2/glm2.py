@@ -17,6 +17,9 @@ import copy
 from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
 
+import numpy as np
+from safetensors import safe_open
+
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
@@ -27,10 +30,6 @@ from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindpet.delta.ptuning2 import PrefixEncoder
 
-import numpy as np
-from safetensors import safe_open
-
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
@@ -315,7 +314,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         >>> type(network)
         <class 'mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['glm3']
+    _support_list = []
 
     @lazy_inline
     def __init__(self, config: ChatGLM2Config, **kwargs):

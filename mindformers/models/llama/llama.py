@@ -29,7 +29,6 @@ from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid, check_use_3d_tensor_parallel_valid
 from mindformers.modules.layers import Linear, FreqsMgr
@@ -75,7 +74,7 @@ class LlamaModel(LlamaPreTrainedModel):
         >>> type(network)
         <class 'mindformers.models.llama.llama.LlamaModel'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['llama']
+    _support_list = []
 
     def __init__(self,
                  config: LlamaConfig = None):
@@ -478,7 +477,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         >>> type(network)
         <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['llama']
+    _support_list = []
 
     @lazy_inline
     def __init__(self, config: LlamaConfig = None):

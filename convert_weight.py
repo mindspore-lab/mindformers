@@ -37,43 +37,14 @@ convert_map = {
     'llama': 'mindformers.models.llama.convert_weight.convert_pt_to_ms',
     'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
     'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
-    'internlm2': 'research.internlm2.convert_weight.convert_pt_to_ms',
-    'gpt': 'mindformers.models.gpt2.convert_weight.convert_pt_to_ms',
-    'blip': 'mindformers.models.blip2.convert_weight.convert_pt_to_ms',
     'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
-    'mae': 'mindformers.models.mae.convert_weight.convert_pt_to_ms',
-    'vit': 'mindformers.models.vit.convert_weight.convert_pt_to_ms',
-    'swin': 'mindformers.models.swin.convert_weight.convert_pt_to_ms',
-    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
-    'qwenvl': 'research.qwenvl.convert_weight.convert_pt_to_ms',
-    'yi': 'research.yi.convert_weight.convert_pt_to_ms',
-    'deepseek': 'research.deepseek.convert_weight.convert_pt_to_ms',
-    'deepseek1_5': 'research.deepseek1_5.convert_weight.convert_pt_to_ms',
-    'qwen2': 'research.qwen2.convert_weight.convert_pt_to_ms',
-    'qwen2-moe': 'research.qwen2.convert_moe_weight.convert_pt_to_ms',
-    'cogvlm2': 'mindformers.models.cogvlm2.convert_weight.convert_pt_to_ms',
-    'llava': 'research.llava.convert_weight.convert_pt_to_ms',
-    'whisper': 'mindformers.models.whisper.convert_weight.convert_pt_to_ms',
-    'yizhao': 'research.yizhao.convert_weight.convert_pt_to_ms',
-    'llava_next': 'research.llava_next.convert_weight.convert_pt_to_ms',
-    'internvl2': 'research.internvl2.convert_weight.convert_pt_to_ms'
+    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
     'glm-n': 'mindformers.models.glm2.convert_reversed.convert_ms_to_pt',
-    'internlm2': 'research.internlm2.convert_reversed.convert_ms_to_pt',
-    'gpt': 'mindformers.models.gpt2.convert_reversed.convert_ms_to_pt',
-    'blip': 'mindformers.models.blip2.convert_reversed.convert_ms_to_pt',
     'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt',
-    'mae': 'mindformers.models.mae.convert_reversed.convert_ms_to_pt',
-    'vit': 'mindformers.models.vit.convert_reversed.convert_ms_to_pt',
-    'swin': 'mindformers.models.swin.convert_reversed.convert_ms_to_pt',
-    'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt',
-    'yi': 'research.yi.convert_reversed.convert_ms_to_pt',
-    'deepseek': 'research.deepseek.convert_reversed.convert_ms_to_pt',
-    'deepseek1_5': 'research.deepseek1_5.convert_reversed.convert_ms_to_pt',
-    'whisper': 'mindformers.models.whisper.convert_reversed.convert_ms_to_pt',
-    'yizhao': 'research.yizhao.convert_reversed.convert_ms_to_pt'
+    'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt'
 }
 
 if __name__ == '__main__':

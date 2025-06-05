@@ -16,7 +16,6 @@
 from typing import Optional, Union, Dict, List
 
 from mindspore import Model
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseXModalToTextProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -78,8 +77,6 @@ class MultiModalToTextPipeline(Pipeline):
         >>> # Note:
         >>> #     The final result shall be subject to the actual input image.
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['multi_modal_to_text_generation'].keys()
-
     def __init__(self, model: Union[PreTrainedModel, Model],
                  processor: Optional[BaseXModalToTextProcessor] = None,
                  **kwargs):

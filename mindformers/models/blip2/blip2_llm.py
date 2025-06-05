@@ -23,7 +23,6 @@ import mindspore.common.dtype as mstype
 from mindspore import ops
 from mindspore.ops import operations as P
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.blip2.blip2 import Blip2Base
 from mindformers.models.blip2.blip2_config import Blip2Config
 from mindformers.modules.layers import Linear
@@ -38,7 +37,7 @@ class Blip2Llm(Blip2Base):
     """
     BLIP2 with llm model.
     """
-    _support_list = MindFormerBook.get_model_support_list()['blip2']['stage2']
+    _support_list = []
 
     # blip2_stage1_pretrained is not a specific model and appending it here is used to load the ckpt in stage2.
     _support_list.append("blip2_stage1_pretrained")
@@ -213,7 +212,7 @@ class Blip2ImageToTextGeneration(Blip2Llm):
         >>> type(model)
         <class 'mindformers.models.blip2.blip2_llama.Blip2ImageToTextGeneration'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['itt']['blip2']
+    _support_list = []
 
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2ImageToTextGeneration, self).__init__(config, **kwargs)

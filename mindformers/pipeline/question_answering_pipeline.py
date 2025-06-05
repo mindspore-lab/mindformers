@@ -22,7 +22,6 @@ import six
 
 from mindspore import Tensor
 from mindspore.common import dtype as mstype
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BasicTokenizer
 from mindformers.utils import deprecated
 from ..dataset.dataloader.squad_dataloader import convert_examples_to_features, SquadExample
@@ -63,8 +62,6 @@ class QuestionAnsweringPipeline(Pipeline):
         >>> print(results)
             [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['question_answering'].keys()
-
     def __init__(self, model, tokenizer, doc_stride=128, max_question_len=64, max_seq_len=384, top_k=1,
                  n_best_size=20, max_answer_len=30, **kwargs):
 

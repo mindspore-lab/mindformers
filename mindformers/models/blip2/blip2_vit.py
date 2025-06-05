@@ -15,7 +15,6 @@
 # https://github.com/salesforce/LAVIS/tree/main/lavis/models/blip2_models
 # ============================================================================
 """vit models for Blip2"""
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.vit.vit import ViTModel, ViTConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -26,7 +25,7 @@ class ViTModelForBlip2(ViTModel):
     ViTModel For Blip2 Models, loading a pretrained weight.
     forward will return the penultimate output.
     """
-    _support_list = MindFormerBook.get_config_support_list()['vit']
+    _support_list = []
 
     def __init__(self, config: ViTConfig):
         super(ViTModelForBlip2, self).__init__(config)

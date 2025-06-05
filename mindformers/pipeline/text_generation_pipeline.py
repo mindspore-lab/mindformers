@@ -19,7 +19,6 @@ from typing import Union, Optional
 import mindspore
 from mindspore import Model, Tensor
 
-from ..mindformer_book import MindFormerBook
 from ..models import PreTrainedModel, PreTrainedTokenizer
 from ..tools.register import MindFormerModuleType, MindFormerRegister
 from .base_pipeline import Pipeline
@@ -77,7 +76,6 @@ class TextGenerationPipeline(Pipeline):
         >>> text_generate = TextGenerationPipeline(model=model, tokenizer=tokenizer)
         >>> output = text_generate("I love Beijing, because ")
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['text_generation'].keys()
     return_name = 'text_generation'
 
     def __init__(self, model: Union[PreTrainedModel, Model],

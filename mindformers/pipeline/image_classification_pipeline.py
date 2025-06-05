@@ -20,7 +20,6 @@ from PIL import Image
 from mindspore.ops import operations as P
 from mindspore import Tensor, Model
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -65,7 +64,6 @@ class ImageClassificationPipeline(Pipeline):
             {'score': 0.0014109017, 'label': 'bottlecap'}],
             ..., {'score': 0.0014109018, 'label': 'bottlecap'}]]
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['image_classification'].keys()
 
     def __init__(self, model: Union[PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,

@@ -20,7 +20,6 @@ from PIL import Image
 
 from mindspore import Tensor, Model
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -60,8 +59,6 @@ class MaskedImageModelingPipeline(Pipeline):
         ...     )
         >>> reconstructor(np.uint8(np.random.random((5, 3, 255, 255))))
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['masked_image_modeling'].keys()
-
     def __init__(self, model: Union[PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):

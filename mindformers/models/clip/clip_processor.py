@@ -26,7 +26,6 @@ from mindformers.dataset import (
     BCHW2BHWC, BatchResize, BatchToTensor,
     BatchNormalize, BatchCenterCrop, BatchPILize
 )
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.image_processing_utils import BaseImageProcessor
 from mindformers.models.processing_utils import ProcessorMixin
@@ -117,7 +116,7 @@ class CLIPProcessor(ProcessorMixin):
         >>> type(processor)
         <class 'mindformers.models.clip.clip_processor.CLIPProcessor'>
     """
-    _support_list = MindFormerBook.get_processor_support_list()['clip']
+    _support_list = []
 
     attributes = ["tokenizer", "image_processor"]
     image_processor_class = "AutoImageProcessor"

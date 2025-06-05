@@ -21,7 +21,6 @@ from typing import Optional, Tuple
 from tokenizers import processors
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.mindformer_book import MindFormerBook
 from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .llama_tokenizer import LlamaTokenizer
 
@@ -93,7 +92,6 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
     FILE_LIST = ['tokenizer_config.json']
-    _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
     slow_tokenizer_class = LlamaTokenizer
 
     # Currently, the llama_tokenizer_fast process supports only the 'right' padding mode.

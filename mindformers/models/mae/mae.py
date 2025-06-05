@@ -20,7 +20,6 @@ from mindspore import Tensor, Parameter, nn
 from mindspore import dtype as mstype
 from mindspore import ops as P
 import mindspore.common.initializer as weight_init
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.mae.mae_modules import Block, LayerNorm, Linear
@@ -60,7 +59,6 @@ class ViTMAEModel(MAEPreTrainedModel):
         >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
         >>> model_b = ViTMAEModel(config)
     """
-    _support_list = MindFormerBook.get_model_support_list()['mae']
 
     def __init__(self, config=None):
         config = config if config else ViTMAEConfig()
@@ -215,7 +213,6 @@ class ViTMAEForPreTraining(MAEPreTrainedModel):
         >>> model_b = ViTMAEForPreTraining(config)
         <class 'mindformers.models.mae.mae.ViTMAEForPreTraining'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['mae']
 
     def __init__(self, config=None):
         config = config if config else ViTMAEConfig()

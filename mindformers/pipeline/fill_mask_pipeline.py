@@ -19,7 +19,6 @@ import mindspore
 from mindspore import ops, Tensor
 from mindformers.utils import deprecated
 from .base_pipeline import Pipeline
-from ..mindformer_book import MindFormerBook
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['FillMaskPipeline']
@@ -37,7 +36,6 @@ class FillMaskPipeline(Pipeline):
         tokenizer (Optional[PreTrainedTokenizerBase]):
             A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
     """
-    _support_list = MindFormerBook.get_model_support_list()['bert']
     return_name = 'fillmask'
 
     def __init__(self, model, tokenizer=None, **kwargs):

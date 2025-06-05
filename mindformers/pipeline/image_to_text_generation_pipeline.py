@@ -16,7 +16,6 @@
 from typing import Optional, Union, Dict, List
 
 from mindspore import Model
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -41,7 +40,6 @@ class ImageToTextPipeline(Pipeline):
         ValueError:
             If the input model is not in support list.
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
     def __init__(self, model: Union[PreTrainedModel, Model],
                  processor: Optional[BaseProcessor] = None,
