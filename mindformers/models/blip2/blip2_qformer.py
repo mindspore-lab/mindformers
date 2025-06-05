@@ -26,7 +26,6 @@ from mindspore import Tensor
 import mindspore.numpy as np
 from mindspore.ops import operations as P
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.layers import Linear
 from mindformers.models.blip2.blip2 import Blip2Base
 from mindformers.models.blip2.blip2_config import Blip2Config
@@ -81,7 +80,7 @@ class Blip2Qformer(Blip2Base):
         <class 'mindformers.models.blip2.blip2_qformer.Blip2Qformer'>
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['blip2']['stage1']
+    _support_list = []
 
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Qformer, self).__init__(config, **kwargs)

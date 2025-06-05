@@ -25,7 +25,6 @@ from mindformers.models.llama import LlamaConfig
 from mindformers.models.vit import ViTConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 
 __all__ = ['Blip2Config']
@@ -76,7 +75,7 @@ class Blip2Config(PretrainedConfig):
     """
 
     model_type = "blip2"
-    _support_list = MindFormerBook.get_config_support_list()['blip2']
+    _support_list = []
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      qformer_config=(dict, QFormerConfig))

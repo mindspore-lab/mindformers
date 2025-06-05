@@ -21,7 +21,6 @@ import mindspore as ms
 import mindspore.nn as nn
 from mindspore.common.initializer import initializer, Normal
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.blip2.blip2_llama import LlamaForBlip2
 from mindformers.models.blip2.blip2_vit import ViTModelForBlip2
@@ -45,7 +44,7 @@ class Blip2Base(Blip2PreTrainedModel):
     """
     BLIP2 base model, all BLIP2 models inherit this class.
     """
-    _support_list = MindFormerBook.get_model_support_list()['blip2']
+    _support_list = []
 
     def init_qformer(self):
         """

@@ -21,7 +21,6 @@ import numpy as np
 
 from mindspore import ops
 from mindformers.utils import deprecated
-from ..mindformer_book import MindFormerBook
 from .base_pipeline import Pipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -67,8 +66,6 @@ class TokenClassificationPipeline(Pipeline):
             [[{'entity_group': 'address', 'start': 6, 'end': 8, 'score': 0.52329, 'word': '日内瓦'},
               {'entity_group': 'name', 'start': 12, 'end': 25, 'score': 0.83922, 'word': 'freresoltramar'}]]
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['token_classification'].keys()
-
     def __init__(self, model, id2label, tokenizer=None, **kwargs):
 
         if tokenizer is None:

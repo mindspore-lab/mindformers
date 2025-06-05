@@ -29,7 +29,6 @@ from mindformers.modules.layers import LayerNorm, Dropout, Linear
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.transformer import AttentionMask, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
 from mindformers.modules.transformer.op_parallel_config import MoEParallelConfig
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -63,7 +62,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             >>> type(model)
             <class 'mindformers.models.gpt2.gpt2.GPT2LMHeadModel'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['gpt2']
+    _support_list = []
 
     def __init__(self, config: GPT2Config = None):
         config = config if config is not None else GPT2Config()
@@ -213,7 +212,7 @@ class GPT2ForSequenceClassification(GPT2PreTrainedModel):
             >>> type(model)
             <class 'mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['gpt2']
+    _support_list = []
 
     def __init__(self, config: GPT2Config = None):
         self.config = config if config is not None else GPT2Config()

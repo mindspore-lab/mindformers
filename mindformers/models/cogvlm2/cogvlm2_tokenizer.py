@@ -18,7 +18,6 @@ import base64
 import json
 import unicodedata
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -58,7 +57,7 @@ class CogVLM2Tokenizer(PreTrainedTokenizer):
     """CogVLM2 Tokenizer."""
     VOCAB_FILES = {'vocab_file': 'tokenizer.json'}
     FILE_LIST = []
-    _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
+    _support_list = []
     special_tokens: Dict[str, int]
 
     def __init__(self,

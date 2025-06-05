@@ -22,7 +22,6 @@ from typing import List, Optional
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
-from ...mindformer_book import MindFormerBook
 
 __all__ = ['BertTokenizer', 'BasicTokenizer']
 
@@ -137,10 +136,7 @@ class BertTokenizer(PreTrainedTokenizer):
     vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json', 'special_tokens_map.json']
     model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['bert']
-    _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['qa']['bert'])
+    _support_list = []
 
     def __init__(
             self,

@@ -45,7 +45,6 @@ from .t5_config import T5Config
 
 from ...tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
-from ...mindformer_book import MindFormerBook
 
 __all__ = ['T5ForConditionalGeneration']
 
@@ -1713,7 +1712,6 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         >>> print(output)
         [5.64458]
     """
-    _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self, config: T5Config):
         super(T5ForConditionalGeneration, self).__init__(config)

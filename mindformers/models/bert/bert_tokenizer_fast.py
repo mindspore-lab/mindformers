@@ -21,7 +21,6 @@ from tokenizers import normalizers
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .bert_tokenizer import BertTokenizer
-from ...mindformer_book import MindFormerBook
 
 __all__ = ['BertTokenizerFast']
 
@@ -71,10 +70,7 @@ class BertTokenizerFast(PreTrainedTokenizerFast):
     vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json', 'special_tokens_map.json']
     model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['bert']
-    _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['qa']['bert'])
+    _support_list = []
     slow_tokenizer_class = BertTokenizer
 
     def __init__(

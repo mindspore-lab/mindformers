@@ -19,7 +19,6 @@ import numpy as np
 
 from mindspore import ops, Tensor
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import GPT2ForSequenceClassification
 from mindformers.pipeline.base_pipeline import Pipeline
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -64,8 +63,6 @@ class TextClassificationPipeline(Pipeline):
             [[{'label': 'neutral', 'score': 0.9714198708534241}],
             [{'label': 'contradiction', 'score': 0.9967639446258545}]]
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['text_classification'].keys()
-
     def __init__(self, model, tokenizer=None, **kwargs):
 
         if tokenizer is None:

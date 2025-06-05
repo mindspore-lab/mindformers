@@ -20,7 +20,6 @@ from shutil import copyfile
 from typing import List, Optional, Tuple
 
 from mindformers.tools.logger import logger
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .t5_tokenizer import T5Tokenizer
@@ -71,7 +70,6 @@ class T5TokenizerFast(PreTrainedTokenizerFast):
 
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['t5']
     slow_tokenizer_class = T5Tokenizer
 
     prefix_tokens: List[int] = []

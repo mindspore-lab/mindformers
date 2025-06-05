@@ -21,7 +21,6 @@ from mindspore import load_param_into_net, Parameter, nn
 from mindspore import ops as P
 from mindspore import dtype as mstype
 import mindspore.common.initializer as weight_init
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.core.loss import build_loss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -61,7 +60,6 @@ class ViTModel(VitPreTrainedModel):
         >>> type(model_b)
         <class 'mindformers.models.vit.vit.ViTModel'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['vit']
 
     def __init__(self, config=None):
         config = config if config else ViTConfig()
@@ -220,8 +218,6 @@ class ViTForImageClassification(VitPreTrainedModel):
         >>> model_b = ViTForImageClassification(config)
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['vit']
-
     def __init__(self, config=None):
         config = config if config else ViTConfig()
         super().__init__(config)
@@ -260,7 +256,6 @@ class ViTForMaskedImageModeling(VitPreTrainedModel):
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
         >>> model_b = ViTForMaskedImageModeling(config)
     """
-    _support_list = MindFormerBook.get_model_support_list()['vit']
 
     def __init__(self, config=None):
         config = config if config else ViTConfig()

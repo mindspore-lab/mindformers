@@ -22,7 +22,6 @@ import mindspore.common.dtype as mstype
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import TransformerOpParallelConfig, default_transformer_config, \
     default_moe_config
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -106,7 +105,6 @@ class SwinConfig(PretrainedConfig):
     """
 
     model_type = "swin"
-    _support_list = MindFormerBook.get_config_support_list()['swin']
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      moe_config=(dict, MoEConfig))

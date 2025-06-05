@@ -27,7 +27,6 @@ from typing import Any, Dict, List, Optional
 import sentencepiece as spm
 
 from mindformers.tools.logger import logger
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..convert_slow_tokenizer import import_protobuf
@@ -102,7 +101,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
     FILE_LIST = ['tokenizer_config.json']
-    _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
 
     def __init__(
             self,

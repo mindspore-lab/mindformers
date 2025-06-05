@@ -48,7 +48,7 @@ class TestDeepseek3Parallel:
         # runtime performance
         os.environ["MS_DEV_RUNTIME_CONF"] = "multi_stream:true"
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_base_cases(self):
@@ -72,7 +72,7 @@ class TestDeepseek3Parallel:
         check_results(commands, results)
 
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_deredundency_cases(self):
@@ -96,7 +96,7 @@ class TestDeepseek3Parallel:
         check_results(commands, results)
 
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_bmm_cases(self):

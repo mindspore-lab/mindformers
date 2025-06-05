@@ -19,7 +19,6 @@ from typing import Collection, Dict, List, Set, Union
 import json
 import unicodedata
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import check_file
@@ -56,7 +55,6 @@ class Llama3Tokenizer(PreTrainedTokenizer):
     """Llama3 Tokenizer"""
     VOCAB_FILES = {'vocab_file': 'tokenizer.json'}
     FILE_LIST = []
-    _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
     special_tokens: Dict[str, int]
 
     def __init__(self,

@@ -29,7 +29,6 @@ from mindformers.modules.transformer import Transformer, VocabEmbedding
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.bert.bert_config import BertConfig
 from .bert_config import BertConfig
 
@@ -65,7 +64,7 @@ class BertForTokenClassification(BertPreTrainedModel):
         <class 'mindformers.models.bert.bert.BertForTokenClassification'>
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['tokcls']['bert']
+    _support_list = []
 
     def __init__(self, config=BertConfig()):
         super(BertForTokenClassification, self).__init__(config)
@@ -114,7 +113,7 @@ class BertForPreTraining(BertPreTrainedModel):
         <class 'mindformers.models.bert.bert.BertForPreTraining'>
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['bert']
+    _support_list = []
 
     def __init__(self, config=BertConfig()):
         super(BertForPreTraining, self).__init__(config)
@@ -287,7 +286,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
         >>> type(model)
         <class 'mindformers.models.bert.bert.BertForMultipleChoice'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['txtcls']['bert']
+    _support_list = []
 
     def __init__(self, config=BertConfig()):
         super(BertForMultipleChoice, self).__init__(config)
@@ -340,7 +339,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             >>> type(model)
             <class 'mindformers.models.bert.bert.BertForQuestionAnswering'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['qa']['bert']
+    _support_list = []
 
     def __init__(self, config=BertConfig()):
         super(BertForQuestionAnswering, self).__init__(config)

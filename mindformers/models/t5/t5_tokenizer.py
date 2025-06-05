@@ -27,7 +27,6 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
 from mindformers.models.bert import BertTokenizer
-from ...mindformer_book import MindFormerBook
 from ..convert_slow_tokenizer import import_protobuf
 
 __all__ = ["T5Tokenizer", "T5PegasusTokenizer"]
@@ -99,7 +98,6 @@ class T5Tokenizer(PreTrainedTokenizer):
     vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json']
     model_input_names = ["input_ids", "attention_mask"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['t5']
 
     def __init__(
             self,

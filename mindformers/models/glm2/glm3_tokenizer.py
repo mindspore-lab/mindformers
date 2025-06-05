@@ -18,7 +18,6 @@ import json
 from typing import List, Optional, Union, Dict
 from sentencepiece import SentencePieceProcessor
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, PaddingStrategy, EncodedInput, BatchEncoding
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 
@@ -145,7 +144,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
     vocab_files_names = {"vocab_file": "tokenizer.model"}
 
     model_input_names = ["input_ids", "attention_mask", "position_ids"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['glm3']
+    _support_list = []
 
     def __init__(self,
                  vocab_file,

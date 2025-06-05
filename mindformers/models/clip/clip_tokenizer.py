@@ -26,7 +26,6 @@ import ftfy
 import regex as re
 
 from mindformers.tools.logger import logger
-from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ..tokenization_utils import PreTrainedTokenizer
 
@@ -176,7 +175,7 @@ class CLIPTokenizer(PreTrainedTokenizer):
     vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json']
     '''clip tokenizer'''
-    _support_list = MindFormerBook.get_tokenizer_support_list()['clip']
+    _support_list = []
 
     def __init__(self,
                  vocab_file,

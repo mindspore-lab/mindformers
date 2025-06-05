@@ -16,7 +16,6 @@
 """
 BertProcessor
 """
-from mindformers.mindformer_book import MindFormerBook
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..processing_utils import ProcessorMixin
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -48,9 +47,7 @@ class BertProcessor(ProcessorMixin):
             - `'np'`: Return Numpy `np.ndarray` objects.
             - `'ms'`: Return Numpy `ms.Tensor` objects.
     """
-    _support_list = MindFormerBook.get_processor_support_list()['bert']
-    _support_list.extend(MindFormerBook.get_processor_support_list()['tokcls']['bert'])
-    _support_list.extend(MindFormerBook.get_processor_support_list()['txtcls']['bert'])
+    _support_list = []
 
     attributes = ["tokenizer"]
     tokenizer_class = ("BertTokenizer", "BertTokenizerFast")

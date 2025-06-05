@@ -23,7 +23,6 @@ import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.blip2.blip2 import Blip2PreTrainedModel
 from mindformers.models.blip2.blip2_config import Blip2Config
 from mindformers.models.blip2.blip2_qformer import Blip2Qformer
@@ -48,7 +47,7 @@ class Blip2ItmEvaluator(Blip2PreTrainedModel):
         >>> type(model)
         <class 'mindformers.models.blip2.blip2_itm_evaluator.Blip2ItmEvaluator'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['blip2']['stage1']
+    _support_list = []
 
     def __init__(self, config: Blip2Config, blip2_qformer: Blip2Qformer = None, **kwargs):
         super(Blip2ItmEvaluator, self).__init__(config, **kwargs)

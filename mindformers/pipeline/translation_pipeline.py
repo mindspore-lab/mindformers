@@ -19,7 +19,6 @@ from typing import Optional, Union
 import mindspore
 from mindspore import Tensor, Model
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.utils import deprecated
 from .base_pipeline import Pipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
@@ -81,7 +80,6 @@ class TranslationPipeline(Pipeline):
         >>> print(output)
         [{'translation_text': ['un băiat bun!']}]
     """
-    _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
 
     def __init__(self, model: Union[PreTrainedModel, Model],

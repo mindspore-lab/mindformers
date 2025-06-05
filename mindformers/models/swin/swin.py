@@ -31,7 +31,6 @@ from mindspore.train.serialization import load_param_into_net
 
 from mindformers.tools.logger import logger
 from mindformers.core.loss import build_loss
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.swin.swin_config import SwinConfig
@@ -200,7 +199,6 @@ class SwinForImageClassification(SwinBaseModel):
         >>> type(model_b)
         <class 'mindformers.models.swin.swin.SwinForImageClassification'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['swin']
 
     def __init__(self, config: PretrainedConfig = None):
         if config is None:

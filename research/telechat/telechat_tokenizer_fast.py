@@ -21,7 +21,6 @@ from typing import Optional, Tuple
 from tokenizers import processors
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils_fast import PreTrainedTokenizerFast
 from research.telechat.telechat_tokenizer import TelechatTokenizer
 
@@ -93,7 +92,6 @@ class TelechatTokenizerFast(PreTrainedTokenizerFast):
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
     FILE_LIST = ['tokenizer_config.json']
-    _support_list = MindFormerBook.get_tokenizer_support_list()['telechat']
     slow_tokenizer_class = TelechatTokenizer
 
     # Currently, the telechat_tokenizer_fast process supports only the 'right' padding mode.

@@ -24,7 +24,6 @@ import PIL.Image
 
 import mindspore as ms
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.image_processing_utils import BaseImageProcessor
 from mindformers.models.processing_utils import ProcessorMixin
@@ -160,7 +159,7 @@ class Blip2Processor(ProcessorMixin):
        [[ 101, 1037, 2879 ...    0,    0,    0],
        [ 101, 1037, 2611 ...    0,    0,    0]])}
     """
-    _support_list = MindFormerBook.get_processor_support_list()['blip2']
+    _support_list = []
 
     attributes = ["image_processor", "tokenizer"]
     image_processor_class = "Blip2ImageProcessor"
