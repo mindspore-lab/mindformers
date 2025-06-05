@@ -98,7 +98,7 @@ class ColumnParallelLinear(nn.Cell):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: Optional[mstype] = mstype.bfloat16
+            compute_dtype: mstype = mstype.bfloat16
     ):
         super(ColumnParallelLinear, self).__init__()
         if stride > 1:
@@ -244,7 +244,7 @@ class QKVParallelLinear(ColumnParallelLinear):
             bias: bool = True,
             gather_output: bool = False,
             transpose_b: bool = True,
-            compute_dtype: Optional[mstype] = None
+            compute_dtype: mstype = None
     ):
         self.head_size = head_size
         self.total_num_heads = total_num_heads
@@ -332,7 +332,7 @@ class RowParallelLinear(nn.Cell):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: Optional[mstype] = mstype.bfloat16,
+            compute_dtype: mstype = mstype.bfloat16,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -464,7 +464,7 @@ class ReplicatedLinear(nn.Cell):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: Optional[mstype] = None
+            compute_dtype: mstype = None
     ):
         super(ReplicatedLinear, self).__init__()
         if stride > 1:
