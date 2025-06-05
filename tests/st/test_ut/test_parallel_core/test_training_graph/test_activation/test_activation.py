@@ -16,7 +16,7 @@
 import pytest
 from mindformers.parallel_core.training_graph.activation import GELU, SiLU, SwiGlu
 from tests.utils.double_benchmark import DoubleBenchmarkComparator
-from data_gen_utils import get_input, get_output
+from .data_gen_utils import get_input, get_output
 
 
 class TestActivation:

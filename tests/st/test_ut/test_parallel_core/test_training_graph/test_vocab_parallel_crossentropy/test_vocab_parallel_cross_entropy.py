@@ -18,8 +18,9 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from data_gen_utils import GOLDEN_DATA, GPU_DATA
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
+
+from .data_gen_utils import GOLDEN_DATA, GPU_DATA
 
 TOTAL_VOCAB_SIZE = 1024
 BATCH_SIZE = 4

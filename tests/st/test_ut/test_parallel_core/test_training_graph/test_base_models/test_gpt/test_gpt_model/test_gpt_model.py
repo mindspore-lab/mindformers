@@ -17,9 +17,9 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from data_gen_utils import DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
-    DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS
 from mindformers.tools.logger import logger
+from .data_gen_utils import DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
+    DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS
 
 SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 SINGLE_CARD_TEST_CASES = [
