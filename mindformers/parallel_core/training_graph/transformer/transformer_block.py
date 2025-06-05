@@ -13,7 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Transformer Block"""
-from typing import Union
+from dataclasses import dataclass
+from typing import Union, List, Optional
 from mindspore import nn, Tensor, dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import Reshape
@@ -25,6 +26,7 @@ from mindformers.parallel_core.training_graph.transformer.transformer_layer impo
 from mindformers.tools.logger import logger
 
 
+@dataclass
 class TransformerBlockSubmodules:
     """
     Class for specifying the submodules of a transformer block.
@@ -36,13 +38,11 @@ class TransformerBlockSubmodules:
         layer_specs (ModuleSpec, optional): A module specifications for
             the layers within the transformer block. Each specification typically
             defines a complete transformer layer (e.g., self-attention, feed-forward network).
-        layer_norm (Optional[Union[ModuleSpec, torch.nn.Module]], optional): Specification
+        layer_norm (Optional[Union[ModuleSpec, mindspore.nn.Cell]], optional): Specification
             or instance of the layer normalization to be applied.
     """
-
-    def __init__(self, layer_specs=None, layer_norm=None):
-        self.layer_specs = layer_specs
-        self.layer_norm = layer_norm
+    layer_specs: List[ModuleSpec] = None
+    layer_norm: Optional[Union[ModuleSpec, nn.Cell]] = None
 
 
 def _get_block_submodules(
@@ -64,6 +64,7 @@ def _get_block_submodules(
     # Transformer block submodules.
     if isinstance(spec, TransformerBlockSubmodules):
         return spec
+
     if isinstance(spec, ModuleSpec):
         if issubclass(spec.module, TransformerBlock):
             return spec.submodules
@@ -71,6 +72,7 @@ def _get_block_submodules(
             num_layers = config.num_layers
             return TransformerBlockSubmodules(
                 layer_specs=[spec] * num_layers, layer_norm=FusedNorm
+                # Only implements the FusedLayerNorm method for benchmarking purposes.
             )
         raise Exception(f"specialize for {spec.module.__name__}.")
     raise Exception(f"specialize for {type(spec).__name__}.")
@@ -108,13 +110,20 @@ class TransformerBlock(nn.Cell):
             post_process=False,
     ):
         super(TransformerBlock, self).__init__()
+        # pre_process=True is not supported in TransformerBlock.
+        # The corresponding Megatron v0.12.0 module's forward pass has this logic disabled by default,
+        # so it won't cause significant impact.
         if pre_process:
             raise NotImplementedError("For TransformerBlock, `pre_process=True` is not supported.")
+
+        # The post_process parameter is currently unused.
+        # Since post_process is bound to post_layer_norm, it is executed based on post_layer_norm as a substitute.
+        # The code behavior remains consistent with the corresponding module in Megatron v0.12.0.
         if post_process:
             raise NotImplementedError("For TransformerBlock, `post_process=True` is not supported.")
 
         self.submodules = _get_block_submodules(config, spec)
-        self.post_norm = post_layer_norm
+        self.post_layer_norm = post_layer_norm
         self.num_layers = config.num_layers
         cp = 1 if config is None else config.context_parallel_size
         self.compute_2d = (config.sequence_parallel and cp == 1)
@@ -122,6 +131,10 @@ class TransformerBlock(nn.Cell):
             logger.warning("The context paralley way conflicts with sequence with sequence parallel way."
                            "The sequence parallel way has no effect and ignored.")
         self.seq_length_in_cfg = config.seq_length
+
+        # The CPU offloading implementation differs from Megatron v0.12.0's approach,
+        # so no related scripts are implemented here.
+
         self._build_layers(config)
 
         self.shape = P.Shape()
@@ -146,7 +159,7 @@ class TransformerBlock(nn.Cell):
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
 
-        if self.post_norm:
+        if self.post_layer_norm:
             self.final_norm = build_module(self.submodules.layer_norm,
                                            config=config,
                                            dim=config.hidden_size,
@@ -158,7 +171,10 @@ class TransformerBlock(nn.Cell):
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
 
-    def construct(self, hidden_states: Tensor, attention_mask: Tensor, rotary_pos_emb: Tensor = None,
+    def construct(self,
+                  hidden_states: Tensor,
+                  attention_mask: Tensor,
+                  rotary_pos_emb: Tensor = None,
                   prefix_keys_values=None):
         """ Construct function of transformer. """
         seq_len, bs, hs = self.shape(hidden_states)
@@ -177,11 +193,15 @@ class TransformerBlock(nn.Cell):
                 attention_mask,
                 rotary_pos_emb=rotary_pos_emb,
                 prefix_keys_values=prefix_kv,
-                extra_loss=extra_loss
+                extra_loss=extra_loss,
+                # context/context_mask/inference_context/packed_seq_params/sequence_len_offset is useless,
+                # In Megatron v0.12.0, this is primarily used for inference-related processing and
+                # has no practical impact on training.
+                # attention_bias is useless by default, only used for T5 in Megatron v0.12.0.
             )
 
         # final layernorm.
-        if self.post_norm:
+        if self.post_layer_norm:
             hidden_states = self.final_norm(hidden_states)
 
         if self.compute_2d:
@@ -193,7 +213,7 @@ class TransformerBlock(nn.Cell):
         """ shard function of mlp block. """
         dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config.context_parallel_size is not None else 1
-        if self.post_norm:
+        if self.post_layer_norm:
             if self.compute_2d:
                 self.final_norm.shard(config, in_strategy=(dp * cp, 1))
             else:

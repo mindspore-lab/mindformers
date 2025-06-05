@@ -162,7 +162,7 @@ class GPTModel(nn.Cell):
 
         # rope
         # The MTP implementation pre-computes RotaryEmbedding
-        # (unlike Megatron's real-time generation) to minimize dynamic memory usage.
+        # (unlike Megatron v0.12.0's real-time generation) to minimize dynamic memory usage.
         self.use_rotary_position_embeddings = self.position_embedding_type in ['rope', 'yarn']
         if self.position_embedding_type == 'rope':
             if config.multi_latent_attention:
@@ -203,7 +203,7 @@ class GPTModel(nn.Cell):
             pre_process=False,
             post_process=False,
             # pre_process/post_process=True is not supported in TransformerBlock.
-            # The corresponding Megatron module's forward pass has this logic disabled by default,
+            # The corresponding Megatron v0.12.0 module's forward pass has this logic disabled by default,
             # so it won't cause significant impact.
         )
 
