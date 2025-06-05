@@ -19,7 +19,8 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore.communication import init
-from mindformers.parallel_core.training_graph.transformer.language_model import LanguageModelEmbedding
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
+    LanguageModelEmbedding)
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from data_gen_utils import get_init_params
 

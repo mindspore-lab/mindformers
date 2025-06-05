@@ -35,7 +35,8 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, VocabParallelEmbedding
-from mindformers.parallel_core.training_graph.transformer.language_model import LanguageModelEmbedding
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
+    LanguageModelEmbedding)
 
 
 @dataclass
