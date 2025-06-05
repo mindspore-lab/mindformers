@@ -58,7 +58,7 @@ mindformers.generation.GenerationMixin
         大多数生成控制参数都在 `generation_config` 中进行配置，如果它们没有被传递，则将应用模型的默认生成配置。你可以通过传递相应的参数给 `generate()` 来随意重写 `generation_config` ，比如 ``.generate(inputs, top_k=3, do_sample=True)`` 。
 
         参数：
-            - **input_ids** (List(str), List(List(str))) - 单个词元索引列表或一批词元索引列表。当输入为一批词元索引列表时，要求每个词元索引列表的长度保持一致。
+            - **input_ids** (List[str], List[List[str]]) - 单个词元索引列表或一批词元索引列表。当输入为一批词元索引列表时，要求每个词元索引列表的长度保持一致。
             - **generation_config** (`GenerationConfig`, 可选) - 用生成配置来对生成调用进行基本参数化。 ``**kwargs`` 作为参数列表，会传递到与 `generation_config` 相匹配的属性处，并将覆盖默认值。如果没有提供 `generation_config` ，则将使用到模型配置中的默认配置。请注意，未指定的参数将继承[`GenerationConfig`]的默认值，应该检查其文档以进行参数化。默认值： ``None`` 。
             - **logits_processor** (`LogitsProcessorList`, 可选) - 自定义置信度处理器，补充了由参数和生成配置构建的默认置信度处理器。如果传递了一个已经用参数或生成配置创建的置信度处理器，则会抛出错误。本特性适用于高级用户。默认值： ``None`` 。
             - **streamer** (TextStreamer, 可选) - 生成器使用的streamer。默认值： ``None`` 。

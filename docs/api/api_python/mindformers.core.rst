@@ -49,6 +49,7 @@ mindformers.core
     mindformers.core.PolynomialWithWarmUpLR
     mindformers.core.CosineAnnealingLR
     mindformers.core.CosineAnnealingWarmRestarts
+    mindformers.core.WarmUpStableDecayLR
 
 回调函数
 --------

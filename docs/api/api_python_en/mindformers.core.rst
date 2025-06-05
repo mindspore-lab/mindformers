@@ -53,6 +53,7 @@ Learning Rate
     mindformers.core.LearningRateWiseLayer
     mindformers.core.LinearWithWarmUpLR
     mindformers.core.PolynomialWithWarmUpLR
+    mindformers.core.WarmUpStableDecayLR
 
 Callback
 --------
