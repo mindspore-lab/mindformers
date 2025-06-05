@@ -26,6 +26,9 @@ import mindspore as ms
 
 def load_image(content, timeout=4):
     """load image"""
+    if isinstance(content, ms.Tensor):
+        return content
+
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
 
@@ -35,22 +38,19 @@ def load_image(content, timeout=4):
                     requests.exceptions.ProxyError) as exc:
                 raise ConnectionError(f"Connect error, please download {content}.") from exc
 
-            content = PIL.Image.open(response.raw)
-        elif os.path.isfile(content):
-            content = PIL.Image.open(content)
-        else:
+            content = response.raw
+        elif not os.path.isfile(content):
             raise ValueError(
                 f"{content} is not a valid path. If URL, it must start with `http://` or `https://`."
             )
 
-    if isinstance(content, ms.Tensor):
-        return content
+        with PIL.Image.open(content) as img:
+            content = PIL.ImageOps.exif_transpose(img)
+            content = content.convert("RGB")
 
     if not isinstance(content, PIL.Image.Image):
         raise ValueError(
             "Input should be an url linking to an image,"
             " a local path, a Mindspore Tensor, or a PIL image."
         )
-    content = PIL.ImageOps.exif_transpose(content)
-    content = content.convert("RGB")
     return content
