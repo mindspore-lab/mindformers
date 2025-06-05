@@ -36,8 +36,6 @@ class LanguageModelEmbedding(nn.Cell):
         config (TransformerConfig): config object with all necessary configs for TransformerBlock
         vocab_size (int): vocabulary size
         max_sequence_length (int): maximum size of sequence. This is used for positional embedding.
-        add_position_embedding (bool): Add a position embedding.
-        embedding_dropout_prob (float): Dropout probability for embeddings.
         num_tokentypes (int): Set to 0 without binary head, and 2 with a binary head. Defaults to 0.
         scatter_to_sequence_parallel (bool): Set False to disable scatter of embedding
             across sequence parallel region. Defaults to True.
@@ -74,28 +72,37 @@ class LanguageModelEmbedding(nn.Cell):
         self.init_method = config.init_method
 
         # Word embedding
-        self.word_embeddings = VocabParallelEmbedding(num_embeddings=vocab_size,
-                                                      embedding_dim=config.hidden_size,
-                                                      config=config,
-                                                      init_method=self.init_method)
+        self.word_embeddings = VocabParallelEmbedding(
+            num_embeddings=vocab_size,
+            embedding_dim=config.hidden_size,
+            config=config,
+            init_method=self.init_method)
+
         # Position embedding
         self.add_position_embedding = position_embedding_type == 'learned_absolute'
         if self.add_position_embedding:
-            self.position_embeddings = VocabParallelEmbedding(num_embeddings=max_sequence_length,
-                                                              embedding_dim=config.hidden_size,
-                                                              config=config,
-                                                              init_method=self.init_method)
+            self.position_embeddings = VocabParallelEmbedding(
+                num_embeddings=max_sequence_length,
+                embedding_dim=config.hidden_size,
+                config=config,
+                # perform_initialization=True in Megatron by default.
+                init_method=self.init_method)
+
         # tokentypes embedding
         if num_tokentypes > 0:
-            self.tokentype_embeddings = VocabParallelEmbedding(num_embeddings=num_tokentypes,
-                                                               embedding_dim=config.hidden_size,
-                                                               config=config,
-                                                               init_method=self.init_method)
+            self.tokentype_embeddings = VocabParallelEmbedding(
+                num_embeddings=num_tokentypes,
+                embedding_dim=config.hidden_size,
+                config=config,
+                # perform_initialization=True in Megatron by default.
+                init_method=self.init_method)
         else:
             self.tokentype_embeddings = None
+
         # Embedding dropout
         self.embedding_dropout_prob = config.hidden_dropout
         self.embedding_dropout = Dropout(self.embedding_dropout_prob)
+
         # operations
         self.add_pe = AddExt()
         self.add_te = AddExt()
@@ -108,7 +115,17 @@ class LanguageModelEmbedding(nn.Cell):
             self.shard(config)
 
     def construct(self, input_ids, position_ids, tokentype_ids=None):
-        """embedding construct"""
+        """Forward pass of the embedding module.
+
+        Args:
+            input_ids (Tensor): The input tokens
+            position_ids (Tensor): The position id's used to calculate position embeddings
+            tokentype_ids (int): The token type ids. Used when args.bert_binary_head is
+                set to True. Defaults to None
+
+        Returns:
+            Tensor: The output embeddings
+        """
         words_embeddings = self.word_embeddings(input_ids)
         if self.add_position_embedding:
             position_embeddings = self.position_embeddings(position_ids)
@@ -131,6 +148,7 @@ class LanguageModelEmbedding(nn.Cell):
         embeddings = self.transpose(embeddings, (1, 0, 2))
 
         # Dropout
+        # Note: sequence_parallel is not supported for now.
         if self.embedding_dropout_prob > 0:
             embeddings = self.embedding_dropout(embeddings)
 
