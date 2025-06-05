@@ -55,7 +55,7 @@ class TestModel(nn.Cell):
     def construct(self, hidden_states):
         """This avoids graph compilation errors due to unsupported return types."""
         if self.config.add_bias_linear:
-            mlp_output, mlp_bias = self.mlp(hidden_states)
+            mlp_output, mlp_bias, _ = self.mlp(hidden_states)
             return mlp_output, mlp_bias
         mlp_output = self.mlp(hidden_states)
         return mlp_output[0]

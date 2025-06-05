@@ -92,7 +92,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.config = config
         self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.layer_number = layer_number
-        self.return_extra_loss = config.return_extra_loss
         self.apply_residual_connection_post_norm = config.apply_residual_connection_post_layernorm
         self.hidden_dropout = config.hidden_dropout if hidden_dropout is None else hidden_dropout
         self.hidden_states_droupout = Dropout(drop_prob=self.hidden_dropout)
@@ -216,13 +215,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         else:
             residual = norm_input
 
-        if hasattr(self.mlp, "return_extra_loss") and self.return_extra_loss:
-            mlp_output, mlp_output_bias, extra_loss = self.mlp(
-                pre_mlp_layernorm_output,
-                extra_loss=extra_loss
-            )
-        else:
-            mlp_output, mlp_output_bias = self.mlp(pre_mlp_layernorm_output)
+        mlp_output, mlp_output_bias, extra_loss = self.mlp(
+            pre_mlp_layernorm_output,
+            extra_loss=extra_loss
+        )
 
         if mlp_output_bias is not None:
             mlp_output = self.add_bias(mlp_output, mlp_output_bias)

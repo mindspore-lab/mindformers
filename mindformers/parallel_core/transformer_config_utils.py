@@ -233,7 +233,6 @@ COMMON_CONFIG_MAPPING = {
     "enable_gmm_safe_tokens": "enable_gmm_safe_tokens",
     "use_fused_ops_permute": "use_fused_ops_permute",
     "callback_moe_droprate": "callback_moe_droprate",
-    "return_extra_loss": "return_extra_loss",
     "moe_init_method_std": "moe_init_method_std",
 
     # Context Parallel
