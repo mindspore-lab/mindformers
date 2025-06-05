@@ -69,7 +69,6 @@ class Attention(nn.Cell):
         - **rotary_pos_sin** (Tensor) - The precompute freqs sin for rotary position embedding
         - **position_ids** (Union[Tensor, None]) - The position tensor.
         - **batch_valid_length** (Tensor) -  In incremental inference, a tensor used for calculating the index
-        - **kv_cache** (Tensor) - reserved field
         - **block_tables** (Tensor) - The block mapping table with data type of int32.
         - **slot_mapping** (Tensor) - Store token cache physical slot index.
           of the previous step. It is of int32 type and has a shape of [batch_size].
@@ -79,6 +78,8 @@ class Attention(nn.Cell):
         - **actual_seq_kvlen** (Union[List[int64], Tuple[int64], None]) - Size of key and value corresponding to each
           batch, array with increasing values and the last value equal to T2.
         - **context_lens_tensor** (Tensor) - The context length of each sequence with data type of int32.
+        - **key_cache** (Tensor, optional) - Key cache for incremental inference.
+        - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
         - **output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
@@ -157,17 +158,13 @@ class Attention(nn.Cell):
                                                    self.tp_group_size)
 
         if self.use_flash_attention:
-            kv_cache_shape = (self.config.num_blocks, self.config.block_size,
-                              self.num_query_groups_per_partition, self.hidden_size_per_attention_head)
             self.core_attention = build_module(
                 submodules.core_attention,
                 head_num=self.num_attention_heads_per_partition,
-                kv_cache_shape=kv_cache_shape,
                 head_dim=self.hidden_size_per_attention_head,
                 kv_head_num=self.num_query_groups_per_partition,
                 scale_value=1.0 / self.norm_factor,
                 next_tokens=0,
-                compute_dtype=self.compute_dtype,
             )
         else:
             self.core_attention = build_module(submodules.core_attention,
@@ -208,13 +205,14 @@ class Attention(nn.Cell):
                   rotary_pos_sin=None,
                   position_ids=None,
                   batch_valid_length=None,
-                  kv_cache=None,
                   block_tables=None,
                   slot_mapping=None,
                   q_seq_lens=None,
                   actual_seq_qlen=None,
                   actual_seq_kvlen=None,
-                  context_lens_tensor=None):
+                  context_lens_tensor=None,
+                  key_cache=None,
+                  value_cache=None):
         """Forward process of the SelfAttention."""
         ori_dtype = hidden_states.dtype
 
@@ -231,9 +229,19 @@ class Attention(nn.Cell):
 
         if self.use_flash_attention:
             core_attn_out = self.core_attention(
-                query, key, value, kv_cache, slot_mapping, block_tables,
-                batch_valid_length, context_lens_tensor, q_seq_lens,
-                actual_seq_qlen, actual_seq_kvlen, attention_mask)
+                query=query,
+                key=key,
+                value=value,
+                slot_mapping=slot_mapping,
+                block_tables=block_tables,
+                batch_valid_length=batch_valid_length,
+                context_lens_tensor=context_lens_tensor,
+                q_seq_lens=q_seq_lens,
+                actual_seq_qlen=actual_seq_qlen,
+                actual_seq_kvlen=actual_seq_kvlen,
+                attn_mask=attention_mask,
+                key_cache=key_cache,
+                value_cache=value_cache)
         else:
             core_attn_out = self.core_attention(query, key, value, attention_mask)
 

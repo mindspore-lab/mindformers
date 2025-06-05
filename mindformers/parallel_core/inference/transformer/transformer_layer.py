@@ -109,7 +109,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         - **q_seq_lens** (Tensor) - Tensor of query lengths.
         - **block_tables** (Tensor) - Block tables for memory optimization.
         - **slot_mapping** (Tensor) - Slot mapping for memory optimization.
-        - **kv_cache** (List[Tensor], optional) - Key-value cache for decode.
+        - **key_cache** (Tensor, optional) - Key cache for incremental inference.
+        - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
         - output (Tensor) - Output tensor of transformer layer
@@ -209,7 +210,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
-            kv_cache=None
+            key_cache=None,
+            value_cache=None
     ):
         """
         Perform a forward pass through the transformer layer.
@@ -231,7 +233,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
-            kv_cache=kv_cache
+            key_cache=key_cache,
+            value_cache=value_cache
         )
         output = self._construct_mlp(pre_mlp_layernorm_output, residual)
         return output
@@ -252,7 +255,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
-            kv_cache=None
+            key_cache=None,
+            value_cache=None
     ):
         """
         Perform a forward pass through the attention layer and the layernorms before and after
@@ -274,7 +278,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens (Tensor): Tensor of query lengths.
             block_tables (Tensor): Block tables for memory optimization.
             slot_mapping (Tensor): Slot mapping for memory optimization.
-            kv_cache (List[Tensor], optional): Key-value cache for incremental inference.
+            key_cache (Tensor, optional): Key cache for incremental inference.
+            value_cache (Tensor, optional): Value cache cache for incremental inference.
 
         Returns:
             Tuple[Tensor, Tensor, Tensor]: A tuple containing:
@@ -293,13 +298,14 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             rotary_pos_cos=rotary_pos_cos,
             rotary_pos_sin=rotary_pos_sin,
             batch_valid_length=batch_valid_length,
-            kv_cache=kv_cache,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
             q_seq_lens=q_seq_lens,
             actual_seq_qlen=batch_valid_length,
             actual_seq_kvlen=batch_valid_length,
-            context_lens_tensor=context_lens_tensor
+            context_lens_tensor=context_lens_tensor,
+            key_cache=key_cache,
+            value_cache=value_cache
         )
 
         # Optional Layer norm after self-attention

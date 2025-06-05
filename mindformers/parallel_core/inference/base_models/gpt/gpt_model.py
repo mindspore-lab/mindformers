@@ -24,7 +24,6 @@ from mindspore.communication.management import get_rank, get_group_size
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
-from mindformers.parallel_core.inference.transformer.lower_triangular_mask import LowerTriangularMaskWithDynamic
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.transformer.rotary_embedding import (
     RotaryEmbedding,
@@ -73,9 +72,10 @@ class GPTModel(nn.Cell):
         - **q_seq_lens** (Tensor, optional) - Query sequence lengths
         - **block_tables** (Tensor, optional) - Block tables for KV cache
         - **slot_mapping** (Tensor, optional) - Slot mapping for KV cache
-        - **kv_cache** (Tensor, optional) - Key-value cache for decoding
         - **attention_mask** (Tensor, optional) - Tensor of attention mask
         - **attn_metadata** (dict, optional) - Additional attention metadata
+        - **key_cache** (Tensor, optional) - Key cache for incremental inference.
+        - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
         - **output** (Tensor) - return hidden states after decoder when no post-processing
@@ -154,12 +154,6 @@ class GPTModel(nn.Cell):
                 max_sequence_length=self.max_sequence_length
             )
 
-        self.casual_mask = LowerTriangularMaskWithDynamic(
-            seq_length=self.config.seq_length,
-            compute_type=self.config.compute_dtype,
-            pad_token_id=self.config.pad_token_id,
-        )
-
         self.rotary_pos_emb = self.get_rope()
 
         # Transformer
@@ -169,17 +163,16 @@ class GPTModel(nn.Cell):
         )
 
         # Output
-        if post_process:
-            self.output_layer = ColumnParallelLinear(
-                self.config.hidden_size,
-                self.vocab_size,
-                config=self.config,
-                bias=False,
-                gather_output=self.parallel_output,
-                compute_dtype=self.config.compute_dtype,
-            )
-            if tie_word_embeddings:
-                self.output_layer.weight = self.embedding.word_embeddings.weight
+        self.output_layer = ColumnParallelLinear(
+            self.config.hidden_size,
+            self.vocab_size,
+            config=self.config,
+            bias=False,
+            gather_output=self.parallel_output,
+            compute_dtype=self.config.compute_dtype,
+        )
+        if tie_word_embeddings:
+            self.output_layer.weight = self.embedding.word_embeddings.weight
 
         self.cast = ops.Cast()
         self.gather = ops.Gather()
@@ -261,8 +254,8 @@ class GPTModel(nn.Cell):
 
     # pylint: disable=W0613
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
-                  q_seq_lens=None, block_tables=None, slot_mapping=None, kv_cache=None,
-                  attention_mask=None, attn_metadata=None):
+                  q_seq_lens=None, block_tables=None, slot_mapping=None,
+                  attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None):
         """ Construct function of GPTModel. """
         input_ids = input_ids.reshape((1, -1))
 
@@ -273,13 +266,6 @@ class GPTModel(nn.Cell):
         else:
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions, self.max_position_embeddings)
-
-        # Generate attention mask when input parameter `attention_mask` is not passed in.
-        if attention_mask is None:
-            if self.is_prefill:
-                attention_mask = self.casual_mask.prefill()
-            else:
-                attention_mask = self.casual_mask.decode(positions)
 
         # Decoder embedding.
         decoder_input = self.cast(self.embedding(input_ids), self.compute_dtype)
@@ -295,11 +281,13 @@ class GPTModel(nn.Cell):
             q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
-            kv_cache=kv_cache
+            key_cache=key_cache,
+            value_cache=value_cache
         )
 
         # Return hidden states.
         if not self.post_process:
+            hidden_states = hidden_states.reshape((-1, hidden_states.shape[-1]))
             return hidden_states
 
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)

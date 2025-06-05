@@ -18,7 +18,7 @@ import os
 import numpy as np
 
 import mindspore as ms
-from mindspore import Tensor
+from mindspore import mint, Tensor
 import mindspore.common.dtype as mstype
 from mindspore.communication import init
 
@@ -141,13 +141,23 @@ class SelfAttnRunner:
         """Run self_attn with given inputs"""
         net = self.build_model()
 
+        kv_cache_shape = (
+            NUM_BLOCKS,
+            BLOCK_SIZE,
+            self.config.num_query_groups // self.config.tensor_model_parallel_size,
+            self.config.hidden_size // self.config.num_attention_heads)
+        key_cache = mint.zeros(kv_cache_shape, dtype=self.config.compute_dtype)
+        value_cache = mint.zeros(kv_cache_shape, dtype=self.config.compute_dtype)
+
         if self.is_prefill:
             output = net(self.input,
-                         kv_cache=None,
                          attention_mask=None,
                          slot_mapping=self.slot_mapping,
                          actual_seq_qlen=self.batch_valid_length,
-                         actual_seq_kvlen=self.batch_valid_length)
+                         actual_seq_kvlen=self.batch_valid_length,
+                         key_cache=key_cache,
+                         value_cache=value_cache
+                         )
         else:
             net.phase = "increment"
             net.add_flags(is_prefill=False)
@@ -160,7 +170,10 @@ class SelfAttnRunner:
                          block_tables=self.block_tables,
                          slot_mapping=self.slot_mapping,
                          batch_valid_length=self.batch_valid_length,
-                         context_lens_tensor=self.batch_valid_length)
+                         context_lens_tensor=self.batch_valid_length,
+                         key_cache=key_cache,
+                         value_cache=value_cache
+                         )
 
         output_ms = {"output": output}
 
