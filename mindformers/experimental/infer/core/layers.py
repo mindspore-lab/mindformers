@@ -16,7 +16,7 @@
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, mint, nn, ops
+from mindspore import Parameter, Tensor, mint, nn, ops, jit
 from mindspore.common.initializer import initializer
 
 from mindformers.experimental.infer.core.mapping import (GatherFromModelParallelRegion,
@@ -133,7 +133,7 @@ class ColumnParallelLinear(nn.Cell):
         self.compute_dtype = compute_dtype
 
         self.sequence_parallel = self.parallel_config.use_sequence_parallel
-        self.transpose_b = transpose_b if self.expert_num <= 1 else False
+        self.transpose_b = transpose_b
 
         if self.sequence_parallel and self.tensor_parallel_group_size <= 1:
             self.sequence_parallel = False
@@ -142,9 +142,9 @@ class ColumnParallelLinear(nn.Cell):
             self.input_size, self.output_size_per_partition)
         if self.is_expert and self.expert_num > 1:
             weight_shape = (self.expert_num,) + weight_shape
-            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
-                self.matmul = ops.auto_generate.GroupedMatmulV4()
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+            # if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+            #     self.matmul = ops.auto_generate.GroupedMatmulV4()
+            if check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
             else:
                 raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
@@ -170,6 +170,7 @@ class ColumnParallelLinear(nn.Cell):
         if self.sequence_parallel:
             self.gather_from_sp_region = GatherFromSequenceParallelRegion()
 
+    @jit
     def construct(self, input_parallel, weight=None, group_list=None):
         """
         Forward of ColumnParallelLinear.
@@ -195,8 +196,11 @@ class ColumnParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size_per_partition,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            group_list = ops.cast(group_list, mstype.int32)
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
+                                          group_list)[0]
+            #output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
+            #                              group_list, split_item=3, group_type=0, group_list_type=0)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
@@ -287,7 +291,7 @@ class RowParallelLinear(nn.Cell):
             param_init_type=mstype.float32,
             compute_dtype=mstype.float16,
             expert_num=1,
-            delay_allreduce=False,
+            moe_delay_allreduce=False,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -311,18 +315,12 @@ class RowParallelLinear(nn.Cell):
         self.sequence_parallel = self.parallel_config.use_sequence_parallel
         self.expert_num = expert_num
         self.is_expert = is_expert
-        self.transpose_b = transpose_b if self.expert_num <= 1 else False
-        self.delay_allreduce = delay_allreduce
+        self.transpose_b = transpose_b
+        self.moe_delay_allreduce = moe_delay_allreduce
 
         if self.sequence_parallel and not self.input_is_parallel:
             raise RuntimeError(
                 "To enable `sequence_arallel`, `input_is_parallel` must be `True`"
-            )
-
-        if self.delay_allreduce and self.has_bias:
-            raise RuntimeError(
-                "In RowParallelLinear, `delay_allreduce` and `has_bias` cannot be enabled simultaneously, "
-                "otherwise the accuracy will be incorrect"
             )
 
         weight_shape = (self.output_size, self.input_size_per_partition) if self.transpose_b else (
@@ -331,10 +329,10 @@ class RowParallelLinear(nn.Cell):
         if self.is_expert and self.expert_num > 1:
             weight_shape = (self.expert_num,) + weight_shape
             bias_shape = (1, self.expert_num, 1) + bias_shape
-            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
-                self.matmul = ops.auto_generate.GroupedMatmulV4()
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
-                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
+            # if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+            #     self.matmul = ops.auto_generate.GroupedMatmulV4()
+            if check_valid_gmm_op(gmm_version='GroupedMatmul'):
+                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0, transpose_b=True)
             else:
                 raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
                                    "Please upgrade to a MindSpore version above 2.3.0.")
@@ -380,8 +378,9 @@ class RowParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            group_list = ops.cast(group_list, mstype.int32)
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
+                                          group_list)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
 
@@ -390,7 +389,7 @@ class RowParallelLinear(nn.Cell):
             output = self.reduce_scatter_to_sp_region(output_parallel)
             output = output.swapaxes(0, 1).contiguous()
         else:
-            if self.delay_allreduce:
+            if self.moe_delay_allreduce:
                 output = output_parallel
             else:
                 output = self.reduce_from_mp_region(output_parallel)

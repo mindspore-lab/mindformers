@@ -21,25 +21,13 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, Parameter, mint, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
-from mindspore.communication import get_rank, get_group_size
 
-from mindformers.modules.layers import Linear
 from mindformers.experimental.infer.core import get_act_func
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.infer.core.mapping import (GatherFromMoeTensorParallelRegionV2,
-                                                         GatherFromMoeTensorParallelRegion,
-                                                         GatherFromWorldParallelRegionV1,
-                                                         ReduceFromMoeTensorParallelRegion,
-                                                         ReduceScatterToMoeTensorParallelRegion,
-                                                         ReduceScatterToWorldParallelRegion,
-                                                         ReduceFromWorldParallelRegion,
-                                                         ReduceFromModelParallelRegion,
-                                                         ScatterToMoeTensorParallelRegion,
-                                                         ScatterToWorldParallelRegion,
-                                                         GatherFromWorldParallelRegionV2)
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+
 # pylint: disable=C0412
-# pylint: disable=C0412
-from mindformers.experimental.infer.core.utils import get_moe_ep_world_size, get_moe_tp_world_size, get_tp_world_size
+from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.tools.utils import divide
 
 try:
@@ -56,7 +44,7 @@ except ImportError:
 
 
 dtype_map = {
-    'float16': mstype.float32,
+    'float16': mstype.float16,
     'float32': mstype.float32,
     'bfloat16': mstype.bfloat16
 }
@@ -83,7 +71,7 @@ class Router(nn.Cell):
         super(Router, self).__init__()
         self.expert_num = moe_config.expert_num
         self.dense = nn.Dense(in_channels=hidden_size, out_channels=self.expert_num,
-                              has_bias=False, dtype=mstype.bfloat16)
+                              has_bias=False, dtype=mstype.float16)
         self.router = TopkRouter(self.expert_num)
         self.e_score_correction_bias = Parameter(initializer('zeros', (self.expert_num), mstype.float32),
                                                  requires_grad=False, parallel_optimizer=False)
@@ -225,75 +213,6 @@ class ParallelMoE(nn.Cell):
         return output_tensor
 
 
-class SharedMLP(nn.Cell):
-    r"""
-        SharedMLP. Shared Expert for MoE .
-
-        Args:
-            config (Config): The configuration of Model.
-        Inputs:
-            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-
-        Outputs:
-            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-    """
-
-    def __init__(self, config, intermediate_size):
-        super().__init__(config)
-        self.config = config
-        self.has_bias = self.config.mlp_has_bias
-        self.hidden_size = self.config.hidden_size
-        self.ffn_hidden_size = intermediate_size
-        self.mlp_has_gate = self.config.mlp_has_gate
-        self.ffn_concat = self.config.ffn_concat
-        if self.ffn_concat:
-            self.w_gate_hidden = Linear(
-                self.hidden_size,
-                self.ffn_hidden_size * 2,
-                has_bias=self.has_bias,
-                compute_dtype=self.config.compute_dtype,
-                param_init_type=self.config.param_init_dtype)
-        else:
-            self.w1 = Linear(
-                self.hidden_size,
-                self.ffn_hidden_size,
-                has_bias=self.has_bias,
-                compute_dtype=self.config.compute_dtype,
-                param_init_type=self.config.param_init_dtype)
-            self.w3 = Linear(
-                self.hidden_size,
-                self.ffn_hidden_size,
-                has_bias=self.has_bias,
-                compute_dtype=self.config.compute_dtype,
-                param_init_type=self.config.param_init_dtype)
-
-        self.act_type = self.config.hidden_act
-        self.act_func = get_act_func(self.act_type)
-
-        self.w2 = Linear(
-            self.ffn_hidden_size,
-            self.hidden_size,
-            has_bias=self.has_bias,
-            compute_dtype=self.config.compute_dtype,
-            param_init_type=self.config.param_init_dtype)
-
-        self.mul = ops.Mul()
-        self.reshape = ops.Reshape()
-
-    def construct(self, x):
-        """ Construct function of mlp block. """
-        if self.ffn_concat:
-            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-            gate, hidden = mint.split(gate_hidden_out, (self.ffn_hidden_size, self.ffn_hidden_size), -1)
-        else:
-            gate = self.w1(x)
-            hidden = self.w3(x)
-        gate = self.act_func(gate)
-        hidden = mint.mul(hidden, gate)
-        output = self.w2(hidden)
-        return output
-
-
 class SharedParallelMLP(nn.Cell):
     r"""
         SharedParallelMLP. Shared Expert for MoE .
@@ -366,7 +285,7 @@ class SharedParallelMLP(nn.Cell):
             is_expert=True,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
-            delay_allreduce=True,
+            moe_delay_allreduce=True,
         )
 
         self.mul = ops.Mul()
@@ -385,432 +304,6 @@ class SharedParallelMLP(nn.Cell):
         hidden = mint.mul(hidden, gate)
         output = self.w2(hidden)
         return output
-
-
-class WorldRegionSharedParallelMLP(SharedParallelMLP):
-    r"""
-        WorldRegionSharedParallelMLP. Parallel MoE with global world region.
-
-        Args:
-            config (Config): The configuration of Model.
-        Inputs:
-            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-
-        Outputs:
-            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-    """
-    def __init__(self, config, intermediate_size):
-        super(WorldRegionSharedParallelMLP, self).__init__(config=config, intermediate_size=intermediate_size)
-        world_group_size = get_group_size()
-        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, world_group_size)
-        if self.ffn_concat:
-            self.w_gate_hidden = ColumnParallelLinearWorldRegion(
-                self.hidden_size,
-                self.ffn_hidden_size * 2,
-                config=self.config.parallel_config,
-                bias=self.has_bias,
-                transpose_b=True,
-                gather_output=False,
-                is_expert=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
-            )
-        else:
-            self.w1 = ColumnParallelLinearWorldRegion(
-                self.hidden_size,
-                self.ffn_hidden_size,
-                config=self.config.parallel_config,
-                bias=self.has_bias,
-                transpose_b=True,
-                gather_output=False,
-                is_expert=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
-            )
-            self.w3 = ColumnParallelLinearWorldRegion(
-                self.hidden_size,
-                self.ffn_hidden_size,
-                config=self.config.parallel_config,
-                bias=self.has_bias,
-                transpose_b=True,
-                gather_output=False,
-                is_expert=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
-            )
-
-        self.w2 = RowParallelLinearWorldRegion(
-            self.ffn_hidden_size,
-            self.hidden_size,
-            input_is_parallel=True,
-            config=self.config.parallel_config,
-            bias=self.has_bias,
-            transpose_b=True,
-            is_expert=True,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
-            delay_allreduce=True,
-        )
-
-
-class ColumnParallelLinearWorldRegion(ColumnParallelLinear):
-    r"""
-        The dense layer with weight sliced on second dimension by global world region parallel size.
-        This layer implements the operation as:
-
-        .. math::
-            \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
-
-        where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-        and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
-
-        Args:
-            input_size (int): The number of channels in the input space.
-            output_size (int): The number of channels in the output space.
-            config (dict): Parallel configuration.
-            weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter.
-            The values of str refer to the function `initializer`. Default: 'normal'.
-            bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-                of str refer to the function `initializer`. Default: 'zeros'.
-            bias (bool): Specifies whether the layer uses a bias vector. Default: True.
-            gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
-            skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
-                When set True, an weight tensor should be passed to construct function. Default: False.
-            is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
-            transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-            param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-            compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
-            expert_num (int): The number of expert. Default: 1.
-
-        Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-              to :math:`in\_channels` in `Inputs`.
-
-        Outputs:
-            Tensor of shape :math:`(*, out\_channels)`.
-
-        Raises:
-            ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
-
-        Supported Platforms:
-            ``Ascend``
-    """
-    def __init__(
-            self,
-            input_size,
-            output_size,
-            config,
-            bias=False,
-            is_expert=False,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
-            expert_num=1,
-            weight_init="normal",
-            bias_init="zeros",
-            **kwargs
-    ):
-        super(ColumnParallelLinearWorldRegion, self).__init__(
-            input_size=input_size,
-            output_size=output_size,
-            config=config,
-            bias=bias,
-            is_expert=is_expert,
-            expert_num=expert_num,
-            param_init_type=param_init_type,
-            compute_dtype=compute_dtype,
-            weight_init=weight_init,
-            bias_init=bias_init,
-            **kwargs
-        )
-        self.tensor_parallel_group_size = get_group_size()
-        self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
-
-        weight_shape = (self.output_size_per_partition, self.input_size) if self.transpose_b else (
-            self.input_size, self.output_size_per_partition)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
-
-        if bias:
-            bias_shape = (self.output_size_per_partition,)
-            self.bias = Parameter(initializer(bias_init, bias_shape, param_init_type), name="bias")
-            self.bias_add = P.Add()
-        self.gather_from_mp_region = GatherFromWorldParallelRegionV1()
-        if self.sequence_parallel:
-            self.gather_from_sp_region = GatherFromWorldParallelRegionV2()
-
-
-class RowParallelLinearWorldRegion(RowParallelLinear):
-    r"""
-        The dense layer with weight sliced on first dimension by global world region parallel size.
-        This layer implements the operation as:
-
-        .. math::
-            \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
-
-        where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-        and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
-
-        Args:
-            input_size (int): The number of channels in the input space.
-            output_size (int): The number of channels in the output space.
-            config (dict): Parallel configuration.
-            input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
-            weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter.
-                The values of str refer to the function `initializer`. Default: 'normal'.
-            bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-                of str refer to the function `initializer`. Default: 'zeros'.
-            bias (bool): Specifies whether the layer uses a bias vector. Default: True.
-            skip_bias_add (bool): Specifies whether the layer doesn't need to add bias. Default: False.
-            is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
-            transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-            param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-            compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
-            expert_num (int): The number of expert. Default: 1.
-
-        Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-              to :math:`in\_channels` in `Inputs`.
-
-        Outputs:
-            Tensor of shape :math:`(*, out\_channels)`.
-
-        Supported Platforms:
-            ``Ascend``
-    """
-    def __init__(
-            self,
-            input_size,
-            output_size,
-            config,
-            input_is_parallel,
-            bias=False,
-            skip_bias_add=False,
-            is_expert=False,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
-            expert_num=1,
-            weight_init="normal",
-            bias_init="zeros",
-            delay_allreduce=False,
-            **kwargs
-    ):
-        super(RowParallelLinearWorldRegion, self).__init__(
-            input_size=input_size,
-            output_size=output_size,
-            config=config,
-            input_is_parallel=input_is_parallel,
-            bias=bias,
-            skip_bias_add=skip_bias_add,
-            is_expert=is_expert,
-            expert_num=expert_num,
-            delay_allreduce=delay_allreduce,
-            param_init_type=param_init_type,
-            compute_dtype=compute_dtype,
-            weight_init=weight_init,
-            bias_init=bias_init,
-            **kwargs
-        )
-        self.tensor_parallel_group_size = get_group_size()
-        self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
-
-        # weight
-        weight_shape = (self.output_size, self.input_size_per_partition) if self.transpose_b else (
-            self.input_size_per_partition, self.output_size)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
-
-        # bias
-        if self.has_bias and not self.skip_bias_add:
-            bias_shape = (self.output_size,)
-            self.bias = Parameter(initializer(super().bias_init, bias_shape, super().param_init_type), name="bias")
-            self.bias_add = P.Add()
-
-        self.reduce_from_mp_region = ReduceFromWorldParallelRegion()
-        if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToWorldParallelRegion()
-        if self.sequence_parallel:
-            self.reduce_scatter_to_sp_region = ReduceScatterToWorldParallelRegion()
-
-
-class ColumnParallelGroupLinear(ColumnParallelLinear):
-    r"""
-        The group linear layer with weight sliced on second dimension by tensor parallel size.
-        This layer implements the operation as:
-
-        .. math::
-            \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
-
-        where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-        and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
-
-        Args:
-            input_size (int): The number of channels in the input space.
-            output_size (int): The number of channels in the output space.
-            config (dict): Parallel configuration.
-            weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter.
-                The values of str refer to the function `initializer`. Default: 'normal'.
-            bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-                of str refer to the function `initializer`. Default: 'zeros'.
-            bias (bool): Specifies whether the layer uses a bias vector. Default: True.
-            gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
-            skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
-                When set True, an weight tensor should be passed to construct function. Default: False.
-            is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
-            transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-            param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-            compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
-            expert_num (int): The number of expert. Default: 1.
-
-        Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-              to :math:`in\_channels` in `Inputs`.
-
-        Outputs:
-            Tensor of shape :math:`(*, out\_channels)`.
-
-        Raises:
-            ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
-
-        Supported Platforms:
-            ``Ascend``
-    """
-    def __init__(
-            self,
-            input_size,
-            output_size,
-            config,
-            bias=False,
-            is_expert=False,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
-            expert_num=1,
-            weight_init="normal",
-            bias_init="zeros",
-            **kwargs
-    ):
-        super(ColumnParallelGroupLinear, self).__init__(
-            input_size=input_size,
-            output_size=output_size,
-            config=config,
-            bias=bias,
-            is_expert=is_expert,
-            expert_num=expert_num,
-            param_init_type=param_init_type,
-            compute_dtype=compute_dtype,
-            weight_init=weight_init,
-            bias_init=bias_init,
-            **kwargs
-        )
-        # moe tp ep
-        self.moe_tp_size = get_moe_tp_world_size()
-        self.output_size_per_partition = divide(output_size, self.moe_tp_size)
-        self.moe_ep_size = get_moe_ep_world_size()
-        self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
-
-        weight_shape = (self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
-
-        if bias:
-            bias_shape = (self.ep_size_per_partition, self.output_size_per_partition)
-            self.bias = Parameter(initializer(bias_init, bias_shape, param_init_type), name="bias")
-            self.bias_add = P.Add()
-        self.gather_from_mp_region = GatherFromMoeTensorParallelRegion()
-        if self.sequence_parallel:
-            self.gather_from_sp_region = GatherFromMoeTensorParallelRegionV2()
-
-
-class RowParallelGroupLinear(RowParallelLinear):
-    r"""
-        The group linear layer with weight sliced on first dimension by tensor parallel size.
-        This layer implements the operation as:
-
-        .. math::
-            \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
-
-        where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-        and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
-
-        Args:
-            input_size (int): The number of channels in the input space.
-            output_size (int): The number of channels in the output space.
-            config (dict): Parallel configuration.
-            input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
-            weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter.
-                The values of str refer to the function `initializer`. Default: 'normal'.
-            bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-                of str refer to the function `initializer`. Default: 'zeros'.
-            bias (bool): Specifies whether the layer uses a bias vector. Default: True.
-            skip_bias_add (bool): Specifies whether the layer doesn't need to add bias. Default: False.
-            is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
-            transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-            param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-            compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
-            expert_num (int): The number of expert. Default: 1.
-
-        Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-              to :math:`in\_channels` in `Inputs`.
-
-        Outputs:
-            Tensor of shape :math:`(*, out\_channels)`.
-
-        Supported Platforms:
-            ``Ascend``
-    """
-    def __init__(
-            self,
-            input_size,
-            output_size,
-            config,
-            input_is_parallel,
-            bias=False,
-            skip_bias_add=False,
-            is_expert=False,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
-            expert_num=1,
-            weight_init="normal",
-            bias_init="zeros",
-            delay_allreduce=False,
-            **kwargs
-    ):
-        super(RowParallelGroupLinear, self).__init__(
-            input_size=input_size,
-            output_size=output_size,
-            config=config,
-            input_is_parallel=input_is_parallel,
-            bias=bias,
-            skip_bias_add=skip_bias_add,
-            is_expert=is_expert,
-            expert_num=expert_num,
-            delay_allreduce=delay_allreduce,
-            param_init_type=param_init_type,
-            compute_dtype=compute_dtype,
-            weight_init=weight_init,
-            bias_init=bias_init,
-            **kwargs
-        )
-        # tp ep
-        self.moe_tp_size = get_moe_tp_world_size()
-        self.input_size_per_partition = divide(input_size, self.moe_tp_size)
-        self.moe_ep_size = get_moe_ep_world_size()
-        self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
-
-        # weight
-        weight_shape = (self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
-
-        # bias
-        if self.has_bias and not self.skip_bias_add:
-            bias_shape = (self.ep_size_per_partition, self.output_size)
-            self.bias = Parameter(initializer(super().bias_init, bias_shape, super().param_init_type), name="bias")
-            self.bias_add = P.Add()
-
-        # moe_tp
-        self.reduce_from_moe_tp_region = ReduceFromMoeTensorParallelRegion()
-        self.reduce_from_mp_region = self.reduce_from_moe_tp_region
-        if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToMoeTensorParallelRegion()
-        if self.sequence_parallel:
-            self.reduce_scatter_to_sp_region = ReduceScatterToMoeTensorParallelRegion()
 
 
 class RoutedParallelMLP(nn.Cell):
@@ -835,54 +328,60 @@ class RoutedParallelMLP(nn.Cell):
         self.act_type = self.config.hidden_act
         self.act_func = get_act_func(self.act_type)
         self.ffn_concat = self.config.ffn_concat
-        self.moe_tp_size = get_moe_tp_world_size()
-        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, self.moe_tp_size)
+        tp_group_size = get_tp_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
         if self.ffn_concat:
-            self.w_gate_hidden = ColumnParallelGroupLinear(
+            self.w_gate_hidden = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size * 2,
                 config=self.config.parallel_config,
                 bias=self.has_bias,
-                is_expert=True,
                 transpose_b=True,
-                expert_num=self.config.moe_config.expert_num,
+                gather_output=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
             )
         else:
-            self.w1 = ColumnParallelGroupLinear(
+            self.w1 = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size,
                 config=self.config.parallel_config,
                 bias=self.has_bias,
                 transpose_b=True,
-                expert_num=self.config.moe_config.expert_num,
+                gather_output=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
             )
-            self.w3 = ColumnParallelGroupLinear(
+
+            self.w3 = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size,
                 config=self.config.parallel_config,
                 bias=self.has_bias,
                 transpose_b=True,
-                expert_num=self.config.moe_config.expert_num,
+                gather_output=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
             )
-        self.w2 = RowParallelGroupLinear(
+        self.w2 = RowParallelLinear(
             self.ffn_hidden_size,
             self.hidden_size,
-            config=self.config.parallel_config,
             input_is_parallel=True,
+            config=self.config.parallel_config,
             bias=self.has_bias,
             skip_bias_add=True,
-            is_expert=True,
             transpose_b=True,
-            expert_num=self.config.moe_config.expert_num,
-            delay_allreduce=True,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            is_expert=True,
+            expert_num=self.config.moe_config.expert_num,
+            moe_delay_allreduce=True,
         )
 
     def construct(self, x, group_list=None):
@@ -919,9 +418,9 @@ class GroupTopkCell(nn.Cell):
         return token
 
 
-class ParallelMoEV2(nn.Cell):
+class ParallelMoEV2Fused(nn.Cell):
     r"""
-        ParallelMoEV2. Routing each tokens to the topk expert and calculating the final output.
+        ParallelMoEV2Fused. Routing each tokens to the topk expert and calculating the final output.
 
         Args:
             ffn (Cell): The FeedForward Module.
@@ -938,7 +437,7 @@ class ParallelMoEV2(nn.Cell):
                  ffn,
                  hidden_size,
                  moe_config):
-        super(ParallelMoEV2, self).__init__()
+        super(ParallelMoEV2Fused, self).__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
         self.expert_num = moe_config.expert_num
@@ -970,6 +469,10 @@ class ParallelMoEV2(nn.Cell):
 
     def construct(self, input_tensor):
         """forward process"""
+        input_tensor_shape = self.shape(input_tensor)
+        input_dtype = input_tensor.dtype
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))
+
         gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
         gating_logits = self.cast(gating_logits, mstype.float32)
         expert_weight, expert_index = \
@@ -983,7 +486,7 @@ class ParallelMoEV2(nn.Cell):
                 0,
                 True,
                 self.moe_config.routed_scaling_factor)
-        expert_weight = expert_weight.astype(input_tensor.dtype)
+        expert_weight = expert_weight.astype(input_dtype)
 
         sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
@@ -1003,17 +506,20 @@ class ParallelMoEV2(nn.Cell):
                                               probs=expert_weight,
                                               padded_mode=False,
                                               restore_shape=None)
-        return moe_output
+        #moe_output = self.reduce_from_mp_region(moe_output)
+        output_tensor = self.reshape(moe_output, input_tensor_shape)
+        return output_tensor
 
 
-class ExpertParallelMoE(nn.Cell):
+class ParallelMoEV2(nn.Cell):
     r"""
-        ExpertParallelMoE. Routing each tokens to the topk expert and calculating the final output.
+        ParallelMoEV2 Unfused. Routing each tokens to the topk expert and calculating the final output.
 
         Args:
             ffn (Cell): The FeedForward Module.
             hidden_size (int): The hidden size of each token.
             moe_config (MoEConfig): The configuration of MoE (Mixture of Expert).
+            use_fused_op (Bool): Whether use fused kernels.
         Inputs:
             - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
 
@@ -1025,13 +531,15 @@ class ExpertParallelMoE(nn.Cell):
                  ffn,
                  hidden_size,
                  moe_config,
-                 use_alltoall):
-        super(ExpertParallelMoE, self).__init__()
+                 use_fused_op=True):
+        super(ParallelMoEV2, self).__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
-        self.expert_num = moe_config.expert_num
+        self.expert_dim = moe_config.expert_num
+        self.topk_norm_prob = moe_config.norm_topk_prob
         self.num_experts_chosen = moe_config.num_experts_chosen
         self.router_dense_type = dtype_map.get(moe_config.router_dense_type)
+        self.use_fused_op = False #use_fused_op and MOE_FUSED_OP_VALID
         self.topk_group = moe_config.topk_group
         self.n_group = moe_config.n_group
 
@@ -1042,119 +550,110 @@ class ExpertParallelMoE(nn.Cell):
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()
+        self.softmax = P.Softmax()
         self.add = P.Add()
         self.div = P.Div()
         self.mul = P.Mul()
+        self.sum = P.ReduceSum(keep_dims=False)
+
+        self.transpose_2d = P.Transpose()
         self.gather = P.Gather()
+        self.onehot = P.OneHot()
 
-        self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
-        self.group_topk_inner = 2
+        self.on_value = Tensor(1.0, dtype=mstype.float32)
+        self.off_value = Tensor(0.0, dtype=mstype.float32)
 
-        self.moe_token_unpermute = MoeTokenUnpermute()
+        self.moe_finalize_routing = MoeFinalizeRouting()
+        # self.moe_token_unpermute = MoeTokenUnpermute()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
-        self.fused_add_topk_div = FusedAddTopKDiv()
-        self.dummy_token = mint.zeros((1, self.hidden_size), dtype=mstype.bfloat16)
+        if self.use_fused_op:
+            self.moe_init_routing = MoeInitRouting()
+            self.moe_compute_expert_tokens = MoeComputeExpertTokens()
+            self.moe_gating_topk_softmax = MoeGatingTopKSoftmax()
+            self.moe_finalize_routing = MoeFinalizeRouting()
 
-        self.moe_tp_size = get_moe_tp_world_size()
-        self.moe_ep_size = get_moe_ep_world_size()
-        self.use_alltoall = use_alltoall
+    def tensor_sort(self, input_tensor, expert_ids):
+        '''dispatch and get unsort map for routing'''
+        expert_shape = expert_ids.shape
+        transposed_index = self.transpose_2d(expert_ids, (1, 0)) # (N, k) -> (k, N)
+        reshaped_index = self.reshape(transposed_index, (-1,)) # (k, N) -> (kN)
+        _, sort_map = mint.sort(self.cast(reshaped_index, mstype.float32))
 
-        self.local_ep_num = self.expert_num // self.moe_ep_size
-        self.ep_rank_index = get_rank() // self.moe_tp_size
-        self.in_start_expert_idx = self.ep_rank_index * self.local_ep_num
+        inter_map = mint.remainder(sort_map, expert_shape[0])
+        output_tensor = self.gather(input_tensor, inter_map, 0)
+        expert_mask = self.onehot(reshaped_index, self.expert_dim, self.on_value, self.off_value)
+        expert_cnt = mint.sum(expert_mask, 0)
+        group_list = self.cast(mint.cumsum(expert_cnt, 0), mstype.int64)
 
-    def moe_with_allgather(self, expert_weight, expert_index, input_tensor):
-        """moe feed forward with allgather."""
-        global_local_mask = expert_index < self.in_start_expert_idx
-        local_expert_index = expert_index - self.in_start_expert_idx
-        local_expert_index = self.cast(local_expert_index, mstype.int32)
-        local_expert_index = ops.masked_fill(local_expert_index, global_local_mask, self.expert_num - 1)
+        _, unsort_map = mint.sort(self.cast(sort_map, mstype.float32))
+        unsort_map = self.cast(unsort_map, mstype.int32)
+        return output_tensor, group_list, unsort_map
 
-        global_local_mask1 = local_expert_index >= self.local_ep_num
-        expert_weight = ops.masked_fill(expert_weight, global_local_mask1, 0)
+    def tensor_moe_token_unpermute(self, permute_token, sorted_idx, probs):
+        '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
+        input_shape = permute_token.shape  # (kN, h)
+        token_num = input_shape[0] // self.num_experts_chosen
+        top_k = self.shape(sorted_idx)[0] // token_num  # topk k
 
-        sorted_input_tensor, unsort_map, group_list, _ = \
-            self.moe_init_routing_v2(
-                input_tensor,
-                local_expert_index,
-                active_num=0,
-                expert_capacity=0,
-                expert_num=self.expert_num,
-                drop_pad_mode=0,
-                expert_tokens_count_or_cumsum_flag=2,
-                expert_tokens_before_capacity_flag=True)
+        probs_reshape_fp32 = self.cast(probs.flatten().reshape(-1, 1), mstype.float32)
 
-        group_list = mint.split(group_list, self.local_ep_num)[0]
-        group_list = self.cast(group_list, mstype.int64)
-        expert_output = self.ffn(sorted_input_tensor, group_list)
-        expert_output = mint.nan_to_num(expert_output, 0, 0, 0)
-        moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
-                                              sorted_indices=unsort_map,
-                                              probs=expert_weight,
-                                              padded_mode=False,
-                                              restore_shape=None)
-        return moe_output
+        sorted_idx = sorted_idx.reshape(top_k, token_num)
+        sorted_idx = sorted_idx.transpose(1, 0)
+        sorted_idx = sorted_idx.flatten()
+        row_gather_fp32 = self.cast(self.gather(permute_token, sorted_idx, 0), mstype.float32)
+
+        out1_fp32 = probs_reshape_fp32 * row_gather_fp32
+        out1_fp32 = out1_fp32.reshape(token_num, top_k, -1)
+        out1_sum_fp32 = self.sum(out1_fp32, 1)
+
+        output_tensor = self.cast(out1_sum_fp32, permute_token.dtype)
+        return output_tensor
 
     def construct(self, input_tensor):
         """forward process"""
-        gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
-        gating_logits = self.cast(gating_logits, mstype.float32)
-        expert_weight, expert_index = \
-            self.fused_add_topk_div(
-                gating_logits,
-                self.router.e_score_correction_bias,
-                self.num_experts_chosen,
-                self.topk_group,
-                self.group_topk_inner,
-                self.num_experts_chosen,
-                0,
-                True,
-                self.moe_config.routed_scaling_factor)
-        expert_weight = expert_weight.astype(input_tensor.dtype)
+        input_tensor_shape = self.shape(input_tensor)  # (B, S, H)
+        input_dtype = input_tensor.dtype
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
 
-        if not self.use_alltoall:
-            return self.moe_with_allgather(expert_weight, expert_index, input_tensor)
+        gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type)) # (N, h) * (h, E) -> (bs*seq, E)
+        score = mint.sigmoid(gating_logits)
+        origin_score = score
 
-        sorted_input_tensor, unsort_map, group_list, _ = \
+        # bias
+        score = score + self.router.e_score_correction_bias
+        # n_group
+        score = self.reshape(score, (self.shape(input_tensor)[0], self.n_group, -1))
+        group_score = score.topk(2, dim=-1)[0].sum(axis=-1)        # 每个组选2两个，求和作为代表，代表整个组
+        group_idx = group_score.topk(self.topk_group, dim=-1)[1]  # 从8个组，调出4个组
+
+        mask = mint.zeros_like(score[:,:,0]).scatter(1, group_idx, True)
+        score = (score * mask.unsqueeze(-1)).flatten(start_dim=1)           # 这里的mask是指把之前不入选的后4个组的score都置0
+
+        # topk
+        expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1] # 从选出来的前4组，取要的topk
+        expert_index = self.cast(expert_index, mstype.int32)
+        if self.is_first_iteration:
+            sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)  # 全局sorted_in
+        else:
+            sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
                 input_tensor,
                 expert_index,
                 active_num=0,
                 expert_capacity=0,
-                expert_num=self.expert_num,
+                expert_num=self.expert_dim,
                 drop_pad_mode=0,
-                expert_tokens_count_or_cumsum_flag=2,
-                expert_tokens_before_capacity_flag=True)
+                expert_tokens_count_or_cumsum_flag=1,
+                expert_tokens_before_capacity_flag=False)
+        # group_list = self.cast(group_list, mstype.int64)
 
-        group_list = group_list.reshape(1, -1).astype(mstype.float32)
-        local_counter = ops.AlltoAll(split_count=self.moe_ep_size, split_dim=-1, concat_dim=-2)(group_list)
-        send_list = ops.cast(group_list.reshape(self.moe_ep_size, -1).sum(dim=-1, keepdim=False), mstype.int64)
-        recv_list = ops.cast(local_counter.reshape(self.moe_ep_size, -1).sum(dim=-1, keepdim=False), mstype.int64)
-        local_grouplist = ops.cast(local_counter.reshape(self.moe_ep_size, -1).sum(dim=-2, keepdim=False), mstype.int64)
+        # moeffn
+        expert_output = self.ffn(sorted_input_tensor, group_list)  # (N, h) (N, k) -> (N, k, h)
 
-        recv_num_token = recv_list.sum()
+        weight = origin_score.gather(expert_index, 1, 1)
+        expert_weight = self.div(weight, self.add(mint.sum(weight, -1, True), 1e-9))     # sigmoid再归一化
+        expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_dtype)
+        moe_output = self.tensor_moe_token_unpermute(expert_output, unsort_map, expert_weight)  # -> (N, h)
 
-        recv_token_x = ops.AlltoAllV(block_size=self.hidden_size)(sorted_input_tensor.reshape(-1), send_list, recv_list)
-        expert_index_1d, _ = ops.sort(expert_index.astype(mstype.float32).reshape(-1))
-        expert_id = ops.AlltoAllV()(expert_index_1d, send_list, recv_list)
-
-        y = self.dummy_token
-        if recv_num_token != 0:
-            x = recv_token_x.reshape(-1, self.hidden_size)
-
-            _, inner_sort_map = ops.sort(expert_id)
-            _, inner_unsort_map = ops.sort(inner_sort_map.astype(mstype.float32))
-            resort_x = ops.gather(x, inner_sort_map, axis=0)
-
-            ffn_res = self.ffn(resort_x, local_grouplist)
-            y = ops.gather(ffn_res, inner_unsort_map, axis=0)
-
-        yout = ops.AlltoAllV(block_size=self.hidden_size)(y.reshape(-1), recv_list, send_list)
-        expert_output = yout.reshape((-1, self.hidden_size))
-
-        moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
-                                              sorted_indices=unsort_map,
-                                              probs=expert_weight,
-                                              padded_mode=False,
-                                              restore_shape=None)
-        return moe_output
+        output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
+        return output_tensor

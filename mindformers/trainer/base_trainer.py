@@ -261,10 +261,10 @@ class BaseTrainer:
                 "= %s = %s * %s * %s",
                 self.global_batch_size, batch_size, get_real_group_size(), gradient_accumulation_steps)
             self.config.runner_config.batch_size = batch_size * gradient_accumulation_steps
-            self.config.parallel_config.data_parallel = 1
-            self.config.parallel_config.model_parallel = 1
-            self.config.parallel_config.pipeline_stage = 1
-            self.config.parallel_config.micro_batch_num = 1
+            # self.config.parallel_config.data_parallel = 1
+            # self.config.parallel_config.model_parallel = 1
+            # self.config.parallel_config.pipeline_stage = 1
+            # self.config.parallel_config.micro_batch_num = 1
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
         self.config.runner_config.global_batch_size = self.global_batch_size

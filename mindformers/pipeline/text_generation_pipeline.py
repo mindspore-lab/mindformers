@@ -196,6 +196,11 @@ class TextGenerationPipeline(Pipeline):
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
+        # warm up
+        result = self.network.generate(input_ids, max_new_tokens=3)
+        result = self.network.generate(input_ids, max_new_tokens=3)
+        result = self.network.generate(input_ids, max_new_tokens=3)
+        
         result = self.network.generate(input_ids, **forward_params)
         return result
 

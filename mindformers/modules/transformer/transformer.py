@@ -1016,7 +1016,7 @@ class LowerTriangularMaskWithDynamic(Cell):
                 self.lower_triangle_mask = Tensor(
                     np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_type
                 )
-                self.hard_mask = Tensor([0], dtype=ms.bfloat16).reshape(1, 1)
+                self.hard_mask = Tensor([0], dtype=compute_type).reshape(1, 1)
             else:
                 self.lower_triangle_mask = None
         else:

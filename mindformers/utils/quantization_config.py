@@ -48,7 +48,8 @@ dtype_map = {"None": None,
 
 outliers_map = {"None": OutliersSuppressionType.NONE,
                 "smooth": OutliersSuppressionType.SMOOTH,
-                "awq": OutliersSuppressionType.AWQ}
+                "awq": OutliersSuppressionType.AWQ,
+                "outlier-suppression+": OutliersSuppressionType.OUTLIER_SUPPRESSION_PLUS}
 
 precision_recovery_map = {"none": PrecisionRecovery.NONE,
                           "gptq": PrecisionRecovery.GPTQ}
@@ -400,7 +401,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         accepted_activations = [None, msdtype.int8]
         accepted_kvcache = [None, msdtype.int8]
         accepted_outliers_suppression = [OutliersSuppressionType.NONE, OutliersSuppressionType.SMOOTH,
-                                         OutliersSuppressionType.AWQ]
+                                         OutliersSuppressionType.AWQ, OutliersSuppressionType.OUTLIER_SUPPRESSION_PLUS]
         accepted_precision_recovery = [PrecisionRecovery.NONE, PrecisionRecovery.GPTQ]
         accepted_group_size = [0, 64, 128]
         if self.mode not in accepted_mode:
