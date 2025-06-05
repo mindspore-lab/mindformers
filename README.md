@@ -18,11 +18,10 @@ Based on MindSpore's built-in parallel technology and component-based design, th
 
 For details about MindSpore Transformers tutorials and API documents, see **[MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/index.html)**. The following are quick jump links to some of the key content:
 
-- 📝 [Quick Launch](https://www.mindspore.cn/mindformers/docs/en/dev/quick_start/source_code_start.html)
-- 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/dev/usage/pre_training.html)
-- 📝 [Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/dev/usage/sft_tuning.html)
-- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/dev/usage/evaluation.html)
-- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/dev/usage/mindie_deployment.html)
+- 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/dev/guide/pre_training.html)
+- 📝 [Supervised Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/dev/guide/supervised_fine_tuning.html)
+- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/dev/feature/evaluation.html)
+- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/dev/guide/deployment.html)
 
 If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
 
@@ -119,7 +118,7 @@ bash build.sh
 
 ## 3. User Guide
 
-MindSpore Transformers supports distributed pre-training, fine-tuning, and inference tasks for large models with one click. You can click the link of each model in [Model List](#models-list) to see the corresponding documentation, and you can also refer to [Start Tasks](https://www.mindspore.cn/mindformers/docs/en/dev/function/start_tasks.html) to learn how to start the above tasks.
+MindSpore Transformers supports distributed [pre-training](https://www.mindspore.cn/mindformers/docs/en/dev/guide/pre_training.html), [supervised fine-tuning](https://www.mindspore.cn/mindformers/docs/en/dev/guide/supervised_fine_tuning.html), and [inference](https://www.mindspore.cn/mindformers/docs/en/dev/guide/inference.html) tasks for large models with one click. You can click the link of each model in [Model List](#models-list) to see the corresponding documentation.
 
 For more information about the functions of MindSpore Transformers, please refer to [MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/dev/index.html).
 
@@ -152,7 +151,7 @@ MindSpore Transformers released version preservation policy:
 
 ## 6. Contribution
 
-We welcome contributions to the community. For details, see [MindSpore Transformers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/dev/faq/mindformers_contribution.html).
+We welcome contributions to the community. For details, see [MindSpore Transformers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/dev/contribution/mindformers_contribution.html).
 
 ## 7. License
 

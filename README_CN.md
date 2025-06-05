@@ -18,11 +18,10 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 
 欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindSpore Transformers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)，以下提供部分内容的快速跳转链接：
 
-- 📝 [启动任务](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/start_tasks.html)
-- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/pre_training.html)
-- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/sft_tuning.html)
-- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/evaluation.html)
-- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/mindie_deployment.html)
+- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)
+- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)
+- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/evaluation.html)
+- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
@@ -119,7 +118,7 @@ bash build.sh
 
 ## 三、使用指南
 
-MindSpore Transformers支持一键启动大模型的分布式预训练、微调、推理任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档，同时可以参考[启动任务](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/start_tasks.html)以了解上述任务的启动方法。
+MindSpore Transformers支持一键启动大模型的分布式[预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)、[SFT 微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)、[推理](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/inference.html)任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档。
 
 关于MindSpore Transformers的更多功能说明可参阅[MindSpore Transformers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)。
 
@@ -152,7 +151,7 @@ MindSpore Transformers已发布版本维护策略：
 
 ## 六、贡献
 
-欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/mindformers_contribution.html)。
+欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/contribution/mindformers_contribution.html)。
 
 ## 七、许可证
 

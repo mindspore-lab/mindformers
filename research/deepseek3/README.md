@@ -79,7 +79,7 @@ DeepSeek-V3所依赖的版本配套如下：
 |:-----------:|:---------:|:----:|:-----:|:----:|
 |    在研版本     |   在研版本    | 在研版本 | 在研版本  | 不涉及  |
 
-环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/install.html)。
+环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html)。
 
 ## 模型权重下载
 
@@ -133,7 +133,7 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
 
 1. 下载数据集和分词模型文件
 
-   - 数据集下载：[WikiText2数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html)
+   - 数据集下载：[WikiText2数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/feature_related.html)
 
    - 分词模型下载：分词模型[tokenizer.json](https://huggingface.co/deepseek-ai/DeepSeek-V3/resolve/main/tokenizer.json?download=true)
 
@@ -233,7 +233,7 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
        parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径，需要固件与驱动版本不低于24.1.RC3
    ```
 
-> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/perf_optimize/perf_optimize.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
+> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/advanced_development/performance_optimization.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
 
 ### 拉起任务
 
@@ -343,7 +343,7 @@ python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --m
 
 通常训练采用分布式训练，使用训练得到的权重进行评测、推理等任务时，如涉及分布式策略更改，需要对权重进行切分或合并。
 
-以上涉及到Safetensors格式权重的单卡，多卡转换，详细教程请参考特性文档[Safetensors权重](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/safetensors.html)
+以上涉及到Safetensors格式权重的单卡，多卡转换，详细教程请参考特性文档[Safetensors权重](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/safetensors.html)
 
 ### 修改配置
 
