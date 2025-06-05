@@ -24,7 +24,7 @@ from mindspore.common.parameter import Parameter
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import Cast, BatchMatMulExt, Reshape, Transpose
 
-from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
 
 
 class ColumnParallelBatchedLinear(nn.Cell):
@@ -36,7 +36,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
     Args:
         input_size (int): The number of input units.
         output_size (int): The number of output units.
-        config (TransformerConfig): The config of the transformer model.
+        config (ModelParallelConfig): The config of the transformer model.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         gather_output (bool): Whether to gather the output. Default: False.
@@ -57,7 +57,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 config: TransformerConfig,
+                 config: ModelParallelConfig,
                  init_method: Callable = None,
                  bias: bool = False,
                  gather_output: bool = False,
@@ -102,7 +102,6 @@ class ColumnParallelBatchedLinear(nn.Cell):
         self.config = config
         self.init_method = init_method
         self.compute_dtype = compute_dtype
-        self.cast = Cast()
         self.transpose_b = transpose_b
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.params_dtype = config.params_dtype
@@ -133,6 +132,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
             weight_shape = [config.num_moe_experts] + weight_shape
             self.weight = Parameter(init_method(weight_shape), name='weight')
 
+        self.cast = Cast()
         self.bmm = BatchMatMulExt()
         self.transpose = Transpose()
         self.in_transpose = Transpose()
@@ -180,7 +180,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
         output = self.out_transpose(output, (1, 0, 2))
         return output, bias
 
-    def shard(self, config: TransformerConfig) -> None:
+    def shard(self, config: ModelParallelConfig) -> None:
         """Shard the operators in ColumnParallelBatchedLinear.
 
         Args:
@@ -206,7 +206,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
         self.in_transpose.shard(((cp, dp, tp),))
         self.out_transpose.shard(((dp, cp, tp),))
 
-    def sharding_propagation(self, config: TransformerConfig) -> None:
+    def sharding_propagation(self, config: ModelParallelConfig) -> None:
         """Shard the operators in ColumnParallelBatchedLinear in sharding propagation mode.
 
         Args:
@@ -236,7 +236,7 @@ class RowParallelBatchedLinear(nn.Cell):
     Args:
         input_size (int): The number of input units.
         output_size (int): The number of output units.
-        config (TransformerConfig): The config of the transformer model.
+        config (ModelParallelConfig): The config of the transformer model.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         input_is_parallel (bool): Whether the input is already parallelized. Default: False.
@@ -253,7 +253,7 @@ class RowParallelBatchedLinear(nn.Cell):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 config: TransformerConfig,
+                 config: ModelParallelConfig,
                  init_method: Callable = None,
                  bias: bool = False,
                  input_is_parallel: bool = False,
@@ -289,7 +289,6 @@ class RowParallelBatchedLinear(nn.Cell):
         self.transpose_b = transpose_b
         self.compute_dtype = compute_dtype
         self.params_dtype = config.params_dtype
-        self.cast = Cast()
         self.bias = None
         # expert config
         self.expert_flag = is_expert and config.num_moe_experts > 1
@@ -314,6 +313,7 @@ class RowParallelBatchedLinear(nn.Cell):
         weight_shape = [config.num_moe_experts] + weight_shape
         self.weight = Parameter(init_method(weight_shape), name='weight')
 
+        self.cast = Cast()
         self.bmm = BatchMatMulExt()
         self.transpose = Transpose()
         self.in_transpose = Transpose()
@@ -355,7 +355,7 @@ class RowParallelBatchedLinear(nn.Cell):
         output = self.out_transpose(output, (1, 0, 2))
         return output, bias
 
-    def shard(self, config: TransformerConfig) -> None:
+    def shard(self, config: ModelParallelConfig) -> None:
         """Shard the operators in ColumnParallelBatchedLinear.
 
         Args:
@@ -380,7 +380,7 @@ class RowParallelBatchedLinear(nn.Cell):
         self.in_transpose.shard(((cp, dp, tp),))
         self.out_transpose.shard(((dp, cp, tp),))
 
-    def sharding_propagation(self, config: TransformerConfig) -> None:
+    def sharding_propagation(self, config: ModelParallelConfig) -> None:
         """Shard the operators in RowParallelLinear in sharding propagation mode.
 
         Args:
