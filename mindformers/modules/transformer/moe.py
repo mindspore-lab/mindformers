@@ -113,8 +113,6 @@ class MoEConfig:
             use_gmm (bool): Whether to enable MOVE3 module, which uses gmm op instead of bmm. Default: False.
             enable_gmm_safe_tokens (bool): Whether to pad safe token. If use MOVE3 module,
                 when an expert accept 0 token, gmm will report error. Default: False.
-            moe_tensor_parallel (int): The number of tensor parallelisms used by the MOE module. Default: 1.
-            moe_expert_parallel (int): The number of expert parallelisms used by the MOE module. Default: 1.
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -136,8 +134,7 @@ class MoEConfig:
                  first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0,
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
                  topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
-                 expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False,
-                 moe_tensor_parallel=None, moe_expert_parallel=None):
+                 expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -205,8 +202,6 @@ class MoEConfig:
         self.use_gating_sigmoid = use_gating_sigmoid
         self.use_gmm = use_gmm
         self.enable_gmm_safe_tokens = enable_gmm_safe_tokens
-        self.moe_tensor_parallel = moe_tensor_parallel
-        self.moe_expert_parallel = moe_expert_parallel
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())

@@ -468,8 +468,15 @@ class ParallelAttention(nn.Cell):
                     if self.is_pynative:
                         context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
                     else:
+                        bs, seq_len, _ = query.shape
+                        # [1, actual_seq_len, H] --> [actual_seq_len, H]
+                        query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
+                        key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                        value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
                         context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
-                                                             q_seq_lens, batch_valid_length)
+                                                             batch_valid_length, batch_valid_length)
+                        context_layer = self.reshape(context_layer, (bs, seq_len,
+                                                                     self.num_heads_per_partition * self.head_dim))
                 else:
                     # [B, S, H] --> [B, S, N, D]
                     query = query.reshape(bs, seq_len, -1, self.head_dim)
@@ -824,17 +831,14 @@ class ParallelTransformer(nn.Cell):
             output: Tensor, the output of ParallelTransformer
         """
         # preprocess
+        bs, seq_len = self.shape(tokens)
         mask = attention_mask
         if self.use_past:
             if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                 if self.is_pynative:
-                    bs, seq_len = self.shape(tokens)
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                     mask = self.casual_mask(tokens)
-                else:
-                    freqs_cis = self.freqs_mgr.prefill()
                 if prefix_keys_values is not None:
-                    bs, seq_len = self.shape(tokens)
                     if mask is None:
                         mask = self.casual_mask(tokens)
                     prefix_length = prefix_keys_values[0].shape[2]
@@ -843,7 +847,6 @@ class ParallelTransformer(nn.Cell):
             else:
                 freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
         else:
-            bs, seq_len = self.shape(tokens)
             mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
             if prefix_keys_values is not None:
@@ -858,8 +861,7 @@ class ParallelTransformer(nn.Cell):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             key_cache_i = key_cache[i] if key_cache is not None else None
             value_cache_i = value_cache[i] if value_cache is not None else None
-            hidden_states = self.layers[i](hidden_states, freqs_cis, mask,
-                                           batch_valid_length=batch_valid_length,
+            hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
                                            prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
                                            key_cache=key_cache_i, value_cache=value_cache_i)

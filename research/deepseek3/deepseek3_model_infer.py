@@ -25,12 +25,12 @@ from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
 from mindspore.communication._comm_helper import _is_initialized
-from mindspore.communication import get_group_size, get_rank
 
 try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
+
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import lazy_inline, LayerSetting, check_fine_grain_interleave_valid, predict_lazy_inline,\
     predict_jit
@@ -45,12 +45,9 @@ from mindformers.experimental.infer.core.layers import ColumnParallelLinear, Row
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
-from mindformers.experimental.infer.core.moe import RoutedParallelMLP, ParallelMoEV2, ExpertParallelMoE, \
-    WorldRegionSharedParallelMLP, SharedMLP
+from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
-from mindformers.experimental.infer.core.mapping import ReduceScatterToSequenceParallelRegion, \
-    GatherFromWorldParallelRegionV2, GatherFromSequenceParallelRegion, ScatterToModelParallelRegion, \
-    ReduceScatterToWorldParallelRegion, ReduceFromWorldParallelRegion
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
@@ -286,12 +283,16 @@ class MLAInferAttention(nn.Cell):
         """
         prefill attention
         """
+        bs, seq_len, _ = query.shape
+        prefill_head_dim = self.prefill_head_dim if self.prefill_head_dim else self.head_dim
         if self.input_layout == "TH":
-            query = self.reshape(query, (-1, self.n_head * self.prefill_head_dim))
-            key = self.reshape(key, (-1, self.n_head * self.prefill_head_dim))
-            value = self.reshape(value, (-1, self.n_head * self.prefill_head_dim))
-        return self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
-                                    actual_seq_qlen, actual_seq_kvlen)
+            query = self.reshape(query, (-1, self.n_head * prefill_head_dim))
+            key = self.reshape(key, (-1, self.n_head * prefill_head_dim))
+            value = self.reshape(value, (-1, self.n_head * prefill_head_dim))
+        output = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
+                                      actual_seq_qlen, actual_seq_kvlen)
+        output = self.reshape(output, (bs, seq_len, self.n_head * prefill_head_dim))
+        return output
 
     def _incre_attention(self, query, batch_valid_length, block_tables, attn_mask, q_seq_lens, key_cache=None):
         return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
@@ -345,7 +346,6 @@ class DeepseekV3Attention(nn.Cell):
             - **scaling_factor** (float): Scaling factor of Multi-Latent Attention. Default None.
             - **norm_eps** (float): The epsilon value of the denominator. Default 1e-5.
             - **layernorm_compute_dtype** (dtype.Number): The computation type of layernorm. Default mstype.float32.
-            - **delay_allreduce** (bool): Whether postpone the allreduce step. Default False.
 
     Inputs:
             - **x** (Tensor) - The input tokens with shape (batch_size, src_seq_length, hidden_size) or
@@ -393,7 +393,6 @@ class DeepseekV3Attention(nn.Cell):
                  scaling_factor=None,
                  norm_eps=1e-5,
                  layernorm_compute_dtype=mstype.float32,
-                 delay_allreduce=False,
                  config: DeepseekV3Config = None
                  ):
         super().__init__()
@@ -516,7 +515,6 @@ class DeepseekV3Attention(nn.Cell):
             config=parallel_config,
             compute_dtype=compute_dtype,
             param_init_type=param_init_type,
-            delay_allreduce=delay_allreduce,
         )
 
         self.scale_fa = 1. / math.sqrt(self.q_head_dim)
@@ -530,8 +528,8 @@ class DeepseekV3Attention(nn.Cell):
         self.reshape = P.Reshape()
         self.tile_kv = P.Tile()
         self.dim_slice_4d = P.Slice()
-        self.kpe_concat = P.Concat(1)
-        self.pe_concat = P.Concat(2)
+        self.kpe_concat = P.Concat(2)
+        self.pe_concat = P.Concat(3)
         self.qabsorb_matmul = P.BatchMatMul()
         self.outabsorb_matmul = P.BatchMatMul(transpose_b=True)
         self.infer_attention = MLAInferAttention(self.n_local_heads,
@@ -551,7 +549,9 @@ class DeepseekV3Attention(nn.Cell):
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None):
         """ Forward process of the DeepseekV3Attention. """
         ori_dtype = x.dtype
+
         if self.q_lora_rank == 0:
+            bs, seq_len, _ = self.shape(x)
             q = self.q_proj(x)
             latent_kv_all = self.kv2l(x)
             latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
@@ -560,57 +560,66 @@ class DeepseekV3Attention(nn.Cell):
                 qkv2l = self.qkv2l(x)
                 q, latent_kv, k_pe = mint.split(qkv2l, [self.q_lora_rank, self.kv_lora_rank, self.qk_rope_head_dim],
                                                 dim=-1)
+                bs, seq_len, _ = self.shape(q)
                 norm_q = self.lq_norm(q)
                 q = self.l2q_proj(norm_q)
             else:
                 q = self.q2l_proj(x)
+                bs, seq_len, _ = self.shape(q)
                 norm_q = self.lq_norm(q)
                 q = self.l2q_proj(norm_q)
                 latent_kv_all = self.kv2l(x)
                 latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
 
-        q = self.reshape(q, (-1, self.n_local_heads, self.q_head_dim))
+        q = self.reshape(q, (bs, seq_len, self.n_local_heads, self.q_head_dim))
         q_nope, q_pe = mint.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
-        # (T, kv_lora_rank)
         i_kv = self.lkv_norm(latent_kv)
-        q_pe = self.reshape(q_pe, (-1, self.n_local_heads * self.qk_rope_head_dim))
+
+        k_pe = self.reshape(k_pe, (bs, seq_len, 1, self.qk_rope_head_dim))
         q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, batch_valid_length)
-        q_pe = self.reshape(q_pe, (-1, self.n_local_heads, self.qk_rope_head_dim))
-        key_states_cache = self.kpe_concat((i_kv, k_pe))
+        q_pe = self.reshape(q_pe, (bs, seq_len, self.n_local_heads, self.qk_rope_head_dim))
+        k_pe = self.reshape(k_pe, (bs, seq_len, 1, self.qk_rope_head_dim))
+
+        key_states_cache = self.kpe_concat((i_kv, k_pe.view(bs, seq_len, self.qk_rope_head_dim)))
         key_out = self.infer_attention.paged_attention_mgr(key_states_cache, slot_mapping, key_cache=key_cache)
         q_nope = ops.depend(q_nope, key_out)
 
         if self.is_first_iteration:
             o_k_nope = self.lkv2kv_k_nope(i_kv)
             o_v = self.lkv2kv_v(i_kv)
-            k_nope = self.reshape(o_k_nope, (-1, self.n_local_heads, self.qk_nope_head_dim))
-            value_states = self.reshape(o_v, (-1, self.n_local_heads, self.v_head_dim))
+            k_nope = self.reshape(o_k_nope, (bs, seq_len, self.n_local_heads, self.qk_nope_head_dim))
+            value_states = self.reshape(o_v, (bs, seq_len, self.n_local_heads, self.v_head_dim))
             query_states = self.pe_concat((q_nope, q_pe))
-
-            k_pe = self.reshape(k_pe, (-1, 1, self.qk_rope_head_dim))
-            k_pe = self.tile_kv(k_pe, (1, self.n_local_heads, 1))
+            k_pe = self.tile_kv(k_pe, (1, 1, self.n_local_heads, 1))
             key_states = self.pe_concat((k_nope, k_pe))
             value_states = self.pe_concat((value_states, k_pe))
+
+            key_states = key_states.view(bs, seq_len, -1)
+            value_states = value_states.view(bs, seq_len, -1)
+            query_states = query_states.view(bs, seq_len, -1)
+
             context_layer = self.infer_attention(query_states, key_states, value_states, batch_valid_length,
                                                  block_tables, mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
-            context_layer = context_layer.view(-1, self.n_local_heads, self.q_head_dim)
-            context_layer = self.dim_slice_4d(context_layer, (0, 0, 0), (-1, self.n_local_heads, self.v_head_dim))
-        else:
-            q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
-            out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
 
-            q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
-            query_states = self.pe_concat((q_nope, q_pe))
+            context_layer = context_layer.view(bs, seq_len, self.n_local_heads, self.q_head_dim)
+            context_layer = self.dim_slice_4d(context_layer, (0, 0, 0, 0), (bs, seq_len, self.n_local_heads,
+                                                                            self.v_head_dim))
+            attn_out = context_layer.view(bs, seq_len, self.n_local_heads * self.v_head_dim)
+            output = self.wo(attn_out)
+            output = self.cast(output, ori_dtype)
+            return output
 
-            query_states = self.reshape(query_states, (-1, self.n_local_heads *
-                                                       (self.kv_lora_rank + self.qk_rope_head_dim)))
-            context_layer = self.infer_attention(query_states, None, None, batch_valid_length,
-                                                 block_tables, attn_mask=mask, q_seq_lens=q_seq_lens,
-                                                 key_cache=key_cache)
-            context_layer = context_layer.view(-1, self.n_local_heads, self.kv_lora_rank)
-            context_layer = self.outabsorb_matmul(context_layer.transpose(1, 0, 2), out_absorb).transpose(1, 0, 2)
-
-        attn_out = context_layer.view(-1, self.n_local_heads * self.v_head_dim)
+        q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+        out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
+        q_nope = self.qabsorb_matmul(q_nope.transpose(0, 2, 1, 3), q_absorb).transpose(0, 2, 1, 3)
+        query_states = self.pe_concat((q_nope, q_pe))
+        query_states = query_states.view(bs, seq_len, -1)
+        key_states = key_states_cache
+        context_layer = self.infer_attention(query_states, key_states, key_states, batch_valid_length,
+                                             block_tables, attn_mask=mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
+        context_layer = context_layer.view(bs, seq_len, self.n_local_heads, -1).transpose(0, 2, 1, 3)
+        attn_out = self.outabsorb_matmul(context_layer, out_absorb).transpose(0, 2, 1, 3)
+        attn_out = attn_out.view(bs, seq_len, self.n_local_heads * self.v_head_dim)
         output = self.wo(attn_out)
         output = self.cast(output, ori_dtype)
         return output
@@ -635,12 +644,10 @@ class DeepseekV3ParallelMLP(ParallelMLP):
     """
     def __init__(self, config, is_expert=False):
         super().__init__(config)
-        self.add = P.Add()
         if is_expert:
             raise NotImplementedError("For ParallelMLP, `is_expert` is not supported for now.")
 
-    # pylint: disable=W0221
-    def construct(self, x, h):
+    def construct(self, x):
         """ Construct function of mlp block. """
         # [B, S, H] -> [B, S, ffn_H]
         if self.ffn_concat:
@@ -655,7 +662,6 @@ class DeepseekV3ParallelMLP(ParallelMLP):
 
         # [B, S, ffn_H] -> [B, S, H]
         output = self.w2(hidden)
-        output = self.add(h, output)
         return output
 
 
@@ -681,100 +687,24 @@ class DeepseekV3MoE(Cell):
         self.moe_config.router_dense_type = config.router_dense_type
         intermediate_size = self.moe_config.moe_intermediate_size
 
-        ffn = RoutedParallelMLP(config)
-        if self.moe_config.moe_expert_parallel == 1:
+        if self.parallel_config.expert_parallel == 1:
+            ffn = RoutedParallelMLP(config)
             self.routed_experts = ParallelMoEV2(ffn, self.config.hidden_size, self.moe_config)
         else:
-            self.routed_experts = ExpertParallelMoE(ffn, self.config.hidden_size,
-                                                    self.moe_config, self.config.use_alltoall)
-
-        self.attn_reduce_scatter = config.attn_reduce_scatter
-        self.attn_allgather = config.attn_allgather
-        self.ffn_allgather = config.ffn_allgather
-        self.ffn_allreduse = config.ffn_allreduce
-        self.ffn_reduce_scatter = config.ffn_reduce_scatter
-        self.use_alltoall = config.use_alltoall
-
-        if self.attn_allgather:
-            self.allgather_to_world_region = GatherFromWorldParallelRegionV2()
-        if self.ffn_allgather:
-            self.allgther_from_tp_redion = GatherFromSequenceParallelRegion()
-        if self.ffn_allreduse:
-            self.reduce_from_world_region = ReduceFromWorldParallelRegion()
-        if self.ffn_reduce_scatter:
-            self.reducescatter_from_world_region = ReduceScatterToWorldParallelRegion()
+            raise NotImplementedError("For ParallelMoEV2, `expert_parallel` is not supported for now.")
 
         if self.moe_config.shared_expert_num is not None:
             intermediate_size = intermediate_size * self.moe_config.shared_expert_num
-            self.shared_experts = SharedMLP(config, intermediate_size) if self.use_alltoall else \
-                WorldRegionSharedParallelMLP(config, intermediate_size)
-
+            self.shared_experts = SharedParallelMLP(config, intermediate_size)
         self.add = P.Add()
+        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
 
-    def construct(self, x, attn_unpadding_idx, ffn_padding_idx, h):
-        """ Construct function of moe block. """
-        # allgather ep: x world size, h single rank size, output dp region
-        # alltoall ep: x single rank size, h single rank size, output dp region
-        if self.attn_allgather:
-            x = self.allgather_to_world_region(x)
-            if self.attn_reduce_scatter:
-                x = ops.gather(x, attn_unpadding_idx, 0)
-
+    def construct(self, x):
         output = self.routed_experts(x)
-
         if self.moe_config.shared_expert_num is not None:
-            shared_res = self.shared_experts(x)
-            output = self.add(output, shared_res)
-
-        if self.ffn_allreduse:
-            output = self.reduce_from_world_region(output)
-        elif self.ffn_reduce_scatter:
-            output = ops.gather(output, ffn_padding_idx, 0)
-            output = self.reducescatter_from_world_region(output)
-
-        output = self.add(h, output)
-
-        if self.ffn_allgather:
-            output = self.allgther_from_tp_redion(output)
-
+            output = self.add(output, self.shared_experts(x))
+            output = self.reduce_from_mp_region(output)
         return output
-
-
-class AttentionReduceScatter(Cell):
-    r"""
-    This is an implementation of self-attention mechanism in DeepSeek-V3.
-
-    Args:
-        - **config** (Config): Model config of DeepSeek-V3.
-
-    Inputs:
-        - **x** (Tensor): Should be `[batch, seq_length, hidden_size]`. Float tensor.
-
-    Outputs:
-        - **output** (Tensor): The output of this layer after mapping. The shape is `[batch, seq_length, hidden_size]`.
-    """
-
-    def __init__(self, config):
-        super(AttentionReduceScatter, self).__init__()
-        self.config = config
-        self.compute_dtype = config.compute_dtype
-        self.hidden_size = config.hidden_size
-        self.model_parallel = config.parallel_config.model_parallel
-        self.moe_config = config.moe_config
-        self.is_first_iteration = True
-        self.reduce_scatter_to_tp_region = ReduceScatterToSequenceParallelRegion()
-        self.scatter_to_tp_region = ScatterToModelParallelRegion(axis=0)
-        self.reshape = P.Reshape()
-
-    def padding_with_idx(self, hidden_state, x, attn_padding_idx):
-        hidden_state = ops.gather(hidden_state, attn_padding_idx, 0)
-        x = ops.gather(x, attn_padding_idx, 0)
-        return hidden_state, x
-
-    def construct(self, hidden_state, x):
-        hidden_state = self.reduce_scatter_to_tp_region(hidden_state)
-        x = self.scatter_to_tp_region(x)
-        return hidden_state, x
 
 
 class DeepseekV3DecodeLayer(nn.Cell):
@@ -893,9 +823,6 @@ class DeepseekV3DecodeLayer(nn.Cell):
         self.ffn_norm = RMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = RMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
 
-        self.first_k_dense = (moe_config.first_k_dense_replace and layer_id < moe_config.first_k_dense_replace)
-        attn_delay_allreduce = not config.attn_allreduce and not self.first_k_dense
-
         self.attention = DeepseekV3Attention(dim=dim,
                                              n_heads=n_heads,
                                              n_kv_heads=n_kv_heads,
@@ -916,13 +843,13 @@ class DeepseekV3DecodeLayer(nn.Cell):
                                              scaling_factor=scaling_factor,
                                              norm_eps=norm_eps,
                                              layernorm_compute_dtype=layernorm_compute_dtype,
-                                             delay_allreduce=attn_delay_allreduce,
                                              config=config)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
 
         # Feed Forward Network
+        self.first_k_dense = (moe_config.first_k_dense_replace and layer_id < moe_config.first_k_dense_replace)
         if self.first_k_dense:
             logger.warning("first_k_dense_replace is provided in MoEConfig, "
                            "a normal dense FFN will be used in this block.")
@@ -934,16 +861,8 @@ class DeepseekV3DecodeLayer(nn.Cell):
         if self.predict_run_mode:
             self.no_inline = False
 
-        self.attn_reduce_scatter = config.attn_reduce_scatter and not self.first_k_dense
-        self.attn_allgather = config.attn_allgather and not self.first_k_dense
-        self.use_alltoall = config.use_alltoall
-        if self.attn_reduce_scatter:
-            self.attention_reduce_scatter = AttentionReduceScatter(config)
-
-
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, q_seq_lens=None, attn_padding_idx=None, attn_unpadding_idx=None,
-                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None):
+                  slot_mapping=None, q_seq_lens=None, key_cache=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -951,21 +870,10 @@ class DeepseekV3DecodeLayer(nn.Cell):
         input_x = self.attention_norm(x)
         h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
                            slot_mapping, q_seq_lens, key_cache=key_cache)
-
-        if self.attn_reduce_scatter:
-            h, x = self.attention_reduce_scatter.padding_with_idx(h, x, attn_padding_idx)
-            h, x = self.attention_reduce_scatter(h, x)
-
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
-
-        # ToDo: remove attn_padding and ffn_padding after allgatherv and reducescatterv supported.
-        out = self.feed_forward(ffn_norm, h) if self.first_k_dense else \
-            self.feed_forward(ffn_norm, attn_unpadding_idx, ffn_padding_idx, h)
-
-        if self.attn_reduce_scatter:
-            out = ops.gather(out, ffn_unpadding_idx, 0)
-
+        ffn_out = self.feed_forward(ffn_norm)
+        out = self.add(h, ffn_out)
         return out
 
     def _check_input(self, x, freqs_cis, mask):
@@ -1102,8 +1010,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, position_ids=None, q_seq_lens=None,
-                  attention_mask=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None,
-                  ffn_unpadding_idx=None, key_cache=None):
+                  attention_mask=None, key_cache=None):
         """
         Forward of deepseekv3 model.
 
@@ -1122,26 +1029,27 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
             output: Tensor, the output of deepseekv3 decoderlayer
         """
         # preprocess
+        bs, seq_len = self.shape(tokens)
         mask = attention_mask
-        if self.is_first_iteration:
-            if self.is_pynative:
-                bs, seq_len = self.shape(tokens)
+        if self.use_past:
+            if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                mask = self.casual_mask(tokens)
+                if self.is_pynative:
+                    mask = self.casual_mask(tokens)
             else:
-                freqs_cis = self.freqs_mgr.prefill()
+                freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
         else:
-            freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
+            mask = self.casual_mask(tokens)
+            freqs_cis = self.freqs_mgr(seq_len)
 
         h = self.cast(self.tok_embeddings(tokens), self.dtype)
+        h = self.reshape(h, (bs, seq_len, self.hidden_size))
 
         for i in range(self.num_layers):
             key_cache_i = key_cache[i] if key_cache is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                block_tables=block_tables, slot_mapping=slot_mapping,
-                               q_seq_lens=q_seq_lens, attn_padding_idx=attn_padding_idx,
-                               attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
-                               ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i)
+                               q_seq_lens=q_seq_lens, key_cache=key_cache_i)
         output = self.norm_out(h)
         return output
 
@@ -1193,11 +1101,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
-                                      order='tp-ep-dp-pp',
-                                      moe_tensor_parallel_size=config.moe_config.moe_tensor_parallel,
-                                      moe_expert_parallel_size=config.moe_config.moe_expert_parallel,)
-
-        config = self.update_comm_config(config)
+                                      order='tp-ep-dp-pp')
 
         self.seq_length = config.seq_length
         self.ignore_token_id = config.ignore_token_id
@@ -1245,39 +1149,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
 
         self.return_hidden_states = config.return_hidden_states
 
-    def update_comm_config(self, config):
-        """update communication config"""
-        self.tp_size = self.parallel_config.tensor_model_parallel_size
-        self.dp_size = get_group_size() // self.tp_size
-        self.moe_tp_size = config.moe_config.moe_tensor_parallel
-        self.moe_ep_size = config.moe_config.moe_expert_parallel
-
-        if self.dp_size > 1 and self.tp_size == 1:
-            if self.moe_tp_size == 1:
-                config.attn_allreduce = False
-                config.ffn_allreduce = False
-                config.use_alltoall = True
-            else:
-                config.attn_allgather = True
-                config.attn_allreduce = False
-                config.ffn_reduce_scatter = True
-                config.ffn_allreduce = False
-        elif self.dp_size > 1:
-            if self.moe_tp_size == 1:
-                config.attn_reduce_scatter = True
-                config.attn_allreduce = False
-                config.ffn_allgather = True
-                config.ffn_allreduce = False
-                config.use_alltoall = True
-            else:
-                config.attn_reduce_scatter = True
-                config.attn_allgather = True
-                config.attn_allreduce = False
-                config.ffn_reduce_scatter = True
-                config.ffn_allgather = True
-                config.ffn_allreduce = False
-        return config
-
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """
         prepare inputs for generation.
@@ -1313,7 +1184,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
 
         model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
-        model_inputs["need_flatten"] = True
         return model_inputs
 
     # pylint: disable=W0613
@@ -1326,76 +1196,16 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         return input_ids, labels, None, None, None, None, None, None, None, None, None, \
                slot_mapping
 
-    def update_padding_index_to_inputs(self, model_inputs):
-        """generate padding index in tp region."""
-        if not hasattr(self.config, 'parallel_config') or \
-                not hasattr(self.config.parallel_config, 'data_parallel') or \
-                not hasattr(self.config.parallel_config, 'model_parallel'):
-            return model_inputs
-
-        dp_size = self.config.parallel_config.data_parallel
-        tp_size = self.config.parallel_config.model_parallel
-        q_seq_len = model_inputs.get("q_seq_lens", None)
-        if dp_size == 1 or tp_size == 1 or q_seq_len is None:
-            return model_inputs
-
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_group
-        tokens_len_per_dp = q_seq_len.sum().reshape(-1)
-        tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group())(tokens_len_per_dp)
-        tokens_len_per_dp = tokens_len_per_dp.asnumpy()
-        padding_size = (tokens_len_per_dp.max() + tp_size - 1) // tp_size * tp_size
-        dp_rank_id = get_rank() // tp_size
-        attn_padding_idx = None
-        attn_unpadding_idx = None
-        ffn_padding_idx = None
-        ffn_unpadding_idx = None
-        last_arange_index = 0
-
-        for dp_rank, tokens_length in enumerate(tokens_len_per_dp):
-            arange_data = np.arange(0, int(tokens_length), dtype=np.int32)
-            if dp_rank == dp_rank_id:
-                ffn_unpadding_idx = arange_data
-                pad = np.zeros(padding_size - arange_data.shape[0], dtype=np.int32)
-                attn_padding_idx = np.concatenate((arange_data, pad), axis=0)
-            if dp_rank == 0:
-                attn_unpadding_idx = arange_data
-                last_arange_index = arange_data[-1]
-                pad = np.zeros(padding_size - attn_unpadding_idx.shape[0], dtype=np.int32)
-                ffn_padding_idx = np.concatenate((attn_unpadding_idx, pad), axis=0)
-            else:
-                attn_offset_idx = arange_data + padding_size * dp_rank
-                attn_unpadding_idx = np.concatenate((attn_unpadding_idx, attn_offset_idx), axis=0)
-                ffn_offset_idx = arange_data + last_arange_index + 1
-                last_arange_index = ffn_offset_idx[-1]
-                pad = np.zeros(padding_size - ffn_offset_idx.shape[0], dtype=np.int32)
-                ffn_padding_idx = np.concatenate((ffn_padding_idx, ffn_offset_idx, pad), axis=0)
-
-        model_inputs["attn_padding_idx"] = ms.from_numpy(attn_padding_idx)
-        model_inputs["attn_unpadding_idx"] = ms.from_numpy(attn_unpadding_idx)
-        model_inputs["ffn_padding_idx"] = ms.from_numpy(ffn_padding_idx)
-        model_inputs["ffn_unpadding_idx"] = ms.from_numpy(ffn_unpadding_idx)
-        return model_inputs
-
     def set_dynamic_inputs(self, **kwargs):
         """ Mindspore's feature, Set dynamic input for DeepseekV3. """
-        dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_init_reset = True
-        dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
-        dynamic_attn_padding_idx = None
-        dynamic_attn_unpadding_idx = None
-        dynamic_ffn_padding_idx = None
-        dynamic_ffn_unpadding_idx = None
-        if self.dp_size > 1 and self.tp_size > 1:
-            dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-            dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-            dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-            dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-
         def get_input():
             if self.npu_mem_size > 0:
                 return None
@@ -1406,9 +1216,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         key_cache = get_input()
         self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None,
                         dynamic_init_reset, dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                        dynamic_slot_mapping, dynamic_q_seq_lens, dynamic_attn_padding_idx,
-                        dynamic_attn_unpadding_idx, dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx,
-                        key_cache, None)
+                        dynamic_slot_mapping, dynamic_q_seq_lens, key_cache, None)
         logger.info("Set dynamic input for DeepseekV3.")
 
     def pre_gather_func(self, pre_gather, output, batch_valid_length):
@@ -1418,7 +1226,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         if pre_gather:
             if self.config.is_dynamic:
                 batch_valid_length = mint.cumsum(batch_valid_length, 0)
-                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 0)
+                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
             else:
                 output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         return output
@@ -1427,20 +1235,25 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
     @predict_jit
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, q_seq_lens=None, attn_padding_idx=None,
-                  attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None,
-                  value_cache=None):
+                  block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ DeepseekV3ForCausalLM forward. """
-        output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, position_ids, q_seq_lens, attention_mask, attn_padding_idx,
-                            attn_unpadding_idx, ffn_padding_idx, ffn_unpadding_idx, key_cache=key_cache)
+        bsz, _ = self.shape(input_ids)
+        if self.use_past:
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz,), mstype.int32)
+        tokens = input_ids
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
+                            slot_mapping, position_ids, q_seq_lens, attention_mask, key_cache=key_cache)
         if self.return_hidden_states:
+            output = self.reshape(output, (-1, output.shape[-1]))
             return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         output = self.pre_gather_func(pre_gather, output, batch_valid_length)
         logits = self.lm_head(output)
 
-        input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is not None and labels.ndim > 1:
             label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
             input_mask = self.mul(input_mask, label_mask)
@@ -1449,7 +1262,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         if self.predict_run_mode:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
             return logits
-        return logits, input_ids, input_mask
+        return logits, tokens, input_mask
 
     def kvcache(self, layer_idx):
         """Get the key_cache depend on layer_idx."""
@@ -1663,10 +1476,7 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
-                                      order='tp-ep-dp-pp',
-                                      moe_tensor_parallel_size=config.moe_config.moe_tensor_parallel,
-                                      moe_expert_parallel_size=config.moe_config.moe_expert_parallel,)
-
+                                      order='tp-ep-dp-pp')
         self.mtp_model = DeepseekV3MTPModel(config)
 
     # pylint: disable=W0613
