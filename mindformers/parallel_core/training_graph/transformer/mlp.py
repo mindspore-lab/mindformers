@@ -65,30 +65,34 @@ class MLP(nn.Cell):
             input_size: int = None,
     ):
         super(MLP, self).__init__()
-        self.hidden_size = input_size if input_size is not None else config.hidden_size
-        self.ffn_hidden_size = config.ffn_hidden_size
-        self.mlp_has_bias = config.add_bias_linear
+        self.config = config
+
+        self.input_size = input_size if input_size is not None else config.hidden_size
+
+        # If this is a gated linear unit we double the output width
+        if is_expert and config.moe_ffn_hidden_size is not None:
+            # Experts read ffn_hidden_size from config.moe_ffn_hidden_size
+            map_ffn_hidden_size = config.moe_ffn_hidden_size
+        else:
+            # Normal MLPs read ffn_hidden_size from config.ffn_hidden_size
+            map_ffn_hidden_size = config.ffn_hidden_size
+
         self.gated_linear_unit = config.gated_linear_unit
+        if self.gated_linear_unit:
+            map_ffn_hidden_size *= 2
+            self.mul = Mul()
+
+        self.mlp_has_bias = config.add_bias_linear
         self.init_method = config.init_method
         self.output_layer_init_method = config.output_layer_init_method
         self.activation_type = config.hidden_act
         self.compute_dtype = config.compute_dtype
-        self.config = config
-        cp = 1 if config is None else config.context_parallel_size
-        self.compute_2d = (config.sequence_parallel and cp == 1)
-        self.mapping_ffn_hidden_size = self.ffn_hidden_size
-        self.split = SplitWithSize()
-        self.reshape = Reshape()
-
-        if self.gated_linear_unit:
-            self.mapping_ffn_hidden_size *= 2
-            self.mul = Mul()
 
         self.linear_fc1 = build_module(
             submodules.linear_fc1,
-            self.hidden_size,
-            self.mapping_ffn_hidden_size,
-            self.config,
+            self.input_size,
+            map_ffn_hidden_size,
+            config=self.config,
             bias=self.mlp_has_bias,
             compute_dtype=self.compute_dtype,
             is_expert=is_expert,
@@ -103,9 +107,9 @@ class MLP(nn.Cell):
 
         self.linear_fc2 = build_module(
             submodules.linear_fc2,
-            self.ffn_hidden_size,
-            self.hidden_size,
-            self.config,
+            self.config.ffn_hidden_size,
+            self.input_size,
+            config=self.config,
             bias=self.mlp_has_bias,
             compute_dtype=self.compute_dtype,
             is_expert=is_expert,
@@ -113,6 +117,10 @@ class MLP(nn.Cell):
             init_method=self.output_layer_init_method
         )
 
+        cp = 1 if config is None else config.context_parallel_size
+        self.compute_2d = (config.sequence_parallel and cp == 1)
+        self.split = SplitWithSize()
+        self.reshape = Reshape()
         self.add = AddExt()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -120,8 +128,12 @@ class MLP(nn.Cell):
         else:
             self.shard(self.config)
 
-    def construct(self, hidden_states: Tensor, extra_loss=0.) -> tuple[Tensor, Tensor, float]:
+    def construct(self, hidden_states: Tensor, per_token_scale=None, extra_loss=0.) -> tuple[Tensor, Tensor, float]:
         """ Construct function of mlp block. """
+        if per_token_scale is not None:
+            # bias_activation_fusion and per_token_scale configuration is currently not supported .
+            raise NotImplementedError("For MLP, 'per_token_scale' is currently not supported.")
+
         # [seq_len, bs, hidden_size] -> [seq_len, bs, ffn_hidden_size]
         intermediate_parallel, bias_parallel = self.linear_fc1(hidden_states)
 
