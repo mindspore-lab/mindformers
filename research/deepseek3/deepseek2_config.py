@@ -24,7 +24,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.version_control import check_swiglu_valid, check_rotary_position_embedding_valid
 
 __all__ = ['DeepseekV2Config']
@@ -102,7 +101,6 @@ class DeepseekV2Config(PretrainedConfig):
     """
 
     model_type = "deepseekv2"
-    _support_list = MindFormerBook.get_config_support_list()['deepseekv2']
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,
