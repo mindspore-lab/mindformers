@@ -179,7 +179,7 @@ train_data:      训练数据集路径
 
 #### 多机训练
 
-以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
+以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/transform_weight.html)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
 
 多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[使用指南](../../README_CN.md#三使用指南)。
 
@@ -228,7 +228,7 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ### 多卡推理
 
-以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)。
+以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/transform_weight.html)。
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
@@ -243,7 +243,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/mindie_deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 
@@ -309,7 +309,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
       model_config.save_pretrained(save_directory="/mf_model/llama3_1_8b", save_json=True)
       ```
 
-      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/weight_conversion.html)。
+      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/weight_conversion.html)。
 
       准备好模型配置目录后，设置参数`modelWeightPath`为该目录路径。
 
