@@ -220,8 +220,11 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         logger.info(f"......Start build model in parallel mode......")
         build_model(config, model, input_data, do_eval=do_eval, do_predict=do_predict)
         #wait generate all rank strategy files
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
 
     # only execute qkv concat check on the main rank in predict mode
     if do_predict and is_main_rank(ignore_check_modelarts=True):
@@ -229,8 +232,11 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         validate_qkv_concat(network, qkv_concat_config, load_checkpoint)
     # wait for the main rank to complete qkv check
     if config.use_parallel:
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
 
     process_for_stand_alone_mode(config, network, strategy_path)
     #merge dst strategy
@@ -250,15 +256,21 @@ def process_for_stand_alone_mode(config, network, strategy_path):
                 shutil.rmtree(strategy_ckpt_save_dir)
                 logger.info(f"Existed strategy directory {strategy_ckpt_save_dir} has been deleted.")
             os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
         _pynative_executor.sync()
 
         shard_state_dict = generate_state_dict(network)
         save_strategy_file(shard_state_dict, strategy_path)
         logger.info(f"Strategy file for stand alone mode has been saved in {strategy_path}.")
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
         _pynative_executor.sync()
 
 
@@ -300,8 +312,11 @@ def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_paral
         logger.info("Time spent unifying safetensors: %.2fs", unify_time_end - unify_time_start)
         clear_auto_trans_output()
     if use_parallel:
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
     logger.info("Unified safetensors finished.")
 
 
@@ -460,8 +475,11 @@ def get_merged_src_strategy_path(config):
         ms.merge_pipeline_strategys(
             src_strategy_dirs=src_strategy_path[0],
             dst_strategy_file=src_strategy_path[1])
-    from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-    barrier(get_tensor_model_parallel_group())
+    try:
+        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+        barrier(get_tensor_model_parallel_group())
+    except RuntimeError as _:
+        barrier()
     logger.info("merge src strategy finished.")
     return src_strategy_path[1]
 
@@ -484,8 +502,11 @@ def get_merged_dst_strategy_path(config, strategy_path):
             ms.merge_pipeline_strategys(
                 src_strategy_dirs=dst_strategy_path[0],
                 dst_strategy_file=dst_strategy_path[1])
-        from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
-        barrier(get_tensor_model_parallel_group())
+        try:
+            from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group
+            barrier(get_tensor_model_parallel_group())
+        except RuntimeError as _:
+            barrier()
         logger.info("merge dst strategy finished.")
         strategy_path = dst_strategy_path[1]
     return strategy_path

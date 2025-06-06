@@ -166,6 +166,7 @@ class ColumnParallelLinear(nn.Cell):
 
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
+        self.cast = P.Cast()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
         if self.sequence_parallel:
             self.gather_from_sp_region = GatherFromSequenceParallelRegion()
