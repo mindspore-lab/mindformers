@@ -1007,10 +1007,17 @@ def pretrain(train_valid_test_datasets_provider,
             if not os.path.exists(meta_path):
                 logger.warning(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
                 resume_by_meta = False
+            use_checkpoint_health_monitor = False
+            if (training_config.get('use_checkpoint_health_monitor',
+                                    None) is not None and
+                    isinstance(training_config.use_checkpoint_health_monitor, bool)):
+                use_checkpoint_health_monitor = training_config.use_checkpoint_health_monitor
             resume_ckpt_name = get_resume_checkpoint(
                 checkpoint_dir=training_config.load_checkpoint,
                 resume_training=training_config.resume_training,
-                resume_by_meta=resume_by_meta
+                resume_by_meta=resume_by_meta,
+                use_checkpoint_health_monitor=use_checkpoint_health_monitor,
+                health_ckpts_record_dir=training_config.output_dir
                 )
             logger.debug(f"resume_ckpt_name is {resume_ckpt_name}")
             if resume_ckpt_name is True:

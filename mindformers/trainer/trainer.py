@@ -461,11 +461,17 @@ class Trainer:
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
             elif os.path.isdir(self.config.load_checkpoint):
+                use_checkpoint_health_monitor = False
+                if self.config.get('use_checkpoint_health_monitor', None) is not None\
+                        and isinstance(self.config.use_checkpoint_health_monitor, bool):
+                    use_checkpoint_health_monitor = self.config.use_checkpoint_health_monitor
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
-                    ckpt_format=self.config.load_ckpt_format
+                    ckpt_format=self.config.load_ckpt_format,
+                    use_checkpoint_health_monitor=use_checkpoint_health_monitor,
+                    health_ckpts_record_dir=self.config.output_dir
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -595,11 +601,16 @@ class Trainer:
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
             elif os.path.isdir(self.config.load_checkpoint):
+                use_checkpoint_health_monitor = False
+                if self.config.get('use_checkpoint_health_monitor', None) is not None:
+                    use_checkpoint_health_monitor = self.config.use_checkpoint_health_monitor
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
-                    ckpt_format=self.config.load_ckpt_format
+                    ckpt_format=self.config.load_ckpt_format,
+                    use_checkpoint_health_monitor=use_checkpoint_health_monitor,
+                    health_ckpts_record_dir=self.config.output_dir
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
