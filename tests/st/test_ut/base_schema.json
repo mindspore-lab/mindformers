@@ -248,9 +248,6 @@
     "mindformers.core.MFLossMonitor.print_output_info": {
         "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
     },
-    "mindformers.core.MFLossMonitor.dump_info_to_modelarts": {
-        "signature": "(self, ma_step_num, ma_loss)"
-    },
     "mindformers.core.PerplexityMetric": {
         "signature": "()"
     },
@@ -491,9 +488,6 @@
     "mindformers.core.callback.MFLossMonitor.print_output_info": {
         "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
     },
-    "mindformers.core.callback.MFLossMonitor.dump_info_to_modelarts": {
-        "signature": "(self, ma_step_num, ma_loss)"
-    },
     "mindformers.core.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
@@ -640,12 +634,6 @@
     },
     "mindformers.core.callback.callback.MFLossMonitor.print_output_info": {
         "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
-    },
-    "mindformers.core.callback.callback.MFLossMonitor.dump_info_to_modelarts": {
-        "signature": "(self, ma_step_num, ma_loss)"
-    },
-    "mindformers.core.callback.callback.ObsMonitor": {
-        "signature": "(src_dir: str = None, target_dir: str = None, step_upload_frequence: int = 100, epoch_upload_frequence: int = -1, keep_last: bool = True)"
     },
     "mindformers.core.callback.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
@@ -7654,27 +7642,6 @@
     },
     "mindformers.tools.ckpt_transform.transform_checkpoint.TransformCkpt.wait_transform": {
         "signature": "(self, ckpt_dir)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor": {
-        "signature": "(src_dir, target_dir, step_upload_frequence: int = 100, epoch_upload_frequence: int = -1, keep_last=True, retry=3, retry_time=5, log=<class 'mindformers.tools.logger.logger'>)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_step_end": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_epoch_end": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.upload": {
-        "signature": "(self)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.sync2obs": {
-        "signature": "(*args, **kwargs)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Obs2Local": {
-        "signature": "(rank_id=0, retry=3, retry_time=5, log=<class 'mindformers.tools.logger.logger'>)"
-    },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Obs2Local.obs2local": {
-        "signature": "(self, obs_url, local_url, special_id=None)"
     },
     "mindformers.tools.cloud_adapter.cloud_adapter.mox_adapter": {
         "signature": "(src_dir, target_dir, retry=3, retry_time=5, log=<class 'mindformers.tools.logger.logger'>)"

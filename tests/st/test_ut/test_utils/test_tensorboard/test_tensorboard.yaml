@@ -112,7 +112,6 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -182,8 +181,6 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'
@@ -198,6 +195,3 @@ profile_memory: True
 layer_scale: False
 layer_decay: 0.65
 lr_scale_factor: 256
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."

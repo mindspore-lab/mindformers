@@ -36,7 +36,6 @@ lr_schedule:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: ObsMonitor
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:

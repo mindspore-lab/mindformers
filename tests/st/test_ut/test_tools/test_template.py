@@ -20,7 +20,7 @@ from mindformers.modules.transformer import TransformerOpParallelConfig, Transfo
 from mindformers.modules.transformer import MoEConfig as MoEConfig_cls
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.tools.register.template import CONFIG_NAME_TO_CLASS, CallbackConfig, ConfigTemplate, ContextConfig, \
-    EvalCallbackConfig, EvalDatasetConfig, EvalDatasetTaskConfig, GeneralConfig, LrScheduleConfig, MetricConfig, \
+    EvalDatasetConfig, EvalDatasetTaskConfig, GeneralConfig, LrScheduleConfig, MetricConfig, \
     MoEConfig, ModelConfig, MsParallelConfig, OptimizerConfig, ParallelConfig, ProcessorConfig, RecomputeConfig, \
     RunnerConfig, TrainDatasetConfig, TrainDatasetTaskConfig, TrainerConfig, WrapperConfig, SwapConfig
 
@@ -647,9 +647,9 @@ class TestCallbackConfig:
         config2 = CallbackConfig.apply([])
         configs = [config1, config2]
         for config in configs:
-            assert len(config) == 2
-            assert config[0]["type"] in ("MFLossMonitor", "ObsMonitor")
-            assert config[1]["type"] in ("MFLossMonitor", "ObsMonitor")
+            assert len(config) == 1
+            assert config[0]["type"] == "MFLossMonitor"
+            assert config[1]["type"] == "MFLossMonitor"
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -663,34 +663,6 @@ class TestCallbackConfig:
 
         assert len(config) == 3
         assert config[2]["type"] == "type"
-        assert config[2]["aaa"] == 1
-
-
-class TestEvalCallbackConfig:
-    """test eval_callbacks"""
-    def setup_method(self):
-        self.correct_input = [{"type": "type", "aaa": 1}, {"type": "MFLossMonitor", "aaa": 1}]
-        self.missing_required_input = [{"aaa": 1}]
-
-    def test_none_input(self):
-        config1 = EvalCallbackConfig.apply(None)
-        config2 = EvalCallbackConfig.apply([])
-        configs = [config1, config2]
-        for config in configs:
-            assert len(config) == 1
-            assert config[0]["type"] == "ObsMonitor"
-
-    def test_missing_required_input(self):
-        with pytest.raises(KeyError, match="required"):
-            EvalCallbackConfig.apply(self.missing_required_input)
-
-    def test_correct_input(self):
-        config = EvalCallbackConfig.apply(self.correct_input)
-        assert len(config) == 3
-        assert config[0]["type"] == "ObsMonitor"
-        assert config[1]["type"] == "type"
-        assert config[1]["aaa"] == 1
-        assert config[2]["type"] == "MFLossMonitor"
         assert config[2]["aaa"] == 1
 
 

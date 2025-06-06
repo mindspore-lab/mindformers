@@ -515,14 +515,12 @@ class MetricConfig(SpecConfig):
 
 class CallbackConfig(ListConfig):
     callback1 = {"type": "MFLossMonitor"}
-    callback2 = {"type": "ObsMonitor"}
 
     _name = "callbacks"
     _required_keys = ["type"]
 
 
 class EvalCallbackConfig(ListConfig):
-    callback1 = {"type": "ObsMonitor"}
 
     _name = "eval_callbacks"
     _required_keys = ["type"]

@@ -55,14 +55,10 @@ from mindspore.communication.management import create_group, get_group_size, get
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.profiler import ProfilerLevel
 
-from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import (
-    get_output_root_path,
     get_output_subpath,
-    get_remote_save_url,
-    check_in_modelarts,
     get_real_rank,
     get_real_group_size,
     get_pipeline_rank_ids,
@@ -73,7 +69,7 @@ from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboar
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
 from mindformers.core.loss import get_device_local_loss
 
-__all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
+__all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
@@ -93,36 +89,6 @@ class AllReduceNet(Cell):
 
     def construct(self, x):
         return self.allreduce_sum(x)
-
-
-@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
-class ObsMonitor:
-    """
-    Obs Monitor For Local and AICC.
-
-    Args:
-        src_dir (str): The output path in Local/AICC. Default: None.
-        target_dir (str): The remote url to save files. Default: None.
-        step_upload_frequence (int): The step interval of uploading. Default: 100.
-        epoch_upload_frequence (int): The epoch interval of uploading. Default: -1, means epoch upload is disabled.
-        keep_last (bool): Check the consistency of obs files and AICC. Default: True.
-
-    Examples:
-        >>> from mindformers.core.callback import ObsMonitor
-        >>> monitor = ObsMonitor(src_dir='./root_path', target_dir='./remote_url')
-    """
-
-    def __new__(cls,
-                src_dir: str = None,
-                target_dir: str = None,
-                step_upload_frequence: int = 100,
-                epoch_upload_frequence: int = -1,
-                keep_last: bool = True):
-        if src_dir is None:
-            src_dir = get_output_root_path()
-        if target_dir is None:
-            target_dir = get_remote_save_url()
-        return Local2ObsMonitor(src_dir, target_dir, step_upload_frequence, epoch_upload_frequence, keep_last)
 
 
 def _check_mspti_is_on():
@@ -349,9 +315,6 @@ class MFLossMonitor(Callback):
                                    cur_step_num, steps_per_epoch, loss, per_step_seconds,
                                    overflow, scaling_sens, time_remain, percent, global_norm)
 
-        if check_in_modelarts() and get_real_rank() == get_real_group_size() - 1:
-            self.dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
-
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
@@ -564,69 +527,6 @@ class MFLossMonitor(Callback):
                 self.tensor_writer.add_scalar('B-samples-per-day', billion_samples_per_day, global_step=global_step)
                 self.tensor_writer.add_scalar('throughput vs samples', throughput,
                                               global_step=global_step * self.global_batch_size)
-
-
-    def dump_info_to_modelarts(self, ma_step_num, ma_loss):
-        """dump modelarts info to display evaluation result page"""
-        ma_loss = float(ma_loss)
-        obj = None
-        modelarts_dir = os.path.join(get_output_root_path(), "modelarts")
-        if not os.path.exists(modelarts_dir):
-            os.mkdir(modelarts_dir)
-        if not os.path.exists(os.path.join(modelarts_dir, "model_analysis_results.json")):
-            obj = {
-                "en-us": {
-                    "common": {},
-                    "precision_performance": {
-                        "pr": {
-                            "title": "loss", "description": "loss of model", "value": {"current_loss": 0},
-                            "line_chart": {
-                                "pr_line_chart": {
-                                    "name": "loss line chart of model",
-                                    "x_axis_name": "step",
-                                    "y_axis_name": "loss",
-                                    "curve": {"loss": []}}}}},
-                    "feature_sensitivity": {},
-                    "computational_performance": {},
-                    "abstract_feature": {},
-                    "adversary": {}
-                },
-                "zh-cn": {
-                    "common": {},
-                    "precision_performance": {
-                        "pr": {
-                            "title": "loss", "description": "模型损失", "value": {"当前loss": 0},
-                            "line_chart": {
-                                "pr_line_chart": {
-                                    "name": "loss line chart of model",
-                                    "x_axis_name": "step",
-                                    "y_axis_name": "loss",
-                                    "curve": {"loss": []}}}}},
-                    "feature_sensitivity": {},
-                    "computational_performance": {},
-                    "abstract_feature": {},
-                    "adversary": {}
-                }
-            }
-        else:
-            with open(os.path.join(modelarts_dir, "model_analysis_results.json"), "r") as fp:
-                obj = json.load(fp)
-
-        if obj is not None:
-            en_precision_performance = obj["en-us"]["precision_performance"]
-            en_precision_performance["pr"]["value"]["loss_value"] = ma_loss
-            en_loss_list = en_precision_performance["pr"]["line_chart"]["pr_line_chart"]["curve"]["loss"]
-            en_loss_list.append([ma_step_num, ma_loss])
-
-            zh_precision_performance = obj["zh-cn"]["precision_performance"]
-            zh_precision_performance["pr"]["value"]["当前loss"] = ma_loss
-            zh_loss_list = zh_precision_performance["pr"]["line_chart"]["pr_line_chart"]["curve"]["loss"]
-            zh_loss_list.append([ma_step_num, ma_loss])
-
-            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            file_path = os.path.join(modelarts_dir, "model_analysis_results.json")
-            with os.fdopen(os.open(file_path, flags_, 0o750), 'w', encoding="utf8") as fp:
-                json.dump(obj, fp)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

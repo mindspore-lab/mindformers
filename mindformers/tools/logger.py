@@ -28,13 +28,12 @@ from typing import Dict, List, Tuple, Union
 
 from mindformers.tools.utils import get_num_nodes_devices, get_rank_info, \
     convert_nodes_devices_input, generate_rank_list, \
-    check_in_modelarts, check_list, LOCAL_DEFAULT_PATH, \
+    check_list, LOCAL_DEFAULT_PATH, \
     get_log_path
 
 
 logger_list = []
 LEVEL = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-MODELARTS_LOG_FILE_DIR = '/cache/ma-user-work/'
 LOCAL_DEFAULT_LOG_FILE_DIR = os.path.join(
     os.getenv("LOCAL_DEFAULT_PATH", LOCAL_DEFAULT_PATH), 'log')
 RANK_DIR_FORMATTER = 'rank_{}/'
@@ -500,8 +499,6 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
             if devices.startswith(("(", "[")) and devices.endswith((")", "]")):
                 devices = devices[1:-1]
             devices = tuple(map(lambda x: int(x.strip()), devices.split(",")))
-        elif check_in_modelarts():
-            devices = kwargs.get('stdout_devices', (min(rank_size - 1, 7),))
         else:
             devices = kwargs.get('stdout_devices', None)
         return devices

@@ -243,8 +243,3 @@ callbacks:
     keep_checkpoint_max: 2
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
-    keep_last: False
-eval_callbacks:
-  - type: ObsMonitor
-    keep_last: False

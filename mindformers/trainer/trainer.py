@@ -291,7 +291,8 @@ class Trainer:
         # set output directory
         set_output_path(self.config.output_dir)
         set_strategy_save_path(self.config.parallel)
-        if check_in_modelarts() and self.config.remote_save_url:
+        if (self.config.auto_trans_ckpt or self.config.resume_training) and \
+                check_in_modelarts() and self.config.remote_save_url:
             set_remote_save_url(self.config.remote_save_url)
             logger.info(f"Set remote_save_url: %s, the output file will be uploaded to here.",
                         self.config.remote_save_url)

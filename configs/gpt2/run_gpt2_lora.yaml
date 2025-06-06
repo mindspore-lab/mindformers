@@ -185,9 +185,6 @@ callbacks:
     save_checkpoint_steps: 1
     integrated_save: True
     async_save: False
-  - type: ObsMonitor
-eval_callbacks:
-  - type: ObsMonitor
 
 # metric
 metric:

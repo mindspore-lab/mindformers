@@ -17,9 +17,6 @@ context:
   device_id: 0
   memory_optimize_level: "O1"
 
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
-
 # ==== model config ====
 model:
   model_config:
@@ -245,8 +242,4 @@ callbacks:
     keep_checkpoint_max: 1
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
-    keep_last: False
-eval_callbacks:
-  - type: ObsMonitor
-    keep_last: False
+

@@ -183,9 +183,6 @@ callbacks:
     save_checkpoint_steps: 1000
     integrated_save: True
     async_save: False
-  - type: ObsMonitor
-eval_callbacks:
-  - type: ObsMonitor
 
 # processor
 processor:

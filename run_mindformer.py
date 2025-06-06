@@ -21,7 +21,6 @@ from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.tools.utils import str2bool, parse_value, str2bool_or_str
 from mindformers.core.context import build_context
 from mindformers.trainer import Trainer
-from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
 from mindformers.tools import set_output_path
 
@@ -58,7 +57,6 @@ def create_multi_modal_predict_data(predict_data_list, modal_type_list):
     return query
 
 
-@cloud_monitor()
 def main(config):
     """main."""
     # set output path
@@ -161,10 +159,6 @@ if __name__ == "__main__":
         help='path to parallel strategy checkpoint to load, it support real data path or data directory.'
              'Default: None')
     parser.add_argument(
-        '--remote_save_url', default=None, type=str,
-        help='remote save url, where all the output files will tansferred and stroed in here. '
-             'Default: None')
-    parser.add_argument(
         '--seed', default=None, type=int,
         help='global random seed to train/finetune.'
              'Default: None')
@@ -264,8 +258,6 @@ if __name__ == "__main__":
                          if file.endwith(".ckpt")]
             args_.strategy_load_checkpoint = ckpt_list[0]
         config_.parallel.strategy_ckpt_load_file = args_.strategy_load_checkpoint
-    if args_.remote_save_url is not None:
-        config_.remote_save_url = args_.remote_save_url
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:

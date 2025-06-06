@@ -115,7 +115,6 @@ callbacks:
     save_checkpoint_steps: 100
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -191,9 +190,6 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-eval_callbacks:
-  - type: ObsMonitor
-
 auto_tune: False
 filepath_prefix: './autotune'
 autotune_per_step: 10
@@ -207,6 +203,3 @@ profile_memory: True
 layer_scale: False
 layer_decay: 0.65
 lr_scale_factor: 256
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."

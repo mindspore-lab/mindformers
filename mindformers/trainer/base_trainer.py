@@ -699,7 +699,9 @@ class BaseTrainer:
         """Create the eval callback list for training."""
         logger.info(".........Build Callbacks for Evaluate From Config..........")
         self.eval_callbacks = []
-        self.eval_callbacks.extend(build_callback(self.config.eval_callbacks, default_args=default_args))
+        extend_eval_callbacks = build_callback(self.config.eval_callbacks, default_args=default_args)
+        if extend_eval_callbacks:
+            self.eval_callbacks.extend(extend_eval_callbacks)
         return self.eval_callbacks
 
     def create_metrics(self, metric_name: str = None):
@@ -1035,16 +1037,6 @@ class BaseTrainer:
         wrapper = self.create_model_wrapper(network, optimizer)
 
         # initial tensorboard
-        modelarts_tensorboard_path = os.environ.get('MA_SUMMARY_LOG_DIR', None)
-        if modelarts_tensorboard_path is not None:
-            try:
-                os.makedirs(modelarts_tensorboard_path, exist_ok=True)
-            except OSError:
-                logger.warning('The path specified in environment variable MA_SUMMARY_LOG_DIR is unavailable. Ignored.')
-            else:
-                if not config.get('tensorboard'):
-                    config.tensorboard = MindFormerConfig(tensorboard_dir=None)
-                config.tensorboard.tensorboard_dir = modelarts_tensorboard_path
         if (hasattr(config, 'tensorboard') and hasattr(config.tensorboard, 'tensorboard_dir') and
                 config.tensorboard.tensorboard_dir):
             rank_id = get_real_rank()

@@ -110,8 +110,6 @@ processor:
 metric:
   type: PerplexityMetric
 
-eval_callbacks:
-  - type: ObsMonitor
 
 auto_tune: False
 filepath_prefix: './autotune'

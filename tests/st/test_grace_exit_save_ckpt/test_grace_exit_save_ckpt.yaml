@@ -91,7 +91,6 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: ObsMonitor
   - type: OnRequestExit
     save_ckpt: True
     save_mindir: False
@@ -159,6 +158,3 @@ runner_wrapper:
   scale_sense: 1.0
   use_clip_grad: True
 
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
