@@ -115,6 +115,8 @@ class MoEConfig:
                 when an expert accept 0 token, gmm will report error. Default: False.
             dispatch_global_max_bs (int): In decode of infer, it should be 0 or global max batch_size * seq_len(1)
                 for dispatch ops and combine ops. Default: 0.
+            ep_extend_tp (bool): Whether to enhances the parallel computing efficiency by combining
+                Expert Parallelism (EP) and Tensor Parallelism (TP). Default: True.
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -137,7 +139,7 @@ class MoEConfig:
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
                  topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
                  expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False,
-                 use_fused_ops_permute=False, callback_moe_droprate=False, dispatch_global_max_bs=0):
+                 use_fused_ops_permute=False, callback_moe_droprate=False, dispatch_global_max_bs=0, ep_extend_tp=True):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -151,6 +153,7 @@ class MoEConfig:
         Validator.check_non_negative_int(hot_expert_num, "hot_expert_num")
         Validator.check_non_negative_float(cold_token_percent, "cold_token_percent")
         Validator.check_string(router_dense_type, ["float16", "float32", "bfloat16"], "router_dense_type")
+        Validator.check_bool(ep_extend_tp, "ep_extend_tp")
         if expert_group_size is not None:
             Validator.check_positive_int(expert_group_size, "expert_group_size")
         if aux_loss_factor >= 1.0:

@@ -383,6 +383,7 @@ class MoEConfig(Config):
     use_fused_ops_permute = False
     callback_moe_droprate = False
     dispatch_global_max_bs = 0
+    ep_extend_tp = True
 
     _name = "moe_config"
 

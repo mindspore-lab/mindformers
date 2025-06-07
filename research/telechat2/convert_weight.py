@@ -19,12 +19,13 @@ Support huggingface format.
 """
 
 import os
+import re
 import argparse
 from glob import glob
 
+from safetensors.torch import load_file
 import numpy as np
 import torch
-from safetensors.torch import load_file
 
 import mindspore as ms
 from mindformers.tools.utils import str2bool
@@ -50,10 +51,34 @@ def name_replace(name: str):
     name = name.replace('.mlp.down_proj.', '.feed_forward.w2.')
     name = name.replace('.mlp.down_proj.bias.', '.feed_forward.w2.bias.')
     name = name.replace('.mlp.up_proj.', '.feed_forward.w3.')
+    name = name.replace('.mlp.router.', '.feed_forward.router.dense.')
     name = name.replace('.post_attention_layernorm.', '.ffn_norm.')
     name = name.replace('lm_head.', 'lm_head.')
     name = name.replace('transformer.ln_f.', 'model.norm_out.')
-    return name
+    expert_id = extract_expert_id(name)
+    if expert_id is not None:
+        name = name.replace(f'.mlp.local_experts.{expert_id}.gate_proj.', f'.feed_forward.ffn.{expert_id}.w1.')
+        name = name.replace(f'.mlp.local_experts.{expert_id}.up_proj.', f'.feed_forward.ffn.{expert_id}.w3.')
+        name = name.replace(f'.mlp.local_experts.{expert_id}.down_proj.', f'.feed_forward.ffn.{expert_id}.w2.')
+    return name, expert_id
+
+
+def extract_expert_id(layer_name):
+    expert_pattern = r'local_experts\.(\d+)\.'
+    expert_match = re.search(expert_pattern, layer_name)
+    expert_id = int(expert_match.group(1)) if expert_match else None
+    return expert_id
+
+
+def sort_dict_by_indices(d):
+    pattern = r'model\.layers\.(\d+)\.feed_forward\.ffn\.(\d+)\.w'
+    sorted_keys = sorted(d.keys(), \
+        key=lambda x: tuple(int(i) for i in re.search(pattern, x).groups()))
+    return {k: d[k] for k in sorted_keys}
+
+
+def remove_expert_id(layer_name):
+    return re.sub(r'ffn\.\d+\.', 'ffn.', layer_name)
 
 
 # pylint: disable=W0613
@@ -76,11 +101,37 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         pt_states_list.append(pt_states)
 
     ckpt_list = []
+    expert_dict = {}
+    expert_ids = set()
     for pt_states in pt_states_list:
         for name, value in pt_states.items():
-            name = name_replace(name)
+            name, expert_id = name_replace(name)
             if name.startswith('transformer.h.'):
                 name = name.replace('transformer.h.', 'model.layers.')
+            if expert_id is not None:
+                expert_dict[name] = value
+                expert_ids.add(expert_id)
+            else:
+                logger.info(f'\rprocessing parameter: {name} {value.shape}')
+                ckpt_list.append({'name': name, 'data': pt2ms(value, dtype)})
+
+    if expert_dict:
+        expert_dict = sort_dict_by_indices(expert_dict)
+        expert_name_list = list(expert_dict.keys())
+        expert_merged_dict = {}
+        for expert_name in expert_name_list:
+            name = remove_expert_id(expert_name)
+            value = expert_dict[expert_name]
+            if name in expert_merged_dict:
+                expert_merged_dict[name].append(value)
+            else:
+                expert_merged_dict[name] = [value]
+            del expert_dict[expert_name]
+
+        for name in expert_merged_dict:
+            value = torch.stack(expert_merged_dict[name])
+            if "bias" in name:
+                value = value.unsqueeze(0).unsqueeze(2)
             logger.info(f'\rprocessing parameter: {name} {value.shape}')
             ckpt_list.append({'name': name, 'data': pt2ms(value, dtype)})
 

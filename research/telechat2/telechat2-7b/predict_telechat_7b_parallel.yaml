@@ -20,6 +20,7 @@ parallel:
 parallel_config:
   data_parallel: 1
   model_parallel: 1
+  vocab_emb_dp: False
 
 # mindspore context init config
 context:

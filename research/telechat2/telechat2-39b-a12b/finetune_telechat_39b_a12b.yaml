@@ -47,8 +47,9 @@ moe_config:
   comp_comm_parallel_degree: 2
   balance_via_topk_bias: False
   topk_bias_update_rate: 0
-  
-  # lr sechdule
+  ep_extend_tp: True
+
+# lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 3.0e-4

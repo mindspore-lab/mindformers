@@ -29,6 +29,7 @@ from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Dropout, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
+from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.tools.logger import logger
@@ -524,9 +525,10 @@ class TelechatDecodeLayer(nn.Cell):
                                            parallel_config=parallel_config)
 
         parallel_config_new = copy.deepcopy(parallel_config)
-        parallel_config_new.data_parallel *= parallel_config.model_parallel
-        parallel_config_new.expert_parallel *= parallel_config.model_parallel
-        parallel_config_new.model_parallel = 1
+        if hasattr(moe_config, "ep_extend_tp") and moe_config.ep_extend_tp:
+            parallel_config_new.data_parallel *= parallel_config.model_parallel
+            parallel_config_new.expert_parallel *= parallel_config.model_parallel
+            parallel_config_new.model_parallel = 1
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         ffn = TelechatFeedForward(dim=self.hidden_size,
                                   intermediate_size=intermediate_size,

@@ -35,6 +35,9 @@ from mindformers.parallel_core.inference.parallel_state import initialize_model_
 from research.deepseek3.moe import SharedParallelMLP
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 from research.deepseek3.deepseek3_config import DeepseekV3Config
+from research.telechat2.telechat_config import TelechatConfig
+from research.telechat2.telechat_tokenizer import TelechatTokenizer
+from research.telechat2.infer.telechat import ParallelTelechatForCausalLM
 
 
 def get_config():
@@ -425,12 +428,80 @@ def parallel_shared_expert_predict_mp2():
     assert output.shape == (bs, seq_len, hidden_size)
 
 
+def parallel_telechat2_predict_mp2():
+    """test telechat2 predict in model_parallel=2 with dynamic shape"""
+    cur_dir = os.path.dirname(os.path.realpath(__file__))
+    config_path = os.path.join(cur_dir, "ci_predict_telechat2_parallel.yaml")
+
+    vocab_file_path = "/home/workspace/mindspore_dataset/weight/Telechat2-tokenizer/tokenizer.model"
+
+    ms.set_seed(123)
+
+    seq_length = 128
+    max_new_tokens = 8
+    # init config with yaml
+    config = MindFormerConfig(config_path)
+    config.use_parallel = True
+    config.output_dir = './telechat2_dynamic_output'
+    config.parallel.strategy_ckpt_save_file = "./telechat2_dynamic_ckpt_strategy.ckpt"
+    config.parallel_config.model_parallel = 2
+    config.parallel_config.data_parallel = 1
+    config.parallel_config.pipeline_stage = 1
+    config.model.model_config.seq_length = seq_length
+    config.processor.tokenizer.vocab_file = vocab_file_path
+
+    # init context
+    build_context(config)
+    build_parallel_config(config)
+
+    config.model.model_config.parallel_config = config.parallel_config
+    model_config = TelechatConfig(**config.model.model_config)
+    model_config.checkpoint_name_or_path = None
+
+    # build tokenizer
+    chat_template = "{%- if tools %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{-'<_system>'+messages[0]['content'] }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。' }}\n    {%- endif %}\n    {{- '\\n\\n# 可用工具\\n你可以调用<tools></tools>标签中包含的一个或多个工具来辅助你回答问题,以下是可用工具详情：\\n<tools>\\n' }}\n    {%- for tool in tools %}\n        {{- tool | tojson }}\n        {{-'\\n'}}\n    {%- endfor %}\n    {{- '</tools>\\n\\n# 调用方法\\n你需要遵循工具的要求，使用json格式返回工具名称及参数，并用<tool_call></tool_call>包含。下方是一个调用模板：\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call>\\n\\n' }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<_system>' + messages[0]['content'] + '\\n' }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == 'user') %}\n        {{- '<_user>' + message.content }}\n    {%- elif message.role == 'bot' or message.role == 'assistant' %}\n        {{- '<_bot>' }}\n        {%- if message.content %}\n            {{- message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {%- if loop.index0 == 0 %}\n                {{-'<tool_call>'}}\n            {%- else %}\n                {{-'\\n<tool_call>'}}\n            {%- endif %}\n            {{- '\\n{\"name\": \"' }}{{ tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<_end>\\n' }}\n    {%- elif message.role == 'tool' %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != 'tool') %}\n            {{- '<_user>'+'<tool_response>\\n' }}\n        {%- else %}\n            {{- '\\n<tool_response>\\n' }}\n        {%- endif %}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<_bot>' }}\n{%- endif %}"
+    tokenizer = TelechatTokenizer(vocab_file=vocab_file_path, chat_template=chat_template, fast_tokenizer=True)
+
+    # build model
+    network = ParallelTelechatForCausalLM(model_config)
+
+    # predict
+    batch_datas = {1: {"prompt": "你好！",
+                       "answer": "stoutFramesInstallepoch概要 americ鼎环城"},
+                   4: {"prompt": "用python编写快速排序",
+                       "answer": "多姿 dbc Kids teasing怕我作出了 母亲 养"},
+                   8: {"prompt": "I believe the meaning of life is",
+                       "answer": "ListView annotated莆田 Vanity积累的 Hispanic conceived反思"}}
+    for batch_size, batch_data in batch_datas.items():
+        messages = [{"role": "user", "content": batch_data["prompt"]}]
+        inputs_chat = tokenizer.apply_chat_template(conversation=messages, tokenize=False, add_generation_prompt=True)
+        input_ids = tokenizer(inputs_chat)["input_ids"]
+
+        input_ids_list = []
+        answer = batch_data["answer"]
+        for i in range(0, batch_size):
+            input_ids_list.append(input_ids)
+        outputs = network.generate(input_ids_list,
+                                   max_length=seq_length,
+                                   max_new_tokens=max_new_tokens,
+                                   do_sample=True,
+                                   return_dict_in_generate=False)
+
+        for i in range(0, len(outputs)):
+            output = outputs[i][len(input_ids_list[i]):]
+            output_text = tokenizer.decode(output)
+            print("parallel_telechat2_predict_mp2, output_text:", output_text)
+            if not i:
+                assert output_text == answer
+
+
 TEST_MAP = {
     'parallel_qwen2_0_5b_predict_mp2': parallel_qwen2_0_5b_predict_mp2,
     'parallel_glm3_6b_predict_mp2': parallel_glm3_6b_predict_mp2,
     'parallel_qwen_moe_predict_mp2': parallel_qwen_moe_predict_mp2,
     'parallel_qwen2_0_5b_predict_mp2_static': parallel_qwen2_0_5b_predict_mp2_static,
     'parallel_shared_expert_predict_mp2': parallel_shared_expert_predict_mp2,
+    'parallel_telechat2_predict_mp2': parallel_telechat2_predict_mp2,
 }
 
 if __name__ == '__main__':

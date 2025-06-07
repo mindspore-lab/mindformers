@@ -32,7 +32,7 @@ from research.telechat2.infer.telechat import ParallelTelechatForCausalLM
 
 def main():
     """main function."""
-    input_questions = ["生抽与老抽的区别？"]
+    input_questions = ["生抽与老抽的区别？", "请介绍杭州美食？"]
 
     # set config
     config = MindFormerConfig(args.yaml_file)
