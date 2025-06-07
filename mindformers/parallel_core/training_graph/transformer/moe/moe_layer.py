@@ -157,4 +157,3 @@ class MoELayer(BaseMoELayer):
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))
         else:
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
-        self.add_loss.shard(((1,), (1,)))

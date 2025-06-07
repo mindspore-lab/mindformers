@@ -47,12 +47,11 @@ def get_config():
 class TestModel(nn.Cell):
     """Model for test"""
 
-    def __init__(self, config: TransformerConfig, gate):
+    def __init__(self, config: TransformerConfig):
         super(TestModel, self).__init__()
         self.config = config
         self.mlp = SharedExpertMLP(config=config, submodules=MLPSubmodules(linear_fc1=ColumnParallelLinear,
-                                                                           linear_fc2=RowParallelLinear),
-                                   gate=gate)
+                                                                           linear_fc2=RowParallelLinear))
 
     def construct(self, hidden_states):
         """This avoids graph compilation errors due to unsupported return types."""
@@ -83,8 +82,9 @@ if __name__ == "__main__":
     args, rest_args = parser.parse_known_args()
 
     transformer_config = get_config()
+    transformer_config.use_shared_expert_gating = args.gate
     input_, state_dict = get_init_params(transformer_config)
-    net = TestModel(transformer_config, args.gate)
+    net = TestModel(transformer_config)
     ms.load_param_into_net(net, state_dict)
 
     output = net(input_)

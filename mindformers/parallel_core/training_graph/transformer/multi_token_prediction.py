@@ -31,6 +31,7 @@ from mindspore import nn, Tensor
 from mindspore import dtype as mstype
 from mindspore.ops.auto_generate import Cast, Concat, Reshape, Shape, StridedSlice, Zeros, Transpose, OnesLike
 
+from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
@@ -149,7 +150,8 @@ class MultiTokenPredictionLayer(nn.Cell):
                   hidden_states: Tensor,
                   attention_mask: Tensor,
                   extra_loss=0.,
-                  rotary_pos_emb: Tensor = None):
+                  rotary_pos_emb: Tensor = None,
+                  actual_seq_len: Tensor = None):
         """
         Perform the forward pass through the MTP layer.
 
@@ -180,7 +182,8 @@ class MultiTokenPredictionLayer(nn.Cell):
             hidden_states=hidden_states,
             attention_mask=attention_mask,
             extra_loss=extra_loss,
-            rotary_pos_emb=rotary_pos_emb
+            rotary_pos_emb=rotary_pos_emb,
+            actual_seq_len=actual_seq_len
         )
 
         # Layer norm before shared head layer.
@@ -384,6 +387,7 @@ class MultiTokenPredictionBlock(nn.Cell):
         self.transpose = Transpose()
         self.reshape = Reshape()
         self.ones_like = OnesLike()
+        self.compute_language_model_loss = VocabParallelCrossEntropy(parallel_config=config)
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,
@@ -450,7 +454,6 @@ class MultiTokenPredictionBlock(nn.Cell):
             position_embeddings_weight: Tensor = None,
             tokentype_embeddings_weight: Optional[Tensor] = None,
             output_weight: Tensor = None,
-            compute_language_model_loss=None,
             extra_loss=None,
     ):
         """
@@ -473,7 +476,6 @@ class MultiTokenPredictionBlock(nn.Cell):
         if extra_loss is None:
             extra_loss = self.init_extra_loss
 
-        hidden_states_main_model = hidden_states
         mtp_loss = 0
         for layer in self.layers:
             # Calc logits for the current Multi-Token Prediction (MTP) layers.
@@ -511,9 +513,9 @@ class MultiTokenPredictionBlock(nn.Cell):
             labels_t = self.reshape(self.transpose(labels, (1, 0)), (-1,))
             loss_mask_t = self.reshape(self.transpose(loss_mask, (1, 0)), (-1,))
 
-            mtp_layer_loss = compute_language_model_loss(mtp_logits, labels_t, loss_mask_t)
+            mtp_layer_loss = self.compute_language_model_loss(mtp_logits, labels_t, loss_mask_t)
             mtp_layer_loss_scale = self.mtp_loss_scaling_factor / self.config.mtp_num_layers
             mtp_layer_loss = mtp_layer_loss_scale * mtp_layer_loss
             mtp_loss = mtp_loss + mtp_layer_loss
 
-        return hidden_states_main_model, mtp_loss, extra_loss
+        return mtp_loss, extra_loss

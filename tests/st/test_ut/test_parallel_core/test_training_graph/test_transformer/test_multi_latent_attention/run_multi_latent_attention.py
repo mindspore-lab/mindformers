@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore.communication import init
-from mindspore.mint import ones
+
 from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import MLASelfAttention, \
     MLASelfAttentionMegatron, MLASelfAttentionSubmodules, MLASelfAttentionSubmodulesMegatron
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
@@ -54,6 +54,7 @@ class MLARunner:
         self.config = MLATransformerConfig(
             use_flash_attention=self.args.use_flash_attn,
             hidden_size=self.args.hidden_size,
+            seq_length=self.args.seq_length,
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
             tensor_model_parallel_size=self.args.tensor_parallel,
             compute_dtype=self.compute_dtype,
@@ -112,8 +113,12 @@ class MLARunner:
     def run(self):
         """Run the model with given inputs"""
         net = self.build_model()
-        hidden_state, mega_weight, mind_weight = get_init_params(0.0, 0.15, self.config, self.args.seq_length,
-                                                                 self.args.batch_size, self.args.hidden_size)
+        hidden_state, mega_weight, mind_weight, attention_mask, rotary_pos_emb = get_init_params(
+            0.0,
+            0.15,
+            self.config,
+            self.args.batch_size,
+        )
         hidden_state = ms.Tensor(hidden_state, dtype=ms.float32)
         weight = mind_weight if self.args.struct == 'a2' else mega_weight
         for k in weight:
@@ -122,8 +127,8 @@ class MLARunner:
 
         output = net(
             hidden_state,
-            attention_mask=ones((self.args.batch_size, 1, self.args.seq_length, self.args.seq_length), dtype=ms.bool_),
-            rotary_pos_emb=ones((4, 1, 1, 4))
+            attention_mask=ms.Tensor(attention_mask),
+            rotary_pos_emb=(ms.Tensor(rotary_pos_emb), 1)
         )
         output_ms = {"output": output}
 

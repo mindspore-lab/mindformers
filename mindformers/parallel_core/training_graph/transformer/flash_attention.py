@@ -95,6 +95,7 @@ class FlashAttention(Cell):
         if cp_comm_type:
             raise NotImplementedError("For FlashAttention, 'cp_comm_type' is not supported for now.")
         self.config = config
+        self.seq_len = config.seq_length
         self.layer_index = max(1, layer_number)
         self.head_num = config.num_attention_heads
         self.input_layout = config.input_layout
@@ -188,6 +189,7 @@ class FlashAttention(Cell):
             fa_strategies = ((dp, tp, 1),
                              (dp, tp, 1),
                              (dp, tp, 1))
+
         if self.use_alibi_mask:
             fa_strategies += ((dp, tp, cp, 1),)
         if self.enable_dropout:
@@ -224,6 +226,7 @@ class FlashAttention(Cell):
             raise NotImplementedError("For FlashAttention, 'attention_bias' is not supported for now.")
         if packed_seq_params:
             raise NotImplementedError("For FlashAttention, 'packed_seq_params' is not supported for now.")
+
         if self.input_layout == "TND":
             _, _, _, output = self.flash_attention(query,
                                                    key,
@@ -235,32 +238,28 @@ class FlashAttention(Cell):
                                                    prefix,
                                                    actual_seq_qlen,
                                                    actual_seq_kvlen)
-            return output
-        if self.input_layout == "BNSD":
+        elif self.input_layout == "BNSD":
             query = self.bnsd_transpose(query, (1, 2, 0, 3))
             key = self.bnsd_transpose(key, (1, 2, 0, 3))
             value = self.bnsd_transpose(value, (1, 2, 0, 3))
             bsz, _, q_seq_len, _ = query.shape
             _, _, kv_seq_len, _ = key.shape
-        if self.enable_dropout:
-            drop_mask_bits = self.reshape(
-                self.drop_gen_mask((bsz, self.head_num, q_seq_len, kv_seq_len), self.keep_prob_tensor),
-                (bsz, self.head_num, q_seq_len, kv_seq_len // 8))
-        else:
-            drop_mask_bits = None
-        if self.use_alibi_mask:
-            alibi_mask = self.alibi_rescale_mul(alibi_mask, F.cast(self.alibi_rescale_factor, alibi_mask.dtype))
-        _, _, _, output = self.flash_attention(query,
-                                               key,
-                                               value,
-                                               alibi_mask,
-                                               drop_mask_bits,
-                                               padding_mask,
-                                               attention_mask,
-                                               prefix)
-        if self.input_layout == "TND":
-            output = self.reshape(q_seq_len, bsz, -1)
-        if self.input_layout == "BNSD":
+            if self.enable_dropout:
+                drop_mask_bits = self.reshape(
+                    self.drop_gen_mask((bsz, self.head_num, q_seq_len, kv_seq_len), self.keep_prob_tensor),
+                    (bsz, self.head_num, q_seq_len, kv_seq_len // 8))
+            else:
+                drop_mask_bits = None
+            if self.use_alibi_mask:
+                alibi_mask = self.alibi_rescale_mul(alibi_mask, F.cast(self.alibi_rescale_factor, alibi_mask.dtype))
+            _, _, _, output = self.flash_attention(query,
+                                                   key,
+                                                   value,
+                                                   alibi_mask,
+                                                   drop_mask_bits,
+                                                   padding_mask,
+                                                   attention_mask,
+                                                   prefix)
             output = self._merge_heads(output)
 
         return output

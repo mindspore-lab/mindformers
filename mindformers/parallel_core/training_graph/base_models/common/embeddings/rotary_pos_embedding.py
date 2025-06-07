@@ -23,7 +23,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import nn
 from mindspore import ops
-from mindspore.ops.auto_generate import Reshape, Concat, StackExt, Outer
+from mindspore.ops.auto_generate import Reshape, Concat, StackExt, Outer, Transpose
 
 
 class RotaryEmbedding(nn.Cell):
@@ -70,6 +70,7 @@ class RotaryEmbedding(nn.Cell):
         self.reshape = Reshape()
 
         self.outer = Outer()
+        self.transpose = Transpose()
 
     def _apply_scaling(
             self,
@@ -110,9 +111,11 @@ class RotaryEmbedding(nn.Cell):
             Tensor: mscale, return to match yarn interface.
         """
         if position_ids is None:
+            bs = 1
             seq = ops.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset
         else:
-            seq = position_ids + offset
+            bs = position_ids.shape[0]
+            seq = self.reshape(position_ids, (-1,)) + offset
 
         if self.seq_len_interpolation_factor is not None:
             seq *= 1 / self.seq_len_interpolation_factor
@@ -126,6 +129,10 @@ class RotaryEmbedding(nn.Cell):
         else:
             emb = self.cat((freqs, freqs))
 
-        # emb[seq_length, .., dim]
-        out = self.reshape(emb, (emb.shape[0], -1, 1, emb.shape[1]))
+        if position_ids is None:
+            # emb[seq_length, .., dim]
+            out = self.reshape(emb, (-1, bs, 1, emb.shape[1]))
+        else:
+            out = self.reshape(emb, (bs, -1, 1, emb.shape[1]))
+            out = self.transpose(out, (1, 0, 2, 3))
         return out.copy(), self.mscale

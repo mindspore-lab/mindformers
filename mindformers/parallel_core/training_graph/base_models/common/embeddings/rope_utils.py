@@ -74,7 +74,7 @@ class ApplyRotaryPosEmb(nn.Cell):
                  config: TransformerConfig
                  ):
         super(ApplyRotaryPosEmb, self).__init__()
-        self.append_eod = config.use_eod_attn_mask_compression
+        self.append_eod = config.use_eod_reset
         self.add = AddExt()
         self.add_input_is_parallel = AddExt()
         self.mul = Mul()

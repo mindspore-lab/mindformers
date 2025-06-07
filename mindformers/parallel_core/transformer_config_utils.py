@@ -15,10 +15,12 @@
 """Utility functions for TransformerConfig."""
 
 from copy import deepcopy
+from typing import Union
 
-from mindformers import PretrainedConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 from mindformers.tools.logger import logger
+from mindformers.tools.register.template import ParallelConfig, MoEConfig
 
 
 def is_float_32(dtype: str) -> bool:
@@ -38,6 +40,12 @@ def is_float_32(dtype: str) -> bool:
     return False
 
 
+def get_recompute(recompute):
+    if isinstance(recompute, bool):
+        return recompute
+    return recompute['recompute']
+
+
 def get_moe_layer_freq(value: int) -> dict:
     """
     This method to check parameter types of 'first_k_dense_replace'.
@@ -54,7 +62,7 @@ def get_moe_layer_freq(value: int) -> dict:
     return value
 
 
-def is_use_gated_sigmod(used_gated_sigmod: bool) -> str:
+def is_use_gated_sigmod(use_gating_sigmoid: bool) -> str:
     """
     This method to check whether to use gated 'sigmod' or 'softmax'.
 
@@ -64,10 +72,22 @@ def is_use_gated_sigmod(used_gated_sigmod: bool) -> str:
     Returns:
         A string to choose the function for MoE router score.
     """
-    if used_gated_sigmod:
-        return "sigmod"
+    if use_gating_sigmoid:
+        return "sigmoid"
 
     return "softmax"
+
+DEFAULT_WHITE_KEY = set()
+PRETRAIN_CONFIG_KEY = set(PretrainedConfig().to_dict().keys())
+MOE_CONFIG_KEY = set(MoEConfig.keys())
+PARALLEL_CONFIG_KEY = set(ParallelConfig.keys())
+DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
+DEFAULT_WHITE_KEY.update(MOE_CONFIG_KEY)
+DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)
+DEFAULT_WHITE_KEY.update({
+    'monitor_config', 'dataset_config', 'batch_size', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
+    'num_blocks', 'extend_method', 'block_size', 'num_blocks', 'input_sliced_sig', 'return_extra_loss'
+})
 
 
 COMMON_CONFIG_MAPPING = {
@@ -119,6 +139,9 @@ COMMON_CONFIG_MAPPING = {
     "qkv_has_bias": "add_qkv_bias",
     "expert_num": "num_moe_experts",
     # not changes
+    "use_eod_reset": "use_eod_reset",
+    "seq_length": "seq_length",
+    "vocab_size": "vocab_size",
     "num_layers": "num_layers",
     "hidden_size": "hidden_size",
     "softmax_scale": "softmax_scale",
@@ -129,6 +152,7 @@ COMMON_CONFIG_MAPPING = {
     "add_bias_linear": "add_bias_linear",
     "gated_linear_unit": "gated_linear_unit",
     "activation_func": "activation_func",
+    "ignore_token_id": "ignore_token_id",
     "rotary_interleaved": "rotary_interleaved",
     "normalization": "normalization",
     "qk_layernorm": "qk_layernorm",
@@ -137,6 +161,7 @@ COMMON_CONFIG_MAPPING = {
     "compute_dtype": "compute_dtype",
     "layernorm_compute_dtype": "layernorm_compute_dtype",
     "rotary_dtype": "rotary_dtype",
+    "is_dynamic": "is_dynamic",
 
     # Flash Attention
     # not changes
@@ -144,7 +169,6 @@ COMMON_CONFIG_MAPPING = {
     "attention_pre_tokens": "attention_pre_tokens",
     "attention_next_tokens": "attention_next_tokens",
     "rotary_seq_len_interpolation_factor": "rotary_seq_len_interpolation_factor",
-    "rope_scaling": "rope_scaling",
     "input_layout": "input_layout",
     "sparse_mode": "sparse_mode",
     "use_alibi_mask": "use_alibi_mask",
@@ -182,7 +206,7 @@ COMMON_CONFIG_MAPPING = {
 
     # Recompute
     # not changes
-    "recompute": "recompute",
+    "recompute": ("recompute", get_recompute),
     "select_recompute": "select_recompute",
     "parallel_optimizer_comm_recompute": "parallel_optimizer_comm_recompute",
     "select_comm_recompute": "select_comm_recompute",
@@ -192,13 +216,13 @@ COMMON_CONFIG_MAPPING = {
     "select_comm_recompute_exclude": "select_comm_recompute_exclude",
 
     # Moe
-    "moe_intermediate_size": "moe_shared_expert_intermediate_size",
+    "moe_intermediate_size": "moe_ffn_hidden_size",
     "first_k_dense_replace": ("moe_layer_freq", get_moe_layer_freq),
     "num_experts_chosen": "moe_router_topk",
     "n_group": "moe_router_num_groups",
     "topk_group": "moe_router_group_topk",
     "routed_scaling_factor": "moe_router_topk_scaling_factor",
-    "use_gated_sigmod": ("moe_router_score_function", is_use_gated_sigmod),
+    "use_gating_sigmoid": ("moe_router_score_function", is_use_gated_sigmod),
     "router_dense_type": "moe_router_dtype",
     "balance_via_topk_bias": "moe_router_enable_expert_bias",
     "topk_bias_update_rate": "moe_router_bias_update_rate",
@@ -206,9 +230,9 @@ COMMON_CONFIG_MAPPING = {
     "z_loss_factor": "moe_z_loss_coeff",
     "capacity_factor": "moe_expert_capacity_factor",
     "enable_sdrop": "moe_token_drop_policy",
+    "enable_gmm_safe_tokens": "use_pad_tokens",
     # not changes
     "moe_shared_expert_overlap": "moe_shared_expert_overlap",
-    "moe_ffn_hidden_size": "moe_ffn_hidden_size",
     "moe_router_load_balancing_type": "moe_router_load_balancing_type",
     "moe_router_pre_softmax": "moe_router_pre_softmax",
     "aux_loss_types": "aux_loss_types",
@@ -230,7 +254,6 @@ COMMON_CONFIG_MAPPING = {
     "topk_method": "topk_method",
     "enable_deredundency": "enable_deredundency",
     "npu_nums_per_device": "npu_nums_per_device",
-    "enable_gmm_safe_tokens": "enable_gmm_safe_tokens",
     "use_fused_ops_permute": "use_fused_ops_permute",
     "callback_moe_droprate": "callback_moe_droprate",
     "moe_init_method_std": "moe_init_method_std",
@@ -243,24 +266,25 @@ COMMON_CONFIG_MAPPING = {
     # MLATransformerConfig
     "q_lora_rank": "q_lora_rank",
     "kv_lora_rank": "kv_lora_rank",
-    "qk_head_dim": "qk_head_dim",
-    "qk_pos_emb_head_dim": "qk_pos_emb_head_dim",
+    "qk_nope_head_dim": "qk_head_dim",
+    "qk_rope_head_dim": "qk_pos_emb_head_dim",
     "v_head_dim": "v_head_dim",
     "rope_type": "rope_type",
-    "rotary_base": "rotary_base",
+    "theta": "rotary_base",
     "rotary_percent": "rotary_percent",
-    "rotary_scaling_factor": "rotary_scaling_factor",
+    "scaling_factor": "rotary_scaling_factor",
     "max_position_embeddings": "max_position_embeddings",
     "beta_fast": "beta_fast",
     "beta_slow": "beta_slow",
     "mscale": "mscale",
-    "mscale_all_dim": "mscale_all_dim"
+    "mscale_all_dim": "mscale_all_dim",
+    "extend_method": "position_embedding_type"
 }
 
 
 def convert_to_transformer_config(model_config: PretrainedConfig = None,
                                   is_mla_model: bool = False, additional_map: dict = None,
-                                  not_convert_whitelist: list = None) -> TransformerConfig:
+                                  not_convert_whitelist: set = None) -> Union[TransformerConfig, MLATransformerConfig]:
     """
     Convert ModelConfig to TransFormerConfig.
 
@@ -285,21 +309,36 @@ def convert_to_transformer_config(model_config: PretrainedConfig = None,
 
     if not_convert_whitelist is not None:
         logger.info(f"These Keys of this model will do not need to be mapped: {not_convert_whitelist}")
+    else:
+        not_convert_whitelist = set()
+    not_convert_whitelist.update(DEFAULT_WHITE_KEY)
 
     # Convert Config Keys
     update_dict = {}
     not_convert_keys_list = []
 
+    def mapping_config(key, value):
+        mapping_key = convert_map[key]
+        if isinstance(mapping_key, str):
+            update_dict[mapping_key] = value
+        else:
+            (transformer_config_key, trans_func) = mapping_key
+            update_dict[transformer_config_key] = trans_func(value)
+
+    model_config = model_config.to_dict()
     for model_config_key, model_config_value in model_config.items():
-        if not_convert_whitelist and model_config_key in not_convert_whitelist:
+        if model_config_key in not_convert_whitelist and model_config_key not in convert_map.keys():
             continue
+        if model_config_key == 'moe_config':
+            for moe_key, moe_value in model_config['moe_config'].items():
+                if moe_key in convert_map.keys():
+                    mapping_config(moe_key, moe_value)
+        elif model_config_key == 'parallel_config':
+            for parallel_key, parallel_value in model_config['parallel_config'].items():
+                if parallel_key in convert_map.keys():
+                    mapping_config(parallel_key, parallel_value)
         elif model_config_key in convert_map.keys():
-            mapping_key = convert_map[model_config_key]
-            if isinstance(mapping_key, str):
-                update_dict[mapping_key] = model_config_value
-            else:
-                (transformer_config_key, trans_func) = mapping_key
-                update_dict[transformer_config_key] = trans_func(model_config_value)
+            mapping_config(model_config_key, model_config_value)
         else:
             not_convert_keys_list.append(model_config_key)
 

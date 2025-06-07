@@ -16,18 +16,16 @@
 
 import pytest
 
+from mindformers import PretrainedConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 
 
-class DummyConfig(dict):
+class DummyConfig(PretrainedConfig):
     """A dummy config that behaves like a dict and supports attribute access."""
 
-    def __getattr__(self, item):
-        return self[item]
-
-    def __contains__(self, item):
-        return dict.__contains__(self, item)
+    def __init__(self, config: dict):
+        super().__init__(**config)
 
 
 @pytest.mark.level0
@@ -124,14 +122,14 @@ def test_trans_func_case():
     """
     Feature: Test the function `trans_func` can run normally.
     Description: Input config contains the key that will trigger `trans_func`,
-        such as 'residual_dtype', 'softmax_compute_dtype', 'first_k_dense_replace', 'use_gated_sigmod'.
+        such as 'residual_dtype', 'softmax_compute_dtype', 'first_k_dense_replace', 'use_gating_sigmoid'.
     Expectation: `trans_func` can convert the mapping of special keys, and instantiate TransformerConfig successfully.
     """
     config = DummyConfig({
         'residual_dtype': 'fp32',
         'softmax_compute_dtype': 'float16',
         'first_k_dense_replace': 2,
-        'use_gated_sigmod': True,
+        'use_gating_sigmoid': True,
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
@@ -151,7 +149,7 @@ def test_trans_func_case():
     assert result.fp32_residual_connection == used_parameter
     assert result.attention_softmax_in_fp32 == unused_parameter
     assert result.moe_layer_freq == 2
-    assert result.moe_router_score_function == "sigmod"
+    assert result.moe_router_score_function == "sigmoid"
 
 
 @pytest.mark.level0

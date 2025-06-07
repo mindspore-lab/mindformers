@@ -43,7 +43,7 @@ def import_module(module_path: Tuple[str]):
 
 
 def get_module(spec_or_module: Union[ModuleSpec, type], **additional_kwargs):
-    # If a module clas is already provided return it as is
+    # If a module class is already provided return it as is
     if isinstance(spec_or_module, (type, types.FunctionType)):
         return spec_or_module
 

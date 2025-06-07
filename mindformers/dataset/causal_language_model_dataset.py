@@ -355,6 +355,8 @@ class CausalLanguageModelDataset(BaseDataset):
                 if input_arg in CAST_TO_INT_COLUMNS:
                     dataset = get_dataset_map(dataset, type_cast_op,
                                               input_columns=input_arg)
+            if dataset_config.output_columns:
+                dataset = dataset.project(columns=dataset_config.output_columns)
 
         if dataset_config.token_monitor:
             kwargs = {}

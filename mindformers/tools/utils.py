@@ -52,7 +52,8 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
 
 CONFIG_MAPPING = OrderedDict(
     [
-        ("qwen2", "Qwen2Config")
+        ("qwen2", "Qwen2Config"),
+        ("deepseekv3", "DeepseekV3Config")
     ]
 )
 

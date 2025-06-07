@@ -298,7 +298,13 @@ class MindFormerRegister:
             model_type = cfg.pop('model_type')
             obj_type = CONFIG_MAPPING[model_type]
         elif module_type == MindFormerModuleType.MODELS:
-            obj_type = cfg.pop('architectures')[0]
+            architectures = cfg.pop('architectures')
+            if isinstance(architectures, list):
+                obj_type = architectures[0]
+            elif isinstance(architectures, str):
+                obj_type = architectures
+            else:
+                raise ValueError("The type of model_config.architectures should be str or list of str.")
         else:
             obj_type = cfg.pop('type')
         return obj_type
@@ -437,6 +443,6 @@ class MindFormerRegister:
 
     @classmethod
     def _add_class_name_prefix(cls, module_type, class_name, legacy=True):
-        if not legacy and module_type == MindFormerModuleType.MODELS:
+        if not legacy and module_type in [MindFormerModuleType.MODELS, MindFormerModuleType.CONFIG]:
             class_name = NEW_CLASS_PREFIX + class_name
         return class_name

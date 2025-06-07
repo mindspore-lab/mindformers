@@ -32,7 +32,6 @@ from mindformers.parallel_core.training_graph.transformer.identity_op import Ide
 from mindformers.parallel_core.training_graph.transformer.norm import RMSNorm
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
-from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from tests.st.test_ut.test_parallel_core.test_training_graph.test_transformer.test_multi_token_prediction.data_gen_utils import \
@@ -116,15 +115,13 @@ class MTPRunner:
             )
         )
 
-        loss = VocabParallelCrossEntropy(parallel_config=self.config)
-
         mtp_block = MultiTokenPredictionBlock(self.config, mtp_block_spec, self.args.vocab_size)
 
-        return mtp_block, loss
+        return mtp_block
 
     def run(self):
         """Run the model with given inputs"""
-        mtp_block, loss = self.build_model()
+        mtp_block = self.build_model()
 
         params = get_init_params(
             self.config,
@@ -152,15 +149,13 @@ class MTPRunner:
             word_embeddings_weight=state_dict['word_embeddings.weight'],
             position_embeddings_weight=state_dict['position_embeddings.weight'],
             output_weight=state_dict['weight'],
-            compute_language_model_loss=loss,
         )
         print(output)
         if self.rank_id is None or int(self.rank_id) == 0:
             # Convert to float32 for saving, common practice for bf16/fp16
             output_np = {
-                'hidden_states_main_model': output[0].asnumpy().astype(np.float32),
-                'mtp_loss': output[1].asnumpy().astype(np.float32),
-                'extra_loss': output[2].asnumpy().astype(np.float32)
+                'mtp_loss': output[0].asnumpy().astype(np.float32),
+                'extra_loss': output[1].asnumpy().astype(np.float32),
             }
             output_path = self.args.output_path
             np.savez(output_path, **output_np)

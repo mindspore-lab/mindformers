@@ -26,8 +26,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
-from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import (ApplyRotaryPosEmb,
-                                                                                               ROPE_FUNCTIONS)
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
 
 
 @dataclass
@@ -112,7 +111,6 @@ class MultiLatentAttention(nn.Cell):
 
         mscale = yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
-        self.rotary_pos_emb = ROPE_FUNCTIONS[self.config.rope_type](self.config)
 
         self.core_attention = build_module(
             submodules.core_attention,
@@ -133,11 +131,12 @@ class MultiLatentAttention(nn.Cell):
 
         self.shape = ms.ops.auto_generate.Shape()
         self.reshape = ms.ops.auto_generate.Reshape()
-        self.merge_head_transpose = ms.ops.auto_generate.Transpose()
+        self.bs_transpose = ms.ops.auto_generate.Transpose()
         self.tile = ms.ops.auto_generate.Tile()
         self.value_concat = ms.ops.auto_generate.Concat(-1)
         self.value_tnd_concat = ms.ops.auto_generate.Concat(-1)
         self.dim_slice = ms.ops.auto_generate.StridedSlice()
+        self.dim_tnd_slice = ms.ops.auto_generate.StridedSlice()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation()
@@ -151,9 +150,11 @@ class MultiLatentAttention(nn.Cell):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
 
-        self.value_concat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
-        self.value_tnd_concat.shard(((dp, 1, tp, 1), (dp, 1, tp, 1)))
-        self.dim_slice.shard(((dp, tp, 1, 1),))
+        self.bs_transpose.shard(((dp, 1, tp),))
+        self.value_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
+        self.value_tnd_concat.shard(((dp, tp, 1), (dp, tp, 1)))
+        self.dim_slice.shard(((1, dp, tp, 1),))
+        self.dim_tnd_slice.shard(((dp, tp, 1),))
         self.tile.shard(((1, 1, 1, 1),))
 
     def construct(self, x: Tensor, attention_mask=None, rotary_pos_emb=None, rotary_pos_cos=None,
@@ -168,10 +169,7 @@ class MultiLatentAttention(nn.Cell):
         ori_dtype = x.dtype
         seq_len, bs, _ = self.shape(x)
 
-        if self.use_eod_attn_mask_compression:
-            query, key, value = self.get_tnd_query_key_value_tensors(x, rotary_pos_emb=rotary_pos_emb)
-        else:
-            query, key, value = self.get_query_key_value_tensors(x, rotary_pos_emb=rotary_pos_emb)
+        query, key, value = self.get_query_key_value_tensors(x, rotary_pos_emb=rotary_pos_emb)
 
         query = cast(query, self.compute_dtype)
         key = cast(key, self.compute_dtype)
@@ -179,8 +177,8 @@ class MultiLatentAttention(nn.Cell):
         if self.use_flash_attention:
             if self.use_zero_pad:
                 if self.input_layout == "TND":
-                    pad_zeros = self.tile(self.pad_zeros, (seq_len, bs, 1, 1))
-                    pad_zeros = self.reshape(pad_zeros, (seq_len * bs, -1, pad_zeros.shape[-1]))
+                    pad_zeros = self.tile(self.pad_zeros, (bs, seq_len, 1, 1))
+                    pad_zeros = self.reshape(pad_zeros, (bs * seq_len, -1, pad_zeros.shape[-1]))
                     value = self.value_tnd_concat((value, pad_zeros))
                 else:
                     pad_zeros = self.tile(self.pad_zeros, (seq_len, bs, 1, 1))
@@ -191,11 +189,11 @@ class MultiLatentAttention(nn.Cell):
                     actual_seq_qlen=actual_seq_len, actual_seq_kvlen=actual_seq_len
                 )
                 if self.use_zero_pad:
-                    context_layer = self.reshape(context_layer, (seq_len, bs, self.num_attention_heads, -1))
-                    context_layer = self.dim_slice(context_layer, (0, 0, 0, 0),
-                                                   (seq_len, bs, self.num_attention_heads, self.v_head_dim),
-                                                   (1, 1, 1, 1))
-                attn_out = self.reshape(context_layer, (seq_len, bs, -1))
+                    context_layer = self.dim_tnd_slice(context_layer, (0, 0, 0),
+                                                       (seq_len * bs, self.num_attention_heads, self.v_head_dim),
+                                                       (1, 1, 1))
+                attn_out = self.reshape(context_layer, (bs, seq_len, -1))
+                attn_out = self.bs_transpose(attn_out, (1, 0, 2))
             else:
                 context_layer = self.core_attention(
                     query, key, value, attention_mask,
@@ -237,14 +235,14 @@ class MLASelfAttention(MultiLatentAttention):
             cp_comm_type=cp_comm_type,
             attention_type="self",
         )
-
+        self.use_tnd = config.input_layout == "TND"
         self.split = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
         self.tile_kv = ms.ops.auto_generate.Tile()
-        self.tile_tnd_kv = ms.ops.auto_generate.Tile()
         self.pe_concat = ms.ops.auto_generate.Concat(axis=3)
         self.pe_tnd_concat = ms.ops.auto_generate.Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
         self.reshape = ms.ops.auto_generate.Reshape()
+        self.tnd_transpose = ms.ops.auto_generate.Transpose()
 
         if self.config.q_lora_rank is None:
             self.q_rank = self.config.num_attention_heads * self.q_head_dim
@@ -320,41 +318,55 @@ class MLASelfAttention(MultiLatentAttention):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
 
+        self.tnd_transpose.shard(((1, dp, tp, 1),))
         self.tile_kv.shard(((1, dp, tp, 1),))
-        self.tile_tnd_kv.shard(((1, dp, tp, 1),))
 
     def shard_self_attn(self):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
 
         self.tile_kv.shard(((1, dp, tp, 1),))
-        self.tile_tnd_kv.shard(((1, dp, tp, 1),))
         self.pe_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
-        self.pe_tnd_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
-
 
     def get_query_key_value_tensors(self,
                                     hidden_states,
-                                    key_value_states=None,
-                                    position_ids=None,
-                                    packed_seq_params=None,
-                                    inference_params=None,
-                                    rotary_pos_emb=None):
+                                    rotary_pos_emb=None
+                                    # position_ids is used to generate rotary_pos_emb in Megatron, While rotary_pos_emb
+                                    # is input in MindFormers.
+                                    # key_value_states in Megatron is only used for CrossAttention.
+                                    # packed_seq_params in Megatron is replaced by
+                                    # config.use_eod_attn_mask_compression and actual_seq_len in MindFormers.
+                                    # inference_params in Megatron will be deprecated in the future.
+                                    ):
+        """
+        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        """
+        query, key, value = self._get_query_key_value_tensors(
+            hidden_states=hidden_states,
+            rotary_pos_emb=rotary_pos_emb
+        )
+
+        if self.use_tnd:
+            query = self.sbnd2tnd(query)
+            key = self.sbnd2tnd(key)
+            value = self.sbnd2tnd(value)
+
+
+        return query, key, value
+
+    def sbnd2tnd(self, x):
+        seq_len, bs, *_ = x.shape
+        x = self.tnd_transpose(x, (1, 0, 2, 3))
+        x = self.reshape(x, (bs * seq_len, self.num_attention_heads, -1))
+        return x
+
+    def _get_query_key_value_tensors(self,
+                                     hidden_states,
+                                     rotary_pos_emb=None):
         """get_query_key_value_tensors"""
-        if key_value_states:
-            raise NotImplementedError("`key_value_states` is not supported for now")
-        if position_ids:
-            raise NotImplementedError("`position_ids` is not supported for now")
-        if packed_seq_params:
-            raise NotImplementedError("`packed_seq_params` is not supported for now")
-        if inference_params:
-            raise NotImplementedError("`inference_params` is not supported for now")
 
         tmp = self.shape(hidden_states)
         seq_len, bs = tmp[0], tmp[1]
-
-        seq_len = self.shape(hidden_states)[0]
-        rotary_pos_emb = self.rotary_pos_emb(seq_len)
 
         qkv_combo = self.linear_qkv(hidden_states)[0]
 
@@ -372,6 +384,7 @@ class MLASelfAttention(MultiLatentAttention):
             q_a = self.q_layernorm(q_a)
             q = self.linear_qb(q_a)[0]
             q = self.reshape(q, (seq_len, bs, self.num_attention_heads, -1))
+
             q_nope, q_pe = self.split(
                 q, [self.qk_head_dim, self.qk_pos_emb_head_dim], dim=-1
             )
@@ -416,94 +429,6 @@ class MLASelfAttention(MultiLatentAttention):
 
         return query, key, value
 
-    def get_tnd_query_key_value_tensors(self,
-                                        hidden_states,
-                                        key_value_states=None,
-                                        position_ids=None,
-                                        packed_seq_params=None,
-                                        inference_params=None,
-                                        rotary_pos_emb=None):
-        """get_tnd_query_key_value_tensors"""
-        if key_value_states:
-            raise NotImplementedError("`position_ids` is not supported for now")
-        if position_ids:
-            raise NotImplementedError("`position_ids` is not supported for now")
-        if packed_seq_params:
-            raise NotImplementedError("`packed_seq_params` is not supported for now")
-        if inference_params:
-            raise NotImplementedError("`inference_params` is not supported for now")
-
-        tmp = self.shape(hidden_states)
-        seq_len, bs = tmp[0], tmp[1]
-
-        seq_len = self.shape(hidden_states)[0]
-        rotary_pos_emb = self.rotary_pos_emb(seq_len)
-
-        qkv_combo = self.linear_qkv(hidden_states)[0]
-
-        q_a, compressed_kv, k_pe = self.split(
-            qkv_combo,
-            [
-                self.q_rank,
-                self.kv_lora_rank,
-                self.qk_pos_emb_head_dim,
-            ],
-            dim=-1,
-        )
-
-        if self.q_layernorm is not None:
-            q_a = self.q_layernorm(q_a)
-            q = self.linear_qb(q_a)[0]
-            q = self.reshape(q, (seq_len, bs, self.num_attention_heads, -1))
-
-            q_nope, q_pe = self.split(
-                q, [self.qk_head_dim, self.qk_pos_emb_head_dim], dim=-1
-            )
-
-        else:
-            q = self.reshape(q_a, (seq_len, bs, self.num_attention_heads, -1))
-            q_nope, q_pe = self.split(
-                q, [self.qk_head_dim, self.qk_pos_emb_head_dim], dim=-1
-            )
-
-        k_pe = self.reshape(k_pe, (seq_len, bs, 1, self.qk_pos_emb_head_dim))
-        compressed_kv_norm = self.k_layernorm(compressed_kv)
-
-        kv = self.linear_kvb(compressed_kv_norm)[0]
-        kv = self.reshape(kv, (
-            seq_len,
-            bs,
-            self.num_attention_heads,
-            self.qk_head_dim + self.v_head_dim,
-        ))
-
-        k_nope, value = self.split(kv, [self.qk_head_dim, self.v_head_dim], dim=-1)
-
-        if rotary_pos_emb is not None:
-            q_pe = self.apply_rotary_emb(
-                q_pe,
-                rotary_pos_emb,
-                rotary_interleaved=self.config.rotary_interleaved,
-                multi_latent_attention=self.config.multi_latent_attention
-            )
-            k_pe = self.apply_rotary_emb(
-                k_pe,
-                rotary_pos_emb,
-                rotary_interleaved=self.config.rotary_interleaved,
-                multi_latent_attention=self.config.multi_latent_attention,
-                input_is_parallel=True
-            )
-
-        query = self.pe_tnd_concat([q_nope, q_pe])
-        k_pe = self.tile_tnd_kv(k_pe, (1, 1, self.num_attention_heads, 1))
-        key = self.pe_tnd_concat([k_nope, k_pe])
-
-        query = self.reshape(query, (bs * seq_len, self.num_attention_heads, -1))
-        key = self.reshape(key, (bs * seq_len, self.num_attention_heads, -1))
-        value = self.reshape(value, (bs * seq_len, self.num_attention_heads, -1))
-
-        return query, key, value
-
 
 class MLASelfAttentionMegatron(MultiLatentAttention):
     """MLA Self-attention layer class
@@ -528,14 +453,15 @@ class MLASelfAttentionMegatron(MultiLatentAttention):
             attention_type="self",
         )
 
-        self.transpose = ms.ops.auto_generate.Transpose()
+        self.use_tnd = config.input_layout == "TND"
+        self.tnd_transpose = ms.ops.auto_generate.Transpose()
         self.split = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
         self.tile_kv = ms.ops.auto_generate.Tile()
-        self.tile_tnd_kv = ms.ops.auto_generate.Tile()
         self.pe_concat = ms.ops.auto_generate.Concat(axis=3)
         self.pe_tnd_concat = ms.ops.auto_generate.Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
         self.reshape = ms.ops.auto_generate.Reshape()
+        self.tnd_transpose = ms.ops.auto_generate.Transpose()
 
         if self.config.q_lora_rank is None:
             # Not projecting query
@@ -624,145 +550,100 @@ class MLASelfAttentionMegatron(MultiLatentAttention):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
 
-        self.tile_kv.shard(((1, dp, tp, 1),))
-        self.tile_tnd_kv.shard(((1, dp, tp, 1),))
+        self.tnd_transpose.shard(((1, dp, tp, 1),))
 
     def shard_self_attn(self):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
 
         self.tile_kv.shard(((1, dp, tp, 1),))
-        self.tile_tnd_kv.shard(((1, dp, tp, 1),))
         self.pe_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
-        self.pe_tnd_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
 
-    def get_query_key_value_tensors(self, hidden_states,
-                                    key_value_states=None,
-                                    position_ids=None,
-                                    packed_seq_params=None,
-                                    inference_params=None,
-                                    rotary_pos_emb=None):
+    def sbnd2tnd(self, x):
+        seq_len, bs, *_ = x.shape
+        x = self.tnd_transpose(x, (1, 0, 2, 3))
+        x = self.reshape(x, (bs * seq_len, self.num_attention_heads, -1))
+        return x
+
+    def qkv_up_proj_and_rope_apply(self, q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
         """
-        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        Apply proj and rope on `query`, `key` and `value`.
         """
-        if key_value_states:
-            raise NotImplementedError("`key_value_states` is not supported for now")
-        if position_ids:
-            raise NotImplementedError("`position_ids` is not supported for now")
-        if packed_seq_params:
-            raise NotImplementedError("`packed_seq_params` is not supported for now")
-        if inference_params:
-            raise NotImplementedError("`inference_params` is not supported for now")
-
-        if hidden_states.ndim != 3:
-            raise ValueError(f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D")
-
-        # =========================================
-        # Prepare RoPE and seqlen related params
-        # =========================================
-
-        seq_len = self.shape(hidden_states)[0]
-        rotary_pos_emb = self.rotary_pos_emb(seq_len)
-
-        # =========================================
-        # QKV down projection and layernorm
-        # =========================================
         if self.config.q_lora_rank is not None:
-            q_compressed, _ = self.linear_q_down_proj(hidden_states)
-            q_compressed = self.q_layernorm(q_compressed)
+            q, _ = self.linear_q_up_proj(q_compressed)
         else:
-            q_compressed = hidden_states
+            # hidden_states:[s, b, 2048], q: [s, b, n * 192]
+            q, _ = self.linear_q_proj(q_compressed)
 
-        kv_combined, _ = self.linear_kv_down_proj(hidden_states)
+        q_len, bs, _ = self.shape(q)
 
-        kv_compressed, k_pos_emb = self.split(
-            kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
+        q = self.reshape(q, (q_len, bs, self.num_attention_heads, self.q_head_dim))
+        kv, _ = self.linear_kv_up_proj(kv_compressed)
+
+        kv = self.reshape(kv, (q_len, bs, self.num_attention_heads, self.config.qk_head_dim + self.config.v_head_dim))
+
+        k_pos_emb = unsqueeze(k_pos_emb, 2)
+
+        q_no_pe, q_pos_emb = self.split(
+            q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
         )
 
-        kv_compressed = self.kv_layernorm(kv_compressed)
-
-        # =========================================
-        # QKV up projection and RoPE apply
-        # =========================================
-        def qkv_up_proj_and_rope_apply(q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
-            if self.config.q_lora_rank is not None:
-                q, _ = self.linear_q_up_proj(q_compressed)
-            else:
-                q, _ = self.linear_q_proj(q_compressed)
-
-            q_len, bsz, _ = self.shape(q)
-
-            q = self.reshape(q, (q_len, bsz, self.num_attention_heads, self.q_head_dim))
-            kv, _ = self.linear_kv_up_proj(kv_compressed)
-
-            kv = self.reshape(kv,
-                              (q_len, bsz, self.num_attention_heads, self.config.qk_head_dim + self.config.v_head_dim))
-
-            k_pos_emb = unsqueeze(k_pos_emb, 2)
-
-            q_no_pe, q_pos_emb = self.split(
-                q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
-            )
-
-            k_no_pe, value = self.split(
-                kv, [self.config.qk_head_dim, self.config.v_head_dim], dim=-1
-            )
-
-            if rotary_pos_emb:
-                q_pos_emb = self.apply_rotary_emb(
-                    q_pos_emb,
-                    rotary_pos_emb,
-                    rotary_interleaved=self.config.rotary_interleaved,
-                    multi_latent_attention=self.config.multi_latent_attention
-                )
-                k_pos_emb = self.apply_rotary_emb(
-                    k_pos_emb,
-                    rotary_pos_emb,
-                    rotary_interleaved=self.config.rotary_interleaved,
-                    multi_latent_attention=self.config.multi_latent_attention,
-                    input_is_parallel=True
-                )
-
-            query = self.pe_concat([q_no_pe, q_pos_emb])
-
-            k_pos_emb = self.tile_kv(k_pos_emb, (1, 1, self.num_attention_heads, 1))
-            key = self.pe_concat([k_no_pe, k_pos_emb])
-
-            return query, key, value
-
-        query, key, value = qkv_up_proj_and_rope_apply(
-            q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb
+        k_no_pe, value = self.split(
+            kv, [self.config.qk_head_dim, self.config.v_head_dim], dim=-1
         )
+
+        if rotary_pos_emb is not None:
+            q_pos_emb = self.apply_rotary_emb(
+                q_pos_emb,
+                rotary_pos_emb,
+                rotary_interleaved=self.config.rotary_interleaved,
+                multi_latent_attention=self.config.multi_latent_attention
+            )
+            k_pos_emb = self.apply_rotary_emb(
+                k_pos_emb,
+                rotary_pos_emb,
+                rotary_interleaved=self.config.rotary_interleaved,
+                multi_latent_attention=self.config.multi_latent_attention,
+                input_is_parallel=True
+            )
+
+        query = self.pe_concat([q_no_pe, q_pos_emb])
+
+        k_pos_emb = self.tile_kv(k_pos_emb, (1, 1, self.num_attention_heads, 1))
+        key = self.pe_concat([k_no_pe, k_pos_emb])
 
         return query, key, value
 
-    def get_tnd_query_key_value_tensors(self, hidden_states,
-                                        key_value_states=None,
-                                        position_ids=None,
-                                        packed_seq_params=None,
-                                        inference_params=None,
-                                        rotary_pos_emb=None):
+    def get_query_key_value_tensors(self, hidden_states,
+                                    rotary_pos_emb=None
+                                    # position_ids is used to generate rotary_pos_emb in Megatron, While rotary_pos_emb
+                                    # is input in MindFormers.
+                                    # key_value_states in Megatron is only used for CrossAttention.
+                                    # packed_seq_params in Megatron is replaced by
+                                    # config.use_eod_attn_mask_compression and actual_seq_len in MindFormers.
+                                    # inference_params in Megatron will be deprecated in the future.
+                                    ):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
-        if key_value_states:
-            raise NotImplementedError("`key_value_states` is not supported for now")
-        if position_ids:
-            raise NotImplementedError("`position_ids` is not supported for now")
-        if packed_seq_params:
-            raise NotImplementedError("`packed_seq_params` is not supported for now")
-        if inference_params:
-            raise NotImplementedError("`inference_params` is not supported for now")
+        query, key, value = self._get_query_key_value_tensors(
+            hidden_states=hidden_states,
+            rotary_pos_emb=rotary_pos_emb
+        )
+        if self.use_tnd:
+            query = self.sbnd2tnd(query)
+            key = self.sbnd2tnd(key)
+            value = self.sbnd2tnd(value)
+        return query, key, value
+
+    def _get_query_key_value_tensors(self, hidden_states,
+                                     rotary_pos_emb=None):
+        """
+        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        """
 
         if hidden_states.ndim != 3:
             raise ValueError(f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D")
-
-        # =========================================
-        # Prepare RoPE and seqlen related params
-        # =========================================
-
-        seq_len = self.shape(hidden_states)[0]
-        rotary_pos_emb = self.rotary_pos_emb(seq_len)
 
         # =========================================
         # QKV down projection and layernorm
@@ -784,56 +665,8 @@ class MLASelfAttentionMegatron(MultiLatentAttention):
         # =========================================
         # QKV up projection and RoPE apply
         # =========================================
-        def qkv_up_proj_and_rope_apply(q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
-            if self.config.q_lora_rank is not None:
-                q, _ = self.linear_q_up_proj(q_compressed)
-            else:
-                q, _ = self.linear_q_proj(q_compressed)
 
-            q_len, bsz, _ = self.shape(q)
-
-            q = self.reshape(q, (q_len, bsz, self.num_attention_heads, self.q_head_dim))
-            kv, _ = self.linear_kv_up_proj(kv_compressed)
-
-            kv = self.reshape(kv,
-                              (q_len, bsz, self.num_attention_heads, self.config.qk_head_dim + self.config.v_head_dim))
-
-            k_pos_emb = unsqueeze(k_pos_emb, 2)
-
-            q_no_pe, q_pos_emb = self.split(
-                q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
-            )
-
-            k_no_pe, value = self.split(
-                kv, [self.config.qk_head_dim, self.config.v_head_dim], dim=-1
-            )
-
-            if rotary_pos_emb:
-                q_pos_emb = self.apply_rotary_emb(
-                    q_pos_emb,
-                    rotary_pos_emb,
-                    rotary_interleaved=self.config.rotary_interleaved,
-                    multi_latent_attention=self.config.multi_latent_attention
-                )
-                k_pos_emb = self.apply_rotary_emb(
-                    k_pos_emb,
-                    rotary_pos_emb,
-                    rotary_interleaved=self.config.rotary_interleaved,
-                    multi_latent_attention=self.config.multi_latent_attention,
-                    input_is_parallel=True
-                )
-
-            query = self.pe_tnd_concat([q_no_pe, q_pos_emb])
-
-            k_pos_emb = self.tile_tnd_kv(k_pos_emb, (1, 1, self.num_attention_heads, 1))
-            key = self.pe_tnd_concat([k_no_pe, k_pos_emb])
-
-            query = self.reshape(query, (bsz * q_len, self.num_attention_heads, -1))
-            key = self.reshape(key, (bsz * q_len, self.num_attention_heads, -1))
-            value = self.reshape(value, (bsz * q_len, self.num_attention_heads, -1))
-            return query, key, value
-
-        query, key, value = qkv_up_proj_and_rope_apply(
+        query, key, value = self.qkv_up_proj_and_rope_apply(
             q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb
         )
 

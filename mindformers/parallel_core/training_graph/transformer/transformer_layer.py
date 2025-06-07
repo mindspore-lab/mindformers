@@ -153,7 +153,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             context_mask=None,
             rotary_pos_emb=None,
             prefix_keys_values=None,
-            extra_loss=0.
+            extra_loss=0.,
+            actual_seq_len=None
     ):
         """
         Perform a forward pass through the transformer layer.
@@ -190,6 +191,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             attention_mask=attention_mask,
             rotary_pos_emb=rotary_pos_emb,
             prefix_keys_values=prefix_keys_values,
+            actual_seq_len=actual_seq_len
         )
 
         if isinstance(attention_output_with_bias, tuple):
