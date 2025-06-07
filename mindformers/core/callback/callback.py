@@ -1460,7 +1460,8 @@ class CheckpointMonitor(ModelCheckpoint):
 
         save_checkpoint(network, cur_file, False, False,
                         append_dict, self._config.enc_key, self._config.enc_mode,
-                        format=self._config.format, choice_func=choice_func)
+                        format=self._config.format, choice_func=choice_func,
+                        remove_redundancy=self._config.remove_redundancy)
 
     # pylint: disable=W0640
     def _do_remove_redundancy_for_tft(self, redundancy_info, cur_file, network, append_dict):
@@ -1533,12 +1534,14 @@ class CheckpointMonitor(ModelCheckpoint):
 
             save_checkpoint(network, cur_file, False, self._config.async_save,
                             append_dict, self._config.enc_key, self._config.enc_mode,
-                            format=self._config.format, choice_func=choice_func)
+                            format=self._config.format, choice_func=choice_func,
+                            remove_redundancy=self._config.remove_redundancy)
         else:
             save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
                             append_dict, self._config.enc_key, self._config.enc_mode,
                             format=self._config.format,
-                            choice_func=lambda x: self._filter_ckpt_not_save(x, self.filter_list))
+                            choice_func=lambda x: self._filter_ckpt_not_save(x, self.filter_list),
+                            remove_redundancy=self._config.remove_redundancy)
 
     def save_checkpoint_network(self, cb_params):
         """save checkpoint only network params, which is suitable for train, evaluate and predict."""

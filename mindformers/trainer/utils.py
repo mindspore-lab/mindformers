@@ -440,6 +440,8 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         sys.exit(0)
 
     if config.auto_trans_ckpt:
+        logger.warning("Note that you are using auto_trans func for .ckpt files. OOM error may occur when in "
+                       "large scale clusters. Recommend using safetensors files.")
         is_share_disk = check_shared_disk(config.output_dir)
         logger.info("%s is_share_disk: %r", os.path.abspath(config.output_dir), is_share_disk)
         transform_process_num = config.transform_process_num if config.transform_process_num else 1
