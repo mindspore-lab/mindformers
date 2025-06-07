@@ -15,6 +15,7 @@
 """mcore RoPE UT of inference"""
 from pathlib import Path
 import subprocess
+import random
 import pytest
 import numpy as np
 
@@ -206,8 +207,14 @@ YARN_ROPE_SINGLE_CARD_TEST_CASES = [
 ]
 
 
+def generate_random_port(start, end):
+    """ Get random port."""
+    port = random.randint(start, end)
+    return port
+
+
 def build_msrun_command_list(
-        worker_num, local_worker_num, port, log_dir, run_script_path, module,
+        worker_num, local_worker_num, log_dir, run_script_path, module,
         batch_size, seq_length, rotary_percent, rotary_interleaved, seq_len_interpolation_factor,
         rotary_base, rotary_cos_format, max_position_embedding, is_prefill,
         scaling_factor: float = None, low_freq_factor: float = None, high_freq_factor: float = None,
@@ -215,13 +222,17 @@ def build_msrun_command_list(
         mscale: float = None, mscale_all_dim: float = None, output_path_param: str = None
 ):
     """ Build the msrun command with the specified parameters. """
-    cmd_list = [
-        "msrun",
-        f"--worker_num={worker_num}",
-        f"--local_worker_num={local_worker_num}",
-        f"--master_port={port}",
-        f"--log_dir={log_dir}",
-        "--join=True",
+    if worker_num == 1:
+        cmd_list = ["python"]
+    else:
+        cmd_list = [
+            "msrun",
+            f"--worker_num={worker_num}",
+            f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
+            f"--master_port={generate_random_port(10000, 10100)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--log_dir={log_dir}",
+            "--join=True"]
+    cmd_list += [
         str(run_script_path),
         f"--module={module}",
         f"--batch_size={batch_size}",
@@ -304,14 +315,12 @@ class TestInferRotaryEmbedding:
     def check_result(
             self,
             output_file_path,
-            worker_log_file,
             model_args,
             data_keys,
             result,
             expect_error
     ):
         """Helper function to check results"""
-        assert worker_log_file.exists()
 
         if expect_error:
             assert result.returncode != 0, (
@@ -353,7 +362,6 @@ class TestInferRotaryEmbedding:
         cmd_list = build_msrun_command_list(
             worker_num=worker_num,
             local_worker_num=local_worker_num,
-            port=10020,
             log_dir=log_dir_path,
             run_script_path=self.run_script_path,
             module="default",
@@ -372,7 +380,10 @@ class TestInferRotaryEmbedding:
         cmd_result = subprocess.run(
             cmd_list, shell=False, capture_output=True, text=True, check=False)
 
-        self.check_result(output_file_path, worker_log_file, model_args, data_keys, cmd_result, expect_error)
+        if worker_num > 1:
+            assert worker_log_file.exists()
+
+        self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
@@ -413,7 +424,6 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
         cmd_list = build_msrun_command_list(
             worker_num=worker_num,
             local_worker_num=local_worker_num,
-            port=10021,
             log_dir=log_dir_path,
             run_script_path=self.run_script_path,
             module="llama3",
@@ -436,7 +446,10 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
         cmd_result = subprocess.run(
             cmd_list, shell=False, capture_output=True, text=True, check=False)
 
-        self.check_result(output_file_path, worker_log_file, model_args, data_keys, cmd_result, expect_error)
+        if worker_num > 1:
+            assert worker_log_file.exists()
+
+        self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
@@ -472,7 +485,6 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
         cmd_list = build_msrun_command_list(
             worker_num=worker_num,
             local_worker_num=local_worker_num,
-            port=10022,
             log_dir=log_dir_path,
             run_script_path=self.run_script_path,
             module="yarn",
@@ -497,7 +509,10 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
         cmd_result = subprocess.run(
             cmd_list, shell=False, capture_output=True, text=True, check=False)
 
-        self.check_result(output_file_path, worker_log_file, model_args, data_keys, cmd_result, expect_error)
+        if worker_num > 1:
+            assert worker_log_file.exists()
+
+        self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training

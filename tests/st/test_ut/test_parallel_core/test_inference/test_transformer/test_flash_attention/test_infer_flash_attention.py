@@ -51,21 +51,21 @@ FA_SINGLE_CARD_TEST_CASES = [
         {"output": "output_2"},
         False
     ), (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 2, num_heads: 2,
+        # 并行策略: 单卡, batch_size: 2, seq_length: 1, num_heads: 2,
         # n_kv_heads: 1, hidden_size: 32, is_prefill: FALSE
         # keep_prob: 1.0, scale_value: 0.25
         # expected result: 功能跑通。
-        {"batch_size": BATCH_SIZE, "seq_length": SEQ_LENGTH, "num_heads": NUM_HEADS,
+        {"batch_size": BATCH_SIZE, "seq_length": 1, "num_heads": NUM_HEADS,
          "n_kv_heads": 1, "hidden_size": HIDDEN_SIZE, "is_prefill": False,
          "keep_prob": 1.0, "scale_value": 0.25},
         {"output": "output_3"},
         False
     ), (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 2, num_heads: 2,
+        # 并行策略: 单卡, batch_size: 2, seq_length: 1, num_heads: 2,
         # n_kv_heads: 2, hidden_size: 32, is_prefill: FALSE
         # keep_prob: 1.0, scale_value: 0.25
         # expected result: 功能跑通。
-        {"batch_size": BATCH_SIZE, "seq_length": SEQ_LENGTH, "num_heads": NUM_HEADS,
+        {"batch_size": BATCH_SIZE, "seq_length": 1, "num_heads": NUM_HEADS,
          "n_kv_heads": NUM_HEADS, "hidden_size": HIDDEN_SIZE, "is_prefill": False,
          "keep_prob": 1.0, "scale_value": 0.25},
         {"output": "output_4"},
@@ -179,7 +179,7 @@ class TestFlashAttention:
 
         self.check_function(ouput_ms_dict, model_args, data_keys)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
