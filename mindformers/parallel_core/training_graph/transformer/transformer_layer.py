@@ -13,8 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """Transformer Layer"""
+from dataclasses import dataclass
 from typing import Union
-import mindspore as ms
+from mindspore.ops import auto_generate as aclnn_ops
 from mindspore import nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -24,6 +25,7 @@ from mindformers.parallel_core.training_graph.transformer.dropout import Dropout
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
 
 
+@dataclass
 class TransformerLayerSubmodules:
     """
     Configuration class for specifying the submodules of a transformer layer.
@@ -43,20 +45,14 @@ class TransformerLayerSubmodules:
         mlp (Union[ModuleSpec, type]): Specification for the MLP in Dense layer.
     """
 
-    def __init__(self,
-                 input_layernorm: Union[ModuleSpec, type, object] = IdentityOp,
-                 self_attention: Union[ModuleSpec, type] = IdentityOp,
-                 pre_cross_attn_layernorm: Union[ModuleSpec, type] = IdentityOp,
-                 cross_attention: Union[ModuleSpec, type] = IdentityOp,
-                 pre_mlp_layernorm: Union[ModuleSpec, type, object] = IdentityOp,
-                 mlp: Union[ModuleSpec, type] = IdentityOp,
-                 ):
-        self.input_layernorm = input_layernorm
-        self.self_attention = self_attention
-        self.pre_cross_attn_layernorm = pre_cross_attn_layernorm
-        self.cross_attention = cross_attention
-        self.pre_mlp_layernorm = pre_mlp_layernorm
-        self.mlp = mlp
+    input_layernorm: Union[ModuleSpec, type] = IdentityOp
+    self_attention: Union[ModuleSpec, type] = IdentityOp
+
+    pre_cross_attn_layernorm: Union[ModuleSpec, type] = IdentityOp
+    cross_attention: Union[ModuleSpec, type] = IdentityOp
+
+    pre_mlp_layernorm: Union[ModuleSpec, type] = IdentityOp
+    mlp: Union[ModuleSpec, type] = IdentityOp
 
 
 class BaseTransformerLayer:
@@ -90,13 +86,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
                  ):
         super().__init__()
         self.config = config
-        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.layer_number = layer_number
         self.apply_residual_connection_post_norm = config.apply_residual_connection_post_layernorm
         self.hidden_dropout = config.hidden_dropout if hidden_dropout is None else hidden_dropout
-        self.hidden_states_droupout = Dropout(drop_prob=self.hidden_dropout)
-        self.add = ms.ops.auto_generate.AddExt()
-        self.add_bias = ms.ops.auto_generate.AddExt()
+        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
 
         self.input_layernorm = build_module(
             submodules.input_layernorm,
@@ -107,12 +100,17 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         )
 
         attention_optional_kwargs = {}
+        # NOTE: attention_optional_kwargs={}, Megatron v0.12.0 requires explicit communication setup here,
+        # but MindSpore's built-in shard mechanism handles this automatically in Graph mode.
         self.self_attention = build_module(
             submodules.self_attention,
             config=self.config,
             layer_number=layer_number,
             **attention_optional_kwargs,
         )
+        # self_attn_bda(BiasDropoutFusion) is not supported.
+        # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
+        # computational throughput changes (precision remains unaffected).
 
         self.pre_cross_attn_layernorm = build_module(
             submodules.pre_cross_attn_layernorm,
@@ -122,12 +120,18 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             param_init_type=config.layernorm_compute_dtype
         )
 
+        # NOTE: cross_attention remains disabled here,
+        # with GPTModel implementing it as Identity(X) initialization.
         self.cross_attention = build_module(
             submodules.cross_attention,
             config=self.config,
             layer_number=layer_number,
             **attention_optional_kwargs,
         )
+
+        # cross_attn_bda(BiasDropoutFusion) is not supported.
+        # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
+        # computational throughput changes (precision remains unaffected).
 
         self.pre_mlp_layernorm = build_module(
             submodules.pre_mlp_layernorm,
@@ -138,6 +142,18 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         )
 
         self.mlp = build_module(submodules.mlp, config=self.config)
+
+        # mlp_bda(BiasDropoutFusion) is not supported.
+        # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
+        # computational throughput changes (precision remains unaffected).
+
+        self.hidden_states_droupout = Dropout(drop_prob=self.hidden_dropout)
+        self.add = aclnn_ops.AddExt()
+        self.add_bias = aclnn_ops.AddExt()
+
+        # NOTE: Recompute configuration is managed by
+        # training_graph.transformer.utils.LayerSetting
+        # and applied in TransformerBlock. Check implementation for defaults.
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -176,6 +192,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
                 context (Tensor): Updated context tensor if cross-attention is used,
                 otherwise None.
         """
+        # context/context_mask are only used in cross_attention modules, unused in GPTModel.
+
         # Layer norm at the beginning
         input_layernorm_output = self.input_layernorm(hidden_states)
 
@@ -203,6 +221,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         if self_attention_bias is not None:
             attention_output = self.add_bias(attention_output, self_attention_bias)
 
+        # Cross attention is Identity(X) in GPTModel, future expansions will be implemented.
+
         # Dropout
         dropout_output = self.hidden_states_droupout(attention_output)
 
@@ -229,7 +249,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         dropout_output = self.hidden_states_droupout(mlp_output)
 
         output = self.add(residual, dropout_output)
-
+        # 'return context' is useless, this param may be deprecated later.
         return output, context, extra_loss
 
     def shard(self, config: TransformerConfig):
