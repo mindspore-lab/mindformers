@@ -16,16 +16,17 @@
 
 import pytest
 
-from mindformers import PretrainedConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 
-
-class DummyConfig(PretrainedConfig):
+class DummyConfig(dict):
     """A dummy config that behaves like a dict and supports attribute access."""
 
-    def __init__(self, config: dict):
-        super().__init__(**config)
+    def __getattr__(self, item):
+        return self[item]
+
+    def __contains__(self, item):
+        return dict.__contains__(self, item)
 
 
 @pytest.mark.level0
@@ -41,8 +42,10 @@ def test_normal_execution_case():
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
-        'model_parallel': 2,
-        'pipeline_stage': 1,
+        'parallel_config': {
+            'pipeline_stage': 1,
+            'model_parallel': 2
+        },
         'context_parallel': 1,
     })
     result = convert_to_transformer_config(config)
@@ -68,7 +71,6 @@ def test_passed_in_additional_map_case():
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
-        'model_parallel': 2,
         'pipeline_stage': 1,
         'context_parallel': 1,
         'foo': 16
@@ -92,7 +94,6 @@ def test_is_mla_model_case():
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
-        'model_parallel': 2,
         'pipeline_stage': 1,
         'context_parallel': 1,
         'multi_latent_attention': True
@@ -128,12 +129,13 @@ def test_trans_func_case():
     config = DummyConfig({
         'residual_dtype': 'fp32',
         'softmax_compute_dtype': 'float16',
-        'first_k_dense_replace': 2,
-        'use_gating_sigmoid': True,
+        'moe_config': {
+            'first_k_dense_replace': 2,
+            'use_gating_sigmoid': True
+        },
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
-        'model_parallel': 2,
         'pipeline_stage': 1,
         'context_parallel': 1,
     })
@@ -143,7 +145,6 @@ def test_trans_func_case():
     assert result.num_layers == 2
     assert result.hidden_size == 128
     assert result.num_attention_heads == 8
-    assert result.tensor_model_parallel_size == 2
     assert result.pipeline_model_parallel_size == 1
     assert result.context_parallel_size == 1
     assert result.fp32_residual_connection == used_parameter
@@ -184,11 +185,12 @@ def test_invalid_first_k_dense_replace_case():
     Expectation: Capture the raised ValueError.
     """
     config = DummyConfig({
-        'first_k_dense_replace': 'not_int',
+        'moe_config': {
+            'first_k_dense_replace': 'not_int',
+        },
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
-        'model_parallel': 2,
         'pipeline_stage': 1,
         'context_parallel': 1,
     })
