@@ -15,6 +15,7 @@
 """mcore activation UT of inference"""
 from pathlib import Path
 import subprocess
+import random
 import pytest
 import numpy as np
 
@@ -40,18 +41,28 @@ SINGLE_CARD_TEST_CASES = [
 ]
 
 
+def generate_random_port(start, end):
+    """ Get random port."""
+    port = random.randint(start, end)
+    return port
+
+
 def build_msrun_command_list(
-        worker_num, local_worker_num, port, log_dir, run_script_path, module,
+        worker_num, local_worker_num, log_dir, run_script_path, module,
         batch_size, seq_length, hidden_size, output_path_param: str = None
 ):
     """ Build the msrun command with the specified parameters. """
-    cmd_list = [
-        "msrun",
-        f"--worker_num={worker_num}",
-        f"--local_worker_num={local_worker_num}",
-        f"--master_port={port}",
-        f"--log_dir={log_dir}",
-        "--join=True",
+    if worker_num == 1:
+        cmd_list = ["python"]
+    else:
+        cmd_list = [
+            "msrun",
+            f"--worker_num={worker_num}",
+            f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
+            f"--master_port={generate_random_port(9800, 9900)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--log_dir={log_dir}",
+            "--join=True"]
+    cmd_list += [
         str(run_script_path),
         f"--module={module}",
         f"--batch_size={batch_size}",
@@ -108,14 +119,12 @@ class TestInferSiLU:
     def check_result(
             self,
             output_file_path,
-            worker_log_file,
             model_args,
             data_keys,
             result,
             expect_error
     ):
         """Helper function to check results"""
-        assert worker_log_file.exists()
 
         if expect_error:
             assert result.returncode != 0, (
@@ -157,7 +166,6 @@ class TestInferSiLU:
         cmd_list = build_msrun_command_list(
             worker_num=worker_num,
             local_worker_num=local_worker_num,
-            port=10010,
             log_dir=log_dir_path,
             run_script_path=self.run_script_path,
             module="silu",
@@ -170,9 +178,12 @@ class TestInferSiLU:
         cmd_result = subprocess.run(
             cmd_list, shell=False, capture_output=True, text=True, check=False)
 
-        self.check_result(output_file_path, worker_log_file, model_args, data_keys, cmd_result, expect_error)
+        if worker_num > 1:
+            assert worker_log_file.exists()
 
-    @pytest.mark.level0
+        self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
+
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
