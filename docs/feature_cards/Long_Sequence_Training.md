@@ -17,7 +17,6 @@
 | :--------: | :-----------------------: |
 |   LLaMA2   | 7B<br>13B<br>70B |
 |   Qwen     | 7B<br>14B<br>72B |
-|   Qwen1_5  | 7B<br>14B<br>72B |
 |   GLM4  | 9B |
 
 注：当前长序列并行切分能力仅支持与Flash Attention特性共同使用，请确保模型已经支持FA并开启了`use_flash_attention`配置
