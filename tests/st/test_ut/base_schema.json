@@ -1163,24 +1163,6 @@
     "mindformers.dataset.mask.vision_mask.SimMask": {
         "signature": "(input_size=192, mask_patch_size=32, model_patch_size=4, mask_ratio=0.6)"
     },
-    "mindformers.dataset.transforms.text_transforms.CaptionTransform": {
-        "signature": "(tokenizer, prompt='', max_words=50, max_length=32, padding='max_length', random_seed=2022, truncation=True, add_special_tokens=True)"
-    },
-    "mindformers.dataset.transforms.text_transforms.CaptionTransform.pre_caption": {
-        "signature": "(self, caption)"
-    },
-    "mindformers.dataset.transforms.text_transforms.LabelPadding": {
-        "signature": "(max_length, padding_value=0)"
-    },
-    "mindformers.dataset.transforms.text_transforms.RandomChoiceTokenizerForward": {
-        "signature": "(tokenizer, max_length=77, padding='max_length', random_seed=2022)"
-    },
-    "mindformers.dataset.transforms.text_transforms.TokenizeWithLabel": {
-        "signature": "(tokenizer, max_length=128, padding='max_length')"
-    },
-    "mindformers.dataset.transforms.text_transforms.TokenizerForward": {
-        "signature": "(tokenizer, max_length=77, padding='max_length')"
-    },
     "mindformers.dataset.transforms.vision_transforms.BCHW2BHWC": {
         "signature": "()"
     },

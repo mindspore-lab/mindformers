@@ -26,13 +26,6 @@ from .vision_transforms import (
     RandomResizedCrop,
     Resize
 )
-from .text_transforms import (
-    CaptionTransform,
-    LabelPadding,
-    RandomChoiceTokenizerForward,
-    TokenizeWithLabel,
-    TokenizerForward
-)
 from .mixup import Mixup
 from .random_erasing import RandomErasing
 

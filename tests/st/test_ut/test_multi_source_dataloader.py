@@ -107,12 +107,6 @@ def make_dataset(data_num_list, batch_size=32, samples_count=None, dataset_ratio
             "type": "CLIPTokenizer",
             "pad_token": "!"
         },
-        "text_transforms": {
-            "type": "RandomChoiceTokenizerForward",
-            "max_length": 77,
-            "padding": "max_length",
-            "random_seed": 2022
-        },
         "transforms":
             [{
                 "type": "Resize",
