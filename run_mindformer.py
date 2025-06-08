@@ -207,6 +207,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--do_sample', default=None, type=str2bool,
         help='do_sample.')
+    parser.add_argument(
+        '--trust_remote_code', default=None, type=str2bool,
+        help='HF AutoTokenizer whether trusts remote code.'
+    )
 
     args_, rest_args_ = parser.parse_known_args()
     rest_args_ = [i
@@ -317,6 +321,8 @@ if __name__ == "__main__":
             config_.eval_dataset.data_loader.num_samples = args_.num_samples
     if args_.output_dir is not None:
         config_.output_dir = args_.output_dir
+    if args_.trust_remote_code is not None:
+        config_.trust_remote_code = args_.trust_remote_code
 
     while rest_args_:
         key = rest_args_.pop(0)
