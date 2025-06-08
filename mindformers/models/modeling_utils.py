@@ -192,13 +192,29 @@ def _add_variant(weights_name: str, variant: Optional[str] = None) -> str:
     return weights_name
 
 
-class ModuleUtilsMixin:
+class ModelMixin:
     """
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
     """
 
+    def convert_name(self, weight_name):
+        """convert HuggingFace weight name to MindFormers weight name"""
+        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
 
-class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
+    def check_key_mapping(self):
+        """
+         check key of safetensors.
+        """
+        raise RuntimeError(f"{self.__class__.__name__} does not implemented check_key_mapping method.")
+
+    def convert_hf_weight_to_mf(self, weights_path):
+        """
+        Read HuggingFace weights and convert HuggingFace weights to MindFormer weights
+        """
+        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_hf_weight_to_mf method.")
+
+
+class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
     """
     Base class for all models. Takes care of storing the configuration of the models and handles methods for loading,
     downloading and saving models as well as a few methods common to all models
@@ -1527,11 +1543,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             ckpt_dict (dict) after fusing.
         """
         return ckpt_dict
-
-    @classmethod
-    def convert_name(cls, weight_name):
-        """convert HuggingFace weight name to MindFormers weight name"""
-        raise RuntimeError(f"{cls.__name__} does not implemented convert_name method.")
 
     @classmethod
     def convert_weight_dict(cls, source_dict, **kwargs):
