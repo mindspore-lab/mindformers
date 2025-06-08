@@ -169,8 +169,6 @@ class Qwen3Config(PretrainedConfig):
         self.add_qkv_bias = add_qkv_bias
         self.add_bias_linear = add_bias_linear
         self.gated_linear_unit = gated_linear_unit
-        self.data_parallel_size = parallel_config.data_parallel
-        self.tensor_model_parallel_size = parallel_config.model_parallel
         self.use_flash_attention = use_flash_attention
         # infer params
         self.repetition_penalty = repetition_penalty
@@ -181,3 +179,4 @@ class Qwen3Config(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.parallel_decoding_params = parallel_decoding_params
+        self.parallel_config = parallel_config

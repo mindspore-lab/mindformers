@@ -800,8 +800,8 @@ class GenerationMixin:
             raise ValueError(str(e) + " Please check your inputs of model.generate(),"
                                       " and make sure the inputs are padded to same length.") from e
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
-
-        input_ids = self.split_input_ids(input_ids)
+        if self.config.parallel_config.data_parallel != 1:
+            input_ids = self.split_input_ids(input_ids)
         batch_size = input_ids.shape[0]
 
         if seed is not None:
