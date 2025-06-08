@@ -62,7 +62,6 @@ DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
 LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
-LOG_DEFAULT_PATH = "./output/log"
 LAST_TRANSFORM_LOCK_PATH = "/tmp/last_transform_done.lock"
 
 _PROTOCOL = 'obs'
@@ -187,7 +186,7 @@ def set_strategy_save_path(config):
 
 
 def get_log_path():
-    path = os.getenv("LOG_MF_PATH", LOG_DEFAULT_PATH)
+    path = os.getenv("LOG_MF_PATH", os.path.join(get_output_root_path(), "log"))
     return os.path.expanduser(path)
 
 
