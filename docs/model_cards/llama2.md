@@ -94,11 +94,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测数据集，**alpaca**作为[微调](#微调)数据集，**SQuAD1.1**为阅读理解评测数据集。
 
-| 数据集名称     |                    适用模型                     |          适用阶段           |                                        下载链接                                        |
-|:----------|:-------------------------------------------:|:-----------------------:|:----------------------------------------------------------------------------------:|
-| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html)   |
-| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |  [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)   |
-| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                    [Link](https://data.deepai.org/squad1.1.zip)                    |
+| 数据集名称     |                    适用模型                     |          适用阶段           |                                         下载链接                                         |
+|:----------|:-------------------------------------------:|:-----------------------:|:------------------------------------------------------------------------------------:|
+| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/feature_related.html) |
+| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |   [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)    |
+| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                     [Link](https://data.deepai.org/squad1.1.zip)                     |
 
 数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
@@ -404,7 +404,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)和[离线权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)进行分布式模型权重转换。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2)和[离线权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2)进行分布式模型权重转换。
 
 ## 推理
 
@@ -558,7 +558,7 @@ processor:
 
 1. 切分模型权重
 
-   可参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#%E5%8D%95%E5%8D%A1%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%BA%E5%A4%9A%E5%8D%A1%E6%9D%83%E9%87%8D)中的"单卡权重切分为多卡权重"进行完整权重切分以用于分布式评测。
+   可参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)中的"单卡权重切分为多卡权重"进行完整权重切分以用于分布式评测。
 
    修改权重文件夹目录结构如下，将模型权重放入`rank_0`的文件夹中。
 

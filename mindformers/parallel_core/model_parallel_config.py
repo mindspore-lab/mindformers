@@ -123,7 +123,7 @@ class ModelParallelConfig:
     For configuration method of distributed parallel parameters,
     refer to the contents of the Parallel Configuration section
     in MindSpore Transformers configuration description:
-    (https://www.mindspore.cn/mindformers/docs/en/dev/appendix/conf_files.html)
+    (https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/configuration.html)
     """
 
     vocab_emb_dp: Optional[bool] = True

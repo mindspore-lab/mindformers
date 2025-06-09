@@ -126,7 +126,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/mindie_deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 
@@ -192,7 +192,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
       model_config.save_pretrained(save_directory="/mf_model/llama3_2_3b", save_json=True)
       ```
 
-      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/weight_conversion.html)。
+      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E6%A0%BC%E5%BC%8F%E8%BD%AC%E6%8D%A2)。
 
       准备好模型配置目录后，设置参数`modelWeightPath`为该目录路径。
 

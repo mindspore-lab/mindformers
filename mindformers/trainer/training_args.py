@@ -449,7 +449,7 @@ class TrainingArguments:
         metadata={
             "help": (
                 "Whether to transform checkpoint according to parallel config. See the [Transform_Ckpt documentation]"
-                "(https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/transform_weight.html)"
+                "(https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)"
                 " for more details. Default: False."
             )
         }

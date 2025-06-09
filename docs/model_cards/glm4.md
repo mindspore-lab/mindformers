@@ -64,7 +64,7 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ### 安装环境
 
-MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/install.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/install.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
+MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
 
 ### 数据及权重准备
 

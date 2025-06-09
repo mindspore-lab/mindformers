@@ -135,7 +135,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 MindFormers 1.5.0及以上版本已支持safetensor格式的权重直接加载及保存，无需转换成ckpt。下文中的[微调](#微调)和[推理](#推理)样例将使用safetensors格式权重运行。
 
-safetensors相关配置项，更多介绍请参考[Safetensors权重使用文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/safetensors.html)：
+safetensors相关配置项，更多介绍请参考[Safetensors权重使用文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/safetensors.html)：
 
 ```yaml
 # 指定加载的权重格式
@@ -176,13 +176,13 @@ align_rank:  lora配置中rank的值是否对齐
 python convert_weight.py --model qwen2_5 --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --dtype bf16 --is_lora True --align_rank True
 ```
 
-- **[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)**
+- **[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)**
 
   从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
 
 ##### 模型权重qkv_concat转换
 
