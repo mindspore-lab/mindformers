@@ -32,9 +32,6 @@ class PerplexityCell(nn.Cell):
 
     def construct(self, logits, labels, input_mask):
         """construct"""
-        if self.is_pipeline_parallel:
-            # input_mask was added 1 in GPT2LMModel to avoid allgather issue in Mindspore1.10
-            input_mask = self.sub(input_mask, 1)
         batch_size, seq_length, _ = logits.shape
         logits = self.reshape(logits[::, :-1, ::], (batch_size * (seq_length - 1), -1))
         labels = self.reshape(labels[::, 1:], (-1,))

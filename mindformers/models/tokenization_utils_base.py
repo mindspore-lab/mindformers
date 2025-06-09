@@ -919,23 +919,6 @@ class SpecialTokensMixin:
 
         Returns:
             `int`: Number of tokens added to the vocabulary.
-
-        Examples:
-
-        ```python
-        # Let's see how to add a new classification token to GPT-2
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        model = GPT2Model.from_pretrained("gpt2")
-
-        special_tokens_dict = {"cls_token": "<CLS>"}
-
-        num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
-        print("We have added", num_added_toks, "tokens")
-        # Notice: resize_token_embeddings expect to receive the full size of the new vocabulary, i.e., the length of the tokenizer.
-        model.resize_token_embeddings(len(tokenizer))
-
-        assert tokenizer.cls_token == "<CLS>"
-        ```
         """
         if not special_tokens_dict:
             return 0
@@ -2004,25 +1987,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 Passing `token=True` is required when you want to use a private model.
 
                 </Tip>
-
-                Examples:
-
-                ```python
-                # We can't instantiate directly the base class *PreTrainedTokenizerBase* so let's show our examples on
-                derived classes: BertTokenizer and Gpt2Tokenizer
-
-                # Download vocabulary from user-uploaded repo id and cache.
-                tokenizer = Gpt2Tokenizer.from_pretrained("mindformersinfra/test_auto_tokenizer_gpt2_ms")
-
-                # If the tokenizer uses a single vocabulary file, you can point directly to this file
-                tokenizer = BertTokenizer.from_pretrained("./test/saved_model/my_vocab.txt")
-
-                # You can link tokens to special vocabulary when instantiating
-                tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", unk_token="<unk>")
-                # You should be sure '<unk>' is in the vocabulary when doing that.
-                # Otherwise use tokenizer.add_special_tokens({'unk_token': '<unk>'}) instead)
-                assert tokenizer.unk_token == "<unk>"
-                ```"""
+        """
         # kwargs pop these params to align from_pretrained's interface
         cache_dir = kwargs.pop("cache_dir", None)
         force_download = kwargs.pop("force_download", False)

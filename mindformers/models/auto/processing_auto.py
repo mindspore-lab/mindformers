@@ -47,7 +47,6 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("blip2", "Blip2Processor"),
         ("clip", "CLIPProcessor"),
         ("glm", "GLMProcessor"),
-        ("gpt2", "GPT2Processor"),
         ("llama", "LlamaProcessor"),
         ("mae", "ViTMAEProcessor"),
         ("sam", "SamProcessor"),

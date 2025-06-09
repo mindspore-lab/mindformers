@@ -50,12 +50,6 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
-
-    Examples:
-        >>> from mindformers import CausalLanguageModelingTrainer
-        >>> gen_trainer = CausalLanguageModelingTrainer(model_name="gpt2")
-        >>> type(gen_trainer)
-        <class 'mindformers.trainer.causal_language_modeling.causal_language_modeling.CausalLanguageModelingTrainer'>
     """
 
     def __init__(self, model_name: str = None):

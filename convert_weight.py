@@ -56,9 +56,6 @@ if __name__ == '__main__':
     parser.add_argument('--dtype', default=None, type=str, required=False)
     parser.add_argument('--qkv_concat', default=False, type=str2bool, required=False)
 
-    parser.add_argument('--layers', default=12, type=int, required=False,
-                        help="Only for gpt2. "
-                             "The number of layers of the model to be converted from hf to ms")
     parser.add_argument('--is_pretrain', default=False, type=bool, required=False,
                         help="Only for swin. Convert pretrain model weight.")
     parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,

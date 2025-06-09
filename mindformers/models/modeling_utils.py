@@ -1010,13 +1010,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         use this method in a firewalled environment.
 
         </Tip>
-
-        Examples:
-            >>> from mindformers import GPT2Model
-            >>> # Download model and configuration from openmind and cache.
-            >>> model = GPT2Model.from_pretrained("XXX")
-            >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
-            >>> model = GPT2Model.from_pretrained("./test/saved_model/")
         """
         state_dict = kwargs.pop("state_dict", None)
         resume_download = kwargs.pop("resume_download", False)
