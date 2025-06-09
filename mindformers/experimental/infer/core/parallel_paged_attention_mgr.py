@@ -46,14 +46,14 @@ class ParallelPagedAttentionMgr(nn.Cell):
             self.key_cache = create_empty_parameter(
                 shape=kv_shape,
                 dtype=compute_dtype,
-                device="CPU",
+                device="Ascend",
                 name="key_cache",
                 requires_grad=False,
             )
             self.value_cache = create_empty_parameter(
                 shape=kv_shape,
                 dtype=compute_dtype,
-                device="CPU",
+                device="Ascend",
                 name="value_cache",
                 requires_grad=False,
             )
