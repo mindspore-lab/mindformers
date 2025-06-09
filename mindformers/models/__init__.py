@@ -124,21 +124,6 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
-from .cogvlm2 import (
-    CogVLM2Config,
-    CogVLM2ContentTransformTemplate,
-    CogVLM2ForCausalLM,
-    CogVLM2ImageContentTransformTemplate,
-    CogVLM2ImageForCausalLM,
-    CogVLM2Tokenizer,
-    CogVLM2VideoLM,
-    CogVLM2VideoLMModel,
-    LlamaForCausalLMForCogVLM2Image
-)
-from .eva02 import (
-    EVA02Config,
-    EVAModel
-)
 from .whisper import (
     WhisperConfig,
     WhisperForConditionalGeneration,
