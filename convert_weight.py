@@ -38,7 +38,8 @@ convert_map = {
     'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
     'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
     'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
-    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms'
+    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
+    'deepseekv3': 'toolkit.weight_convert.deepseekv3.convert_deepseekv3_hf_weight.convert_weight'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     model_name, func_name = module_func.rsplit('.', 1)
     convert_func = getattr(importlib.import_module(model_name), func_name)
 
-    if args.model == "qwen2_5":
+    if args.model in ["qwen2_5", "deepseekv3"]:
         merged_args = argparse.Namespace(**{**vars(args), **extra_kwargs})
         convert_func(merged_args)
     else:
