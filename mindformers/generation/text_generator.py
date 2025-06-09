@@ -22,7 +22,7 @@ from typing import Optional, List, Union, Dict
 
 import numpy as np
 import mindspore as ms
-from mindspore import mint
+from mindspore import mint, mutable
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
@@ -46,6 +46,10 @@ from mindformers.tools.utils import is_pynative, get_context
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 from mindformers.generation.parallel_decoding_mcore import la_pre_process
+from mindformers.parallel_core.inference.utils import (
+    get_tp_world_size,
+    divide,
+)
 
 __all__ = ["GenerationMixin"]
 
@@ -91,6 +95,10 @@ class GenerationMixin:
         self._pre_set_phase = None
         self._exec_add_flags = True
         self.gather = P.Gather()
+        self.hard_mask = Tensor([0], dtype=ms.bfloat16).reshape(1, 1)
+        self.lower_triangle_mask = None
+        self.key_cache = None
+        self.value_cache = None
 
     def _set_network_phase(self, phase):
         self._pre_set_phase = phase
@@ -103,6 +111,50 @@ class GenerationMixin:
 
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
+
+    def _set_kv_cache(self):
+        """Initial key cache and value cache."""
+        if self.key_cache is None and self.value_cache is None:
+            tansformer_config = self.model.config
+
+            num_heads = tansformer_config.num_attention_heads
+            num_query_groups = tansformer_config.num_query_groups or num_heads
+            compute_dtype = tansformer_config.compute_dtype
+
+            tp_group_size = get_tp_world_size()
+
+            hidden_size_per_attention_head = getattr(tansformer_config, 'kv_channels', divide(
+                tansformer_config.hidden_size, num_heads
+            ))
+
+            if num_heads != num_query_groups:
+                num_query_groups_per_partition = divide(num_query_groups, tp_group_size)
+            else:
+                num_query_groups_per_partition = divide(num_heads, tp_group_size)
+
+            kv_cache_shape = (tansformer_config.num_blocks,
+                              tansformer_config.block_size,
+                              num_query_groups_per_partition,
+                              hidden_size_per_attention_head
+                              )
+            key_cache = []
+            value_cache = []
+            for _ in range(tansformer_config.num_layers):
+                k_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
+                v_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
+                key_cache.append(k_cache)
+                value_cache.append(v_cache)
+            self.key_cache = mutable(key_cache)
+            self.value_cache = mutable(value_cache)
+
+    def _set_lower_triangle_mask(self):
+        """Initial attention mask."""
+        if self.lower_triangle_mask is None:
+            compute_dtype = self.model.config.compute_dtype
+            mask_coeff = 1.0 if self.config.compute_dtype is mstype.bfloat16 else -10000.0
+            self.lower_triangle_mask = Tensor(
+                np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_dtype
+                )
 
     @staticmethod
     def _prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping, model_inputs):
@@ -903,6 +955,8 @@ class GenerationMixin:
 
         if not use_legacy:
             self._set_block_mgr(batch_size, self.config.seq_length)
+            self._set_kv_cache()
+            self._set_lower_triangle_mask()
             self.set_dynamic_inputs()
         elif generation_config.use_past:
             self._set_block_mgr(batch_size, self.config.seq_length)
@@ -1321,6 +1375,13 @@ class GenerationMixin:
                 res = self(**model_inputs)  # pylint: disable=E1102
         return res, current_index
 
+    def gen_attention_mask(self, is_prefill):
+        if is_prefill:
+            attention_mask = self.lower_triangle_mask
+        else:
+            attention_mask = self.hard_mask
+        return attention_mask
+
     def prepare_inputs_for_generation_mcore(self,
                                             input_ids: [Union[List[int], List[List[int]]]],
                                             valid_length_each_example: np.ndarray,
@@ -1364,9 +1425,10 @@ class GenerationMixin:
                 attention_mask = Tensor.from_numpy(attention_mask)
             model_inputs["attention_mask"] = attention_mask.astype(self.config.compute_dtype)
         else:
-            model_inputs["attention_mask"] = None
+            model_inputs["attention_mask"] = self.gen_attention_mask(prefill)
         model_inputs["attn_metadata"] = None
-        model_inputs["kv_cache"] = None
+        model_inputs["key_cache"] = self.key_cache
+        model_inputs["value_cache"] = self.value_cache
         return model_inputs, prefill
 
     def forward_mcore(self,

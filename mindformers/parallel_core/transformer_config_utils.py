@@ -183,7 +183,8 @@ INFER_CONFIG_KEY = set({"mindformers_version",
                         "max_decode_length",
                         "top_k",
                         "top_p",
-                        "do_sample"})
+                        "do_sample",
+                        "post_process"})
 DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(MOE_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)

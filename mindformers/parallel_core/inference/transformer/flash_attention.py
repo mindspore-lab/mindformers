@@ -15,10 +15,7 @@
 """Flash Attention Layer"""
 __all__ = ['FlashAttention']
 
-import mindspore.common.dtype as mstype
 from mindspore import ops
-from mindspore import Parameter
-from mindspore.common.initializer import initializer
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
@@ -47,7 +44,6 @@ class FlashAttention(Cell):
         - **query** (Tensor[float16, bfloat16]) - The query tensor.
         - **key** (Tensor[float16, bfloat16]) - The key tensor.
         - **value** (Tensor[float16, bfloat16]) - The value tensor.
-        - **kv_cache** (Tensor) - reserved field
         - **slot_mapping** (Tensor) - Store token cache physical slot index.
         - **block_tables** (Tensor) - The block mapping table with data type of int32.
         - **batch_valid_length** (Tensor) -  In incremental inference, a tensor used for calculating the index
@@ -61,6 +57,8 @@ class FlashAttention(Cell):
         - **padding_mask** (None) - Reserved parameter. Not implemented yet.
         - **prefix** (Union[Tensor[int64], None]) - N value of each Batch in the prefix sparse calculation scenario.
           Not implemented yet. Input tensor of shape :math:`(B,)`.
+        - **key_cache** (Tensor, optional) - Key cache for incremental inference.
+        - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
         - **attention_out** (Tensor[float16, bfloat16]) - The output of attention, its shape, and data type
@@ -73,7 +71,6 @@ class FlashAttention(Cell):
     def __init__(
             self,
             head_num,
-            kv_cache_shape,
             head_dim=None,
             kv_head_num=None,
             keep_prob=1.0,
@@ -81,7 +78,6 @@ class FlashAttention(Cell):
             pre_tokens=2147483647,
             next_tokens=2147483647,
             sparse_mode=0,
-            compute_dtype=mstype.float16,
             input_layout="TH"
     ):
         super().__init__()
@@ -107,21 +103,11 @@ class FlashAttention(Cell):
         self.paged_attention = ops.auto_generate.PagedAttention(
             self.head_num, scale_value, self.kv_head_num)
 
-        self.key_cache = Parameter(initializer('zeros', kv_cache_shape,
-                                               compute_dtype),
-                                   name="key_cache",
-                                   requires_grad=False)
-        self.value_cache = Parameter(initializer('zeros', kv_cache_shape,
-                                                 compute_dtype),
-                                     name="value_cache",
-                                     requires_grad=False)
-
     # pylint: disable=W0613
     def construct(self,
                   query,
                   key,
                   value,
-                  kv_cache=None,
                   slot_mapping=None,
                   block_tables=None,
                   batch_valid_length=None,
@@ -131,14 +117,14 @@ class FlashAttention(Cell):
                   actual_seq_kvlen=None,
                   attn_mask=None,
                   padding_mask=None,
-                  prefix=None):
+                  prefix=None,
+                  key_cache=None,
+                  value_cache=None):
         """Forward process of the FlashAttention."""
 
         bs, seq_len, _ = query.shape
-        key_cache = self.key_cache
-        value_cache = self.value_cache
-        self.reshape_and_cache(key, value, self.key_cache, self.value_cache,
-                               slot_mapping)
+
+        self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:
 

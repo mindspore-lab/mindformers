@@ -122,13 +122,24 @@ class TransformerLayerRunner:
         """Run the model with given inputs"""
         net = self.build_model()
 
+        kv_cache_shape = (
+            DEFAULT_NUM_BLOCKS,
+            DEFAULT_BLOCK_SIZE,
+            self.num_attention_heads // self.args.tensor_parallel,
+            self.hidden_size // self.num_attention_heads)
+        key_cache = ms.mint.zeros(kv_cache_shape, dtype=self.compute_dtype)
+        value_cache = ms.mint.zeros(kv_cache_shape, dtype=self.compute_dtype)
+
         output = net(hidden_states=self.hidden_states,
                      attention_mask=self.attention_mask,
                      batch_valid_length=self.batch_valid_length,
                      context_lens_tensor=self.context_lens_tensor,
                      q_seq_lens=self.q_seq_lens,
                      block_tables=self.block_tables,
-                     slot_mapping=self.slot_mapping)
+                     slot_mapping=self.slot_mapping,
+                     key_cache=key_cache,
+                     value_cache=value_cache
+                     )
         output_ms = {"output": output}
 
         if self.rank_id is None or int(self.rank_id) == 0:

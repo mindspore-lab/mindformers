@@ -109,7 +109,8 @@ class TransformerBlock(nn.Cell):
         - **q_seq_lens** (Tensor) - Tensor of query lengths.
         - **block_tables** (Tensor) - Block tables for memory optimization.
         - **slot_mapping** (Tensor) - Slot mapping for memory optimization.
-        - **kv_cache** (List[Tensor], optional) - Key-value cache for incremental inference.
+        - **key_cache** (Tensor, optional) - Key cache for incremental inference.
+        - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
         - **hidden_states** (Tensor) - Output tensor of transformer block
@@ -188,10 +189,13 @@ class TransformerBlock(nn.Cell):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
-            kv_cache=None
+            key_cache=None,
+            value_cache=None
     ):
         """ Construct function of transformer. """
         for index in range(self.num_layers):
+            key_cache_idx = key_cache[index] if key_cache is not None else None
+            value_cache_idx = value_cache[index] if value_cache is not None else None
             layer = self._get_layer(index)
             hidden_states = layer(
                 hidden_states=hidden_states,
@@ -207,7 +211,8 @@ class TransformerBlock(nn.Cell):
                 q_seq_lens=q_seq_lens,
                 block_tables=block_tables,
                 slot_mapping=slot_mapping,
-                kv_cache=kv_cache
+                key_cache=key_cache_idx,
+                value_cache=value_cache_idx
             )
 
         # final layernorm.

@@ -180,3 +180,4 @@ class Qwen3Config(PretrainedConfig):
         self.num_blocks = num_blocks
         self.parallel_decoding_params = parallel_decoding_params
         self.parallel_config = parallel_config
+        self.post_process = True

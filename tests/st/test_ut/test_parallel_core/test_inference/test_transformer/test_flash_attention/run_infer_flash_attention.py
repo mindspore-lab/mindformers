@@ -84,12 +84,10 @@ class FlashAttentionRunner:
         """Build Flash_Attn"""
         net = FlashAttention(
             head_num=self.num_heads,
-            kv_cache_shape=self.kv_cache_shape,
             head_dim=self.head_dim,
             keep_prob=self.keep_prob,
             kv_head_num=self.n_kv_heads,
-            scale_value=self.scale_value,
-            compute_dtype=mstype.bfloat16
+            scale_value=self.scale_value
         )
         return net
 
@@ -99,6 +97,9 @@ class FlashAttentionRunner:
         if not self.is_prefill:
             net.phase = "increment"
             net.add_flags(is_prefill=False)
+
+        key_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
+        value_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
 
         output = net(
             query=self.query,
@@ -110,7 +111,9 @@ class FlashAttentionRunner:
             actual_seq_qlen=self.batch_valid_length,
             actual_seq_kvlen=self.batch_valid_length,
             batch_valid_length=self.batch_valid_length,
-            context_lens_tensor=self.batch_valid_length
+            context_lens_tensor=self.batch_valid_length,
+            key_cache=key_cache,
+            value_cache=value_cache
         )
         output_ms = {"output": output}
 
