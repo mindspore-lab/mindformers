@@ -66,6 +66,7 @@ class YarnRotaryEmbedding(RotaryEmbedding):
                  beta_slow: float = 1.0,
                  mscale: float = 1.0,
                  mscale_all_dim: float = 0.0,
+                 use_eod_reset: bool = False
                  ):
         internal_freq_base = np.arange(0, kv_channels, 2)[: (kv_channels // 2)].astype(np.float32)
         internal_freq = 1.0 / (scaling_factor * rotary_base ** (internal_freq_base / kv_channels))
@@ -88,6 +89,7 @@ class YarnRotaryEmbedding(RotaryEmbedding):
             seq_len_interpolation_factor,
             rotary_base,
             use_cpu_initialization,
+            use_eod_reset
         )
 
     def construct(self, max_seq_len: int, offset: int = 0, position_ids=None):
@@ -96,21 +98,33 @@ class YarnRotaryEmbedding(RotaryEmbedding):
         Args:
             max_seq_len (int): The maximum sequence length.
             offset (int): The offset for the sequence.
+            position_ids: user self-defined position_ids for eod_reset.
 
         Returns:
             Tensor: Embeddings after applying RoPE.
+            Tensor: mscale.
         """
-        if position_ids is None:
+        if position_ids is None or not self.use_eod_reset:
+            bs = 1
             seq = ops.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset
+            outer = self.outer
+            cat = self.cat
         else:
-            seq = position_ids + offset
+            bs = position_ids.shape[0]
+            seq = self.reshape(position_ids, (-1,)) + offset
+            outer = self.outer_for_eod
+            cat = self.cat_for_eod
 
-        freqs = self.outer(seq, self.freqs)
+        freqs = outer(seq, self.freqs)
 
-        emb = self.cat((freqs, freqs))
+        emb = cat((freqs, freqs))
 
-        # emb[seq_length, .., dim]
-        out = self.reshape(emb, (emb.shape[0], -1, 1, emb.shape[1]))
+        if position_ids is None or not self.use_eod_reset:
+            # emb[seq_length, .., dim]
+            out = self.reshape(emb, (-1, bs, 1, emb.shape[1]))
+        else:
+            out = self.reshape(emb, (bs, -1, 1, emb.shape[1]))
+            out = self.transpose(out, (1, 0, 2, 3))
         return out.copy(), self.mscale
 
 

@@ -185,6 +185,7 @@ class GPTModel(nn.Cell):
                     kv_channels=config.qk_pos_emb_head_dim,
                     rotary_percent=config.rotary_percent,
                     rotary_base=config.rotary_base,
+                    use_eod_reset=config.use_eod_reset
                 )
             else:
                 self.rotary_pos_emb = RotaryEmbedding(
@@ -195,6 +196,7 @@ class GPTModel(nn.Cell):
                     rotary_base=rotary_base,
                     rope_scaling=rope_scaling,
                     rope_scaling_factor=rope_scaling_factor,
+                    use_eod_reset=config.use_eod_reset
                 )
         elif self.position_embedding_type == 'yarn':
             self.rotary_pos_emb = YarnRotaryEmbedding(
@@ -206,10 +208,12 @@ class GPTModel(nn.Cell):
                 beta_slow=config.beta_slow,
                 mscale=config.mscale,
                 mscale_all_dim=config.mscale_all_dim,
+                use_eod_reset=config.use_eod_reset
             )
         elif self.position_embedding_type == 'mrope':
             raise NotImplementedError("position_embedding_type = mrope is not supported now.")
-
+        if self.use_rotary_position_embeddings:
+            self.rotary_pos_emb.shard(config)
         # Transformer.
         self.decoder = TransformerBlock(
             config=self.config,

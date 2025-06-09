@@ -61,6 +61,8 @@ class DeepseekV3Config(PretrainedConfig):
         softmax_compute_dtype (str, optional): Softmax compute dtype. Default: ``float32``.
         rotary_dtype (str, optional): RoPE compute dtype. Default: ``float32``.
         param_init_type (str, optional): Parameter initial dtype. Default: ``float16``.
+        hidden_dropout (float, optional): Dropout probability for transformer hidden state. Default: ``0.0``.
+        attention_dropout (float, optional): Post attention dropout probability. Default: ``0.0``.
         qkv_has_bias (bool, optional): Whether the Query, Key, and Value projection has bias. Default: ``False``.
         add_bias_linear (bool, optional): Include a bias term in all linear layers. Default: ``False``.
         parallel_config (Union[dict, TransformerOpParallelConfig], optional): The parallel configuration.
@@ -117,6 +119,8 @@ class DeepseekV3Config(PretrainedConfig):
                  rotary_dtype: str = "float32",
                  param_init_type: str = "bfloat16",
                  init_method_std=0.006,
+                 hidden_dropout=0.0,
+                 attention_dropout=0.0,
                  qkv_has_bias=False,
                  add_bias_linear=False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
@@ -158,7 +162,9 @@ class DeepseekV3Config(PretrainedConfig):
         self.qk_rope_head_dim = qk_rope_head_dim
         self.v_head_dim = v_head_dim
         self.qk_nope_head_dim = qk_nope_head_dim
+        self.attention_dropout = attention_dropout
 
+        self.hidden_dropout = hidden_dropout
         self.n_kv_heads = n_kv_heads
         self.rms_norm_eps = rms_norm_eps
         self.param_init_type = convert_mstype(param_init_type)

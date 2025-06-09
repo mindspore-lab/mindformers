@@ -20,7 +20,8 @@ from mindformers.tools.register import MindFormerConfig
 
 _GLOBAL_TENSORBOARD_WRITER = None
 _GLOBAL_TENSORBOARD_WRITER_ARGS = {'log_timers_to_tensorboard': False,
-                                   'log_loss_scale_to_tensorboard': False
+                                   'log_loss_scale_to_tensorboard': False,
+                                   'log_expert_load_to_tensorboard': False,
                                    }
 _GLOBAL_TENSORBOARD_TEXT_MAPPING = set()
 

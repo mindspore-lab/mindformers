@@ -2143,6 +2143,11 @@ class TopkBiasBalanceCallback(Callback):
         # for aux loss free
         # this process is to update the expert load
         self.update_topk_bias_flag = balance_via_topk_bias
+        self.write_expert_load_to_tensorboard = get_tensorboard_args()['log_expert_load_to_tensorboard']
+        self.tensor_writer = get_tensorboard_writer()
+        if self.update_topk_bias_flag and self.tensor_writer is not None and self.write_expert_load_to_tensorboard:
+            logger.info('The expert loads will be written to tensorboard.')
+        self.cur_step = 0
         if self.update_topk_bias_flag:
             self.assign = P.Assign()
             self.assign.recompute(False)
@@ -2165,8 +2170,14 @@ class TopkBiasBalanceCallback(Callback):
             network = network.network
         if hasattr(network, "update_topk_bias"):
             expert_loads = network.update_topk_bias(self.acc_step_over_expert_num, self.topk_bias_update_rate)
-            for layer, expert_load in expert_loads:
-                logger.info(f"The expert_load sum of {layer}: {expert_load.sum().item()}")
+            if self.tensor_writer is not None and self.write_expert_load_to_tensorboard:
+                for layer, expert_load in expert_loads:
+                    expert_load_dict = {f"ep_{i}": load_i.asnumpy() for i, load_i in enumerate(expert_load)}
+                    self.tensor_writer.add_scalars(
+                        f"expert_load/{layer}",
+                        expert_load_dict,
+                        global_step=self.cur_step
+                    )
             return
         for i in range(self.num_layers):
             if hasattr(network.model.layers[i].feed_forward, "routed_experts"):
@@ -2196,6 +2207,7 @@ class TopkBiasBalanceCallback(Callback):
 
     def on_train_step_end(self, run_context):
         cb_params = run_context.original_args()
+        self.cur_step = cb_params.cur_step_num
         if self.update_topk_bias_flag:
             # pylint: disable=W0212
             self._update_topk_bias(cb_params.train_network.network.network._backbone)
