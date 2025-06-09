@@ -21,6 +21,7 @@ import mindspore.common.dtype as mstype
 from mindspore import ops, ParallelMode
 from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
+from mindspore.ops import auto_generate as aclnn_ops
 from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.parallel.shard import Layout
@@ -75,7 +76,7 @@ class FlashAttention(Cell):
         - **attention_out** (Tensor): The attention output tensor with the same shape and type as `query`.
 
     Supported Platforms:
-        ``Ascend910B``
+        ``Ascend``
     """
 
     def __init__(self,
@@ -88,33 +89,40 @@ class FlashAttention(Cell):
                  cp_comm_type: str = None,
                  ):
         super(FlashAttention, self).__init__()
+
+        # FA (Flash Attention) is an optimized version of DotProductAttention in Megatron v0.12.0,
+        # with nearly identical computational precision.
+
         if attn_mask_type:
             raise NotImplementedError("For FlashAttention, 'attn_mask_type' is not supported for now.")
         if attention_type:
             raise NotImplementedError("For FlashAttention, 'attention_type' is unused for now.")
         if cp_comm_type:
             raise NotImplementedError("For FlashAttention, 'cp_comm_type' is not supported for now.")
+
         self.config = config
-        self.seq_len = config.seq_length
-        self.layer_index = max(1, layer_number)
-        self.head_num = config.num_attention_heads
-        self.input_layout = config.input_layout
-        self.sparse_mode = config.sparse_mode
-        self.use_alibi_mask = config.use_alibi_mask
-        self.use_mqa = config.num_query_groups == 1
-        self.use_ring_attention = config.use_ring_attention
-        self.use_attention_mask = not self.use_ring_attention
-        self.attention_dropout = config.attention_dropout if attention_dropout is None else attention_dropout
-        self.enable_dropout = self.attention_dropout > 0.0
+        self.layer_number = max(1, layer_number)
+
         self.use_actual_seqlen = config.use_eod_attn_mask_compression
-        self.head_dim = config.qk_head_dim + config.qk_pos_emb_head_dim if config.multi_latent_attention \
-            else config.kv_channels
         self.cp = 1 if self.config.context_parallel_size is None else self.config.context_parallel_size
         self.compute_2d = (config.sequence_parallel and self.cp == 1)
 
+        projection_size = self.config.kv_channels * self.config.num_attention_heads
+
+        if config.multi_latent_attention:
+            hidden_size_per_attention_head = config.qk_head_dim + config.qk_pos_emb_head_dim
+        else:
+            hidden_size_per_attention_head = projection_size // config.num_attention_heads
+
+        # MindSpore FlashAttentionScore
+        self.head_num = config.num_attention_heads
+        self.input_layout = config.input_layout
+        self.sparse_mode = config.sparse_mode
+        self.attention_dropout = config.attention_dropout if attention_dropout is None else attention_dropout
+
         pre_tokens = 2147483647
         next_tokens = 0
-        scale_value = 1. / math.sqrt(self.head_dim) if softmax_scale is None else softmax_scale
+        scale_value = 1. / math.sqrt(hidden_size_per_attention_head) if softmax_scale is None else softmax_scale
         self.flash_attention = FlashAttentionScore(head_num=self.head_num,
                                                    keep_prob=1 - self.attention_dropout,
                                                    scale_value=scale_value,
@@ -123,11 +131,15 @@ class FlashAttention(Cell):
                                                    inner_precise=0,
                                                    input_layout=self.input_layout,
                                                    sparse_mode=self.sparse_mode)
-        self.bnsd_transpose = ops.auto_generate.Transpose()
-        self.merge_head_transpose = ops.auto_generate.Transpose()
-        self.shape = ops.auto_generate.Shape()
-        self.reshape = ops.auto_generate.Reshape()
-        self.fa_out_transpose = ops.auto_generate.Transpose()
+
+        # Note: only support config.apply_query_key_layer_scaling=False,
+        # FusedScaleMaskSoftmax does not require implementation.
+
+        self.use_alibi_mask = config.use_alibi_mask
+        self.use_mqa = config.num_query_groups == 1
+        self.use_ring_attention = config.use_ring_attention
+        self.use_attention_mask = not self.use_ring_attention
+        self.enable_dropout = self.attention_dropout > 0.0
 
         if self.use_ring_attention:
             self.flash_attention.add_prim_attr("enable_ring_attention", True)
@@ -138,6 +150,12 @@ class FlashAttention(Cell):
         if self.enable_dropout:
             self.keep_prob_tensor = Tensor(1 - self.attention_dropout, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
+
+        self.bnsd_transpose = aclnn_ops.Transpose()
+        self.merge_head_transpose = aclnn_ops.Transpose()
+        self.shape = aclnn_ops.Shape()
+        self.reshape = aclnn_ops.Reshape()
+        self.fa_out_transpose = aclnn_ops.Transpose()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
