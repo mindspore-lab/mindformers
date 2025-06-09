@@ -224,7 +224,7 @@ class TestMultiLatentAttention:
             output_ms_dict = np.load(output_file_path)
             self.check_acc(output_ms_dict, golden_data_key)
         else:
-            if struct == 'a2':
+            if struct == 'concatenated':
                 prefix, mode_num = tmp_path.name.split('mode')
                 mega_output_dir = prefix + 'mode' + str(int(mode_num) - 1)
                 mega_output_file = tmp_path.parent / mega_output_dir / "output_mla_ms_megatron_multi.npz"
@@ -237,7 +237,7 @@ class TestMultiLatentAttentionSingleCard(TestMultiLatentAttention):
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
-    @pytest.mark.parametrize('struct', ['megatron', 'a2'])
+    @pytest.mark.parametrize('struct', ['megatron', 'concatenated'])
     @pytest.mark.parametrize(
         SINGLE_CARD_TEST_PARAM,
         SINGLE_CARD_TEST_CASES

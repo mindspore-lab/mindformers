@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Multi-head Latent Attention (MLA) mechanism with low-rank compression."""
-import math
 from dataclasses import dataclass
 from typing import Union
 import mindspore as ms
@@ -30,8 +29,16 @@ from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope
 
 
 @dataclass
-class MLASelfAttentionSubmodules:
-    """Submodules for the MLA self-attention layer."""
+class MLASelfAttentionSubmodulesConcatenated:
+    """
+    Submodules for the MLA self-attention layer.
+
+    Differences from MLASelfAttentionSubmodules (Megatron-style):
+        linear_qkv: concat(linear_q_down_proj, linear_kv_down_proj) if q_lora_rank is not None else
+            concat(linear_q_proj, linear_kv_down_proj)
+        linear_qb: linear_q_up_proj
+        linear_kvb: linear_kv_up_proj
+    """
     linear_qkv: Union[ModuleSpec, type] = None
     linear_qb: Union[ModuleSpec, type] = None
     linear_kvb: Union[ModuleSpec, type] = None
@@ -42,9 +49,8 @@ class MLASelfAttentionSubmodules:
 
 
 @dataclass
-class MLASelfAttentionSubmodulesMegatron:
-    """Submodules for the MLA self-attention layer."""
-
+class MLASelfAttentionSubmodules:
+    """Submodules for the MLA self-attention layer with Megatron structure."""
     linear_q_proj: Union[ModuleSpec, type] = None
     linear_q_down_proj: Union[ModuleSpec, type] = None
     linear_q_up_proj: Union[ModuleSpec, type] = None
@@ -56,18 +62,12 @@ class MLASelfAttentionSubmodulesMegatron:
     kv_layernorm: Union[ModuleSpec, type] = None
 
 
-def yarn_get_mscale(scale: float = 1, mscale: float = 1) -> float:
-    if scale <= 1:
-        return 1.0
-    return 0.1 * mscale * math.log(scale) + 1.0
-
-
 class MultiLatentAttention(nn.Cell):
     """Multi-head Latent Attention (MLA) with KV compression and rotary position encoding."""
     def __init__(
             self,
             config: MLATransformerConfig,
-            submodules: Union[MLASelfAttentionSubmodules, MLASelfAttentionSubmodulesMegatron],
+            submodules: Union[MLASelfAttentionSubmodulesConcatenated, MLASelfAttentionSubmodules],
             layer_number: int,
             attention_type: str,
             attn_mask_type: str = None,
@@ -108,9 +108,6 @@ class MultiLatentAttention(nn.Cell):
             self.use_zero_pad = True
             self.pad_zeros = initializer('zeros', shape=(1, 1, self.num_attention_heads, zero_pad_length),
                                          dtype=self.compute_dtype)
-
-        mscale = yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
-        self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
 
         self.core_attention = build_module(
             submodules.core_attention,
@@ -212,17 +209,23 @@ class MultiLatentAttention(nn.Cell):
         return output
 
 
-class MLASelfAttention(MultiLatentAttention):
-    """MLA Self-attention layer class, the implementation follows the same structure as Mindspeed A2
+class MLASelfAttentionConcatenated(MultiLatentAttention):
+    """
+    MLA Self-attention layer class, the implementation follows the same structure as Mindspeed A2.
+
+    Differences fromMLASelfAttention (Megatron-style) lie mainly in the weights:
+        linear_qkv: concat(linear_q_down_proj, linear_kv_down_proj) if q_lora_rank is not None else
+            concat(linear_q_proj, linear_kv_down_proj)
+        linear_qb: linear_q_up_proj
+        linear_kvb: linear_kv_up_proj
 
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
     """
-
     def __init__(
             self,
             config: MLATransformerConfig,
-            submodules: MLASelfAttentionSubmodules,
+            submodules: MLASelfAttentionSubmodulesConcatenated,
             layer_number: int,
             attn_mask_type: str = None,
             cp_comm_type: str = None,
@@ -430,7 +433,7 @@ class MLASelfAttention(MultiLatentAttention):
         return query, key, value
 
 
-class MLASelfAttentionMegatron(MultiLatentAttention):
+class MLASelfAttention(MultiLatentAttention):
     """MLA Self-attention layer class
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
@@ -439,7 +442,7 @@ class MLASelfAttentionMegatron(MultiLatentAttention):
     def __init__(
             self,
             config: MLATransformerConfig,
-            submodules: MLASelfAttentionSubmodulesMegatron,
+            submodules: MLASelfAttentionSubmodules,
             layer_number: int,
             attn_mask_type: str = None,
             cp_comm_type: str = None,

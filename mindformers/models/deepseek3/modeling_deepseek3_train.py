@@ -26,8 +26,8 @@ from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.training_graph.transformer.transformer_block import TransformerBlockSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import (
-    MLASelfAttention,
-    MLASelfAttentionSubmodules
+    MLASelfAttentionConcatenated,
+    MLASelfAttentionSubmodulesConcatenated
 )
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.training_graph.transformer.moe.ffn import FFNGroupedGEMM
@@ -71,8 +71,8 @@ def get_spec(config: MLATransformerConfig):
         submodules=TransformerLayerSubmodules(
             input_layernorm=FusedNorm,
             self_attention=ModuleSpec(
-                module=MLASelfAttention,
-                submodules=MLASelfAttentionSubmodules(
+                module=MLASelfAttentionConcatenated,
+                submodules=MLASelfAttentionSubmodulesConcatenated(
                     linear_qkv=LinearNoTP,
                     linear_qb=ColumnParallelLinear,
                     linear_kvb=ColumnParallelLinear,
@@ -104,8 +104,8 @@ def get_spec(config: MLATransformerConfig):
         submodules=TransformerLayerSubmodules(
             input_layernorm=FusedNorm,
             self_attention=ModuleSpec(
-                module=MLASelfAttention,
-                submodules=MLASelfAttentionSubmodules(
+                module=MLASelfAttentionConcatenated,
+                submodules=MLASelfAttentionSubmodulesConcatenated(
                     linear_qkv=LinearNoTP,
                     linear_qb=ColumnParallelLinear,
                     linear_kvb=ColumnParallelLinear,
