@@ -25,6 +25,7 @@ from mindspore.communication.management import get_rank, get_group_size
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.parallel_core.inference.transformer.lower_triangular_mask import LowerTriangularMaskWithDynamic
 from mindformers.parallel_core.inference.transformer.rotary_embedding import (
     RotaryEmbedding,
     Llama3RotaryEmbedding,
@@ -153,6 +154,12 @@ class GPTModel(nn.Cell):
                 vocab_size=self.vocab_size,
                 max_sequence_length=self.max_sequence_length
             )
+
+        self.casual_mask = LowerTriangularMaskWithDynamic(
+            seq_length=self.config.seq_length,
+            compute_type=self.config.compute_dtype,
+            pad_token_id=self.config.pad_token_id,
+        )
 
         self.rotary_pos_emb = self.get_rope()
 
