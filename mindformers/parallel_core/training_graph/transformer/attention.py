@@ -15,8 +15,9 @@
 """Transformer Attention"""
 import math
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Union
-import mindspore as ms
+from mindspore.ops import auto_generate as aclnn_ops
 from mindspore.ops import functional as F
 from mindspore.parallel.shard import Layout
 from mindspore import nn
@@ -24,45 +25,33 @@ import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
 
 
+@dataclass
 class SelfAttentionSubmodules:
     """
     Configuration class for specifying the submodules of a self-attention.
     """
 
-    def __init__(
-            self,
-            linear_qkv: Union[ModuleSpec, type] = None,
-            core_attention: Union[ModuleSpec, type] = None,
-            linear_proj: Union[ModuleSpec, type] = None,
-            q_layernorm: Union[ModuleSpec, type] = None,
-            k_layernorm: Union[ModuleSpec, type] = None,
-    ):
-        self.linear_qkv = linear_qkv
-        self.core_attention = core_attention
-        self.linear_proj = linear_proj
-        self.q_layernorm = q_layernorm
-        self.k_layernorm = k_layernorm
+    linear_qkv: Union[ModuleSpec, type] = None
+    core_attention: Union[ModuleSpec, type] = None
+    linear_proj: Union[ModuleSpec, type] = None
+    q_layernorm: Union[ModuleSpec, type] = None
+    k_layernorm: Union[ModuleSpec, type] = None
 
 
+@dataclass
 class CrossAttentionSubmodules:
     """
     Configuration class for specifying the submodules of a cross-attention.
     """
 
-    def __init__(
-            self,
-            linear_q: Union[ModuleSpec, type] = None,
-            linear_kv: Union[ModuleSpec, type] = None,
-            core_attention: Union[ModuleSpec, type] = None,
-            linear_proj: Union[ModuleSpec, type] = None
-    ):
-        self.linear_q = linear_q
-        self.linear_kv = linear_kv
-        self.core_attention = core_attention
-        self.linear_proj = linear_proj
+    linear_q: Union[ModuleSpec, type] = None
+    linear_kv: Union[ModuleSpec, type] = None
+    core_attention: Union[ModuleSpec, type] = None
+    linear_proj: Union[ModuleSpec, type] = None
 
 
 class Attention(nn.Cell):
@@ -101,42 +90,52 @@ class Attention(nn.Cell):
             config: TransformerConfig,
             submodules: Union[SelfAttentionSubmodules, CrossAttentionSubmodules],
             layer_number: int,
-            attn_mask_type: type = None,
+            attn_mask_type: AttnMaskType = None,
             attention_type: str = "self",
             cp_comm_type: str = None,
     ):
         super().__init__()
         if attn_mask_type:
+            # The repository uses the attention_mask passed to GPTModel with default causal implementation.
+            # For implementation details, refer to the training_graph.transformer.mask_generate.py code.
+            # Note: Specifying attn_mask_type is currently not supported in this implementation.
             raise NotImplementedError("For Attention, 'attn_mask_type' is not supported for now.")
         if cp_comm_type is not None:
             raise NotImplementedError("cp_comm_type is not supported for now.")
+
         self.config = config
         self.attention_type = attention_type
         self.init_method = config.init_method
         self.output_layer_init_method = config.output_layer_init_method
         self.compute_dtype = self.config.compute_dtype
-        self.use_gqa = self.config.num_query_groups < self.config.num_attention_heads
-        self.num_heads = self.config.num_attention_heads
-        self.kv_num_heads = self.config.num_query_groups if self.use_gqa else self.num_heads
         self.hidden_size = self.config.hidden_size
         self.use_flash_attention = self.config.use_flash_attention
         self.parallel_config = self.config
         self.use_attn_mask_compression = self.config.use_attn_mask_compression
         self.input_layout = config.input_layout
-        self.use_ring_attention = self.config.use_ring_attention
-        self.attn_mask_type = attn_mask_type
-        self.dp = 1 if self.config.data_parallel_size is None else self.config.data_parallel_size
-        self.tp = 1 if self.config.tensor_model_parallel_size is None else self.config.tensor_model_parallel_size
-        self.cp = 1 if self.config.context_parallel_size is None else self.config.context_parallel_size
+
+        # For normal attention without groups, num_query_groups == num_attention_heads,
+        # so these two will be the same
+        self.use_gqa = self.config.num_query_groups < self.config.num_attention_heads
+        self.num_heads = self.config.num_attention_heads
+        self.kv_num_heads = self.config.num_query_groups if self.use_gqa else self.num_heads
         self.head_dim = self.config.kv_channels
         self.q_hidden_size = self.head_dim * self.num_heads
         self.kv_hidden_size = self.head_dim * self.kv_num_heads
+
+        # Not Support Graph Mode and key/value with different hidden size for now.
+        # attention_hidden_size and num_attention_heads must be evenly divisible
+        # by num_heads and tp respectively to enable correct tensor splitting.
+
+        self.dp = 1 if self.config.data_parallel_size is None else self.config.data_parallel_size
+        self.tp = 1 if self.config.tensor_model_parallel_size is None else self.config.tensor_model_parallel_size
+        self.cp = 1 if self.config.context_parallel_size is None else self.config.context_parallel_size
+
         self.n_rep = self.num_heads // self.kv_num_heads
-        self.layer_index = max(1, layer_number)
+        self.layer_number = max(1, layer_number)
         self.norm_factor = math.sqrt(self.head_dim)
         self.compute_2d = (config.sequence_parallel and self.cp == 1)
         self.seq_length = config.seq_length
-        self.split_qkv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
         self.pre_tokens = 2147483647 if self.config.attention_pre_tokens is None else self.config.attention_pre_tokens
         self.next_tokens = 0 if self.config.attention_next_tokens is None else self.config.attention_next_tokens
         self.keep_prob = 1.0 if self.config.attention_dropout is None else 1 - self.config.attention_dropout
@@ -165,9 +164,14 @@ class Attention(nn.Cell):
         self.core_attention = build_module(
             submodules.core_attention,
             config=self.config,
-            layer_number=self.layer_index,
+            layer_number=self.layer_number,
+            # attn_mask_type/cp_comm_type useless for this api.
+            # attention_type/softmax_scale, this parameter for the corresponding Megatron module
+            # is functionally irrelevant, so it can be omitted here.
+            # Other similar invocations should follow this same interpretation.
         )
 
+        # Output
         self.linear_proj = build_module(
             submodules.linear_proj,
             input_size=self.q_hidden_size,
@@ -175,8 +179,11 @@ class Attention(nn.Cell):
             config=self.config,
             init_method=self.output_layer_init_method,
             bias=self.config.add_bias_linear,
-            input_is_parallel=False,
             skip_bias_add=True,
+            # The input_is_parallel/is_expert/tp_comm_buffer_name parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
 
         self.apply_rotary_pos_emb = ApplyRotaryPosEmb(self.parallel_config)
@@ -184,21 +191,23 @@ class Attention(nn.Cell):
         # If ulysses context parallel is enabled, initialize related operations
         if self.cp_ds > 1:
             self._ulysses_initial()
-        self.shape = ms.ops.auto_generate.Shape()
-        self.cast = ms.ops.auto_generate.Cast()
-        self.reshape = ms.ops.auto_generate.Reshape()
-        self.merge_head_transpose = ms.ops.auto_generate.Transpose()
-        self.tile_kv = ms.ops.auto_generate.Tile()
-        self.cat = ms.ops.auto_generate.Concat(2)
+
+        self.split_qkv = aclnn_ops.SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.shape = aclnn_ops.Shape()
+        self.cast = aclnn_ops.Cast()
+        self.reshape = aclnn_ops.Reshape()
+        self.merge_head_transpose = aclnn_ops.Transpose()
+        self.tile_kv = aclnn_ops.Tile()
+        self.cat = aclnn_ops.Concat(2)
         self.shard(self.config)
 
     def _ulysses_initial(self):
         """Initialize ulysses related operations."""
-        self.transpose_back = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses = ms.ops.auto_generate.Transpose()
-        self.transpose_a2a = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses_merger_a2a = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses_merger = ms.ops.auto_generate.Transpose()
+        self.transpose_back = aclnn_ops.Transpose()
+        self.transpose_ulysses = aclnn_ops.Transpose()
+        self.transpose_a2a = aclnn_ops.Transpose()
+        self.transpose_ulysses_merger_a2a = aclnn_ops.Transpose()
+        self.transpose_ulysses_merger = aclnn_ops.Transpose()
 
         dp = self.dp
         tp = self.tp
@@ -229,7 +238,7 @@ class Attention(nn.Cell):
             prefix_keys_values=None,
             actual_seq_len=None
     ):
-        """ Construct function of attention block. """
+        """ Construct function of attention block."""
         ori_dtype = hidden_states.dtype
         if self.compute_2d:
             bs_seq, _ = self.shape(hidden_states)
@@ -240,6 +249,8 @@ class Attention(nn.Cell):
 
         # apply query, key, value projection
         query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
+
+        # Training-only implementation (no inference logic included).
 
         # transpose and reshape
         query = self.reshape(query, (seq_len, bs, self.num_heads, self.head_dim))
@@ -463,7 +474,7 @@ class SelfAttention(Attention):
             config: TransformerConfig,
             submodules: SelfAttentionSubmodules,
             layer_number: int,
-            attn_mask_type: type = None,
+            attn_mask_type: AttnMaskType = None,
             cp_comm_type: str = None,
     ):
         super().__init__(
@@ -474,10 +485,7 @@ class SelfAttention(Attention):
             attention_type="self",
             cp_comm_type=cp_comm_type,
         )
-        if attn_mask_type:
-            raise NotImplementedError("For Attention, 'attn_mask_type' is not supported for now.")
-        if cp_comm_type is not None:
-            raise NotImplementedError("cp_comm_type is not supported for now.")
+
         self.linear_qkv = build_module(
             submodules.linear_qkv,
             self.hidden_size,
@@ -486,9 +494,13 @@ class SelfAttention(Attention):
             init_method=self.init_method,
             compute_dtype=self.compute_dtype,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
+            # The gather_output/is_expert/tp_comm_buffer_name parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
 
-        self.reshape_concat = ms.ops.auto_generate.Reshape()
+        self.reshape_concat = aclnn_ops.Reshape()
         self.shard_self_attention(self.config)
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
@@ -546,7 +558,7 @@ class SelfAttentionMegatron(Attention):
             config: TransformerConfig,
             submodules: SelfAttentionSubmodules,
             layer_number: int,
-            attn_mask_type: type = None,
+            attn_mask_type: AttnMaskType = None,
             cp_comm_type: str = None,
     ):
         super().__init__(
@@ -557,10 +569,7 @@ class SelfAttentionMegatron(Attention):
             attention_type="self",
             cp_comm_type=cp_comm_type,
         )
-        if attn_mask_type:
-            raise NotImplementedError("For Attention, 'attn_mask_type' is not supported for now.")
-        if cp_comm_type is not None:
-            raise NotImplementedError("cp_comm_type is not supported for now.")
+
         self.linear_qkv = build_module(
             submodules.linear_qkv,
             self.hidden_size,
@@ -569,8 +578,12 @@ class SelfAttentionMegatron(Attention):
             init_method=self.init_method,
             compute_dtype=self.compute_dtype,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
+            # The gather_output/is_expert/tp_comm_buffer_name parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
-        self.reshape_concat = ms.ops.auto_generate.Reshape()
+        self.reshape_concat = aclnn_ops.Reshape()
         self.shard_self_attention(self.config)
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
@@ -623,7 +636,7 @@ class CrossAttention(Attention):
             config: TransformerConfig,
             submodules: CrossAttentionSubmodules,
             layer_number: int,
-            attn_mask_type,
+            attn_mask_type: AttnMaskType = None,
             cp_comm_type: str = None,
     ):
         super().__init__(
@@ -646,7 +659,12 @@ class CrossAttention(Attention):
             config=self.config,
             bias=self.config.add_bias_linear,
             compute_dtype=self.config.compute_dtype,
-            init_method=self.init_method
+            init_method=self.init_method,
+            skip_bias_add=False,
+            # The gather_output/is_expert parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
 
         self.linear_kv = build_module(
@@ -656,10 +674,15 @@ class CrossAttention(Attention):
             config=self.config,
             bias=self.config.add_bias_linear,
             compute_dtype=self.config.compute_dtype,
-            init_method=self.init_method
+            init_method=self.init_method,
+            skip_bias_add=False,
+            # The gather_output/is_expert parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
 
-        self.split_kv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split_kv = aclnn_ops.SplitWithSize().add_prim_attr("skip_redistribution", True)
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states):
         """
