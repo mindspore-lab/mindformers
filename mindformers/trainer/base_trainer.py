@@ -34,6 +34,7 @@ from mindspore.dataset.engine.datasets import Dataset
 from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
+
 try:
     # new interface in ms2.1.1
     from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
@@ -45,8 +46,7 @@ except ImportError:
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
 from mindformers.core.parallel_config import build_parallel_config
-from mindformers.dataset import build_dataset, check_dataset_config, \
-    check_dataset_iterable, BaseDataset
+from mindformers.dataset import build_dataset, check_dataset_config, check_dataset_iterable, BaseDataset
 from mindformers.models import build_network, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.generation import GenerationConfig
@@ -105,7 +105,7 @@ class BaseTrainer:
                                         stderr=subprocess.PIPE, encoding='utf-8')
         host_name = host_name_output.stdout.strip()
         host_ip = host_ip_output.stdout.strip().split(' ')[0]
-        logger.info("host_name: {}, host_ip: {}".format(host_name, host_ip))
+        logger.info(f"host_name: %s, host_ip: %s" % (host_name, host_ip))
 
         if model_name is None:
             model_name = "model name unspecified."
@@ -1038,7 +1038,6 @@ class BaseTrainer:
             else:
                 optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
-
         # build model wrapper
         logger.info(".........Build Running Wrapper From Config For Train..........")
         wrapper = self.create_model_wrapper(network, optimizer)
@@ -1143,7 +1142,7 @@ class BaseTrainer:
                 ckpt_cb_obj._save_ckpt(cb_params, True)
 
             def ckpt_load_func():
-                logger.info(f'Begin to load ckpt')
+                logger.info('Begin to load ckpt')
                 ckpt_file = get_resume_checkpoint(f'{self.config.output_dir}/checkpoint', True,
                                                   self.config.load_ckpt_format)
                 remove_redundancy = False if config.remove_redundancy is None else config.remove_redundancy
@@ -1321,8 +1320,7 @@ class BaseTrainer:
 
     def predict_process(self,
                         config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-                        input_data: Optional[Union[GeneratorDataset,
-                                                   Tensor, np.ndarray, Image, str, list]] = None,
+                        input_data: Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]] = None,
                         task: str = None,
                         network: Optional[Union[Cell, PreTrainedModel]] = None,
                         tokenizer: Optional[PreTrainedTokenizerBase] = None,
@@ -1347,9 +1345,16 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                network = self.create_network_without_param_init(
-                    default_args={"parallel_config": config.parallel_config,
-                                  "moe_config": config.moe_config})
+                if config.load_checkpoint:
+                    network = self.create_network_without_param_init(
+                        default_args={"parallel_config": config.parallel_config,
+                                      "moe_config": config.moe_config})
+                else:
+                    logger.info('Weights are not loaded. Hence Delay Initialization is disabled.')
+                    network = self.create_network(
+                        default_args={"parallel_config": config.parallel_config,
+                                      "moe_config": config.moe_config})
+
             self.set_network(network, is_train=False)
             self.count_parameters()
             config.load_checkpoint = get_load_path_after_hf_convert(config, network)
