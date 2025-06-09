@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 __all__ = ["Quantizer"]
 
 
-# pylint: disable=W0613
 class Quantizer(ABC):
     """
     Abstract class of the MindFormers quantizer. Supports for now quantizing MF transformers models for inference.

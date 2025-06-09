@@ -1502,7 +1502,6 @@ class BertLMHeadModel(BertPreTrainedModel):
         logger.info("weights tied.")
         super(BertLMHeadModel, self).tie_weights()
 
-    # pylint: disable=W0613
     def construct(self, input_ids=None, attention_mask=None, position_ids=None, head_mask=None,
                   query_embeds=None, encoder_hidden_states=None, encoder_attention_mask=None, labels=None,
                   past_key_values=None, use_cache=True, output_attentions=None, output_hidden_states=None,

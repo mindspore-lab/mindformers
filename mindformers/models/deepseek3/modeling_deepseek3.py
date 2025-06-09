@@ -30,7 +30,6 @@ class DeepseekV3ForCausalLM:
         Tensor, the loss or logits of the network.
     """
 
-    # pylint: disable=W0613
     def __new__(cls, config: DeepseekV3Config, *args, **kwargs):
         # get run mode to init different model.
         # predict mode used to deploy.

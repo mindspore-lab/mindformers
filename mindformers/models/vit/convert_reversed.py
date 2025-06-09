@@ -22,7 +22,6 @@ import mindspore as ms
 from mindformers.utils.convert_utils import ms2pt
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
     convert mae_vit_base_p16 weights from mindspore to pytorch

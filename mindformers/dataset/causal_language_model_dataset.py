@@ -276,7 +276,6 @@ class CausalLanguageModelDataset(BaseDataset):
         ...                                                 input_columns=["input_ids", "attention_mask"])
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

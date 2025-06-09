@@ -183,7 +183,6 @@ class AdamW(Optimizer):
             new.append(new_state)
         return ParameterTuple(new)
 
-    # pylint: disable=W0221
     def construct(self, gradients):
         """forward process"""
         gradients = self.flatten_gradients(gradients)

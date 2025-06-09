@@ -25,7 +25,6 @@ _GLOBAL_TENSORBOARD_WRITER_ARGS = {'log_timers_to_tensorboard': False,
 _GLOBAL_TENSORBOARD_TEXT_MAPPING = set()
 
 
-# pylint: disable=W0613
 def get_text_mapping():
     return _GLOBAL_TENSORBOARD_TEXT_MAPPING
 

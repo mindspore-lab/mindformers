@@ -211,7 +211,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             x = x.view(x.shape[0] * x.shape[1], x.shape[2])
         return dout, x
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, *args):
         dout = args[-1]
         weight = args[1]
@@ -345,7 +345,6 @@ class LinearWithFrozenWeight(nn.Cell):
             output = mint.add(output, bias)
         return output
 
-    # pylint: disable=W0613
     def bprop(self, x, weight, bias, out, dout):
         grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         grad_bias = F.full(bias.shape, 0, dtype=bias.dtype) if self.bias else None
@@ -1203,7 +1202,6 @@ class VocabParallelEmbedding(nn.Cell):
             output = self.reduce_from_mp_region(output_parallel)
         return output
 
-    # pylint: disable=W0613
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):
         if global_vocab_size % world_size != 0:
             raise ValueError(f"The vocabulary size is {global_vocab_size},"

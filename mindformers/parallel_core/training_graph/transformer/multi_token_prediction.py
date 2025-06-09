@@ -252,7 +252,6 @@ class MtpSharedVocabParallelEmbedding(VocabParallelEmbedding):
         # use shared embedding weights instead
         del self.weight
 
-    # pylint: disable=W0221
     def construct(self, weight, input_ids):
         """Forward of vocab embedding."""
         bs, seq_len = input_ids.shape
@@ -308,7 +307,6 @@ class MtpSharedLanguageModelEmbedding(LanguageModelEmbedding):
         else:
             self.tokentype_embeddings = None
 
-    # pylint: disable=W0221
     def construct(
             self,
             input_ids,

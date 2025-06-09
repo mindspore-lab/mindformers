@@ -232,7 +232,6 @@ def mlp_merge(pt_param: Dict):
         pt_param[merged_name] = npy2pt(merged_param, dtype=params["dense_left"]['dtype'])
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, config, dtype=torch.float32, **kwargs):
     """ Convert MindSpore model file to pytorch model file. """
     ckpt_dict = ms.load_checkpoint(input_path)

@@ -43,7 +43,6 @@ class SelfDefinedGather(nn.Cell):
         output = ops.gather(input_, self.indices, 0)
         return output
 
-    # pylint: disable=W0613
     def bprop(self, input_, output, dout):
         """bprop process"""
         indices = self.indices
@@ -134,11 +133,9 @@ class MoEAuxLossAutoScaler(nn.Cell):
     """
     main_loss_backward_scale = ms.Tensor(1.0)
 
-    # pylint: disable=W0613
     def construct(self, output, aux_loss):
         return output
 
-    # pylint: disable=W0613
     def bprop(self, output, aux_loss, out, dout):
         scale_aux_loss_grad = mint.ones_like(aux_loss) * MoEAuxLossAutoScaler.main_loss_backward_scale
         return dout, scale_aux_loss_grad

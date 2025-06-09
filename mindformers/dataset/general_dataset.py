@@ -40,7 +40,6 @@ class GeneralDataset(BaseDataset):
         A dataset for GeneratorDataset.
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 dataset: Union[Iterable, Callable] = None,

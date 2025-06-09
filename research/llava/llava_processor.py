@@ -52,7 +52,6 @@ class LlavaTextBuilder(ModalContentBuilder):
             need_create_context_pos=need_create_context_pos
         )
 
-    # pylint: disable=W0613
     def regular_input_for_predict(self, inputs: Dict, result_recorder: DataRecord = None, **kwargs):
         if "text" in inputs:
             return inputs["text"]

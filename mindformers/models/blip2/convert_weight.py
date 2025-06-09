@@ -24,7 +24,6 @@ import torch
 from mindformers.utils.convert_utils import pt2ms
 
 
-# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     r"""Convert Weight
     Convert blip2_qformer weights from pytorch to mindspore,

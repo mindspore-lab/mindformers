@@ -136,7 +136,6 @@ def flatten_dict(ckpt, parent_key='', sep='.'):
     return dict(items)
 
 
-# pylint: disable=W0613
 def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     """ Convert megatron ckpt to mindspore ckpt """
     print(f"Trying to convert megatron checkpoint in '{input_path}'.", flush=True)
@@ -183,7 +182,6 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     return True
 
 
-# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)

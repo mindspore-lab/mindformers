@@ -54,7 +54,6 @@ def is_offline_mode():
     return _is_offline_mode
 
 
-# pylint: disable=W0613
 def http_user_agent(user_agent: Union[Dict, str, None] = None) -> str:
     """
     Formats a user-agent string with basic info about a request.
@@ -193,7 +192,6 @@ def get_checkpoint_shard_files(
 
 
 # pylint: disable=C0103
-# pylint: disable=W0613
 def cached_file(
         path_or_repo_id: Union[str, os.PathLike],
         filename: str,

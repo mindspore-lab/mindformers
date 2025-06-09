@@ -71,7 +71,6 @@ class VocabParallelCrossEntropy(nn.Cell):
         [1.41703]
     """
 
-    # pylint: disable=W0613
     def __init__(self, *args, **kwargs):
         super(VocabParallelCrossEntropy, self).__init__()
         self.label_smoothing = None
@@ -126,7 +125,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         softmax_update = 1.0 - target_mask.view(-1)
         return grad_2d, arange_1d, softmax_update, grad_input
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def _calculate_gradients(self, grad_2d, arange_1d, masked_target_1d, softmax_update, grad_input, grad_output,
                              softmax):
         grad_2d[arange_1d, masked_target_1d] -= softmax_update
@@ -178,7 +177,7 @@ class VocabParallelCrossEntropy(nn.Cell):
             self.saved_tensors[2].append(masked_target_1d)
         return loss
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, *args):
         grad_output = args[-1]
         softmax, target_mask, masked_target_1d = self.saved_tensors[0].pop(0), \

@@ -239,7 +239,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         output = self._construct_mlp(pre_mlp_layernorm_output, residual)
         return output
 
-    # pylint: disable=W0613
     def _construct_attention(
             self,
             hidden_states,

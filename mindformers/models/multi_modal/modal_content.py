@@ -88,7 +88,6 @@ class ModalContentBuilder:
     def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
         raise NotImplementedError
 
-    # pylint: disable=W0613
     def padding_context(self, input_ids, result_recorder: DataRecord = None, **kwargs):
         """padding context pad token id into the text token ids"""
         start_position = np.where(input_ids == self.start_token_id)[0]
@@ -295,7 +294,6 @@ class ModalContentTransformTemplate:
     """
     _DEFAULT_OUTPUT_COLUMNS = ["input_ids"]
 
-    # pylint: disable=W0613
     def __init__(self, output_columns: List[str] = None, tokenizer=None, mode="predict",
                  vstack_columns: List[str] = None, modal_content_padding_size=1, max_length=2048,
                  **kwargs):

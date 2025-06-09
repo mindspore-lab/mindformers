@@ -52,7 +52,6 @@ class SPTokenizer:
             self.index_special_tokens[self.n_words] = token
             self.n_words += 1
 
-    # pylint: disable=W0613
     def tokenize(self, s: str, pair=None, add_special_tokens=True, **kwargs):
         return self.sp_model.EncodeAsPieces(s)
 
@@ -66,7 +65,6 @@ class SPTokenizer:
             t = t + [self.eos_id]
         return t
 
-    # pylint: disable=W0613
     def decode(self, t: List[int], skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs) -> str:
         """Convert the token into a readable text string"""
         text, buffer = "", []
@@ -425,7 +423,6 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
 
         return encoded_inputs
 
-    # pylint: disable=W0221
     def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
         if not conversation:
             return []

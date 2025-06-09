@@ -100,7 +100,6 @@ class Linear(layers.Linear):
 
         self.activation_compute_type = activation_compute_type
 
-    # pylint: disable=W0221
     def construct(self, x):
         """construct of linear."""
         out_shape = P.Shape()(x)[:-1] + (self.out_channels,)
@@ -142,7 +141,6 @@ class DropPath(nn.Cell):
     """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks)."""
 
     def __init__(self, drop_prob, ndim=1, parallel_config=None):
-        # pylint: disable=W0613
         super(DropPath, self).__init__()
         if parallel_config:
             dp = parallel_config.data_parallel
@@ -725,7 +723,6 @@ class Roll(nn.Cell):
     """Roll Cell"""
 
     def __init__(self, shift_size, shift_axis=(1, 2), parallel_config=default_dpmp_config):
-        # pylint: disable=W0613
         super(Roll, self).__init__()
         if parallel_config:
             dp = parallel_config.data_parallel  # pylint: disable=W0612

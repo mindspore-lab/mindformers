@@ -57,7 +57,6 @@ class PagedAttentionMgr(nn.Cell):
         self.parallel_decoding = parallel_decoding
         self.chunk_prefill = chunk_prefill
 
-    # pylint: disable=W0613
     def construct(self, key, value, slot_mapping, batch_valid_length=None):
         """The forward compute of KVCache for Paged Attention."""
         return self.reshape_and_cache(key, value, self.key_cache, self.value_cache, slot_mapping)

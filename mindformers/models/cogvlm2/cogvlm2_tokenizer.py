@@ -50,7 +50,6 @@ def _load_tokenizer_json(json_file):
     }
 
 
-# pylint: disable=W0221
 # pylint: disable=W0223
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class CogVLM2Tokenizer(PreTrainedTokenizer):
@@ -186,7 +185,6 @@ class CogVLM2Tokenizer(PreTrainedTokenizer):
             return self.decoder[index]
         raise ValueError("unknown ids")
 
-    # pylint: disable=W0613
     def tokenize(
             self,
             text: str,
@@ -227,7 +225,6 @@ class CogVLM2Tokenizer(PreTrainedTokenizer):
             tokens.append(self.decoder[self.eos_token_id])
         return tokens
 
-    # pylint: disable=W0613
     def _decode(
             self,
             token_ids: Union[int, List[int]],

@@ -265,7 +265,6 @@ class CreateCommGroups():
         return ranks
 
 
-# pylint: disable=W0613
 def initialize_model_parallel(tensor_model_parallel_size=1,
                               pipeline_model_parallel_size=1,
                               virtual_pipeline_model_parallel_size=None,

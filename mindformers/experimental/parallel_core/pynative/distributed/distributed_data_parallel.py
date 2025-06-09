@@ -81,14 +81,14 @@ def set_model_fw_bw_hook(network, grad_reduce_in_fp32, average_in_collective):
             all_gather_param(next_cell, wait_buffer)
         return input
 
-    # pylint: disable=W0622, W0613
+    # pylint: disable=W0622
     @_no_grad()
     def _post_forward_cell_hook(cell, input, output):
         cell.weight.assign_value(cell.sharded_weight)
         cell.sharded_weight = None
         return output
 
-    # pylint: disable=W0622, W0613
+    # pylint: disable=W0622
     def _pre_backward_cell_hook(cell, grad_output):
         if hasattr(cell, 'zero_end'):
             all_gather_param(cell, wait_buffer)
@@ -101,7 +101,7 @@ def set_model_fw_bw_hook(network, grad_reduce_in_fp32, average_in_collective):
             pre_cell = z3_optim_cells[pre_cell_id]
             all_gather_param(pre_cell, wait_buffer)
 
-    # pylint: disable=W0622, W0613
+    # pylint: disable=W0622
     def _post_backward_cell_hook(cell, grad_input, grad_output):
         cell.weight.assign_value(cell.sharded_weight)
         cell.sharded_weight = None

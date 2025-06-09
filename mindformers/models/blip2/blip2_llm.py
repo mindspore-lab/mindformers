@@ -145,7 +145,6 @@ class Blip2Llm(Blip2Base):
         self.slice = P.StridedSlice().shard(((dp, 1),))
         self.cast = P.Cast()
 
-    # pylint: disable=W0221
     def construct(self, image: ms.Tensor, text_input_ids: ms.Tensor):
         """Blip2Llm forward."""
         projected_qformer_output = self.forward_qformer_and_proj(image)

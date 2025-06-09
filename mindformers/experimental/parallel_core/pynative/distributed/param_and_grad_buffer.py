@@ -174,7 +174,6 @@ class ParamAndGradBuffer:
         data_parallel_group (str): Data parallel group name.
         bucket_size (int): Bucket size threshold used to partition bucekts.
     """
-    # pylint: disable=W0613
     def __init__(
             self,
             ddp_config,

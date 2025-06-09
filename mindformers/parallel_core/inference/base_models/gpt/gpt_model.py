@@ -252,7 +252,6 @@ class GPTModel(nn.Cell):
         params = {**base_params, **extra_params}
         return cls(**params)
 
-    # pylint: disable=W0613
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
                   q_seq_lens=None, block_tables=None, slot_mapping=None,
                   attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None):

@@ -49,7 +49,6 @@ class PtqQuantizer(Quantizer):
     def _dequantize(self, model):
         pass
 
-    # pylint: disable=W0613
     def _process_model_before_weight_loading(
             self, model: "PreTrainedModel", **kwargs
     ):

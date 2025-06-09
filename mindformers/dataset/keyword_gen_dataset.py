@@ -131,7 +131,6 @@ class KeyWordGenDataset(BaseDataset):
         ...                                        ignore_pad_token_for_loss=True, phase='train', batch_size=1)
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

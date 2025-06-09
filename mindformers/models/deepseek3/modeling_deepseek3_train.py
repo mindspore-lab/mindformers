@@ -54,7 +54,6 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from .deepseek3_config import DeepseekV3Config
 
 
-# pylint: disable=W0613
 def get_spec(config: MLATransformerConfig):
     """
     Get moe layer spec and dense layer spec of deepseek3.

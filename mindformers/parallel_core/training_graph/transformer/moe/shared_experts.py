@@ -71,7 +71,6 @@ class SharedExpertMLP(MLP):
             else:
                 self.expert_gate_shard(config)
 
-    # pylint: disable=W0221
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of shared_expert_mlp block. """
         if self.use_seq_parallel:

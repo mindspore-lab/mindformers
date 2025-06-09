@@ -326,7 +326,7 @@ class AdamW(Optimizer):
                 cell_param.assign_value(ag_param)
             return input
 
-        # pylint: disable=W0622, W0613
+        # pylint: disable=W0622
         @_no_grad()
         def _post_forward_cell_hook(cell, input, output):
             for cell_param in cell.get_parameters():
@@ -336,7 +336,7 @@ class AdamW(Optimizer):
                 cell_param.assign_value(split_param)
             return output
 
-        # pylint: disable=W0622, W0613
+        # pylint: disable=W0622
         def _pre_backward_cell_hook(cell, input, output):
             if not hasattr(cell, "pre_back_cell"):
                 @_no_grad()

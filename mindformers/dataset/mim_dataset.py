@@ -109,7 +109,6 @@ class MIMDataset(BaseDataset):
         ...                                 output_columns=['image', 'mask', 'ids_restore', 'unmask_index'])
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

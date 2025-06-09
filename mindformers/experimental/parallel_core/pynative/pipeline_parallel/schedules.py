@@ -51,7 +51,6 @@ def get_set_hidden_states_parameter(model):
         raise ValueError("Parameter 'set_hidden_states' is not found.")
 
 
-# pylint: disable=W0613
 def run_forward(*input_data,
                 model,
                 accumulate_loss,
@@ -116,7 +115,6 @@ def run_forward(*input_data,
     return output_tensor, accumulate_loss, list(input_data)
 
 
-# pylint: disable=W0613
 def run_backward(*input_tensor,
                  recv_grads,
                  model,

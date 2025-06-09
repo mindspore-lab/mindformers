@@ -66,7 +66,6 @@ class ParallelPagedAttentionMgr(nn.Cell):
                                                                              self.scale_value,
                                                                              self.n_kv_heads)
 
-    # pylint: disable=W0613
     def construct(self, key, value, slot_mapping, _, key_cache=None, value_cache=None):
         """The forward compute of KVCache for Paged Attention."""
         if self.npu_mem_size == -1:

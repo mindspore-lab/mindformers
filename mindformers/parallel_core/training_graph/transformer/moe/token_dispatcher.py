@@ -228,7 +228,6 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         return (global_input_tokens, tokens_per_expert, unsort_map, outer_unsort_map,
                 input_splits, output_splits, original_shape, unsort_pad_map)
 
-    # pylint: disable=W0221
     def token_unpermutation(
             self, tokens, probs, unsort_map=None, outer_unsort_map=None,
             input_splits=None, output_splits=None, original_shape=None, unsort_pad_map=None

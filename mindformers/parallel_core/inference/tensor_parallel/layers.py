@@ -638,7 +638,6 @@ class VocabParallelEmbedding(nn.Cell):
             output = self.reduce_from_mp_region(output_parallel)
         return output
 
-    # pylint: disable=W0613
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):
         if global_vocab_size % world_size != 0:
             raise ValueError(f"The vocabulary size is {global_vocab_size},"

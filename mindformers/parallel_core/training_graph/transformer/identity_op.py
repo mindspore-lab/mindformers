@@ -21,10 +21,8 @@ class IdentityOp(nn.Cell):
     This is a placeholder for IdentityOp(x) -> x
     """
 
-    # pylint: disable=W0613
     def __init__(self, *args, **kwargs):
         super().__init__()
 
-    # pylint: disable=W0613
     def construct(self, x, *args, **kwargs):
         return x

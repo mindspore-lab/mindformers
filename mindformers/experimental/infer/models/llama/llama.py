@@ -100,7 +100,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
 
-    # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
@@ -183,7 +182,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     @jit
-    # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,

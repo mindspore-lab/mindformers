@@ -225,7 +225,6 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
         SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
                             opname_blacklist=['layer0'], algo_args={})
     """
-    # pylint: disable=W0613
     def __init__(
             self,
             quant_method: QuantizationMethod.RTN,
@@ -361,7 +360,6 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
                             opname_blacklist=['layer0'], algo_args={})
     """
-    # pylint: disable=W0613
     def __init__(
             self,
             quant_method: QuantizationMethod.PTQ,
@@ -525,7 +523,6 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
         SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
                             opname_blacklist=['layer0'], algo_args={})
     """
-    # pylint: disable=W0613
     def __init__(
             self,
             quant_method: QuantizationMethod.SMOOTH_QUANT,

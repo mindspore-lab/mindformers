@@ -793,7 +793,6 @@ class ParallelTransformerLayer(Module):
         >>> print(out)
         (32, 1024, 256)
     """
-    # pylint: disable=W0613
     def __init__(self,
                  config,
                  layer_number,
@@ -1003,7 +1002,6 @@ def _get_custom_num_layers(num_layer_list, pp_stage, pp_rank, vpp_stage=None, vp
     return num_layers, offset
 
 
-# pylint: disable=W0613
 def _get_num_layers(config, model_type, is_decoder=False):
     """get transformer layers nums for current rank"""
     vpp = get_virtual_pipeline_model_parallel_world_size() \

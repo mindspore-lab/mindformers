@@ -18,7 +18,6 @@ import argparse
 from mindformers.models.vit.convert_reversed import convert_ms_to_pt as convert_func
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
     convert mae_vit_base_p16 weights from mindspore to pytorch.

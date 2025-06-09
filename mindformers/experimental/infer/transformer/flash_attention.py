@@ -117,7 +117,6 @@ class FlashAttention(Cell):
                                      name="value_cache",
                                      requires_grad=False)
 
-    # pylint: disable=W0613
     def construct(self,
                   query,
                   key,

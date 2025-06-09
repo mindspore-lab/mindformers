@@ -364,7 +364,7 @@ class TransformerLanguageModel(Module):
         >>> print(hidden_states.shape)
         (32, 32, 64)
     """
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def __init__(self,
                  config,
                  encoder_attn_mask_type,
