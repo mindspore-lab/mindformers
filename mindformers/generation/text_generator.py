@@ -27,7 +27,6 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from mindspore.communication import get_rank
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -716,29 +715,6 @@ class GenerationMixin:
 
         return sequence_outputs["sequences"]
 
-    def split_input_ids(self, input_ids):
-        """split input in dp region."""
-        data_parallel = self.config.parallel_config.data_parallel
-        model_parallel = self.config.parallel_config.model_parallel
-        batch = input_ids.shape[0]
-
-        if batch % data_parallel != 0:
-            logger.warning('batch size {batch} can not be divisible by data_parallel {data_parallel}, '
-                           'and would not split.')
-            return input_ids
-
-        split_size = (batch // data_parallel)
-        global_rank_id = get_rank()
-        dp_rank_id = global_rank_id // model_parallel
-        start = dp_rank_id * split_size
-        stop = (dp_rank_id+1) * split_size
-        logger.info(f"The batch is: {batch}, and the split_size is: {split_size}, "
-                    f"and the global_rank_id is: {global_rank_id}, and the dp_rank_id is: {dp_rank_id} "
-                    f"and start is: {start}, and stop is: {stop}")
-
-        input_ids = input_ids[start:stop]
-        return input_ids
-
     def generate(self,
                  input_ids: Optional[Union[List[int], List[List[int]]]],
                  generation_config: Optional[GenerationConfig] = None,
@@ -852,8 +828,6 @@ class GenerationMixin:
             raise ValueError(str(e) + " Please check your inputs of model.generate(),"
                                       " and make sure the inputs are padded to same length.") from e
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
-        if self.config.parallel_config.data_parallel != 1:
-            input_ids = self.split_input_ids(input_ids)
         batch_size = input_ids.shape[0]
 
         if seed is not None:
