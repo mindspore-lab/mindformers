@@ -108,7 +108,7 @@ class MLP(nn.Cell):
         self.linear_fc2 = build_module(
             submodules.linear_fc2,
             self.config.ffn_hidden_size,
-            self.input_size,
+            self.config.hidden_size,
             config=self.config,
             bias=self.mlp_has_bias,
             compute_dtype=self.compute_dtype,
