@@ -27,22 +27,31 @@ from tests.st.test_ut.test_parallel_core.test_training_graph.test_transformer.te
 BATCH_SIZE = 2
 SEQ_LENGTH = 4
 HIDDEN_SIZE = 16
-SINGLE_CARD_TEST_PARAM = 'golden_data_key'
+SINGLE_CARD_TEST_PARAM = 'model_args, golden_data_key'
 SINGLE_CARD_TEST_CASES = [
     (
         # case 1
         # The single-card mtp baseline.
         # expected result: The results from NPU, GPU, and CPU comply with the dual-benchmark verification standard.
-        'single_card_baseline'
+        {'position_embedding_type': 'learned_absolute'},
+        'single_card_baseline',
+    ),
+    (
+        # case 2
+        # The single-card mtp when position_embedding_type is rope.
+        # expected result: The results from NPU, GPU, and CPU comply with the dual-benchmark verification standard.
+        {'position_embedding_type': 'rope'},
+        'pe_rope',
     ),
 ]
 
-MULTI_CARD_TEST_PARAM = 'golden_data_key, tensor_parallel'
+MULTI_CARD_TEST_PARAM = 'model_args, golden_data_key, tensor_parallel'
 MULTI_CARD_TEST_CASES = [
     (
         # case 1
         # The multi-card mtp baseline (dp=2, tp=2).
         # expected result: The results of multi-card test should comply with the results of single-card test.
+        {'position_embedding_type': 'learned_absolute'},
         'multi_card_baseline',
         2
     ),
@@ -60,7 +69,7 @@ def get_free_port():
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
         batch_size, seq_length, hidden_size,  # Input shape args
-        output_path_param, tensor_parallel,
+        output_path_param, tensor_parallel, model_args,
         test_name
 ):
     """ Build the msrun command for Multi-Token Prediction (MTP). """
@@ -85,6 +94,7 @@ def build_msrun_command_list(
         f"--hidden_size={hidden_size}",
         f"--output_path={output_path_param}",
         f"--tp={tensor_parallel}",
+        f"--position_embedding_type={model_args['position_embedding_type']}",
         f"--test_name={test_name}"
     ])
 
@@ -131,6 +141,7 @@ class TestMTP:
             self,
             worker_num,
             local_worker_num,
+            model_args,
             golden_data_key,
             tmp_path,
             tensor_parallel=1,
@@ -151,7 +162,8 @@ class TestMTP:
             hidden_size=HIDDEN_SIZE,
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
-            test_name=golden_data_key
+            model_args=model_args,
+            test_name=golden_data_key,
         )
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"
@@ -173,7 +185,7 @@ class TestMTP:
         else:
             multi_card_mtp_loss = np.load(output_file_path)['mtp_loss']
             prefix = tmp_path.parent
-            single_card_output_file = prefix / 'test_single_card_mtp_cases_sin0' / 'output_mtp_ms_single.npz'
+            single_card_output_file = prefix / 'test_single_card_mtp_cases_mod0' / 'output_mtp_ms_single.npz'
             assert single_card_output_file.exists(), ('Single card test must be run first.')
             single_card_mtp_loss = np.load(single_card_output_file, allow_pickle=True)['mtp_loss']
             assert np.allclose(multi_card_mtp_loss, single_card_mtp_loss)
@@ -187,6 +199,7 @@ class TestMTP:
     )
     def test_single_card_mtp_cases(
             self,
+            model_args,
             golden_data_key,
             tmp_path
     ):
@@ -194,6 +207,7 @@ class TestMTP:
         self.run_mtp_test(
             worker_num=1,
             local_worker_num=1,
+            model_args=model_args,
             golden_data_key=golden_data_key,
             tmp_path=tmp_path
         )
@@ -208,6 +222,7 @@ class TestMTP:
     def test_multi_card_mtp_cases(
             self,
             golden_data_key,
+            model_args,
             tensor_parallel,
             tmp_path
     ):
@@ -215,6 +230,7 @@ class TestMTP:
         self.run_mtp_test(
             worker_num=4,
             local_worker_num=4,
+            model_args=model_args,
             golden_data_key=golden_data_key,
             tensor_parallel=tensor_parallel,
             tmp_path=tmp_path

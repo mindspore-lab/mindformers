@@ -304,10 +304,10 @@ class GPTModel(nn.Cell):
             else:
                 position_embeddings_weight = self.embedding.position_embeddings.weight
             mtp_loss, extra_loss = self.mtp(
-                input_ids=tokens,
-                position_ids=position_ids,
-                hidden_states=hidden_states,
-                attention_mask=attention_mask,
+                tokens,
+                position_ids,
+                hidden_states,
+                attention_mask,
                 labels=labels.reshape_as(tokens),
                 rotary_pos_emb=rotary_pos_emb,
                 loss_mask=loss_mask.reshape_as(tokens),
@@ -366,7 +366,7 @@ class GPTModel(nn.Cell):
                 raise ValueError("attn_mask should not be None when prefix_keys_values is not None!")
             if self.config.use_attn_mask_compression or attn_mask.ndim != 4:
                 raise ValueError("use_attn_mask_compression should be False when prefix_keys_values is not None! "
-                                 "And attn_mask.ndim should be 4, but got {}".format(attn_mask.ndim))
+                                 f"And attn_mask.ndim should be 4, but got {attn_mask.ndim}")
 
             # prefix_key_values shape num_layers*(2, B, prefix_len, kv_num*kv_channel)
             bs, seq_len = self.shape(input_ids)
@@ -487,7 +487,7 @@ class GPTModel(nn.Cell):
             for i in range(num_layers + mtp_num_layers):
                 if i < self.config.moe_layer_freq:
                     continue
-                elif i < num_layers:
+                if i < num_layers:
                     router = self.decoder.layers[i].mlp.router
                     expert_load_data = _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate)
                     expert_loads.append((f"decoder.layers.{i}.mlp.router", expert_load_data))

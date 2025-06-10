@@ -121,9 +121,9 @@ class MoELayer(BaseMoELayer):
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
 
-    def construct(self, x, extra_loss=0., seq_chunk=None):
+    def construct(self, hidden_states, extra_loss=0., seq_chunk=None):
         """Construct function of the MoELayer."""
-        x = self.transpose(x, (1, 0, 2))
+        x = self.transpose(hidden_states, (1, 0, 2))
 
         origin_shape = self.shape(x)
         # The shape change is: (dp, N, h) <-- (B*S, h)
