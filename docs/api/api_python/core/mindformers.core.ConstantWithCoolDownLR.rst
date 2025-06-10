@@ -35,7 +35,7 @@ mindformers.core.ConstantWithCoolDownLR
         - **num_cycles** (float, 可选) - 余弦调度中的周期数量（默认情况下为半个周期，从最大值递减至 0）。默认值： ``0.5`` 。
         - **lr_end1** (float, 可选) - 衰减阶段结束后的学习率。默认值： ``0.0`` 。
         - **final_steps** (int, 可选) - 学习率保持在 `lr_end1` 的步数。默认值： ``0`` 。
-        - **lr_end2** (float, 可选) - 学习率的最终值。设置为``None``时，与 `lr_end1` 保持一致。默认值： ``None`` 。
+        - **lr_end2** (float, 可选) - 学习率的最终值。设置为 ``None`` 时，与 `lr_end1` 保持一致。默认值： ``None`` 。
 
     输入：
         - **global_step** (int) - 全局步数。

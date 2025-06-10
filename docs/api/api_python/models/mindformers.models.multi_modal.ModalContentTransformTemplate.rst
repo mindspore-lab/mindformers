@@ -60,6 +60,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
             列表类型，经过处理后的数据。
 
     .. py:method:: get_need_update_output_items(result: DataRecord)
+        :staticmethod:
 
         获取需要更新的输出项。
 
