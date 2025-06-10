@@ -29,7 +29,7 @@ from mindformers.dataset.blended_datasets.utils import get_blend_from_list, comp
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.version_control import check_skip_barrier
+from mindformers.version_control import skip_barrier_controller
 from mindformers.tools.utils import (
     get_dp_from_dataset_strategy,
     get_real_group_size,
@@ -179,12 +179,7 @@ class MegatronDatasetBuilder:
                             pipeline stage = {global_rank_id//(dp *tp )}, this rank will build empty data.")
                 source = FakeGptDataset(blended_config)
                 gen_dataset = GeneratorDataset(source, column_names=source.cols(), shuffle=False)
-                if not check_skip_barrier():
-                    logger.info("barrier 1 start")
-                    barrier()
-                    logger.info("barrier 2 start")
-                    barrier()
-                    logger.info("barrier 2 completed")
+                skip_barrier_controller(times=2)
         else:
             gen_dataset = build_gpt_dataset()
         return gen_dataset

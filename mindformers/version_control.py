@@ -22,6 +22,7 @@ from mindspore import nn, mint
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
 from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
+from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.utils import get_predict_run_mode
 from .tools.utils import is_version_ge
@@ -422,8 +423,8 @@ def check_arf_status(cb_params):
     return False
 
 
-def check_skip_barrier():
-    """Reboot node skip execute barrier when enable arf"""
+def check_is_reboot_node():
+    """check whether is the reboot node in arf"""
     version_valid = is_version_ge(ms.__version__, "2.6.0")
     if not version_valid:
         logger.warning(
@@ -434,6 +435,21 @@ def check_skip_barrier():
         from mindspore._c_expression import is_reboot_node
         return is_reboot_node()
     return False
+
+
+def skip_barrier_controller(times: int = 1):
+    """whether to skip barrier or exec barrier controller"""
+    skip_barrier_sig = check_is_reboot_node()
+
+    if skip_barrier_sig:
+        logger.warning("barrier is not enable.")
+        return
+
+    for i in range(times):
+        logger.info(f"barrier {i + 1} started")
+        barrier()
+        logger.info(f"barrier {i + 1} completed")
+    logger.info(f"barrier {times} completed")
 
 
 def check_swiglu_valid():
