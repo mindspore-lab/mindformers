@@ -14,7 +14,6 @@
 # ============================================================================
 """Configuration."""
 import ast
-# pylint: disable=W0613
 import inspect
 import argparse
 import copy

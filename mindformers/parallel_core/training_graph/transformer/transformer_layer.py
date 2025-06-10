@@ -160,7 +160,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         else:
             self.shard(config)
 
-    # pylint: disable=W0613
     def construct(
             self,
             hidden_states,

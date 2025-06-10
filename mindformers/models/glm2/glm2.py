@@ -203,7 +203,6 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, seq_len))
         return attention_mask
 
-    # pylint: disable=W0613
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, batch_valid_length=None, full_attention_mask=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None):
@@ -398,7 +397,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             layer.self_attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
             layer.self_attention.infer_attention.rotary_embedding.add_flags(is_first_iteration=is_first_iteration)
 
-    # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None):
@@ -754,8 +752,6 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
-    # pylint: disable=W0613
-    # pylint: disable=W0221
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):

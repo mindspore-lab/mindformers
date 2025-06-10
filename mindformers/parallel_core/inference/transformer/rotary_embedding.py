@@ -251,7 +251,6 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
         super().__init__(kv_channels, rotary_percent, rotary_interleaved, seq_len_interpolation_factor,
                          rotary_base, rotary_cos_format, rotary_dtype)
 
-    # pylint: disable=W0221
     def _compute_inv_freq(self, scaling_factor: float) -> Tensor:
         """Compute the inverse frequency."""
         pos_freqs = self.rotary_base**(

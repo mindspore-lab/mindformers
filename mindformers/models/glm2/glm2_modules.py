@@ -461,7 +461,6 @@ class GetCompressMask(nn.Cell):
         self.attention_mask = Tensor(attention_mask, dtype=mstype.uint8)
         self.cast = P.Cast()
 
-    # pylint: disable=W0613
     def construct(self, sequence_start_ids):
         """construct"""
         mask = self.cast(self.attention_mask, mstype.uint8)

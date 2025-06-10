@@ -103,7 +103,6 @@ class FlashAttention(Cell):
         self.paged_attention = ops.auto_generate.PagedAttention(
             self.head_num, scale_value, self.kv_head_num)
 
-    # pylint: disable=W0613
     def construct(self,
                   query,
                   key,

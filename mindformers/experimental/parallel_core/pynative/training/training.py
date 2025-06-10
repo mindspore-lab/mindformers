@@ -554,7 +554,6 @@ class TrainOneStepCell(nn.Cell):
         >>> train_one_step_cell = TrainOneStepCell(network_with_loss, optimizer, None, training_config, model_config)
     """
 
-    # pylint: disable=W0613
     def __init__(self, network_with_loss, optimizer, opt_param_scheduler, training_config, model_config, **kwargs):
         super(TrainOneStepCell, self).__init__(auto_prefix=False)
         if isinstance(network_with_loss, nn.CellList) and len(network_with_loss) == 1:
@@ -966,7 +965,6 @@ def train(
     logger.info("Training success!")
 
 
-# pylint: disable=W0613
 def pretrain(train_valid_test_datasets_provider,
              model_provider_func,
              model_type,

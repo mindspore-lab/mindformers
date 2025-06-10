@@ -22,7 +22,6 @@ from mindformers.tools.utils import str2bool
 from mindformers.utils.convert_utils import ms2pt
 
 
-# pylint: disable=W0613
 def convert_pretrained_weight(ms_ckpt_path="swin_base_p4w7.ckpt", pth_file="swin_base_patch4_window7_224.pth",
                               dtype=None):
     """

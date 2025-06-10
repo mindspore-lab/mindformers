@@ -480,7 +480,6 @@ class WhisperTokenizer(PreTrainedTokenizer):
 
     # Copied from
     # transformers.models.gpt2.tokenization_gpt2.GPT2Tokenizer._tokenize with GPT2 -> Whisper
-    # pylint: disable=W0221
     def _tokenize(self, text):
         """Tokenize a string."""
         bpe_tokens = []
@@ -648,7 +647,6 @@ class WhisperTokenizer(PreTrainedTokenizer):
     def _filter_timestamp_ids(self, token_ids):
         return re.sub(self.timestamp_pat, "", token_ids)
 
-    # pylint: disable=W0221
     def decode(
             self,
             token_ids,
@@ -725,7 +723,6 @@ class WhisperTokenizer(PreTrainedTokenizer):
             return {"text": text, "offsets": offsets}
         return text
 
-    # pylint: disable=W0221
     def _decode(
             self,
             token_ids: Union[int, List[int]],
@@ -815,7 +812,6 @@ class WhisperTokenizer(PreTrainedTokenizer):
 
     # Copied from
     # transformers.models.gpt2.tokenization_gpt2.GPT2Tokenizer.prepare_for_tokenization with GPT2 -> Whisper
-    # pylint: disable=W0221
     def prepare_for_tokenization(self, text, is_split_into_words=False, **kwargs):
         add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
         if is_split_into_words or add_prefix_space:

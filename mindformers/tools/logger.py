@@ -82,7 +82,6 @@ def _get_stack_info(frame):
     return sinfo
 
 
-# pylint: disable=W0613
 def _find_caller(stack_info=False, stacklevel=1):
     """
     Find the stack frame of the caller.

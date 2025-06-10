@@ -299,7 +299,6 @@ class LlamaModel(LlamaPreTrainedModel):
             else:
                 self.norm_out.shard((dp, cp, 1))
 
-    # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_embeds=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
                   attention_mask=None, position_ids=None, q_seq_lens=None, seq_range=None, actual_seq_len=None):
@@ -575,7 +574,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         """return embedding tokens"""
         return self.model.tok_embeddings(tokens)
 
-    # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
@@ -641,7 +639,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         return output
 
-    # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, q_seq_lens=None,

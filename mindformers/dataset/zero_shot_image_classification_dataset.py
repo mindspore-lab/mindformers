@@ -97,7 +97,6 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         >>> dataset_from_param = ZeroShotImageClassificationDataset(data_loader=data_loader, batch_size=40)
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

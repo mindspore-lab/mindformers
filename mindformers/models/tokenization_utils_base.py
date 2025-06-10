@@ -2409,7 +2409,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         return tokenizer
 
     @staticmethod
-    # pylint: disable=W0613
     def _eventually_correct_t5_max_length(pretrained_model_name_or_path, max_model_length, init_max_model_length):
         # This method should be deleted in Transformers v5
         # Its only purpose is to potentially throw a warning

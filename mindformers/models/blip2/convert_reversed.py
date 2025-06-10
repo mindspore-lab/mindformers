@@ -48,7 +48,6 @@ name_pt2ms = {
 }
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
     convert ms to pt

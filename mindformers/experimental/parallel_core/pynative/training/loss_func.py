@@ -52,7 +52,6 @@ class LossWithMask(nn.Cell):
         >>> output.shape
         (1,)
     """
-    # pylint: disable=W0613
     def __init__(self, loss_func, *args, **kwargs):
         super(LossWithMask, self).__init__()
         self.loss_func = loss_func

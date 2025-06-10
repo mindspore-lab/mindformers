@@ -211,7 +211,6 @@ def _apply_fused_rotary_pos_emb(t: Tensor, freqs: Tensor, rotary_interleaved: bo
     return mint.cat((t, t_pass), dim=-1)
 
 
-# pylint: disable=W0613
 def apply_rotary_pos_emb(t, freqs, config, cu_seqlens=None) -> Tensor:
     if cu_seqlens is None:
         if config.apply_rope_fusion:

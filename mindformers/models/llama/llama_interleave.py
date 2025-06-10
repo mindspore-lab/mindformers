@@ -795,7 +795,6 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             output = self.cast(output, self.dtype)
         return output
 
-    # pylint: disable=W0613
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None, prefix_keys_values=None, q_seq_lens=None,
                   kv_mask=None, seq_chunk=None, actual_seq_len=None):

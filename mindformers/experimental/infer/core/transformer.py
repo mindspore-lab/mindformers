@@ -799,7 +799,6 @@ class ParallelTransformer(nn.Cell):
             # final layernorm before output.
             self.norm_out = get_norm(config)
 
-    # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None,
                   q_seq_lens=None, key_cache=None, value_cache=None):

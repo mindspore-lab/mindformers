@@ -30,7 +30,6 @@ from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.version_control import get_dataset_map
 
 
-# pylint: disable=W0613
 def batch_add(col, batch_info):
     """batch multi modal data"""
     output = col.copy()

@@ -170,7 +170,6 @@ class GenerationMixin:
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
         return model_inputs
 
-    # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """
         prepare inputs for generation.
@@ -222,7 +221,6 @@ class GenerationMixin:
         """
         self.add_flags_recursive(is_prefill=is_prefill)
 
-    # pylint: disable=W0613
     @staticmethod
     def update_model_kwargs_before_generate(input_ids, model_kwargs: dict):
         """

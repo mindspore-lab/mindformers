@@ -43,7 +43,6 @@ class LlamaModelForBlip2(LlamaModel):
     def __init__(self, config):
         super().__init__(config)
 
-    # pylint: disable=W0221
     def construct(self, input_embeddings: Tensor, input_attention_masks: Tensor, batch_valid_length=None,
                   batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None):
         """
@@ -127,7 +126,6 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return self.prepare_image_text_embedding(input_ids, **kwargs)
 
-    # pylint: disable=W0221
     def construct(self, input_embeddings=None,
                   input_ids=None,
                   labels=None,

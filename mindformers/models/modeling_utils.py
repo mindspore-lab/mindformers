@@ -272,7 +272,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         """
         return "ms"
 
-    # pylint: disable=W0613
     def __init__(self, config: PretrainedConfig, *inputs, **kwargs):
         super().__init__(**kwargs)
         GenerationMixin.__init__(self)
@@ -632,7 +631,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             " method in order to use parallel predict."
         )
 
-    # pylint: disable=W0613
     def set_dynamic_inputs(self, **kwargs):
         """
         Compile static graphs into dynamic shapes

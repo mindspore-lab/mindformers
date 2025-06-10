@@ -48,7 +48,6 @@ class Context:
 
     _instance = None
 
-    # pylint: disable=W0613
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(Context, cls).__new__(cls)
@@ -217,7 +216,6 @@ class MFContextOperator(MFContextConfig):
 
     _instance = None
 
-    # pylint: disable=W0613
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)

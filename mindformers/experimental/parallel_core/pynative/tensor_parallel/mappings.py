@@ -126,7 +126,7 @@ class CopyToModelParallelRegion(nn.Cell):
     def construct(self, input_):
         return ops.stop_gradient(input_)
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -155,7 +155,7 @@ class ScatterToModelParallelRegion(nn.Cell):
 
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -183,7 +183,7 @@ class GatherFromTensorAndExpertParallelRegion(nn.Cell):
             return ops.stop_gradient(input_)
         return comm_func.all_gather_into_tensor(input_.contiguous(), group=self.tp_ep_group)[0]
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -214,7 +214,7 @@ class GatherFromModelParallelRegion(nn.Cell):
 
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -241,7 +241,7 @@ class ReduceFromModelParallelRegion(nn.Cell):
         output = comm_func.all_reduce(input_, group=self.tp_group)[0]
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         return (dout,)
 
@@ -267,7 +267,7 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
             output = output.swapaxes(0, 1)
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, *args):
         dout = args[-1]
         if self.world_size == 1:
@@ -304,7 +304,7 @@ class ReduceScatterToTensorParallelRegion(nn.Cell):
         output = ops.transpose(output, permute_order).contiguous()
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -349,7 +349,7 @@ class ScatterToSequenceParallelRegion(nn.Cell):
 
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -383,7 +383,6 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             output = output.swapaxes(0, 1)
         return output
 
-    # pylint: disable=W0613
     def bprop(self, x, out, dout):
         """define a backward propagate function"""
         if self.world_size == 1:
@@ -431,7 +430,7 @@ class AllGatherFromTensorParallelRegion(nn.Cell):
         output = ops.cat(tensor_list, axis=last_dim).contiguous()
         return output
 
-    # pylint: disable=W0613, C0111
+    # pylint: disable=C0111
     def bprop(self, x, out, dout):
         num_dims = dout.ndim
         permute_order = (num_dims - 1,) + tuple(range(num_dims - 1))
@@ -461,7 +460,6 @@ class AllToAllEven(nn.Cell):
 
         return self.all_to_all(input_)
 
-    # pylint: disable=W0613
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
@@ -519,7 +517,6 @@ class AllToAll(nn.Cell):
         if use_self_defined_alltoall:
             self.alltoall = all_to_all_self_defined
 
-    # pylint: disable=W0613
     def construct(self, input_):
         """
         Input:
@@ -537,7 +534,6 @@ class AllToAll(nn.Cell):
                                self.group)[0]
         return output
 
-    # pylint: disable=W0613
     def bprop(self, input_, output, dout):
         """define a bprop process"""
         if self.world_size == 1:
@@ -550,7 +546,6 @@ class AllToAll(nn.Cell):
         return (dout2,)
 
 
-# pylint: disable=W0613
 def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input_split_sizes=None, group=None):
     """define the forward process"""
     ep_world_size = get_expert_model_parallel_world_size()

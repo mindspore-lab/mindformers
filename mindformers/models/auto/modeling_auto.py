@@ -326,7 +326,7 @@ AutoModelForMaskedImageModeling = auto_class_update(AutoModelForMaskedImageModel
 class AutoModelWithLMHead(_AutoModelWithLMHead):
     """AutoModelWithLMHead Class"""
     @classmethod
-    def from_config(cls, config): # pylint: disable=W0221
+    def from_config(cls, config):
         warnings.warn(
             "The class `AutoModelWithLMHead` is deprecated and will be removed in a future version. Please use "
             "`AutoModelForCausalLM` for causal language models, `AutoModelForMaskedLM` for masked language models and "

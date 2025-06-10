@@ -46,7 +46,6 @@ def name_replace(name: str):
     return name
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert ms weight to hf."""
     print(f"Trying to convert mindspore checkpoint in '{input_path}'.", flush=True)

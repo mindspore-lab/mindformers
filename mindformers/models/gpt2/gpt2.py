@@ -128,7 +128,6 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.add_flags(is_first_iteration=is_first_iteration)
 
-    # pylint: disable=W0613
     def construct(self, input_ids, attention_mask=None, input_embeds=None, labels=None, input_position=None,
                   position_ids=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None):
@@ -257,7 +256,6 @@ class GPT2ForSequenceClassification(GPT2PreTrainedModel):
         self.sub = P.Sub().shard(((1,), ()))
         self.gather = P.Gather().shard(((1, 1), (1,)))
 
-    # pylint: disable=W0613
     def construct(self, input_ids, attention_mask, labels=None, input_embeds=None,
                   input_position=None, position_ids=None, init_reset=True, batch_valid_length=None):
         r"""
@@ -462,7 +460,6 @@ class GPT2Model(GPT2PreTrainedModel):
         if self.use_past:
             self.ones = P.Ones()
 
-    # pylint: disable=W0613
     def construct(self, input_ids, attention_mask=None, input_position=None, init_reset=True, batch_valid_length=None,
                   labels=None, input_embeds=None, batch_index=None, zactivate_len=None, position_ids=None,
                   block_tables=None, slot_mapping=None):

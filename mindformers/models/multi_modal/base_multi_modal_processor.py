@@ -442,7 +442,6 @@ class BaseXModalToTextProcessor(BaseProcessor):
     def decode(self, *args, **kwargs):
         return self.tokenizer.decode(*args, **kwargs)
 
-    # pylint: disable=W0613
     def make_context(self, rank: int, conversation: List[Dict[str, str]], add_generation_prompt: bool = True,
                      adapt_to_max_length: bool = False, **kwargs):
         inputs = []

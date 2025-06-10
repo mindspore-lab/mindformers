@@ -122,7 +122,6 @@ class ImageCLSDataset(BaseDataset):
         ...                                      seed=2022, batch_size=32)
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

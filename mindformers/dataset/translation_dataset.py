@@ -108,7 +108,6 @@ class TranslationDataset(BaseDataset):
         ...                                         prefix='translate the English to Romanian:')
     """
 
-    # pylint: disable=W0613
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,

@@ -123,7 +123,6 @@ class MegatronDatasetBuilder:
                                                         num_shards, shard_id, phase, **kwargs)
         return None
 
-    # pylint: disable=W0613
     def build_gptdataset_or_fakedataset(self,
                                         sizes: List[int],
                                         column_names,

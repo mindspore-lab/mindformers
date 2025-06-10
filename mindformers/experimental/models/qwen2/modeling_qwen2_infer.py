@@ -173,7 +173,6 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
         for layer in self.model.decoder.layers:
             layer.self_attention.flash_attention.add_flags(is_prefill=is_prefill)
 
-    # pylint: disable=W0613
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
                   block_tables=None, slot_mapping=None, kv_cache=None, attention_mask=None, attn_metadata=None):
         r"""
