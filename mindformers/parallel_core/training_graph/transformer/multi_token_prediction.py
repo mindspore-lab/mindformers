@@ -391,6 +391,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             config=self.config,
             vocab_size=self.vocab_size,
             max_sequence_length=self.config.seq_length,
+            position_embedding_type=self.config.position_embedding_type
         )
 
         self.output_layer = ColumnParallelLinear(

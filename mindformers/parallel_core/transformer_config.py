@@ -629,6 +629,11 @@ class TransformerConfig(ModelParallelConfig):
         self.moe_router_dtype = convert_str_to_mstype(self.moe_router_dtype)
         self.softmax_compute_dtype = convert_str_to_mstype(self.softmax_compute_dtype)
 
+        if not isinstance(self.hidden_dropout, float) or not 0 <= self.hidden_dropout < 1:
+            raise ValueError(f"hidden_dropout should be a float within [0, 1), but get {self.hidden_dropout}.")
+        if not isinstance(self.attention_dropout, float) or not 0 <= self.attention_dropout < 1:
+            raise ValueError(f"attention_dropout should be a float within [0, 1), but get {self.attention_dropout}.")
+
         if self.pad_token_id is None:
             self.pad_token_id = 0
 

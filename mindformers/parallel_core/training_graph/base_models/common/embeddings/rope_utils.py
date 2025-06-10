@@ -202,8 +202,8 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.add.shard(in_strategy=add_in_strategy)
         self.add_input_is_parallel.shard(in_strategy=(strategy_in_input_is_parallel, strategy_in_input_is_parallel))
         if self.append_eod:
-            self.mul.shard(in_strategy=(strategy_in, (1, strategy_in[0], 1, 1)))
-            self.mul_input_is_parallel.shard(in_strategy=(strategy_in_input_is_parallel, (1, strategy_in[0], 1, 1)))
+            self.mul.shard(in_strategy=(strategy_in, (1, dp, 1, 1)))
+            self.mul_input_is_parallel.shard(in_strategy=(strategy_in_input_is_parallel, (1, dp, 1, 1)))
         else:
             self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))
             self.mul_input_is_parallel.shard(in_strategy=(strategy_in_input_is_parallel, (1, 1, 1, 1)))
@@ -231,6 +231,6 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.add.shard(in_strategy=add_in_strategy)
         self.split.shard(in_strategy=split_in_strategy)
         if self.append_eod:
-            self.mul.shard(in_strategy=(strategy_in, (1, strategy_in[0], 1, 1)))
+            self.mul.shard(in_strategy=(strategy_in, (1, dp, 1, 1)))
         else:
             self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))

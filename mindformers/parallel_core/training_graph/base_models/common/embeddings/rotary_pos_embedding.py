@@ -46,6 +46,7 @@ class RotaryEmbedding(nn.Cell):
                  rope_scaling: bool = False,
                  rope_scaling_factor: float = 8.0,
                  use_cpu_initialization: bool = False,
+                 use_eod_reset: bool = False
                  ):
         super(RotaryEmbedding, self).__init__()
         if use_cpu_initialization:
@@ -57,6 +58,7 @@ class RotaryEmbedding(nn.Cell):
         self.mscale = 1.0
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.rotary_interleaved = rotary_interleaved
+        self.use_eod_reset = use_eod_reset
 
         self.inv_freq = 1.0 / (rotary_base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
         if rope_scaling:
@@ -67,9 +69,11 @@ class RotaryEmbedding(nn.Cell):
             self.stack = StackExt(dim=-1)
         else:
             self.cat = Concat(axis=-1)
+            self.cat_for_eod = Concat(axis=-1)
         self.reshape = Reshape()
 
         self.outer = Outer()
+        self.outer_for_eod = Outer()
         self.transpose = Transpose()
 
     def _apply_scaling(
@@ -105,34 +109,46 @@ class RotaryEmbedding(nn.Cell):
         Args:
             max_seq_len (int): The maximum sequence length.
             offset (int): The offset for the sequence.
+            position_ids: user self-defined position_ids for eod_reset.
 
         Returns:
             Tensor: Embeddings after applying RoPE.
             Tensor: mscale, return to match yarn interface.
         """
-        if position_ids is None:
+        if position_ids is None or not self.use_eod_reset:
             bs = 1
             seq = ops.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset
+            outer = self.outer
+            cat = self.cat
         else:
             bs = position_ids.shape[0]
             seq = self.reshape(position_ids, (-1,)) + offset
+            outer = self.outer_for_eod
+            cat = self.cat_for_eod
 
         if self.seq_len_interpolation_factor is not None:
             seq *= 1 / self.seq_len_interpolation_factor
 
-        freqs = self.outer(seq, self.inv_freq)
+        freqs = outer(seq, self.inv_freq)
 
         if self.rotary_interleaved:
             freqs_new_shape = (freqs.shape[0], -1)
             emb = self.reshape(self.stack([self.reshape(freqs, (-1, 1)), self.reshape(freqs, (-1, 1))]),
                                freqs_new_shape)
         else:
-            emb = self.cat((freqs, freqs))
+            emb = cat((freqs, freqs))
 
-        if position_ids is None:
+        if position_ids is None or not self.use_eod_reset:
             # emb[seq_length, .., dim]
             out = self.reshape(emb, (-1, bs, 1, emb.shape[1]))
         else:
             out = self.reshape(emb, (bs, -1, 1, emb.shape[1]))
             out = self.transpose(out, (1, 0, 2, 3))
         return out.copy(), self.mscale
+
+    def shard(self, config):
+        dp = config.data_parallel_size
+
+        self.outer_for_eod.shard(((dp,), (1,)))
+        self.cat_for_eod.shard(((dp, 1), (dp, 1)))
+        self.transpose.shard(((dp, 1, 1, 1),))
