@@ -20,6 +20,7 @@ import json
 import os
 from enum import Enum
 from typing import Any, Dict, List, Union
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from mindspore import dtype as msdtype
@@ -321,8 +322,8 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             SmoothQuant, and OmniQuant.
         modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
             blacklist will not being quanted.
-        outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
-            support None and smooth currently.
+        outliers_suppression (OutliersSuppressionType): the method of outliers suprression.
+            Choose from (`"None"`, `"smooth"`, `"awq"`, `"outlier-suppression+"`). Defaults: ``"None"``.
         precision_recovery (PrecisionRecovery): the method of precision recovery, used to precision compensation of
             weights during quantization, support None and GPTQ currently.
         act_quant_granularity (QuantGranularity): the quant granularity of act,
@@ -332,6 +333,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         weight_quant_granularity(QuantGranularity): the quant granularity of weight,
             support QuantGranularity.PER_CHANNEL and QuantGranularity.PER_GROUP currently.
         group_size (int): group_size of per_group quantization, suggest using 64 or 128.
+        layer_policies (dict, optional): quantization strategy for layers. Defaults: ``None``.
+            The key of `layer_policies` is regular string to match the layer name,
+            the value of `layer_policies` is the quantization strategy of current layer.
 
     Raises:
         ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
@@ -348,6 +352,8 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
                     not mindspore.dtype.int8 or `activation_dtype` is not mindspore.dtype.int8.
         ValueError: If `weight_quant_granularity` is QuantGranularity.PER_GROUP but `group_size` is not in [64, 128].
         TypeError: If `group_size` is not Int.
+        TypeError: If `layer_policies` not dict, the key of `layer_policies` is not string or
+            the value of `layer_policies` is not a regular expression.
 
     Examples:
         >>> from mindformers.utils.quantization_config import PtqConfig
@@ -372,6 +378,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             kvcache_quant_granularity: str = "per_channel",
             weight_quant_granularity: str = "per_channel",
             group_size: int = 0,
+            layer_policies: Dict[str, Any] = None,
             **kwargs
     ):
         super().__init__()
@@ -389,6 +396,11 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         self.outliers_suppression = outliers_map[outliers_suppression]
         self.precision_recovery = precision_recovery_map[precision_recovery]
         self.group_size = group_size
+
+        self.layer_policies = OrderedDict()
+        if layer_policies:
+            for key, value in layer_policies.items():
+                self.layer_policies[key] = PtqConfig.from_dict(value)
         self.init_check()
 
     def init_check(self):
@@ -434,6 +446,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         if self.group_size not in accepted_group_size:
             raise ValueError(f"Only support group_size in {accepted_group_size} but found "
                              f"{self.group_size}")
+        self._check_layer_policies()
 
     def _check_quant_granularity(self):
         """check quant granularity"""
@@ -452,6 +465,19 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         if self.kvcache_quant_dtype != msdtype.int8 and self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN:
             raise ValueError("when self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN, "
                              "self.kvcache_quant_dtype must be mindspore.dtype.int8.")
+
+    def _check_layer_policies(self):
+        """_check_layer_policies"""
+        import re
+        if not isinstance(self.layer_policies, OrderedDict):
+            raise TypeError(f'layer_policies should be an OrderedDict, bug got {type(self.layer_policies)}.')
+        if any(not isinstance(key, str) for key in self.layer_policies.keys()):
+            raise TypeError(f'all key of layer_policies should be a string.')
+        try:
+            for key, _ in self.layer_policies.items():
+                re.compile(key)
+        except re.error as e:
+            raise TypeError(f'The regular string of layer_policies not correct, please check and try again.') from e
 
 
 @dataclass
