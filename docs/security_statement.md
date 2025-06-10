@@ -53,12 +53,9 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 |  类型  | 开源代码地址 |                           文件名                            |                                                            公网IP地址/公网URL地址/域名/邮箱地址                                                            |             用途说明              |
 |:----:|:------:|:--------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------:|
 | 开发引入 |   -    |                   mindformers/build.sh                   |                                                   https://pypi.tuna.tsinghua.edu.cn/simple                                                   |  用于pip安装mindformers时, 修改安装源   |
-| 开发引入 |   -    |  mindformers/mindformers/models/clip/clip_tokenizer.py   |                                        https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/                                         |     默认模型/权重/Tokenizer下载源      |
 | 开发引入 |   -    | mindformers/.jenkins/test/config/dependent_packages.yaml | https://repo.mindspore.cn/mindspore/mindspore/version/202502/20250214/master_20250214091349_bba9269b8a6826c23ec33be9fd677178d52cfa3f_newest/ |     用于下载测试所依赖的mindspore包      |
 | 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                          https://hub-ci.openmind.cn                                                          | staging_mode下用于从openmind下载模型  |
 | 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                             https://openmind.cn                                                              | 非staging_mode下用于从openmind下载模型 |
-| 开发引入 |   -    |        mindformers/mindformers/mindformer_book.py        |                                                          https://xihe.mindspore.cn                                                           |          预置下载模型权重地址           |
-| 开发引入 |   -    |        mindformers/mindformers/mindformer_book.py        |                                        https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/                                         |          预置下载模型权重地址           |
 | 开发引入 |   -    |                   mindformers/setup.py                   |                                                   https://gitee.com/mindspore/mindformers                                                    |   setup脚本方式安装mindformers地址    |
 
 ### 公开接口声明
