@@ -47,20 +47,38 @@ class FFNGroupedGEMM(nn.Cell):
     def __init__(self, config: TransformerConfig):
         super(FFNGroupedGEMM, self).__init__()
         self.config = config
+        self.num_local_experts = config.num_moe_experts
+
+        if config.add_bias_linear:
+            raise NotImplementedError(
+                "bias not supported in FFNGroupedGEMM yet, please set: "
+                "model_config: \n"
+                "    add_bias_linear: True' \n"
+                "in yaml configuration.")
+
+        # activation_func is not in the supported set for now, Swiglu by default.
+
+        # config.gated_linear_unit=True for MOE module by default.
+        # Note: The gated_linear_unit config switch will be supported later.
+        fc1_output_size = 2 * self.config.moe_ffn_hidden_size * self.num_local_experts
+        fc2_input_size = self.config.moe_ffn_hidden_size * self.num_local_experts
+        self.intermediate_size = self.config.moe_ffn_hidden_size
         self.hidden_size = config.hidden_size
-        self.intermediate_size = config.moe_ffn_hidden_size
+
         self.compute_dtype = config.compute_dtype
         self.param_init_type = config.params_dtype
-        self.expert_num = config.num_moe_experts
         self.init_method = config.init_method
         self.ep = config.expert_model_parallel_size
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
 
         # parameters
-        self.weight1 = Parameter(self.init_method([self.hidden_size, 2 * self.intermediate_size * self.expert_num]),
-                                 name='w1')
-        self.weight2 = Parameter(self.init_method([self.intermediate_size * self.expert_num, self.hidden_size]),
-                                 name='w2')
+        self.weight1 = Parameter(
+            self.init_method([self.hidden_size, fc1_output_size]),
+            name='w1')
+        self.weight2 = Parameter(
+            self.init_method([fc2_input_size, self.hidden_size]),
+            name='w2')
+
         # init token dispatcher
         self.token_dispatcher = MoEAlltoAllTokenDispatcher(config)
 
@@ -84,10 +102,40 @@ class FFNGroupedGEMM(nn.Cell):
         w1 = self.cast_op(self.weight1, dtype)
         w2 = self.cast_op(self.weight2, dtype)
         # reshape w1 and w2 to [E, h, H] and [E, H, h]
-        w1 = self.reshape(w1, (self.expert_num, self.hidden_size, 2 * self.intermediate_size))
-        w2 = self.reshape(w2, (self.expert_num, self.intermediate_size, self.hidden_size))
+        w1 = self.reshape(w1, (self.num_local_experts, self.hidden_size, 2 * self.intermediate_size))
+        w2 = self.reshape(w2, (self.num_local_experts, self.intermediate_size, self.hidden_size))
         output = self.morphed_forward(tokens, probs, routing_map, w1, w2)
         return output
+
+    def forward_func(self, tokens, probs, routing_map, w1, w2):
+        """Morphed forward."""
+        (dispatched_input, tokens_per_expert, unsort_map, outer_unsort_map,
+         input_splits, output_splits, original_shape, unsort_pad_map) = \
+            self.token_dispatcher.token_permutation(tokens, probs, routing_map)
+
+        expert_output = self.experts_forward(dispatched_input, tokens_per_expert, w1, w2)
+
+        output = self.token_dispatcher.token_unpermutation(
+            expert_output, probs, unsort_map, outer_unsort_map,
+            input_splits, output_splits, original_shape, unsort_pad_map)
+        return output
+
+    def experts_forward(self, permuted_local_hidden_states, tokens_per_expert, w1, w2):
+        """Forward step of the GroupedMLP.
+        Matches moe.experts.GroupedMLP's computation precision of Megatron v0.12.0
+        under certain conditions.
+        """
+        # Only supported  permuted_local_hidden_states.nelement() != 0
+        # MindFormers use use_pad_tokens control when permuted_local_hidden_states.nelement() == 0
+        # in moe.token_dispatcher.MoEAlltoAllTokenDispatcher._process_pad_tokens
+        permuted_local_hidden_states = permuted_local_hidden_states.reshape((-1, self.hidden_size))
+        fc1_output = GroupedMatmul(split_item=3, group_type=0)(
+            [permuted_local_hidden_states], [w1], None, None, None, None, None, tokens_per_expert)[0]
+        intermediate_parallel = Swiglu()(fc1_output, -1).reshape((-1, w2.shape[1]))
+        fc2_output = GroupedMatmul(split_item=3, group_type=0)(
+            [intermediate_parallel], [w2], None, None, None, None, None, tokens_per_expert)[0]
+        fc2_output = fc2_output.reshape((1, -1, self.hidden_size))
+        return fc2_output
 
     def shard(self, config: TransformerConfig):
         """
@@ -118,27 +166,3 @@ class FFNGroupedGEMM(nn.Cell):
                 layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output       [B, S, h]
             )
         )
-
-    def forward_func(self, tokens, probs, routing_map, w1, w2):
-        """Morphed forward."""
-        (dispatched_input, tokens_per_expert, unsort_map, outer_unsort_map,
-         input_splits, output_splits, original_shape, unsort_pad_map) = \
-            self.token_dispatcher.token_permutation(tokens, probs, routing_map)
-
-        expert_output = self.experts_forward(dispatched_input, tokens_per_expert, w1, w2)
-
-        output = self.token_dispatcher.token_unpermutation(
-            expert_output, probs, unsort_map, outer_unsort_map,
-            input_splits, output_splits, original_shape, unsort_pad_map)
-        return output
-
-    def experts_forward(self, permuted_local_hidden_states, tokens_per_expert, w1, w2):
-        """Forward step of the GroupedMLP."""
-        permuted_local_hidden_states = permuted_local_hidden_states.reshape((-1, self.hidden_size))
-        fc1_output = GroupedMatmul(split_item=3, group_type=0)(
-            [permuted_local_hidden_states], [w1], None, None, None, None, None, tokens_per_expert)[0]
-        intermediate_parallel = Swiglu()(fc1_output, -1).reshape((-1, w2.shape[1]))
-        fc2_output = GroupedMatmul(split_item=3, group_type=0)(
-            [intermediate_parallel], [w2], None, None, None, None, None, tokens_per_expert)[0]
-        fc2_output = fc2_output.reshape((1, -1, self.hidden_size))
-        return fc2_output
