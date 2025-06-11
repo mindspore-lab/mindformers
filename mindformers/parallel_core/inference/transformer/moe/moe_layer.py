@@ -20,8 +20,8 @@ import mindspore.common.dtype as mstype
 from mindspore.ops.auto_generate import (MoeInitRoutingV2,
                                          MoeTokenUnpermute)
 
-from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
-from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 
@@ -63,6 +63,11 @@ class BaseMoELayer(nn.Cell):
         if self.config.expert_model_parallel_size > 1:
             raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
 
+        if config.moe_shared_expert_intermediate_size != 0:
+            self.use_shared_expert = True
+        else:
+            self.use_shared_expert = False
+
         self.num_experts = config.num_moe_experts
 
         self.router = None
@@ -103,7 +108,7 @@ class MoELayer(BaseMoELayer):
         self.experts = build_module(self.submodules.experts, self.num_experts, self.config)
 
         # Initialize shared experts
-        if config.shared_expert_num is not None:
+        if self.use_shared_expert:
             self.shared_experts = build_module(self.submodules.shared_experts, config=self.config)
 
         self.cast = ops.Cast()
@@ -116,7 +121,7 @@ class MoELayer(BaseMoELayer):
         """Construct MoELayer."""
         # [1, B * S, H] -> [T, H]
         input_tensor_shape = hidden_states.shape
-        hidden_states = mint.reshape(hidden_states, (-1, self.config.hidden_size))
+        hidden_states = hidden_states.reshape((-1, self.config.hidden_size))
 
         # router
         expert_weight, routing_map = self.router(hidden_states)
@@ -145,8 +150,8 @@ class MoELayer(BaseMoELayer):
 
         output = self.reduce_from_mp_region(moe_output)
 
-        if self.config.shared_expert_num is not None:
+        if self.use_shared_expert:
             output = mint.add(output, self.shared_experts(hidden_states))
 
-        output = mint.reshape(output, input_tensor_shape)
+        output = output.reshape(input_tensor_shape)
         return output

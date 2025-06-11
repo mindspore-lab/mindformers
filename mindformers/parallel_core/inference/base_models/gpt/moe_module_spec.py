@@ -27,7 +27,8 @@ def get_moe_module_spec(
         num_experts: Optional[int] = None,
 ) -> ModuleSpec:
     """Helper function to get module spec for MoE"""
-    assert num_experts is not None
+    if not num_experts:
+        raise ValueError(f"Using MoE module, num_experts must be int, but num_experts get {num_experts}.")
 
     mlp = MLPSubmodules(
         linear_fc1=ColumnParallelLinear,

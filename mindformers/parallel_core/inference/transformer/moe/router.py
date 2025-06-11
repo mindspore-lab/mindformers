@@ -106,8 +106,8 @@ class TopKRouter(Router):
         self.group_topk = GroupTopkCell()
 
         self.moe_router_enable_expert_bias = config.moe_router_enable_expert_bias
-        if self.moe_router_enable_expert_bias:
-            self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
+
+        self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
 
         self.fused_add_topk_div = FusedAddTopKDiv()
 

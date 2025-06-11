@@ -50,7 +50,7 @@ class GroupedMLP(nn.Cell):
         self.skip_bias_add = True
 
 
-        ffn_hidden_size = self.config.moe_shared_expert_intermediate_size
+        ffn_hidden_size = self.config.moe_ffn_hidden_size
         self.tp_group_size = get_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
         if self.gated_linear_unit:
@@ -70,12 +70,11 @@ class GroupedMLP(nn.Cell):
         else:
             self.activation_func = None
         # linear fc2
-        self.linear_fc2_input_size = self.config.moe_shared_expert_intermediate_size
-        self.linzer_fc2_output_size = self.config.hidden_size
-        self.linear_fc2_output_size_per_partition = divide(self.linzer_fc2_output_size, self.tp_group_size)
+        self.linear_fc2_input_size = ffn_hidden_size
+        self.linear_fc2_output_size = self.config.hidden_size
         self.linear_fc2_input_size_per_partition = divide(self.linear_fc2_input_size, self.tp_group_size)
-        linear_fc2_weight_shape = (self.num_experts,) + (self.linear_fc2_input_size,
-                                                         self.linear_fc2_output_size_per_partition)
+        linear_fc2_weight_shape = (self.num_experts,) + (self.linear_fc2_input_size_per_partition,
+                                                         self.linear_fc2_output_size)
 
         self.cast = ops.Cast()
         self.matmul = ops.auto_generate.GroupedMatmulV4()
@@ -93,7 +92,7 @@ class GroupedMLP(nn.Cell):
                 ),
                 name="bias",
             )
-            bias_shape = (1, self.num_experts, 1) + (self.linzer_fc2_output_size,)
+            bias_shape = (1, self.num_experts, 1) + (self.linear_fc2_output_size,)
             self.linear_fc2_bias = Parameter(
                 initializer(
                     "zeros", bias_shape, self.params_dtype
@@ -109,7 +108,7 @@ class GroupedMLP(nn.Cell):
         input_parallel = self.cast(input_parallel, self.compute_dtype)
         output_size_per_partition = divide(output_size, self.tp_group_size)
         output_shape = input_parallel.shape[:-1] + (output_size_per_partition,)
-        input_parallel = mint.reshape(input_parallel, (-1, input_size))
+        input_parallel.reshape((-1, input_size))
         output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
                                       group_list, split_item=3, group_type=0, group_list_type=1)[0]
         if self.has_bias:
@@ -117,8 +116,7 @@ class GroupedMLP(nn.Cell):
                 output_parallel, self.cast(bias, self.compute_dtype)
             )
         output_parallel = self.cast(output_parallel, origin_dtype)
-        output_parallel = mint.reshape(output_parallel, output_shape)
-        output_parallel = self.gather_from_mp_region(output_parallel)
+        output_parallel = output_parallel.reshape(output_shape)
 
         return output_parallel
 
@@ -130,7 +128,7 @@ class GroupedMLP(nn.Cell):
         input_parallel = self.cast(input_parallel, self.compute_dtype)
         output_shape = input_parallel.shape[:-1] + (output_size,)
         input_size_per_partition = divide(input_size, self.tp_group_size)
-        input_parallel = mint.reshape(input_parallel, (-1, input_size_per_partition))
+        input_parallel = input_parallel.reshape((-1, input_size_per_partition))
         output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
                                       group_list, split_item=3, group_type=0, group_list_type=1)[0]
         if self.moe_delay_allreduce:
@@ -142,9 +140,9 @@ class GroupedMLP(nn.Cell):
             output = mint.add(output, self.cast(bias, self.compute_dtype))
 
         output = self.cast(output, origin_dtype)
-        output = mint.reshape(output, output_shape)
+        output = output.reshape(output_shape)
 
-        return output_parallel
+        return output
 
     def construct(self, hidden_states, group_list=None):
         """Forward process of GroupedMLP"""
@@ -164,7 +162,7 @@ class GroupedMLP(nn.Cell):
 
         # [T, ffn_H] -> [T, H]
         output = self._fc2_group_gemm(intermediate_parallel, self.weight2, group_list,
-                                      self.linear_fc2_input_size, self.linzer_fc2_output_size)
+                                      self.linear_fc2_input_size, self.linear_fc2_output_size)
         return output
 
     def sharded_state_dict(self):
