@@ -30,18 +30,6 @@ def build_dataset(
 
     Return:
         The function instance of dataset API.
-
-    Examples:
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers import MindFormerBook
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
-        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
-        >>> config_path = config_dict_list['text_generation']['gpt2']
-        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-        >>> config = MindFormerConfig(config_path)
-        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
-        >>> check_dataset_config(config)
-        >>> dataset = build_dataset(config.train_dataset_task)
     """
     if config is None and class_name is None:
         return None

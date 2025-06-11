@@ -19,7 +19,6 @@ import numpy as np
 
 from mindspore import ops, Tensor
 
-from mindformers.models import GPT2ForSequenceClassification
 from mindformers.pipeline.base_pipeline import Pipeline
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.dataset.labels import labels
@@ -139,13 +138,6 @@ class TextClassificationPipeline(Pipeline):
             raise ValueError("Inputs type must be str")
 
         expand_dims = ops.ExpandDims()
-
-        if isinstance(self.model, GPT2ForSequenceClassification):
-            tokens = self.tokenizer(inputs, return_tensors="ms", **preprocess_params)
-            input_ids = tokens["input_ids"]
-            attention_mask = tokens["attention_mask"]
-            return {"input_ids": expand_dims(input_ids, 0),
-                    "attention_mask": expand_dims(attention_mask, 0)}
 
         if '-' not in inputs:
             raise ValueError("two texts of text pair should be split by -")

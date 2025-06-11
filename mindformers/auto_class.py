@@ -763,8 +763,8 @@ class AutoTokenizer:
             class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
                 raise ValueError(f"The file `model_name.yaml` should exist in the path "
-                                 f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs like "
-                                 f"configs/gpt2/run_gpt2.yaml, but not found.")
+                                 f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs "
+                                 f"but not found.")
         else:
             raise FileNotFoundError(f"Tokenizer type `{yaml_name_or_path}` does not exist. "
                                     f"Use `{cls.__name__}.show_support_list()` to check the supported tokenizer. "

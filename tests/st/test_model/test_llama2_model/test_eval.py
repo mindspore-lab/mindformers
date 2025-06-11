@@ -45,6 +45,7 @@ class TestLlama2Eval:
         model_config.batch_size = runner.batch_size  # set batch size for prediction
         # In generate evaluate mode, model.model_config.max_decode_length is 1024
         model_config.seq_length = 1024
+        model_config.max_decode_length = 1024
         model = get_model(model_config)
 
         runner.set_eval(model, model_config)

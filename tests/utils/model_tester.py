@@ -93,7 +93,7 @@ class ModelTester:
             For training, in experimental mode 'loss_std' and 'avg_time_std' will be printed.
             For inference, in experimental mode 'expect_outputs' will be printed.
         tokenizer (str, optional):
-            The type of tokenizer used in testing. Defaults to 'gpt2'.
+            The type of tokenizer used in testing.
 
     Raises:
         AssertionError

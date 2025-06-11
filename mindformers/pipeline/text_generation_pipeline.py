@@ -68,14 +68,6 @@ class TextGenerationPipeline(Pipeline):
             If input model and tokenizer's types are not corrected.
         ValueError:
             If the input model is not in support list.
-
-    Examples:
-        >>> from mindformers.pipeline import TextGenerationPipeline
-        >>> from mindformers import AutoModel, AutoTokenizer
-        >>> model = AutoModel.from_pretrained("gpt2")
-        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        >>> text_generate = TextGenerationPipeline(model=model, tokenizer=tokenizer)
-        >>> output = text_generate("I love Beijing, because ")
     """
     return_name = 'text_generation'
 

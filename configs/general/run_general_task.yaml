@@ -20,30 +20,33 @@ remote_save_url: "Please input obs url on AICC platform."
 
 # runner
 runner_config:
-  epochs: 2
-  batch_size: 2
+  epochs: 3
+  batch_size: 4
   sink_mode: True
   sink_size: 2
 runner_wrapper:
-  type: TrainOneStepCell
-  sens: 1024
+  type: MFTrainOneStepCell
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 4294967296
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
 
 # parallel
 use_parallel: False
 parallel:
   parallel_mode: 0 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: True
-  enable_alltoall: False
-  full_batch: False
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 parallel_config:
   data_parallel: 1
   model_parallel: 1
-  expert_parallel: 1
   pipeline_stage: 1
+  use_seq_parallel: False
   micro_batch_num: 1
+  vocab_emb_dp: True
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
 
@@ -57,6 +60,7 @@ moe_config:
 # recompute
 recompute_config:
   recompute: False
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: False
@@ -76,7 +80,7 @@ profile_memory: True
 
 # Trainer
 trainer:
-  type: general
+  type: CausalLanguageModelingTrainer
   model_name: 'general'
 
 # please edit by hand.
@@ -93,14 +97,15 @@ eval_dataset_task:
 model:
   model_config:
     checkpoint_name_or_path:
+    max_decode_length: 1024
   arch:
 
 # lr schedule
 lr_schedule:
-  type: cosine
-  learning_rate: 0.00015
-  lr_end: 0.
-  warmup_lr_init: 0.
+  type: polynomial
+  learning_rate: 0.0001
+  lr_end: 0.00001
+  warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
@@ -125,6 +130,9 @@ callbacks:
     async_save: False
 
 # please edit by hand.
+metric:
+  type: PerplexityMetric
+
 processor:
   tokenizer:
   image_processor:

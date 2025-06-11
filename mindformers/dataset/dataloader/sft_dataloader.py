@@ -91,19 +91,6 @@ class SFTDataLoader:
         Raises:
             ValueError: Error input for dataset_dir.
             TypeError: Type error for column_names.
-
-        Examples:
-            >>> from mindformers import SFTDataLoader
-            >>> data_loader = SFTDataLoader(dataset_dir="The required task dataset path",
-            ...                             column_names=["input_ids"],
-            ...                             tokenizer={"type": "GPT2Tokenizer", "max_length": 1025},
-            ...                             dataset_name="alpaca",
-            ...                             file_format="json",
-            ...                             shuffle=True)
-            >>> data_loader = data_loader.batch(1)
-            >>> for item in data_loader:
-            >>>     print(item)
-            >>>     break
         """
         if max_length <= 0:
             raise TypeError(f"max_length should be an integer greater than 0.")

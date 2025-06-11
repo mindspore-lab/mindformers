@@ -88,7 +88,6 @@ TOKENIZER_MAPPING_NAMES = OrderedDict(
         ("glm", ("ChatGLMTokenizer", None)),
         ("glm2", ("ChatGLM2Tokenizer", None)),
         ("glm3", ("ChatGLM3Tokenizer", None)),
-        ("gpt2", ("GPT2Tokenizer", "GPT2TokenizerFast" if is_tokenizers_available() else None)),
         (
             "llama",
             (
@@ -195,22 +194,6 @@ def get_tokenizer_config(
 
     Returns:
         `Dict`: The configuration of the tokenizer.
-
-    Examples:
-
-    ```python
-    # Download configuration from user-uploaded and cache.
-    tokenizer_config = get_tokenizer_config("mindformersinfra/test_auto_tokenizer_gpt2_ms")
-    # This model does not have a tokenizer config so the result will be an empty dict.
-    tokenizer_config = get_tokenizer_config("xlm-roberta-base")
-
-    # Save a pretrained tokenizer locally and you can reload its config
-    from mindformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
-    tokenizer.save_pretrained("tokenizer-test", save_json=True)
-    tokenizer_config = get_tokenizer_config("tokenizer-test")
-    ```
     """
     use_auth_token = kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:
@@ -419,8 +402,8 @@ class AutoTokenizer:
             class_name, config = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
                 raise ValueError(f"The file `model_name.yaml` should exist in the path "
-                                 f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs like "
-                                 f"configs/gpt2/run_gpt2.yaml, but not found.")
+                                 f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs, "
+                                 f"but not found.")
         else:
             raise FileNotFoundError(f"Tokenizer type `{yaml_name_or_path}` does not exist. "
                                     f"Use `{cls.__name__}.show_support_list()` to check the supported tokenizer. "
@@ -497,16 +480,6 @@ class AutoTokenizer:
                 Will be passed to the Tokenizer `__init__()` method. Can be used to set special tokens like
                 `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,
                 `additional_special_tokens`. See parameters in the `__init__()` for more details.
-
-        Examples:
-            >>> from mindformers import AutoTokenizer
-            >>> # Download vocabulary from mindformers obs.
-            >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-            >>> # Download vocabulary from user-uploaded and cache.
-            >>> tokenizer = AutoTokenizer.from_pretrained("mindformersinfra/test_auto_tokenizer_gpt2_ms")
-            >>> # If vocabulary files are in a directory
-            >>> # (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)
-            >>> # tokenizer = AutoTokenizer.from_pretrained("./test/bert_saved_model/")
         """
         use_auth_token = kwargs.pop("use_auth_token", None)
         if use_auth_token is not None:

@@ -97,15 +97,6 @@ from .t5 import (
     T5Tokenizer,
     T5TokenizerFast
 )
-from .gpt2 import (
-    GPT2Config,
-    GPT2ForSequenceClassification,
-    GPT2LMHeadModel,
-    GPT2Model,
-    GPT2Processor,
-    GPT2Tokenizer,
-    GPT2TokenizerFast
-)
 from .glm2 import (
     ChatGLM2Config,
     ChatGLM2ForConditionalGeneration,

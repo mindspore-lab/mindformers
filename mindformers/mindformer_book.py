@@ -88,7 +88,7 @@ class MindFormerBook:
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          )
     ])
 
@@ -97,7 +97,7 @@ class MindFormerBook:
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))
         ]))
     ])
 
