@@ -23,6 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
 from mindformers.version_control import get_identity, is_dump_supported
 
+from mindspore._checkparam import args_type_check
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
 import mindspore.common.dtype as mstype
@@ -120,6 +121,9 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token.
             Default: `False`.
+        global_norm_spike_threshold (float, optional): The threshold of global norm when
+            the skip data function is enabled. Default: ``1.0``.
+        use_skip_data_by_global_norm (bool, optional): The switch of the skip data function. Default: ``False``.
         **kwargs (Any): Additional parameters.
 
     Inputs:
@@ -165,6 +169,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         (1,) False 1.0 0.001, None
     """
 
+    @args_type_check(global_norm_spike_threshold=float, use_skip_data_by_global_norm=bool)
     def __init__(self,
                  network,
                  optimizer,
@@ -173,6 +178,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  scale_sense=1.0,
                  local_norm=False,
                  calculate_per_token_loss=False,
+                 global_norm_spike_threshold=1.0,
+                 use_skip_data_by_global_norm=False,
                  **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
@@ -205,6 +212,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             self.finish_step_filename = os.path.join(self.dump_path, "finish_step")
         if self.dump_device_local_norm:
             self.squared_device_local_norm = get_squared_device_local_norm_param()
+        self.global_norm_spike_threshold = global_norm_spike_threshold
+        self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -265,7 +274,11 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         # if there is no overflow, do optimize
         if not overflow:
-            loss = F.depend(loss, self.optimizer(grads))
+            if self.use_skip_data_by_global_norm:
+                if global_norm < self.global_norm_spike_threshold:
+                    loss = F.depend(loss, self.optimizer(grads))
+            else:
+                loss = F.depend(loss, self.optimizer(grads))
 
         if self.if_dump:
             zero = Tensor(0.0, mstype.float32)
@@ -476,8 +489,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1``.
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
-        global_norm_spike_threshold (float, optional): The threshold of global norm when use
-            the skip data function. Default: ``1.0``.
+        global_norm_spike_threshold (float, optional): The threshold of global norm when
+            the skip data function is enabled. Default: ``1.0``.
         use_skip_data_by_global_norm (bool, optional): The switch of the skip data function. Default: ``False``.
         **kwargs (Any): Additional parameters.
 
@@ -503,6 +516,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         ValueError: If the parallel mode is not one of [ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL].
     """
 
+    @args_type_check(global_norm_spike_threshold=float, use_skip_data_by_global_norm=bool)
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
                  scale_sense=1.0, micro_batch_num=1, local_norm=False,
                  calculate_per_token_loss=False, global_norm_spike_threshold=1.0,

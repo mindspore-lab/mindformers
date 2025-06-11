@@ -15,7 +15,7 @@
 """
 Test module for testing the trainer interface used for mindformers.
 How to run this:
-    pytest tests/st/test_trainer/test_trainer.py
+    pytest tests/st/test_ckpt_health_monitor/test_ckpt_health_monitor.py
 """
 import json
 import os

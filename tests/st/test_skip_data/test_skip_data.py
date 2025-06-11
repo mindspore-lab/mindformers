@@ -109,5 +109,5 @@ def test_trainer_skip_data_abnormal_global_norm():
                     False)
     with open("./output/log/rank_0/info.log", 'r') as file:
         content = file.read()
-        assert "has been 1 consecutive times smaller than threshold:" in content
+        assert "has been 1 consecutive times greater than threshold:" in content
         assert "is_skip: [ True]" in content

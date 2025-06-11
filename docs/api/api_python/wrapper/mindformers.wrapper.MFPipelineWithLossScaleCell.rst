@@ -1,7 +1,7 @@
 mindformers.wrapper.MFPipelineWithLossScaleCell
 ===============================================
 
-.. py:class:: mindformers.wrapper.MFPipelineWithLossScaleCell(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, **kwargs)
+.. py:class:: mindformers.wrapper.MFPipelineWithLossScaleCell(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)
 
     为MindFormers的单步训练单元扩充流水线并行的损失缩放功能。
 
@@ -14,6 +14,8 @@ mindformers.wrapper.MFPipelineWithLossScaleCell
         - **micro_batch_num** (int, 可选) - 流水线并行的微批次数。默认值： ``1`` 。
         - **local_norm** (bool, 可选) - 是否计算局部范数。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
+        - **global_norm_spike_threshold** (float, 可选) - 使用跳过数据功能时global norm的阈值。默认值： ``1.0`` 。
+        - **use_skip_data_by_global_norm** (bool, 可选) - 是否开始数据跳过功能。默认值： ``False`` 。
         - **\*\*kwargs** (Any) - 其他参数。
 
     输入：

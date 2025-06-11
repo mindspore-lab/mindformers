@@ -31,6 +31,7 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
+from mindspore._checkparam import args_type_check
 from mindspore import (
     Callback,
     Profiler,
@@ -588,6 +589,7 @@ class TrainingStateMonitor(Callback):
         initial_step (int, optional): The beginning step. Default: ``0``.
         global_batch_size (int, optional): The total batch size. Default: ``0``.
         check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
+            Default: ``False``.
         use_skip_data_by_global_norm (bool, optional): Whether to use the skip data function
             by global norm. Default: ``False``.
         embedding_size (int, optional): The size of embedding norm which is get
@@ -595,6 +597,7 @@ class TrainingStateMonitor(Callback):
         use_local_norm (bool, optional): Whether to turn on the local norm. Default: ``False``.
             Default: ``False``.
     """
+    @args_type_check(embedding_size=int, use_skip_data_by_global_norm=bool)
     def __init__(self,
                  origin_epochs: int,
                  config: dict = None,
@@ -792,13 +795,13 @@ class TrainingStateMonitor(Callback):
                 if self.global_norm_spike_count < self.global_norm_spike_count_threshold:
                     logger.info(f"Current global norm {global_norm} of step {global_step} "
                                 f"has been {self.global_norm_spike_count} "
-                                f"consecutive times smaller than threshold: "
+                                f"consecutive times greater than threshold: "
                                 f"{self.global_norm_spike_threshold}")
                 else:
                     raise ValueError(
                         f"Current global norm {global_norm} of step {global_step} "
                         f"has been {self.global_norm_spike_count_threshold} "
-                        f"consecutive times greater equal than threshold "
+                        f"consecutive times greater than threshold "
                         f"{self.global_norm_spike_threshold}, stop training...")
             else:
                 self.global_norm_spike_count = 0
@@ -1159,6 +1162,7 @@ class CheckpointMonitor(ModelCheckpoint):
         >>> monitor = CheckpointMonitor(directory='./checkpoint_dir')
     """
 
+    @args_type_check(embedding_local_norm_threshold=float, use_checkpoint_health_monitor=bool)
     def __init__(self, prefix='CKP',
                  directory=None,
                  config=None,

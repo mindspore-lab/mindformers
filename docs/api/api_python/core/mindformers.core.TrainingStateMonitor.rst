@@ -1,7 +1,7 @@
 mindformers.core.TrainingStateMonitor
 =====================================
 
-.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False)
+.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)
 
     监控训练过程中指标变化的回调函数。
 
@@ -26,3 +26,6 @@ mindformers.core.TrainingStateMonitor
         - **initial_step** (int, 可选) - 训练开始的step数。默认值： ``0`` 。
         - **global_batch_size** (int, 可选) - 总BatchSize大小。默认值： ``0`` 。
         - **check_for_nan_in_loss_and_grad** (bool, 可选) - 是否检查损失和梯度存在Nan。默认值： ``False`` 。
+        - **use_skip_data_by_global_norm** (bool, 可选) - 是否开启通过global norm来进行数据跳过的功能。默认值： ``False`` 。
+        - **embedding_size** (int, 可选) - 通过hidden_size * vocab_size来计算embedding norm的size。默认值： ``4096`` 。
+        - **use_local_norm** (bool, 可选) - 是否打开local norm的开关。默认值： ``False`` 。

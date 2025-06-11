@@ -1,7 +1,7 @@
 mindformers.core.CheckpointMonitor
 ==================================
 
-.. py:class:: mindformers.core.CheckpointMonitor(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=False, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False)
+.. py:class:: mindformers.core.CheckpointMonitor(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=False, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False, embedding_size=4096, embedding_local_norm_threshold=1.0, use_checkpoint_health_monitor=False, health_ckpts_record_dir="./output")
 
     保存checkpoint的回调函数，训练过程中保存网络参数。
 
@@ -25,6 +25,11 @@ mindformers.core.CheckpointMonitor
         - **global_batch_size** (int, 可选) - 总BatchSize大小。默认值： ``0`` 。
         - **checkpoint_format** (str, 可选) - checkpoint保存时的格式。支持"ckpt"、"safetensors"。默认值： ``ckpt`` 。
         - **remove_redundancy** (bool, 可选) - checkpoint保存时是否去除冗余。默认值： ``False`` 。
+        - **embedding_size** (int, 可选) - 通过hidden_size * vocab_size来计算embedding norm的size。默认值： ``4096`` 。
+        - **use_checkpoint_health_monitor** (bool, 可选) - 是否开启通过embedding norm来进行权重健康监测的功能。默认值： ``False`` 。
+        - **embedding_local_norm_threshold** (bool, 可选) - embedding norm的阈值。默认值： ``1.0`` 。
+        - **health_ckpts_record_dir** (bool, 可选) - 记录权重健康状态文件的保存地址。默认值： ``./output`` 。
+
 
     异常：
         - **ValueError** - 如果 `prefix` 不是 `str` 或者包含 `/` 字符。
