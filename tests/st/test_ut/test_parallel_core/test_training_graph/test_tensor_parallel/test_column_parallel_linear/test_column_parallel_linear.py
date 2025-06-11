@@ -68,7 +68,7 @@ def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
         input_size, output_size,
         bias, skip_bias_add, skip_weight_param_allocation, use_weight_tensor,
-        output_path_param, tensor_parallel
+        output_path_param, tensor_parallel, port_id
     ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1 and local_worker_num == 1:
@@ -78,7 +78,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",
-            "--master_port=8167",
+            f"--master_port={port_id}",
             f"--log_dir={log_dir}",
             "--join=True",
         ]
@@ -147,6 +147,7 @@ class TestColumnParallelLinear:
             tmp_path,
             tensor_parallel=1,
             expect_error=False,
+            port_id=8118
         ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -166,6 +167,7 @@ class TestColumnParallelLinear:
             use_weight_tensor=model_args["use_weight_tensor"],
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            port_id=port_id
         )
 
         result = subprocess.run(

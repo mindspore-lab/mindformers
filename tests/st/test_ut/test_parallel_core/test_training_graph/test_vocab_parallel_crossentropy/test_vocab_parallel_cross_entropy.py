@@ -54,6 +54,7 @@ def build_msrun_command_list(
         calculate_per_token_loss,
         output_path_param,
         tensor_parallel,
+        port
     ):
     """Build the msrun command with the specified parameters for VocabParallelCrossEntropy."""
     if tensor_parallel == 1:
@@ -63,7 +64,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",
-            "--master_port=8167",
+            f"--master_port={port}",
             f"--log_dir={log_dir}",
             "--join=True",]
     cmd_list += [
@@ -147,6 +148,7 @@ class TestVocabParallelCrossEntropy:
             tmp_path,
             tensor_parallel=1,
             expect_error=False,
+            port=8118
         ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -165,6 +167,7 @@ class TestVocabParallelCrossEntropy:
             calculate_per_token_loss=model_args["calculate_per_token_loss"],
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            port=port
         )
 
         result = subprocess.run(cmd_list, shell=False, capture_output=True, text=True, check=False)

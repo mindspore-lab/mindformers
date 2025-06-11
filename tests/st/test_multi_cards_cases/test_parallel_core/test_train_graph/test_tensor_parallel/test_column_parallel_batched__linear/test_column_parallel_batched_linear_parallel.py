@@ -14,18 +14,20 @@
 # ============================================================================
 """Test module for testing ColumnParallelBatchedLinear used for mindformers."""
 import os
+import random
 import subprocess
 import pytest
+from tests.st.test_multi_cards_cases.utils import TaskType
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 
+_LEVEL_0_TASK_TIME = 111
+_LEVEL_1_TASK_TIME = 0
+_TASK_TYPE = TaskType.FOUR_CARDS_TASK
 
 class TestColumnParallelBatchedLinear:
     """A test class for testing ColumnBatchedParallelLinear"""
-
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     def test_parallel_case(self):
         """
         Feature: ColumnParallelBatchedLinear
@@ -33,9 +35,10 @@ class TestColumnParallelBatchedLinear:
                                               weight=None
         Exception: AssertionError
         """
+        port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         commands = [
-            (f"export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3 && msrun --worker_num=4 --local_worker_num=4 "
-             f"--master_port=8118 --log_dir=log_4cards --join=True "
+            (f"msrun --worker_num=4 --local_worker_num=4 "
+             f"--master_port={port_id} --log_dir={cur_dir}/log_4cards --join=True "
              f"{cur_dir}/run_column_parallel_batched_linear.py --dp 2 --tp 2 --ep 2 "),
         ]
         result = subprocess.run(commands, shell=True, capture_output=True, text=True)

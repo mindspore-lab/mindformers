@@ -13,11 +13,20 @@
 # limitations under the License.
 # ============================================================================
 """Test ColumnParallelLinear with various configurations"""
+import os
+import random
 import pytest
-from .test_column_parallel_linear import TestColumnParallelLinear
+from tests.st.test_multi_cards_cases.utils import TaskType
+from tests.st.test_ut.test_parallel_core.test_training_graph.test_tensor_parallel.test_column_parallel_linear.test_column_parallel_linear import TestColumnParallelLinear
 
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
+
+_LEVEL_0_TASK_TIME = 89
+_LEVEL_1_TASK_TIME = 0
+_TASK_TYPE = TaskType.TWO_CARDS_TASK
+
+
+TWO_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
+TWO_CARD_TEST_CASES = [
     (
         {"bias": True, "skip_bias_add": True, "skip_weight_param_allocation": False, "use_weight_tensor": False},
         {"output": "output_only", "bias": "output_bias"},
@@ -26,21 +35,20 @@ FOUR_CARD_TEST_CASES = [
     ),
 ]
 
-class TestColumnParallelLinearFourCards(TestColumnParallelLinear):
-    """Test class for ColumnParallelLinear with four cards configurations"""
+class TestColumnParallelLinearTwoCards(TestColumnParallelLinear):
+    """Test class for ColumnParallelLinear with two cards configurations"""
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     @pytest.mark.parametrize(
-        FOUR_CARD_TEST_PARAM,
-        FOUR_CARD_TEST_CASES
+        TWO_CARD_TEST_PARAM,
+        TWO_CARD_TEST_CASES
     )
-    def test_four_cards_configurations(self, model_args, expect_error, data_keys, tensor_parallel, tmp_path):
-        """Test four cards with various configurations."""
+    def test_two_cards_configurations(self, model_args, expect_error, data_keys, tensor_parallel, tmp_path):
+        """Test two cards with various configurations."""
         self.run_test(
-            worker_num=4, local_worker_num=4,
+            worker_num=2, local_worker_num=2,
             model_args=model_args, expect_error=expect_error,
             data_keys=data_keys,
             tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
+            tensor_parallel=tensor_parallel,
+            port_id=int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         )
