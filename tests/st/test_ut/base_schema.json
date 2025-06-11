@@ -6528,7 +6528,7 @@
         "signature": "(hidden_size: int, head_size: int, total_num_heads: int, total_num_kv_heads: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, bias: bool = True, gather_output: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.ReplicatedLinear": {
-        "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = None)"
+        "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.ReplicatedLinear.construct": {
         "signature": "(self, input_, weight=None)"

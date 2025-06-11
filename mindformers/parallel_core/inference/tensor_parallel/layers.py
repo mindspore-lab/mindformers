@@ -453,7 +453,6 @@ class ReplicatedLinear(nn.Cell):
             config: TransformerConfig,
             init_method: Callable = "normal",
             bias: bool = True,
-            gather_output: bool = False,
             stride: int = 1,
             keep_master_weight_for_test: bool = False,
             skip_bias_add: bool = False,
@@ -486,7 +485,6 @@ class ReplicatedLinear(nn.Cell):
         self.config = config
         self.init_method = init_method
         self.has_bias = bias
-        self.gather_output = gather_output
         self.skip_bias_add = skip_bias_add
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.transpose_b = transpose_b
