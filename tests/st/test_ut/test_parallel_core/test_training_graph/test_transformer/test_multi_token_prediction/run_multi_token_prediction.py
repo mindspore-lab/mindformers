@@ -64,6 +64,7 @@ class MTPRunner:
             data_parallel_size=self.worker_num // self.args.tp,
             tensor_model_parallel_size=self.args.tp,
             compute_dtype=self.compute_dtype,
+            position_embedding_type=self.args.position_embedding_type,
             num_attention_heads=2,
             num_layers=1,
             hidden_dropout=0.0,
@@ -156,7 +157,7 @@ class MTPRunner:
             # Convert to float32 for saving, common practice for bf16/fp16
             output_np = {
                 'mtp_loss': output[0].asnumpy().astype(np.float32),
-                'extra_loss': output[1].asnumpy().astype(np.float32),
+                'extra_loss': output[1].asnumpy().astype(np.float32)
             }
             output_path = self.args.output_path
             np.savez(output_path, **output_np)
@@ -170,6 +171,8 @@ def main():
     parser.add_argument("--seq_length", type=int, default=4)
     parser.add_argument("--hidden_size", type=int, default=16)
     parser.add_argument("--vocab_size", type=int, default=100)
+    # Model Args
+    parser.add_argument("--position_embedding_type", type=str, default="learned_absolute")
     # Output and parallelism
     parser.add_argument("--test_name", type=str, default="single_card_baseline")
     parser.add_argument("--output_path", type=str, default="output_mtp_ms.npz")

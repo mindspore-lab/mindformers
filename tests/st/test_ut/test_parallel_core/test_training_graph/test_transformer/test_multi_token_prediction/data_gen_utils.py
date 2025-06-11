@@ -88,16 +88,20 @@ def get_init_params(config, loc, scale, seq_length, batch_size, vocab_size):
 def get_gpu_datas() -> dict[str, np.ndarray]:
     """Generate gpu data for test."""
     single_card_baseline = [2.323955655097962]
+    pe_rope = [2.317903757095337]
     return {
         "single_card_baseline": np.array(single_card_baseline),
+        "pe_rope": np.array(pe_rope),
     }
 
 
 def get_golden() -> dict[str, np.ndarray]:
     """Generate golden data for test."""
     single_card_baseline = [2.323901057243347]
+    pe_rope = [2.3179486989974976]
     return {
         "single_card_baseline": np.array(single_card_baseline),
+        "pe_rope": np.array(pe_rope),
     }
 
 

@@ -211,13 +211,11 @@ class MultiTokenPredictionBlockSubmodules:
 
 
 def _get_mtp_block_submodules(
-        config: TransformerConfig, spec: Union[MultiTokenPredictionBlockSubmodules, ModuleSpec]
-) -> MultiTokenPredictionBlockSubmodules:
+        spec: Union[MultiTokenPredictionBlockSubmodules, ModuleSpec]) -> MultiTokenPredictionBlockSubmodules:
     """
     Retrieve or construct MultiTokenPredictionBlockSubmodules based on the provided specification.
 
     Args:
-        config (TransformerConfig): Configuration object for the transformer model.
         spec (Union[MultiTokenPredictionBlockSubmodules, ModuleSpec]): Specification for the
             multi token prediction block submodules.
             Can be either a MultiTokenPredictionBlockSubmodules instance or a ModuleSpec.
@@ -272,16 +270,14 @@ class MtpSharedLanguageModelEmbedding(LanguageModelEmbedding):
             vocab_size: int,
             max_sequence_length: int,
             position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
-            num_tokentypes: int = 0,
-            scatter_to_sequence_parallel: bool = False
+            num_tokentypes: int = 0
     ):
         super().__init__(
             config,
             vocab_size,
             max_sequence_length,
             position_embedding_type,
-            num_tokentypes,
-            scatter_to_sequence_parallel
+            num_tokentypes
         )
         # Word embedding
         self.word_embeddings = MtpSharedVocabParallelEmbedding(
@@ -369,7 +365,7 @@ class MultiTokenPredictionBlock(nn.Cell):
     def __init__(self, config: TransformerConfig, spec: Union[ModuleSpec], vocab_size):
         super().__init__()
         self.config = config
-        self.submodules = _get_mtp_block_submodules(config, spec)
+        self.submodules = _get_mtp_block_submodules(spec)
         self.vocab_size = vocab_size
         self.mtp_loss_scaling_factor = config.mtp_loss_scaling_factor
         self._build_layers()
