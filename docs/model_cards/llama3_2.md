@@ -192,7 +192,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
       model_config.save_pretrained(save_directory="/mf_model/llama3_2_3b", save_json=True)
       ```
 
-      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E6%A0%BC%E5%BC%8F%E8%BD%AC%E6%8D%A2)。
+      模型权重下载和转换可参考 [权重格式转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E6%A0%BC%E5%BC%8F%E8%BD%AC%E6%8D%A2)。
 
       准备好模型配置目录后，设置参数`modelWeightPath`为该目录路径。
 
