@@ -604,7 +604,7 @@ class ParallelMoEV2(nn.Cell):
 
         out1_fp32 = probs_reshape_fp32 * row_gather_fp32
         out1_fp32 = out1_fp32.reshape(token_num, top_k, -1)
-        out1_sum_fp32 = self.sum(out1_fp32, 1)
+        out1_sum_fp32 = mint.sum(out1_fp32, 1)
 
         output_tensor = self.cast(out1_sum_fp32, permute_token.dtype)
         return output_tensor
@@ -623,8 +623,8 @@ class ParallelMoEV2(nn.Cell):
         score = score + self.router.e_score_correction_bias
         # n_group
         score = self.reshape(score, (self.shape(input_tensor)[0], self.n_group, -1))
-        group_score = score.topk(2, dim=-1)[0].sum(axis=-1)        # 每个组选2两个，求和作为代表，代表整个组
-        group_idx = group_score.topk(self.topk_group, dim=-1)[1]  # 从8个组，调出4个组
+        group_score = mint.topk(score, 2, dim=-1)[0].sum(axis=-1)        # 每个组选2两个，求和作为代表，代表整个组
+        group_idx = mint.topk(group_score, self.topk_group, dim=-1)[1]  # 从8个组，调出4个组
 
         mask = mint.zeros_like(score[:,:,0]).scatter(1, group_idx, True)
         score = (score * mask.unsqueeze(-1)).flatten(start_dim=1)           # 这里的mask是指把之前不入选的后4个组的score都置0
