@@ -21,6 +21,8 @@ from typing import Optional, List
 
 def re_match_list(mstr, patterns: Optional[List[str]] = None):
     """string regular match"""
+    if not mstr:
+        return False
     if patterns is None:
         return False
     for pattern in patterns:

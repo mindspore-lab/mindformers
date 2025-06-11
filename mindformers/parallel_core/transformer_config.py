@@ -585,6 +585,8 @@ class TransformerConfig(ModelParallelConfig):
     Only effective when context_parallel > 1
     """
 
+    pet_config: dict = None
+
     ##################
     # Inference Param
     ##################

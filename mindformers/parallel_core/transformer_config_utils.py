@@ -393,6 +393,9 @@ COMMON_CONFIG_MAPPING = {
     "block_size": "block_size",
     "num_blocks": "num_blocks",
     "parallel_decoding_params": "parallel_decoding_params",
+
+    # Pet
+    "pet_config": "pet_config"
 }
 
 

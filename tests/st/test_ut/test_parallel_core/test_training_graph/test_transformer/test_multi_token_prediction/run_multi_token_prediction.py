@@ -74,7 +74,6 @@ class MTPRunner:
             calculate_per_token_loss=False,
             mtp_loss_scaling_factor=0.5,
             mtp_num_layers=2,
-            position_embedding_type='learned_absolute'
         )
 
     def build_model(self):

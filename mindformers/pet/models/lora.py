@@ -131,11 +131,14 @@ class LoraModel(PreTrainedModel):
         self.config.pet_config = config
         self._check_config()
         # add lora layer.
-        self.lora_model = self.add_adapter(base_model)
+        self.network = self.add_adapter(base_model)
+        self.network.update_parameters_name()
 
     def add_adapter(self, base_model: PreTrainedModel):
         """Add adapter for layers."""
-        if hasattr(base_model, "backbone"):
+        if hasattr(base_model, "network"):
+            base_model.network = LoraAdapter.get_pet_model(base_model.network, self.config.pet_config)
+        elif hasattr(base_model, "backbone"):
             base_model.backbone = LoraAdapter.get_pet_model(base_model.backbone, self.config.pet_config)
         elif hasattr(base_model, "model"):
             base_model.model = LoraAdapter.get_pet_model(base_model.model, self.config.pet_config)
@@ -155,10 +158,10 @@ class LoraModel(PreTrainedModel):
             raise ValueError(f"No target modules for lora layer.")
 
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
-        return self.lora_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
+        return self.network.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        return self.lora_model.prepare_inputs_for_generation(input_ids, **kwargs)
+        return self.network.prepare_inputs_for_generation(input_ids, **kwargs)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         input_ids = Tensor(input_ids, mstype.int32)
@@ -168,7 +171,7 @@ class LoraModel(PreTrainedModel):
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
-        return self.lora_model.slice_incremental_inputs(model_inputs, current_index)
+        return self.network.slice_incremental_inputs(model_inputs, current_index)
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
@@ -179,16 +182,16 @@ class LoraModel(PreTrainedModel):
                         dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
 
     def to_embeddings(self, tokens):
-        return self.lora_model.to_embeddings(tokens)
+        return self.network.to_embeddings(tokens)
 
     def convert_name(self, weight_name):
-        return self.lora_model.convert_name(weight_name)
+        return self.network.convert_name(weight_name)
 
     def convert_weight_dict(self, source_dict, **kwargs):
-        return self.lora_model.convert_weight_dict(source_dict, **kwargs)
+        return self.network.convert_weight_dict(source_dict, **kwargs)
 
     def convert_map_dict(self, source_dict, **kwargs):
-        return self.lora_model.convert_map_dict(source_dict, **kwargs)
+        return self.network.convert_map_dict(source_dict, **kwargs)
 
     def construct(self, *inputs, **kwargs):
-        return self.lora_model(*inputs, **kwargs)
+        return self.network(*inputs, **kwargs)
