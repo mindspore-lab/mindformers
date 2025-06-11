@@ -76,7 +76,7 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
-from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid
+from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid, check_tsp_valid
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -1127,7 +1127,7 @@ class BaseTrainer:
                 }
             default_callbacks.append(build_callback(callback, default_args=default_args))
 
-        if check_tft_valid() or check_tre_valid():
+        if check_tft_valid() or check_tre_valid() or check_tsp_valid():
             if ckpt_config is None:
                 raise ValueError("You must set CheckpointMonitor callback for TFT training!")
             ckpt_config[1]["async_save"] = False
