@@ -336,7 +336,7 @@ class GenerationMixin:
                 self.add_flags_custom(is_first_iteration=True)
             self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
-            if self.pipeline_parallel:
+            if getattr(self, "pipeline_parallel", False):
                 self.pp_warm_up(model_inputs)
                 res = self.forward_pp(
                     **model_inputs
@@ -360,7 +360,7 @@ class GenerationMixin:
                 self.slice_incremental_inputs(model_inputs, current_index)
             self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
-            if self.pipeline_parallel:
+            if getattr(self, "pipeline_parallel", False):
                 res = self.forward_pp(
                     **model_inputs
                 )
@@ -1099,7 +1099,7 @@ class GenerationMixin:
         logger.debug("forward time: %s s; sample time: %s s; total count: %s s",
                      forward_time, sample_time, infer_time)
 
-        if self.pipeline_parallel:
+        if getattr(self, "pipeline_parallel", False):
             def _broadcast_from_last_rank(tensor):
                 dist_comm_broadcast_op(tensor, get_group_size() - 1, get_rank(), "mccl_world_group")
             target_list_tensor = Tensor.from_numpy(np.array(target_list))

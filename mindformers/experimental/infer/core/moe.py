@@ -587,6 +587,9 @@ class ParallelMoEV2(nn.Cell):
 
         _, unsort_map = mint.sort(self.cast(sort_map, mstype.float32))
         unsort_map = self.cast(unsort_map, mstype.int32)
+        unsort_map = unsort_map.reshape(self.num_experts_chosen, -1)
+        unsort_map = unsort_map.transpose(1, 0)
+        unsort_map = unsort_map.flatten()
         return output_tensor, group_list, unsort_map
 
     def tensor_moe_token_unpermute(self, permute_token, sorted_idx, probs):
@@ -597,9 +600,6 @@ class ParallelMoEV2(nn.Cell):
 
         probs_reshape_fp32 = self.cast(probs.flatten().reshape(-1, 1), mstype.float32)
 
-        sorted_idx = sorted_idx.reshape(top_k, token_num)
-        sorted_idx = sorted_idx.transpose(1, 0)
-        sorted_idx = sorted_idx.flatten()
         row_gather_fp32 = self.cast(self.gather(permute_token, sorted_idx, 0), mstype.float32)
 
         out1_fp32 = probs_reshape_fp32 * row_gather_fp32
