@@ -165,6 +165,7 @@ class Attention(nn.Cell):
                 kv_head_num=self.num_query_groups_per_partition,
                 scale_value=1.0 / self.norm_factor,
                 next_tokens=0,
+                pa_kv_head_num=self.num_query_groups_per_partition,
             )
         else:
             self.core_attention = build_module(submodules.core_attention,
@@ -200,7 +201,7 @@ class Attention(nn.Cell):
     def construct(self,
                   hidden_states,
                   attention_mask,
-                  key_valus_states=None,
+                  key_value_states=None,
                   rotary_pos_cos=None,
                   rotary_pos_sin=None,
                   position_ids=None,

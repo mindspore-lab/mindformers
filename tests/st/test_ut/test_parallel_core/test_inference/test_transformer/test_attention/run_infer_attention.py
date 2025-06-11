@@ -165,7 +165,6 @@ class SelfAttnRunner:
                 net.core_attention.add_flags(is_prefill=False)
 
             output = net(self.input,
-                         kv_cache=None,
                          attention_mask=None,
                          block_tables=self.block_tables,
                          slot_mapping=self.slot_mapping,

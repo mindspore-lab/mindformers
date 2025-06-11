@@ -543,7 +543,7 @@ class ReplicatedLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         if self.transpose_b:
             weight = mint.transpose(weight, -2, -1)
-        output = self.matmul(input_, weight)
+        output = mint.matmul(input_, weight)
 
         if self.has_bias and not self.skip_bias_add:
             bias = self.cast(self.bias, self.compute_dtype)

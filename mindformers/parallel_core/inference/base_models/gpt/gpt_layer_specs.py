@@ -16,10 +16,16 @@
 from typing import Optional
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
-from mindformers.parallel_core.inference.transformer.transformer_layer import TransformerLayer, \
-    TransformerLayerSubmodules
+from mindformers.parallel_core.inference.transformer.transformer_layer import (
+    TransformerLayer,
+    TransformerLayerSubmodules,
+)
 from mindformers.parallel_core.inference.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.inference.transformer.dot_product_attention import DotProductAttention
+from mindformers.parallel_core.inference.transformer.multi_latent_attention import (
+    MLASelfAttention,
+    MLASelfAttentionSubmodules,
+)
 from mindformers.parallel_core.inference.transformer.attention import (
     SelfAttention,
     SelfAttentionSubmodules,
@@ -29,6 +35,7 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import (
     ColumnParallelLinear,
     RowParallelLinear,
     QKVParallelLinear,
+    ReplicatedLinear,
 )
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
@@ -64,13 +71,37 @@ def get_gpt_layer_local_spec(
         ModuleSpec: Module specification with MCore modules
 
     """
-    if multi_latent_attention:
-        raise NotImplementedError("`multi_latent_attention` is not currently supported.")
+
     if qk_l2_norm:
         raise NotImplementedError("`qk_l2_norm` is not currently supported.")
+
     mlp = get_mlp_module_spec(
         num_experts=num_experts,
     )
+
+    if multi_latent_attention:
+        return ModuleSpec(
+            module=TransformerLayer,
+            submodules=TransformerLayerSubmodules(
+                input_layernorm=get_norm_cls(normalization),
+                self_attention=ModuleSpec(
+                    module=MLASelfAttention,
+                    submodules=MLASelfAttentionSubmodules(
+                        linear_q_proj=ColumnParallelLinear,
+                        linear_qkv_down_proj=ReplicatedLinear,
+                        linear_q_up_proj=ColumnParallelLinear,
+                        linear_kv_down_proj=ReplicatedLinear,
+                        linear_kv_up_proj=ColumnParallelLinear,
+                        core_attention=FlashAttention if use_flash_attention else DotProductAttention,
+                        linear_proj=RowParallelLinear,
+                        q_layernorm=get_norm_cls(normalization) if qk_layernorm else IdentityOp,
+                    ),
+                ),
+                pre_mlp_layernorm=get_norm_cls(normalization),
+                mlp=mlp,
+            )
+        )
+
     self_attn = ModuleSpec(
         module=SelfAttention,
         submodules=SelfAttentionSubmodules(
@@ -105,6 +136,7 @@ def get_gpt_decoder_block_spec(
         num_experts=None,
         moe_grouped_gemm=False,
         qk_layernorm=config.qk_layernorm,
+        multi_latent_attention=config.multi_latent_attention,
         normalization=normalization,
         use_flash_attention=config.use_flash_attention,
     )
@@ -113,6 +145,7 @@ def get_gpt_decoder_block_spec(
         num_experts=config.num_moe_experts,
         moe_grouped_gemm=True,
         qk_layernorm=config.qk_layernorm,
+        multi_latent_attention=config.multi_latent_attention,
         normalization=normalization,
         use_flash_attention=config.use_flash_attention,
     )
