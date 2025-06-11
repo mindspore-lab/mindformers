@@ -1,0 +1,35 @@
+TopLayer:
+  network.network.network: 0.module.module([in, in, in, in], [in])
+
+GPTModel:
+  embedding: embedding([in, in], [in])  # LanguageModelEmbedding
+  decoder: decoder([in, in, in, _, _], [out, _])  # TransformerBlock
+  mtp: mtp([in, in, in, in])  # MultiTokenPredictionBlock
+  output_layer: output_layer([in, in], [in, in])  # ColumnParallelLinear
+
+LanguageModelEmbedding:
+  word_embeddings: word_embeddings([in], [in])  # VocabParallelEmbedding
+  position_embeddings: position_embeddings([in], [in])  # VocabParallelEmbedding
+  tokentype_embeddings: tokentype_embeddings([in], [in])  # VocabParallelEmbedding
+
+TransformerBlock:
+  layers: layers([in, in], [out, _, _])  # TransformerLayer
+  final_norm: final_layernorm([in], [out])
+
+TransformerLayer:
+  input_layernorm: input_layernorm([in], [out])
+  self_attention: self_attention([in], [in])  # MLASelfAttention
+  pre_mlp_layernorm: pre_mlp_layernorm([in], [out])
+  mlp: mlp([in], [in, in, _])  # MLP
+
+MLASelfAttention:
+  q_layernorm: q_layernorm([in], [out])
+  linear_qb: linear_q_up_proj([in], [in, in])  # ColumnParallelLinear
+  k_layernorm: kv_layernorm([in], [out])
+  linear_kvb: linear_kv_up_proj([in], [in, in])  # ColumnParallelLinear
+  linear_proj: linear_proj([in], [in, in])  # RowParallelLinear
+  core_attention: core_attention([in, in, in, in], [out])  # FlashAttention
+
+MLP:
+  linear_fc1: linear_fc1([in], [in, in])  # ColumnParallelLinear
+  linear_fc2: linear_fc2([in], [in, in])  # RowParallelLinear
