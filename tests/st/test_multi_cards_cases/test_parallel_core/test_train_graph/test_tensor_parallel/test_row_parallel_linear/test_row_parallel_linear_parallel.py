@@ -13,11 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """Test RowParallelLinear with various configurations"""
+import os
+import random
 import pytest
-from .test_row_parallel_linear import TestRowParallelLinear
+from tests.st.test_multi_cards_cases.utils import TaskType
+from tests.st.test_ut.test_parallel_core.test_training_graph.test_tensor_parallel.test_row_parallel_linear.test_row_parallel_linear import TestRowParallelLinear
 
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
+
+_LEVEL_0_TASK_TIME = 89
+_LEVEL_1_TASK_TIME = 0
+_TASK_TYPE = TaskType.TWO_CARDS_TASK
+
+TWO_CARD_TEST_PARAM = "model_args, data_keys, tensor_parallel"
+TWO_CARD_TEST_CASES = [
     (
         {"bias": True, "skip_bias_add": True},
         {"output": "output_only", "bias": "output_bias"},
@@ -25,21 +33,20 @@ FOUR_CARD_TEST_CASES = [
     ),
 ]
 
-class TestRowParallelLinearFourCards(TestRowParallelLinear):
-    """Test class for RowParallelLinear with four cards configurations"""
+class TestRowParallelLinearTwoCards(TestRowParallelLinear):
+    """Test class for RowParallelLinear with two cards configurations"""
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     @pytest.mark.parametrize(
-        FOUR_CARD_TEST_PARAM,
-        FOUR_CARD_TEST_CASES
+        TWO_CARD_TEST_PARAM,
+        TWO_CARD_TEST_CASES
     )
-    def test_row_tp_4_case(self, model_args, data_keys, tensor_parallel, tmp_path):
-        """Test four cards with various configurations."""
+    def test_row_tp_2_case(self, model_args, data_keys, tensor_parallel, tmp_path):
+        """Test two cards with various configurations."""
         self.run_test(
-            worker_num=4, local_worker_num=4,
+            worker_num=2, local_worker_num=2,
             model_args=model_args,
             data_keys=data_keys,
             tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
+            tensor_parallel=tensor_parallel,
+            port=int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         )
