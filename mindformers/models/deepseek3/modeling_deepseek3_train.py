@@ -13,168 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 Model for training."""
-from typing import Union
-
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
-from mindformers.parallel_core.training_graph.tensor_parallel.layers import (
-    LinearNoTP,
-    ColumnParallelLinear,
-    RowParallelLinear
-)
-from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
-from mindformers.parallel_core.training_graph.transformer.transformer_block import TransformerBlockSubmodules
-from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
-from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import (
-    MLASelfAttentionConcatenated,
-    MLASelfAttentionSubmodulesConcatenated
-)
-from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
-from mindformers.parallel_core.training_graph.transformer.moe.ffn import FFNGroupedGEMM
-from mindformers.parallel_core.training_graph.transformer.moe.shared_experts import SharedExpertMLP
-from mindformers.parallel_core.training_graph.transformer.moe.moe_layer import (
-    MoELayer,
-    MoESubmodules
-)
-from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import (
-    MultiTokenPredictionLayer,
-    MultiTokenPredictionLayerSubmodules,
-    MultiTokenPredictionBlock,
-    MultiTokenPredictionBlockSubmodules
-)
-from mindformers.parallel_core.training_graph.transformer.transformer_layer import (
-    TransformerLayer,
-    TransformerLayerSubmodules
-)
-from mindformers.parallel_core.transformer_config import MLATransformerConfig
+from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
+    get_gpt_mtp_block_spec, get_gpt_layer_local_spec
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
-from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 
 from .configuration_deepseek_v3 import DeepseekV3Config
-
-
-def get_spec(config: MLATransformerConfig):
-    """
-    Get moe layer spec and dense layer spec of deepseek3.
-
-    Args:
-        config (MLATransformerConfig): Configuration object for the transformer model.
-
-
-    Returns:
-        tuple of moe layer spec and dense layer spec.
-    """
-    attention = FlashAttention
-    spec = ModuleSpec(
-        module=TransformerLayer,
-        submodules=TransformerLayerSubmodules(
-            input_layernorm=FusedNorm,
-            self_attention=ModuleSpec(
-                module=MLASelfAttentionConcatenated,
-                submodules=MLASelfAttentionSubmodulesConcatenated(
-                    linear_qkv=LinearNoTP,
-                    linear_qb=ColumnParallelLinear,
-                    linear_kvb=ColumnParallelLinear,
-                    core_attention=attention,
-                    linear_proj=RowParallelLinear,
-                    q_layernorm=FusedNorm,
-                    k_layernorm=FusedNorm
-                ),
-            ),
-            pre_mlp_layernorm=FusedNorm,
-            mlp=ModuleSpec(
-                module=MoELayer,
-                submodules=MoESubmodules(
-                    experts=FFNGroupedGEMM,
-                    shared_experts=ModuleSpec(
-                        module=SharedExpertMLP,
-                        submodules=MLPSubmodules(
-                            linear_fc1=ColumnParallelLinear,
-                            linear_fc2=RowParallelLinear
-                        )
-                    ),
-                )
-            ),
-        )
-    )
-
-    dense_spec = ModuleSpec(
-        module=TransformerLayer,
-        submodules=TransformerLayerSubmodules(
-            input_layernorm=FusedNorm,
-            self_attention=ModuleSpec(
-                module=MLASelfAttentionConcatenated,
-                submodules=MLASelfAttentionSubmodulesConcatenated(
-                    linear_qkv=LinearNoTP,
-                    linear_qb=ColumnParallelLinear,
-                    linear_kvb=ColumnParallelLinear,
-                    core_attention=attention,
-                    linear_proj=RowParallelLinear,
-                    q_layernorm=FusedNorm,
-                    k_layernorm=FusedNorm
-                ),
-            ),
-            pre_mlp_layernorm=FusedNorm,
-            mlp=ModuleSpec(
-                module=MLP,
-                submodules=MLPSubmodules(
-                    linear_fc1=ColumnParallelLinear,
-                    linear_fc2=RowParallelLinear,
-                )
-            ),
-        )
-    )
-
-    return spec, dense_spec
-
-
-def get_mtp_spec(transformer_spec: Union[list[ModuleSpec], ModuleSpec], config: MLATransformerConfig):
-    """
-    Get Multi-Token-Prediction (MTP) block spec of deepseek3.
-
-    Args:
-        transformer_spec (Union[list[ModuleSpec], ModuleSpec]): transformer layer spec used in MTP layer, can be
-            ModuleSpec, or list of ModuleSpec with length = `config.mtp_num_layers` .
-        config (MLATransformerConfig): Configuration object for the transformer model.
-
-    Returns:
-        MTP block spec.
-    """
-
-    def get_mtp_layer(transformer_layer):
-        return ModuleSpec(
-            module=MultiTokenPredictionLayer,
-            submodules=MultiTokenPredictionLayerSubmodules(
-                enorm=FusedNorm,
-                hnorm=FusedNorm,
-                eh_proj=ColumnParallelLinear,
-                transformer_layer=transformer_layer,
-                layer_norm=FusedNorm
-            )
-        )
-
-    if isinstance(transformer_spec, list):
-        mtp_layer_spec = []
-        for i in range(config.mtp_num_layers):
-            mtp_layer_spec.append(get_mtp_layer(transformer_spec[i]))
-    else:
-        mtp_layer_spec = [get_mtp_layer(transformer_spec) for _ in range(config.mtp_num_layers)]
-
-    mtp_block_spec = ModuleSpec(
-        module=MultiTokenPredictionBlock,
-        submodules=MultiTokenPredictionBlockSubmodules(
-            layer_specs=mtp_layer_spec
-        )
-    )
-    mtp_block = ModuleSpec(
-        module=MultiTokenPredictionBlock,
-        params={
-            'spec': mtp_block_spec,
-            'vocab_size': config.vocab_size
-        }
-    )
-    return mtp_block
 
 
 class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
@@ -192,36 +38,22 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
 
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
-        self._init_gpt_model(config)
-
-    def construct(self, *args, **kwargs):
-        """DeepseekV3 construct for training"""
-        return self.network(*args, **kwargs)
-
-    def _init_gpt_model(self, config):
-        """Initialize GPTModel"""
         transformer_config = convert_to_transformer_config(config, is_mla_model=True)
-        spec, dense_spec = get_spec(transformer_config)
-        moe_layer_freq = transformer_config.moe_layer_freq
-        num_layers = transformer_config.num_layers
-        spec_list = []
-        for i in range(num_layers + transformer_config.mtp_num_layers):
-            if i < moe_layer_freq:
-                spec_list.append(dense_spec)
-            else:
-                spec_list.append(spec)
-        transformer_block_list, mtp_block_list = spec_list[:num_layers], spec_list[num_layers:]
-        transformer_block_spec = TransformerBlockSubmodules(
-            layer_specs=transformer_block_list,
-            layer_norm=FusedNorm,
-        )
+        if transformer_config.num_moe_experts:
+            transformer_layer_spec = get_gpt_decoder_block_spec(transformer_config)
+        else:
+            transformer_layer_spec = get_gpt_layer_local_spec(
+                qk_layernorm=transformer_config.qk_layernorm,
+                multi_latent_attention=transformer_config.multi_latent_attention,
+                use_contiguous_weight_layout=transformer_config.use_contiguous_weight_layout,
+                mla_qkv_concat=transformer_config.mla_qkv_concat
+            )
         mtp_block_spec = None
-        if transformer_config.mtp_num_layers:
-            mtp_block_spec = get_mtp_spec(mtp_block_list, transformer_config)
-
+        if transformer_config.mtp_num_layers is not None:
+            mtp_block_spec = get_gpt_mtp_block_spec(transformer_config, transformer_layer_spec)
         self.network = GPTModel(
             transformer_config,
-            transformer_block_spec,
+            transformer_layer_spec,
             vocab_size=transformer_config.vocab_size,
             max_sequence_length=transformer_config.max_position_embeddings,
             position_embedding_type=transformer_config.position_embedding_type,
@@ -230,3 +62,7 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
             rope_scaling=False,
             mtp_block_spec=mtp_block_spec
         )
+
+    def construct(self, *args, **kwargs):
+        """DeepseekV3 construct for training"""
+        return self.network(*args, **kwargs)

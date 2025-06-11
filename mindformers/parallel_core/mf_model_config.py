@@ -111,6 +111,28 @@ class MFModelConfig:
     bias_swiglu_fusion: bool = False
     """If True, use fused swiglu kernel."""
 
+    mla_qkv_concat: bool = True
+    """If True, Multi Latent Attention computes q_compressed, k, kv_compressed in a single linear transformation;
+    if False, computes them separately."""
+
+    use_contiguous_weight_layout: bool = True
+    """
+    Determines the weight arrangement in SelfAttention's QKV linear projection. Only affects SelfAttention layers.
+
+    When True (default):
+        Uses contiguous layout: [Q_weights, K_weights, V_weights]
+        - Computation: linear(input) -> split into Q, K, V tensors
+
+    When False:
+        Uses interleaved head layout: [Q_head0, K_head0, V_head0, Q_head1, ...]
+        - Matches Megatron-LM's weight arrangement
+        - Computation: linear(input)
+                    -> reshape
+                    -> split into Q, K, V tensors grouped by attention heads
+
+    Note: This affects tensor memory layout but not mathematical equivalence.
+    """
+
     ################################################################
     # Flash Attention Configuration Items for MindSpore Transformers
     ################################################################

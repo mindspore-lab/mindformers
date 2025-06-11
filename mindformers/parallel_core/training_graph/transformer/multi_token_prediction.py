@@ -22,7 +22,8 @@ Note: Typically used only during training (disabled at inference in DeepSeek-V3)
 """
 
 __all__ = ['MultiTokenPredictionBlock', 'MultiTokenPredictionBlock',
-           'MultiTokenPredictionLayer', 'MultiTokenPredictionLayerSubmodules']
+           'MultiTokenPredictionLayer', 'MultiTokenPredictionLayerSubmodules',
+           'MultiTokenPredictionBlockSubmodules', 'get_mtp_layer_spec']
 
 from dataclasses import dataclass
 from typing import Union, List, Optional, Literal
@@ -32,6 +33,7 @@ from mindspore import dtype as mstype
 from mindspore.ops.auto_generate import Cast, Concat, Reshape, Shape, StridedSlice, Zeros, Transpose, OnesLike
 
 from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
+from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
@@ -60,6 +62,26 @@ class MultiTokenPredictionLayerSubmodules:
     eh_proj: Union[ModuleSpec, type] = None
     transformer_layer: Union[ModuleSpec, type] = None
     layer_norm: Union[ModuleSpec, type] = None
+
+
+def get_mtp_layer_spec(transformer_layer_spec: ModuleSpec) -> ModuleSpec:
+    """Get the MTP layer spec.
+
+    Returns:
+        ModuleSpec: Module specification of MultiTokenPredictionLayer.
+    """
+    mtp_layer_spec = ModuleSpec(
+        module=MultiTokenPredictionLayer,
+        submodules=MultiTokenPredictionLayerSubmodules(
+            enorm=FusedNorm,
+            hnorm=FusedNorm,
+            eh_proj=ColumnParallelLinear,
+            transformer_layer=transformer_layer_spec,
+            layer_norm=FusedNorm,
+        ),
+    )
+
+    return mtp_layer_spec
 
 
 class MultiTokenPredictionLayer(nn.Cell):
@@ -371,11 +393,10 @@ class MultiTokenPredictionBlock(nn.Cell):
     https://arxiv.org/abs/2412.19437
     """
 
-    def __init__(self, config: TransformerConfig, spec: Union[ModuleSpec], vocab_size):
+    def __init__(self, config: TransformerConfig, spec: Union[ModuleSpec]):
         super().__init__()
         self.config = config
         self.submodules = _get_mtp_block_submodules(spec)
-        self.vocab_size = vocab_size
         self.mtp_loss_scaling_factor = config.mtp_loss_scaling_factor
         self._build_layers()
         if not self.layers:
@@ -394,14 +415,14 @@ class MultiTokenPredictionBlock(nn.Cell):
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,
-            vocab_size=self.vocab_size,
+            vocab_size=self.config.vocab_size,
             max_sequence_length=self.config.seq_length,
             position_embedding_type=self.config.position_embedding_type
         )
 
         self.output_layer = ColumnParallelLinear(
             self.config.hidden_size,
-            self.vocab_size,
+            self.config.vocab_size,
             config=self.config,
             init_method=self.config.init_method,
             bias=False,
