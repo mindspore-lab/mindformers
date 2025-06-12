@@ -334,10 +334,8 @@ class MFContextOperator(MFContextConfig):
             ms_alloc_conf = os.environ.get('MS_ALLOC_CONF', 'enable_vmm:False')
             cpu_affinity = os.environ.get('CPU_AFFINITY', 'True')
             ms_internal_disable_custom_kernel_list = ""
-            mode = self.config.get_value('context.mode', 'GRAPH_MODE')
-            if MODE.get(mode) == MODE.get('GRAPH_MODE'):
-                ms_internal_disable_custom_kernel_list = os.environ.get('MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST',
-                                                                        'PagedAttention')
+            ms_internal_disable_custom_kernel_list = os.environ.get('MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST',
+                                                                    'PagedAttention')
             env['MS_ALLOC_CONF'] = ms_alloc_conf
             env['CPU_AFFINITY'] = cpu_affinity
             env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = ms_internal_disable_custom_kernel_list

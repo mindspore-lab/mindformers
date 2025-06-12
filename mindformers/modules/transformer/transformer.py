@@ -1238,21 +1238,22 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.one = Tensor([1.0], dtype=compute_type)
         self.is_pynative = is_pynative()
         self.chunk_prefill = chunk_prefill
-        if use_past and chunk_prefill:
-            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
-                                              dtype=compute_type)
-        elif use_past and not self.is_pynative:
-            if not self.use_flash_attention:
+        if use_past:
+            if chunk_prefill:
                 self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
                                                   dtype=compute_type)
-            elif self.is_dynamic:
-                mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
-                self.lower_triangle_mask = Tensor(
-                    np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_type
-                )
-                self.hard_mask = Tensor([0], dtype=compute_type).reshape(1, 1)
             else:
-                self.lower_triangle_mask = None
+                if not self.use_flash_attention:
+                    self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
+                                                      dtype=compute_type)
+                elif self.is_dynamic:
+                    mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
+                    self.lower_triangle_mask = Tensor(
+                        np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_type
+                    )
+                    self.hard_mask = Tensor([0], dtype=compute_type).reshape(1, 1)
+                else:
+                    self.lower_triangle_mask = None
         else:
             if use_attn_mask_compression:
                 if seq_length < 2048:
