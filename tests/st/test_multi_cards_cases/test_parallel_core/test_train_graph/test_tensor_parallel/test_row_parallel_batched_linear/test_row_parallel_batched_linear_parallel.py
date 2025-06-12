@@ -27,7 +27,7 @@ from tests.st.test_multi_cards_cases.utils import TaskType
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 
-_LEVEL_0_TASK_TIME = 64
+_LEVEL_0_TASK_TIME = 32
 _LEVEL_1_TASK_TIME = 0
 _TASK_TYPE = TaskType.FOUR_CARDS_TASK
 

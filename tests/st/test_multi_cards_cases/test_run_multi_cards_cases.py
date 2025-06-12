@@ -22,7 +22,7 @@ import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 import pytest
 
@@ -161,6 +161,7 @@ class TaskScheduler(ABC):
     def __init__(self):
         self.grouped_tasks = {}
         self.card_manager = CardStateManager()
+        self.stop_event = threading.Event()
 
     def add_task(self, task_info: TaskInfo):
         """
@@ -179,8 +180,7 @@ class TaskScheduler(ABC):
         else:
             self.grouped_tasks[task_info.task_type] = [task_info]
 
-    @staticmethod
-    def worker(task_info: TaskInfo, card_manager: CardStateManager):
+    def worker(self, task_info: TaskInfo, card_manager: CardStateManager):
         """
         Executes a task by allocating cards, simulating execution time, and freeing the cards.
         Args:
@@ -193,35 +193,52 @@ class TaskScheduler(ABC):
             - Runs pytest and prints the result to the log.
             - Frees the allocated cards after execution.
         """
-        card_list, port_id = card_manager.allocate(task_info.task_type)
-        visible_devices = ",".join(str(card) for card in card_list)
-        env = os.environ.copy()
-        env["ASCEND_RT_VISIBLE_DEVICES"] = visible_devices
-        env["ASCEND_PORT_ID"] = str(port_id)
-
-        print(f"Running: {task_info.task_command} on cards {card_list} (port {port_id})")
-        start_time = time.time()
+        if self.stop_event.is_set():
+            print(f"🛑 Task canceled before start: {task_info.task_command}")
+            return 0
         try:
-            result = subprocess.run(
+            card_list, port_id = card_manager.allocate(task_info.task_type)
+            visible_devices = ",".join(str(card) for card in card_list)
+            env = os.environ.copy()
+            env["ASCEND_RT_VISIBLE_DEVICES"] = visible_devices
+            env["ASCEND_PORT_ID"] = str(port_id)
+
+            print(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id})")
+            start_time = time.time()
+
+            process = subprocess.Popen(
                 task_info.task_command,
                 shell=True,
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                encoding="utf-8",
-                check=False
+                encoding="utf-8"
             )
+            while process.poll() is None:
+                if self.stop_event.is_set():
+                    process.terminate()  # Send terminate signal
+                    print(f"🛑 Terminated: {task_info.task_command}")
+                    return 0
+                time.sleep(0.1)  # Avoid busy waiting on CPU
+            stdout, _ = process.communicate()
             elapsed = time.time() - start_time
-            print(f"Result for {task_info.task_command}: ")
-            if result.returncode == 0:
+            if process.returncode == 0:
                 print(f"✅ PASSED: {task_info.task_command} | Time: {elapsed:.3f}s")
             else:
-                print(f"❌ FAILED: {task_info.task_command} (exit code {result.returncode}) | Time: {elapsed:.3f}s"
-                      f"\n {result.stdout}")
-                # Raise exception if failed
+                print(f"❌ FAILED: {task_info.task_command} (exit code {process.returncode}) | Time: {elapsed:.3f}s")
+                print(f"Output:\n{stdout}")
                 raise RuntimeError(f"Task failed: {task_info.task_command}")
+        # pylint: disable=W0703
+        except Exception as exc:
+            if not self.stop_event.is_set():
+                print(f"🔥 Triggering a global stop due to failure: {exc}")
+                self.stop_event.set()
         finally:
-            card_manager.free(task_info.task_type, card_list)
+            try:
+                card_manager.free(task_info.task_type, card_list)
+            # pylint: disable=W0703
+            except Exception as free_error:
+                print(f"🚨 Error freeing cards: {free_error}")
         return task_info.task_time
 
     @abstractmethod
@@ -247,11 +264,14 @@ class TaskScheduler(ABC):
         Returns the total completion time.
         If any task fails, stops execution of remaining tasks.
         """
+        self.stop_event.clear()
         total_start = time.time()
         last_end = total_start
+        success = True
+
         try:
             for group_type, tasks in self.grouped_tasks.items():
-                if not tasks:
+                if self.stop_event.is_set() or not tasks:
                     continue
                 print(f"\n=== Processing Group: {group_type.value} ({len(tasks)} tasks) ===")
                 group_start = last_end
@@ -259,12 +279,16 @@ class TaskScheduler(ABC):
                 group_end = time.time()
                 last_end = group_end
                 print(f"Group {group_type.value} completed in {group_end - group_start:.3f}s")
+        # pylint: disable=W0703
         except Exception as e:
             print(f"\n⛔ Execution stopped due to failure: {e}")
-            raise
-        total_time = time.time() - total_start
-        print(f"\nTotal completion time: {total_time:.3f}s")
-        return total_time
+            self.stop_event.set()
+        finally:
+            total_time = time.time() - total_start
+            status = "INTERRUPTED" if self.stop_event.is_set() else "COMPLETED"
+            success = (status == "COMPLETED")
+            print(f"\nTotal execution {status} in {total_time:.3f}s")
+        return success, total_time
 
 
 class GreedyTaskScheduler(TaskScheduler):
@@ -288,17 +312,53 @@ class GreedyTaskScheduler(TaskScheduler):
     - Uses multiprocessing.Pool to execute tasks in parallel.
     """
     def schedule_group(self, tasks):
-        """Greedy strategy: prioritize tasks with the longest execution time."""
+        """
+        Schedule and execute a group of tasks using a greedy strategy that prioritizes
+        tasks with the longest execution time.
+        Args:
+            tasks (list): A list of task objects to be scheduled.
+                Each task is expected to have a 'task_time' attribute and a 'task_type' attribute.
+        Returns:
+            None
+        Strategy:
+            - Tasks are sorted in descending order based on their execution time.
+            - The number of concurrent threads is determined by dividing NODE_WORK_NUM
+                by the value of the task type (assuming all tasks in the group have the same type).
+            - The actual number of threads used is the minimum of the calculated concurrency and the number of tasks.
+            - Tasks are executed concurrently using a ThreadPoolExecutor.
+            - If an exception occurs in any worker,
+                all remaining tasks are cancelled and a global stop event is triggered.
+            - The thread pool is gracefully shut down after execution.
+        Notes:
+            - If the stop event is set during execution, remaining tasks are not started.
+            - Any exception raised by a worker will be propagated to the caller.
+        """
         # Sort tasks in descending order by execution time
         sorted_tasks = sorted(tasks, key=lambda t: t.task_time, reverse=True)
+        if not sorted_tasks:
+            return
         # Concurrency is determined by the number of cards per group (assuming all tasks have the same group_type)
         concurrency = NODE_WORK_NUM // sorted_tasks[0].task_type.value if sorted_tasks else 1
 
         actual_threads = min(concurrency, len(sorted_tasks))
         with ThreadPoolExecutor(max_workers=actual_threads) as executor:
-            futures = [executor.submit(self.worker, task, self.card_manager) for task in sorted_tasks]
-            for future in futures:
-                future.result()
+            # futures = [executor.submit(self.worker, task, self.card_manager) for task in sorted_tasks]
+            futures = {executor.submit(self.worker, task, self.card_manager): task for task in sorted_tasks}
+            try:
+                for future in as_completed(futures):
+                    if self.stop_event.is_set():
+                        break
+                    # This will re-raise any exception from the worker, allowing run() to catch it
+                    future.result()
+            except Exception as exc:
+                # Cancel all not-yet-started futures
+                if not self.stop_event.is_set():
+                    print(f"Group failure triggering global stop: {exc}")
+                    self.stop_event.set()
+                raise
+            finally:
+                # Gracefully shut down the thread pool
+                executor.shutdown(wait=False)
 
 
 def collect_task_cases(level_mark: str):
@@ -345,7 +405,11 @@ def test_multi_cards_level0_cases():
     Expectation: All "level0" multi-card task cases are executed successfully without errors.
     """
     scheduler = collect_task_cases("level0")
-    scheduler.run()
+    success, total_time = scheduler.run()
+
+    # 检查执行结果
+    assert success, "One, or more tasks failed during execution."
+    print(f"All level0 tasks completed successfully in {total_time:.3f}s")
 
 @pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
@@ -358,4 +422,8 @@ def test_multi_cards_level1_cases():
     Expectation: All "level1" multi-card task cases are executed successfully without errors.
     """
     scheduler = collect_task_cases("level1")
-    scheduler.run()
+    success, total_time = scheduler.run()
+
+    # 检查执行结果
+    assert success, "One, or more tasks failed during execution."
+    print(f"All level1 tasks completed successfully in {total_time:.3f}s")

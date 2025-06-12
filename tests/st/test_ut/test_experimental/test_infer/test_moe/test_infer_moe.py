@@ -37,7 +37,7 @@ def test_infer_moe_ep4tp1():
     assert ret == 0
 
 # pylint: disable=C0103
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
 def test_infer_moe_ep2tp2():

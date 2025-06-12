@@ -103,7 +103,7 @@ def build_msrun_command_list(
         batch_size, seq_length, hidden_size,  # Input shape args
         model_args,  # Dictionary of model config args
         output_path_param, tensor_parallel,
-        test_name
+        test_name, port
 ):
     """ Build the msrun command for Multi-head Latent Attention. """
     if worker_num == 1:
@@ -115,7 +115,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",
-            f"--master_port={get_free_port()}",
+            f"--master_port={port}",
             f"--log_dir={log_dir}",
             "--join=True"
         ]
@@ -183,6 +183,7 @@ class TestMultiLatentAttention:
             golden_data_key,
             tmp_path,
             tensor_parallel=1,
+            port=8118
     ):
         """Helper function to run MLA test and check results"""
         output_file_path = tmp_path / f"output_mla_ms_{struct}_{'single' if tensor_parallel == 1 else 'multi'}.npz"
@@ -202,7 +203,8 @@ class TestMultiLatentAttention:
             model_args=model_args,
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
-            test_name=golden_data_key
+            test_name=golden_data_key,
+            port=port
         )
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"

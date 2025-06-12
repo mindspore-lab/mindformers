@@ -54,28 +54,6 @@ SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-TWO_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-TWO_CARD_TEST_CASES = [
-    (
-        # 并行策略: 双卡tp=2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 1
-        # expected result: 功能跑通, 精度对齐。
-        {"num_experts": None, "moe_grouped_gemm": False, "qk_layernorm": False, "multi_latent_attention": False,
-         "qk_l2_norm": False, "sandwich_norm": False, "num_layers": 1},
-        {"output": "output_standard_layer1"},
-        False,
-        2
-    ),
-    (
-        # 并行策略: 双卡tp=2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 2
-        # expected result: 功能跑通, 精度对齐。
-        {"num_experts": None, "moe_grouped_gemm": False, "qk_layernorm": False, "multi_latent_attention": False,
-         "qk_l2_norm": False, "sandwich_norm": False, "num_layers": 2},
-        {"output": "output_standard_layer2"},
-        False,
-        2
-    ),
-]
-
 
 def generate_random_port(start, end):
     port = random.randint(start, end)
@@ -89,7 +67,7 @@ def build_msrun_command_list(
         # Default dimensions, can be overridden by model_args if specific tests need them
         batch_size=DEFAULT_BATCH_SIZE, seq_length=DEFAULT_SEQ_LENGTH,
         hidden_size=DEFAULT_HIDDEN_SIZE, ffn_hidden_size=DEFAULT_FFN_HIDDEN_SIZE,
-        num_attention_heads=DEFAULT_NUM_HEADS
+        num_attention_heads=DEFAULT_NUM_HEADS, port=8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -99,7 +77,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(10500, 10600)}",  # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}",  # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [str(run_script_path),
@@ -208,6 +186,7 @@ class TestInferTransformerLayer:
             tmp_path,
             tensor_parallel=1,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -222,6 +201,7 @@ class TestInferTransformerLayer:
             model_args=model_args,
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            port=port
         )
 
         logger.info(f"Running command: {' '.join(cmd_list)}")
@@ -245,23 +225,4 @@ class TestInferTransformerLayer:
             model_args=model_args, expect_error=expect_error,
             data_keys=data_keys,
             tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        TWO_CARD_TEST_PARAM,
-        TWO_CARD_TEST_CASES
-    )
-    def test_two_cards_cases(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
-        """Test four cards cases with various configurations."""
-        logger.info(
-            f"--- Running Multi-Card Test: model_args={model_args}, TP={tensor_parallel} ---")
-        self.run_test(
-            worker_num=tensor_parallel, local_worker_num=tensor_parallel,
-            model_args=model_args, expect_error=expect_error,
-            data_keys=data_keys,
-            tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
         )

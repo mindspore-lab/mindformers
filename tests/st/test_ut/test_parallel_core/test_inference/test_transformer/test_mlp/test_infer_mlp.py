@@ -100,28 +100,6 @@ SINGLE_CARD_TEST_CASES = [
 
 ]
 
-TWO_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-TWO_CARD_TEST_CASES = [
-    (
-        # 并行策略: 双卡tp=2, has_bias: FALSE, gated_linear_unit: TRUE, is_expert: FALSE, input_size: 32, ffn_hidden_size: 32
-        # expected result: 功能跑通, 精度对齐。
-        {"has_bias": False, "gated_linear_unit": True, "is_expert": False,
-         "input_size": INPUT_SIZE, "ffn_hidden_size": FFN_HIDDEN_SIZE},
-        {"output": "has_gate_output"},
-        False,
-        2
-    ),
-    (
-        # 并行策略: 双卡tp=2, has_bias: FALSE, gated_linear_unit: FALSE, is_expert: FALSE, input_size: 32, ffn_hidden_size: 32
-        # expected result: 功能跑通, 精度对齐。
-        {"has_bias": False, "gated_linear_unit": False, "is_expert": False,
-         "input_size": INPUT_SIZE, "ffn_hidden_size": FFN_HIDDEN_SIZE},
-        {"output": "output_only"},
-        False,
-        2
-    ),
-]
-
 
 def generate_random_port(start, end):
     """ Get random port."""
@@ -132,7 +110,7 @@ def generate_random_port(start, end):
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
         input_size, ffn_hidden_size, has_bias,
-        gated_linear_unit, output_path_param, tensor_parallel
+        gated_linear_unit, output_path_param, tensor_parallel, port
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -142,7 +120,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(10200, 10300)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}", # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [
@@ -243,6 +221,7 @@ class TestInferMLP:
             tmp_path,
             tensor_parallel=1,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -261,6 +240,7 @@ class TestInferMLP:
             gated_linear_unit=model_args["gated_linear_unit"],
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            port=port
         )
 
         cmd_result = subprocess.run(
@@ -285,21 +265,4 @@ class TestInferMLP:
             model_args=model_args, expect_error=expect_error,
             data_keys=data_keys,
             tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        TWO_CARD_TEST_PARAM,
-        TWO_CARD_TEST_CASES
-    )
-    def test_two_cards_cases(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
-        """Test four cards cases with various configurations."""
-        self.run_test(
-            worker_num=tensor_parallel, local_worker_num=tensor_parallel,
-            model_args=model_args, expect_error=expect_error,
-            data_keys=data_keys,
-            tmp_path=tmp_path,
-            tensor_parallel=tensor_parallel
         )

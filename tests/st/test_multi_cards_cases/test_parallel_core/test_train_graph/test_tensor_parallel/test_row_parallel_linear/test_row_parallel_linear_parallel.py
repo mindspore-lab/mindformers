@@ -20,7 +20,7 @@ from tests.st.test_multi_cards_cases.utils import TaskType
 from tests.st.test_ut.test_parallel_core.test_training_graph.test_tensor_parallel.test_row_parallel_linear.test_row_parallel_linear import TestRowParallelLinear
 
 
-_LEVEL_0_TASK_TIME = 89
+_LEVEL_0_TASK_TIME = 45
 _LEVEL_1_TASK_TIME = 0
 _TASK_TYPE = TaskType.TWO_CARDS_TASK
 

@@ -45,17 +45,6 @@ SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-MULTI_CARD_TEST_PARAM = 'model_args, golden_data_key, tensor_parallel'
-MULTI_CARD_TEST_CASES = [
-    (
-        # case 1
-        # The multi-card mtp baseline (dp=2, tp=2).
-        # expected result: The results of multi-card test should comply with the results of single-card test.
-        {'position_embedding_type': 'learned_absolute'},
-        'multi_card_baseline',
-        2
-    ),
-]
 
 def get_free_port():
     """Getting a random free port."""
@@ -70,7 +59,7 @@ def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
         batch_size, seq_length, hidden_size,  # Input shape args
         output_path_param, tensor_parallel, model_args,
-        test_name
+        test_name, port
 ):
     """ Build the msrun command for Multi-Token Prediction (MTP). """
     if worker_num == 1:
@@ -82,7 +71,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",
-            f"--master_port={get_free_port()}",
+            f"--master_port={port}",
             f"--log_dir={log_dir}",
             "--join=True"
         ]
@@ -145,6 +134,7 @@ class TestMTP:
             golden_data_key,
             tmp_path,
             tensor_parallel=1,
+            port=8118
     ):
         """Helper function to run MTP test and check results"""
         output_file_path = tmp_path / f"output_mtp_ms_{'single' if tensor_parallel==1 else 'multi'}.npz"
@@ -164,6 +154,7 @@ class TestMTP:
             tensor_parallel=tensor_parallel,
             model_args=model_args,
             test_name=golden_data_key,
+            port=port
         )
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"
@@ -183,12 +174,8 @@ class TestMTP:
             single_card_output_dict = np.load(output_file_path)
             self.check_acc(single_card_output_dict, golden_data_key)
         else:
-            multi_card_mtp_loss = np.load(output_file_path)['mtp_loss']
-            prefix = tmp_path.parent
-            single_card_output_file = prefix / 'test_single_card_mtp_cases_mod0' / 'output_mtp_ms_single.npz'
-            assert single_card_output_file.exists(), ('Single card test must be run first.')
-            single_card_mtp_loss = np.load(single_card_output_file, allow_pickle=True)['mtp_loss']
-            assert np.allclose(multi_card_mtp_loss, single_card_mtp_loss)
+            multi_card_mtp_loss = np.load(output_file_path)
+            self.check_acc(multi_card_mtp_loss, golden_data_key)
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
@@ -209,29 +196,5 @@ class TestMTP:
             local_worker_num=1,
             model_args=model_args,
             golden_data_key=golden_data_key,
-            tmp_path=tmp_path
-        )
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(
-        MULTI_CARD_TEST_PARAM,
-        MULTI_CARD_TEST_CASES
-    )
-    def test_multi_card_mtp_cases(
-            self,
-            golden_data_key,
-            model_args,
-            tensor_parallel,
-            tmp_path
-    ):
-        """Test Multi-Token Prediction (MTP) on multiple cards with various configurations."""
-        self.run_mtp_test(
-            worker_num=4,
-            local_worker_num=4,
-            model_args=model_args,
-            golden_data_key=golden_data_key,
-            tensor_parallel=tensor_parallel,
             tmp_path=tmp_path
         )

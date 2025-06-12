@@ -29,7 +29,7 @@ class TestDropout:
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
+    @pytest.mark.env_onecard
     def test_p_0_5_case(self):
         """
         Feature: Dropout
@@ -46,7 +46,7 @@ class TestDropout:
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
+    @pytest.mark.env_onecard
     def test_training_false_case(self):
         """
         Feature: Dropout
@@ -63,7 +63,7 @@ class TestDropout:
 
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
+    @pytest.mark.env_onecard
     def test_p_0_case(self):
         """
         Feature: Dropout

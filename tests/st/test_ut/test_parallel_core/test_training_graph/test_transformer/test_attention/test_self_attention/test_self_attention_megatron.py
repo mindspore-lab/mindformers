@@ -52,7 +52,7 @@ def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
         seq_len, batch_size, hidden_size, kv_hidden_size, num_attention_heads,
         has_bias, use_flash_attn, num_query_groups,
-        q_layernorm, k_layernorm, output_path_param, tensor_parallel
+        q_layernorm, k_layernorm, output_path_param, tensor_parallel, port
 ):
     """Build the msrun command with the specified parameters."""
     if worker_num == 1:
@@ -62,7 +62,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",
-            "--master_port=8167",
+            f"--master_port={port}",
             f"--log_dir={log_dir}",
             "--join=True",]
     cmd_list += [
@@ -117,6 +117,7 @@ class TestSelfAttentionMegatron:
             tmp_path,
             tensor_parallel=1,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -139,7 +140,8 @@ class TestSelfAttentionMegatron:
             q_layernorm=model_args["q_layernorm"],
             k_layernorm=model_args["k_layernorm"],
             output_path_param=output_file_path,
-            tensor_parallel=tensor_parallel
+            tensor_parallel=tensor_parallel,
+            port=port
         )
 
         result = subprocess.run(
