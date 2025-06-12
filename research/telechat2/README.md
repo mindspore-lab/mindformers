@@ -55,7 +55,7 @@ TeleChat2-39b-a12b:
 
 | config                                                       | task            | Datasets        | SeqLength | phase            | performance   |
 | ------------------------------------------------------------ | --------------- | --------------- | --------- | ---------------- | ------------- |
-| [TeleChat2_39b_a12b](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
+| [TeleChat2_39b_a12b](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 865 tokens/s/p |
 | [TeleChat2_39b_a12b](./telechat2-39b-a12b/predict_telechat_39b_a12b_parallel.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
 
 ## 模型文件
@@ -68,6 +68,7 @@ TeleChat2-39b-a12b:
    telechat
        ├── convert_weight.py                     # torch->ms权重转换脚本
        ├── convert_reversed.py                   # ms->torch权重转换脚本
+       ├── convert_gmm.py                        # MOE训练权重转推理权重的group_matmul转置脚本
        ├── telechat_preprocess.py                # telechat模型的mindrecord数据处理脚本
        ├── telechat.py                           # 模型实现
        ├── telechat_config.py                    # 模型配置项
@@ -108,6 +109,8 @@ TeleChat2-39b-a12b:
    telechat
        ├── run_telechat_predict.py              # 推理脚本
        └── run_telechat.py                      # telechat高阶接口使用脚本
+       └── infer
+           └── run_telechat_predict_parallel.py # telechat推理脚本（前端并行）
    ```
 
 ## 环境及数据准备
@@ -190,7 +193,7 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 - [TeleChat2-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_7B/Telechat_7B.zip)
 - [TeleChat2-35b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_35B/Telechat_35B.zip)
 - [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
-- [Telechat2-39b-a12b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)
+- [Telechat2-39b-a12b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)：仅适用于8卡推理，使用方式请参考[Telechat2-39B-A12B推理](#Telechat2-39B-A12B推理)章节。
 
 ### [分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
 
@@ -320,25 +323,12 @@ processor:
   ```bash
   cd mindformers/
   python run_mindformer.py \
-  --config ./research/telechat2/predict_telechat_7b.yaml \
+  --config ./research/telechat2/telechat2-7b/predict_telechat_7b.yaml \
   --load_checkpoint path/to/ckpt_path \
   --use_parallel False \
   --predict_data "<_start><_user>生抽与老抽的区别？<_bot>" \
   --register_path ./research/telechat2
   ```
-
-- 39b-a12模型2卡推理
-
-```bash
-cd mindformers/
-bash scripts/msrun_launcher.sh "python run_mindformer.py \
---config ./research/telechat2/predict_telechat_39b_a12b.yaml \
---load_checkpoint path/to/ckpt_path \
---predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
---auto_trans_ckpt True \
---use_parallel True \
---register_path ./research/telechat2 2
-```
 
 - 35b模型2卡推理
 
@@ -347,7 +337,7 @@ bash scripts/msrun_launcher.sh "python run_mindformer.py \
   ```bash
   cd mindformers/
   bash scripts/msrun_launcher.sh "python run_mindformer.py \
-  --config ./research/telechat2/predict_telechat_35b.yaml \
+  --config ./research/telechat2/telechat2-35b/predict_telechat_35b.yaml \
   --load_checkpoint path/to/ckpt_path \
   --predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
   --auto_trans_ckpt True \
@@ -362,7 +352,7 @@ bash scripts/msrun_launcher.sh "python run_mindformer.py \
   ```bash
   cd mindformers/
   bash scripts/msrun_launcher.sh "python run_mindformer.py \
-  --config ./research/telechat2/predict_telechat_115b.yaml \
+  --config ./research/telechat2/telechat2-115b/predict_telechat_115b.yaml \
   --load_checkpoint path/to/ckpt_path \
   --predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
   --auto_trans_ckpt True \
@@ -424,50 +414,100 @@ bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat_predict.p
 --auto_trans_ckpt True" 卡数
 ```
 
-### 长序列推理
+#### 前端并行推理
+
+Telechat2提供了前端并行推理脚本，运行`research/telechat2/run_telechat_predict_parallel.py`启动在线推理，启动命令和专用推理脚本一致。
 
 Telechat2的前端并行推理代码（`research/telechat2/infer/telechat.py`）已适配DynamicNTK算法，以实现训短推长的效果。
 
-#### 参数配置
+- **参数配置**
 
-Telechat2原生支持8K长度推理，以支持最长16K推理为例，修改`research/telechat2/infer`下的`predict_telechat_xxx.yaml`。
+  Telechat2原生支持8K长度推理，以支持最长16K推理为例，修改`research/telechat2/infer`下的`predict_telechat_xxx.yaml`。
 
-```yaml
-seq_length: 16384              # 最大推理长度
-max_position_embedding: 8192   # 模型原支持长度
-extend_method: "DYNAMIC_NTK"   # 外推模式设置
-block_size: 16                 # 每块block的大小，建议固定设置为16
-num_blocks: 1024               # block总数，确保num_blocks * block_size ≥ seq_length
-```
+  ```yaml
+  seq_length: 16384              # 最大推理长度
+  max_position_embedding: 8192   # 模型原支持长度
+  extend_method: "DYNAMIC_NTK"   # 外推模式设置
+  block_size: 16                 # 每块block的大小，建议固定设置为16
+  num_blocks: 1024               # block总数，确保num_blocks * block_size ≥ seq_length
+  ```
 
-#### 单卡推理
+#### Telechat2-39B-A12B推理
 
-使用`research/telechat2/infer/run_telechat_predict.py`启动在线推理。
+Telechat2-39B-A12B模型当前仅支持[前端并行推理](#前端并行推理)，由于使用moe结构，以2卡推理为例，可根据如下步骤转换得到推理权重
 
-```bash
-cd mindformers/
-python research/telechat2/infer/run_telechat_predict.py \
---input_txt ./research/telechat2/infer/xiyou.txt \
---yaml_file path/to/yaml_file \
---vocab_file_path path/to/tokenizer.model \
---checkpoint_path path/to/ckpt_path \
---use_parallel False
-```
+- **转[魔搭社区权重](https://modelscope.cn/models/TeleAI/TeleChat2-39B-A12B)为单卡ckpt权重**
 
-#### 多卡推理
+  ```bash
+  python research/telechat2/convert_weight.py \
+  --torch_path path/to/TeleChat2-39B-A12B \
+  --mindspore_path /path/to/TeleChat2_39B_A12B.ckpt
+  ```
 
-默认使用完整权重，开启权重自动转换`auto_trans_ckpt=True`，修改yaml文件中的`model_parallel`参数为实际运行卡数后，启动多卡推理。
+- **获取2卡策略文件**
 
-```bash
-cd mindformers/
-bash scripts/msrun_launcher.sh "python research/telechat2/infer/run_telechat_predict.py \
---input_txt ./research/telechat2/infer/xiyou.txt \
---yaml_file path/to/yaml_file \
---vocab_file_path path/to/tokenizer.model \
---checkpoint_path path/to/ckpt_path \
---use_parallel True \
---auto_trans_ckpt True" 卡数
-```
+  修改`research/telechat2/telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml`
+
+  ```yaml
+  only_save_strategy: True
+  moe_config:
+    ep_extend_tp: False
+  parallel:
+    ennable_parallel_optimizer: False
+  parallel_config:
+    data_parallel: 1
+    expert_parallel: 1
+    model_parallel: 2
+    pipeline_stage: 1
+    micro_batch_num: 1
+  recompute_config:
+    recompute: False
+  context:
+    # ascend_config:
+    # parallel_speed_up_json_path: "./parallel_speed_up.json"
+  ```
+
+  运行以下命令获取策略文件
+
+  ```bash
+  bash scripts/msrun_launcher.sh \
+  "--config ./research/telechat2/telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml \
+  --train_dataset_dir /{path}/dataset.mindrecord \
+  --register_path ./research/telechat2" 2
+  ```
+
+  运行完毕，策略文件保存在“output/strategy”目录下
+
+- **将单卡ckpt权重转为2卡权重**
+
+  ```bash
+  python mindformers/tools/ckpt_transform transform_checkpoint.py \
+  --src_checkpoint /path/to/TeleChat2_39B_A12B.ckpt \
+  --dst_checkpoint /path/to/TeleChat2_39B_A12B_npu2 \
+  --dst_strategy ./output/strategy/ckpt_strategy_rank_0.ckpt
+  ```
+
+- **将2卡权重进行gmm转置**
+
+  ```bash
+  python research/telechat2/convert_gmm.py \
+  --ckpt_path /path/to/TeleChat2_39B_A12B_npu2 \
+  --save_path /path/to/TeleChat2_39B_A12B_gmm_npu2 \
+  --rank 2
+  ```
+
+- **运行2卡前端并行推理**
+
+  ```bash
+  bash scripts/msrun_launcher.sh \
+  "python research/telechat2/infer/run_telechat_predict_parallel.py \
+  --yaml_file research/telechat2/telechat2-39b-a12b/predict_telechat_39b_a12b_parallel.yaml \
+  --checkpoint_path /path/to/TeleChat2_39B_A12B_gmm_npu2 \
+  --vocab_file_path path/to/TeleChat2-39B-A12B/tokenizer.model \
+  --use_parallel True" 2
+  ```
+
+> 注：文档提供的Telechat2-39B-A12B权重为[8卡推理权重](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)，如需运行8卡推理，请将yaml的model_parallel参数设置为8。
 
 ### MindIE部署
 

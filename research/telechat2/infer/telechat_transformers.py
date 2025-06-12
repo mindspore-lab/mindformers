@@ -122,7 +122,6 @@ class TelechatRoutedParallelMLP(RoutedParallelMLP):
             compute_dtype=self.config.compute_dtype,
             is_expert=True,
             expert_num=self.config.moe_config.expert_num,
-            moe_delay_allreduce=True,
         )
 
 
@@ -226,6 +225,8 @@ class TelechatParallelAttention(ParallelAttention):
                 key_value = self.cast(self.wk_v(x), self.compute_dtype)
                 key_value = key_value.reshape(-1, self.kv_num_heads_per_partition, self.head_dim * 2)
                 key, value = mint.split(key_value, (self.head_dim, self.head_dim), -1)
+                key = key.reshape(bs, seq_len, -1)
+                value = value.reshape(bs, seq_len, -1)
         else:
             query = self.cast(self.wq(x), self.compute_dtype)
             if self.qkv_concat:
