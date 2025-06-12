@@ -17,7 +17,7 @@ Note: PET Adapter is the base adapter class for Parameter Efficient Tuning of Mi
 """
 from mindspore import nn
 
-from mindpet.graph.freeze_utils import freeze_delta
+from mindpet.graph.freeze_utils import freeze_delta, freeze_modules
 
 from ..pet_config import PetConfig
 from ..constants import PetType
@@ -32,8 +32,8 @@ class PetAdapter:
         """Add efficient tuning parameters to ptm."""
         raise NotImplementedError("should implemented by the certain tuning algorithm.")
 
-    @classmethod
-    def freeze_pretrained_model(cls, model, pet_type: PetType, freeze_include=None, freeze_exclude=None):
+    @staticmethod
+    def freeze_pretrained_model(model, pet_type: PetType, freeze_include=None, freeze_exclude=None):
         """
         Freeze the parameters of ptm which no update in the tuning process.
 
@@ -41,3 +41,13 @@ class PetAdapter:
             Refer to mindpet api.
         """
         freeze_delta(model, pet_type, freeze_include, freeze_exclude)
+
+    @staticmethod
+    def freeze_mcore_pretrained_model(model, freeze_include=None, freeze_exclude=None):
+        """
+        Freeze the parameters of ptm which no update in the tuning process.
+
+        Notes:
+            Refer to mindpet api.
+        """
+        freeze_modules(model, freeze_include, freeze_exclude)

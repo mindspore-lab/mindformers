@@ -27,6 +27,7 @@ from mindformers.pet.pet_config import LoraConfig, PetConfig, Ptuning2Config, Pr
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.pet.tuners.slora_adapter import SLoraAdapter
 from mindformers.tools.logger import logger
+from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 
 # Mapping of pet models.
 PET_TYPE_TO_MODEL_MAPPING = {
@@ -63,43 +64,47 @@ class PetModel(PreTrainedModel):
         self.config.pet_config = pet_config
         # pylint: disable=W0212
         self._support_list = base_model._support_list
-        self.pet_model = PET_TYPE_TO_MODEL_MAPPING[pet_type](pet_config, base_model)
+        self.network = PET_TYPE_TO_MODEL_MAPPING[pet_type](pet_config, base_model)
         self.load_checkpoint(self.config)
-        PetAdapter.freeze_pretrained_model(self.pet_model, pet_type, pet_config.freeze_include,
-                                           pet_config.freeze_exclude)
+        if isinstance(base_model, TrainModelMixin):
+            PetAdapter.freeze_mcore_pretrained_model(self.network, pet_config.freeze_include,
+                                                     pet_config.freeze_exclude)
+        else:
+            PetAdapter.freeze_pretrained_model(self.network, pet_type, pet_config.freeze_include,
+                                               pet_config.freeze_exclude)
 
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
-        return self.pet_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
+        return self.network.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        return self.pet_model.prepare_inputs_for_generation(input_ids, **kwargs)
+        return self.network.prepare_inputs_for_generation(input_ids, **kwargs)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
-        return self.pet_model.prepare_inputs_for_predict_layout(input_ids, **kwargs)
+        return self.network.prepare_inputs_for_predict_layout(input_ids, **kwargs)
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
-        return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
+        return self.network.slice_incremental_inputs(model_inputs, current_index)
 
     def set_dynamic_inputs(self, **kwargs):
-        return self.pet_model.set_dynamic_inputs(**kwargs)
+        return self.network.set_dynamic_inputs(**kwargs)
 
     def add_flags_custom(self, is_first_iteration):
-        return self.pet_model.add_flags_custom(is_first_iteration)
+        return self.network.add_flags_custom(is_first_iteration)
 
     def to_embeddings(self, tokens):
-        return self.pet_model.to_embeddings(tokens)
+        return self.network.to_embeddings(tokens)
 
     def convert_name(self, weight_name):
-        return self.pet_model.convert_name(weight_name)
+        return self.network.convert_name(weight_name)
 
     def convert_weight_dict(self, source_dict, **kwargs):
-        return self.pet_model.convert_weight_dict(source_dict, **kwargs)
+        return self.network.convert_weight_dict(source_dict, **kwargs)
 
     def convert_map_dict(self, source_dict, **kwargs):
-        return self.pet_model.convert_map_dict(source_dict, **kwargs)
+        return self.network.convert_map_dict(source_dict, **kwargs)
 
     def construct(self, *inputs, **kwargs):
-        return self.pet_model(*inputs, **kwargs)
+        return self.network(*inputs, **kwargs)
 
 
 @args_type_check(config=(dict, PetConfig))

@@ -84,6 +84,11 @@ if __name__ == '__main__':
                         default=1,
                         type=float,
                         help='scale of lora when merge model weight, default is lora_alpha/lora_rank')
+    parser.add_argument('--save_format',
+                        default='ckpt',
+                        type=str,
+                        choices=['ckpt', 'safetensors'],
+                        help='format for saving the model, choose between ckpt and safetensors')
     args = parser.parse_args()
 
     src_ckpt_strategy = get_strategy(args.src_ckpt_strategy)
@@ -111,7 +116,7 @@ if __name__ == '__main__':
         logger.info(f"src_lora_ckpt_path---------------{src_lora_ckpt_path}")
     logger.info("......Start Merge Lorackpt......")
     param_dict = ms.load_checkpoint(src_lora_ckpt_path)
-    lora_keys = [k for k in param_dict if 'lora_a' in k]
+    lora_keys = [k for k in param_dict if ('lora_a' in k or 'lora_A' in k)]
     non_lora_keys = [k for k in param_dict if 'lora_' not in k]
     param_dict_lora = OrderedDict()
     for k in non_lora_keys:
@@ -120,16 +125,24 @@ if __name__ == '__main__':
         if k.split('.')[0] in ['adam_m', 'adam_v']:
             continue
         logger.info(f'Merging {k}')
-        original_key = k.replace('_lora_a', '').replace('mindpet_delta', 'weight')
+        original_key = k.replace('_lora_a', '').replace('mindpet_delta', 'weight').replace('.lora_A', '.base_layer')
         if original_key not in param_dict:
             raise ValueError(f"The original_key should in the param_dict, but got {original_key}.")
         lora_a_key = k
-        lora_b_key = k.replace('lora_a', 'lora_b')
+        lora_b_key = k.replace('lora_a', 'lora_b').replace('.lora_A', '.lora_B')
         original_value = param_dict_lora[original_key]
-        param_dict_lora[original_key] = Parameter(Tensor(P.add(original_value, P.mm(param_dict[lora_b_key], \
-                                         param_dict[lora_a_key]) * lora_scaling), original_value.dtype), \
-                                         name=original_key)
+        final_key = original_key.replace('.base_layer', '')
+        logger.info("======================================================")
+        logger.info(f"{original_key}: {param_dict[original_key].shape}")
+        logger.info(f"{lora_b_key}: {param_dict[lora_b_key].shape}")
+        logger.info(f"{lora_a_key}: {param_dict[lora_a_key].shape}")
+        logger.info(f"{final_key}")
+
+        param_dict_lora[final_key] = Parameter(Tensor(
+            P.add(original_value,
+                  P.mm(param_dict[lora_b_key], param_dict[lora_a_key]) * lora_scaling
+                  ), original_value.dtype), name=original_key)
     logger.info("......Start save merged ckpt......")
     save_checkpoint_file_name = os.path.join(dst_ckpt_dir, 'merged_lora.ckpt')
-    ms.save_checkpoint(param_dict_lora, save_checkpoint_file_name)
+    ms.save_checkpoint(param_dict_lora, save_checkpoint_file_name, format=args.save_format)
     logger.info("......Merge succeed!.......")
