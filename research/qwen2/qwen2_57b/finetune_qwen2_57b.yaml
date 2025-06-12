@@ -125,7 +125,6 @@ recompute_config:
 # callbacks
 callbacks:
  - type: MFLossMonitor
- - type: ObsMonitor
 
 context:
   jit_config:
