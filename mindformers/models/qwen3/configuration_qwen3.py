@@ -48,6 +48,10 @@ class Qwen3Config(PretrainedConfig):
                  tie_word_embeddings: bool = False,
                  rope_theta: float = 10000.0,
                  position_embedding_type: str = "rope",
+                 moe_intermediate_size: int = None,
+                 num_experts: int = None,
+                 num_experts_per_tok: int = None,
+                 norm_topk_prob: bool = True,
                  seq_length: int = 2048,
                  bos_token_id: int = 1,
                  eos_token_id: int = 2,
@@ -91,6 +95,10 @@ class Qwen3Config(PretrainedConfig):
             rms_norm_eps (float): The epsilon value of the denominator. Default: ``1e-6``.
             tie_word_embeddings (bool): Whether to tie input and output embeddings. Default: ``False``.
             rope_theta (float): Frequency factors for sine and cosine functions in RoPE. Default: ``10000.0``.
+            moe_intermediate_size(int): Intermediate size of the routed expert. Default: ``None``.
+            num_experts_per_tok(int): Number of selected experts. Default: ``None``.
+            num_experts(int): Number of routed experts.  Default: ``None``.
+            norm_topk_prob(bool): Whether to normalize the topk probabilities. Default: ``True``.
             batch_size (int): Batch size for input data, use in predict. Default: ``1``.
             seq_length (int): The sequence length of input_ids. Default: ``2048``.
             multiple_of (int): Define SwiGLU hidden layer size multiples. Default: ``256``.
@@ -149,6 +157,10 @@ class Qwen3Config(PretrainedConfig):
         self.rope_theta = rope_theta
         self.position_embedding_type = position_embedding_type
         self.tie_word_embeddings = tie_word_embeddings
+        self.moe_intermediate_size = moe_intermediate_size
+        self.num_experts_per_tok = num_experts_per_tok
+        self.num_experts = num_experts
+        self.norm_topk_prob = norm_topk_prob
         # common params
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)

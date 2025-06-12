@@ -241,7 +241,7 @@ COMMON_CONFIG_MAPPING = {
     ("residual_dtype", "fp32_residual_connection"): ("fp32_residual_connection", is_float_32),
     ("rms_norm_eps", "layernorm_epsilon"): "layernorm_epsilon",
     ("qkv_has_bias", "add_qkv_bias"): "add_qkv_bias",
-    ("expert_num", "num_moe_experts"): "num_moe_experts",
+    ("expert_num", "num_moe_experts", "num_experts"): "num_moe_experts",
     # not changes
     ("num_layers", "num_hidden_layers"): "num_layers",
     "hidden_size": "hidden_size",
@@ -324,7 +324,7 @@ COMMON_CONFIG_MAPPING = {
     # Moe
     ("moe_intermediate_size", "moe_ffn_hidden_size"): "moe_ffn_hidden_size",
     ("first_k_dense_replace", "get_moe_layer_freq"): ("moe_layer_freq", get_moe_layer_freq),
-    ("num_experts_chosen", "moe_router_topk"): "moe_router_topk",
+    ("num_experts_chosen", "moe_router_topk", "num_experts_per_tok"): "moe_router_topk",
     ("n_group", "moe_router_num_groups"): "moe_router_num_groups",
     ("topk_group", "moe_router_group_topk"): "moe_router_group_topk",
     ("routed_scaling_factor", "moe_router_topk_scaling_factor"): "moe_router_topk_scaling_factor",
@@ -337,6 +337,7 @@ COMMON_CONFIG_MAPPING = {
     ("capacity_factor", "moe_expert_capacity_factor"): "moe_expert_capacity_factor",
     ("enable_sdrop", "moe_token_drop_policy"): "moe_token_drop_policy",
     ("enable_gmm_safe_tokens", "use_pad_tokens"): "use_pad_tokens",
+    "moe_shared_expert_intermediate_size": "moe_shared_expert_intermediate_size",
     # not changes
     "moe_shared_expert_overlap": "moe_shared_expert_overlap",
     "moe_router_load_balancing_type": "moe_router_load_balancing_type",

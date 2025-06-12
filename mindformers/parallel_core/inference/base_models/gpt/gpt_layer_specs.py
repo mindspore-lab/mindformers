@@ -16,7 +16,8 @@
 from typing import Optional
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
-from mindformers.parallel_core.inference.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+from mindformers.parallel_core.inference.transformer.transformer_layer import TransformerLayer, \
+    TransformerLayerSubmodules
 from mindformers.parallel_core.inference.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.inference.transformer.dot_product_attention import DotProductAttention
 from mindformers.parallel_core.inference.transformer.attention import (
@@ -31,6 +32,9 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import (
 )
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
+from mindformers.parallel_core.inference.base_models.gpt.moe_module_spec import get_moe_module_spec
+from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlockSubmodules
+from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
 def get_gpt_layer_local_spec(
@@ -60,13 +64,13 @@ def get_gpt_layer_local_spec(
         ModuleSpec: Module specification with MCore modules
 
     """
-    if num_experts or moe_grouped_gemm:
-        raise NotImplementedError("moe spec is not currently supported.")
     if multi_latent_attention:
         raise NotImplementedError("`multi_latent_attention` is not currently supported.")
     if qk_l2_norm:
         raise NotImplementedError("`qk_l2_norm` is not currently supported.")
-
+    mlp = get_mlp_module_spec(
+        num_experts=num_experts,
+    )
     self_attn = ModuleSpec(
         module=SelfAttention,
         submodules=SelfAttentionSubmodules(
@@ -84,13 +88,85 @@ def get_gpt_layer_local_spec(
             self_attention=self_attn,
             post_self_attn_layernorm=get_norm_cls(normalization) if sandwich_norm else IdentityOp,
             pre_mlp_layernorm=get_norm_cls(normalization),
-            mlp=ModuleSpec(
-                module=MLP,
-                submodules=MLPSubmodules(
-                    linear_fc1=ColumnParallelLinear,
-                    linear_fc2=RowParallelLinear
-                )
-            ),
+            mlp=mlp,
             post_mlp_layernorm=get_norm_cls(normalization) if sandwich_norm else IdentityOp,
         )
+    )
+
+
+def get_gpt_decoder_block_spec(
+        config: TransformerConfig,
+        normalization: Optional[str] = None,
+        qk_l2_norm: Optional[bool] = None,
+) -> TransformerLayerSubmodules:
+    """GPT block spec."""
+    # layer specs.
+    dense_layer_spec = get_gpt_layer_local_spec(
+        num_experts=None,
+        moe_grouped_gemm=False,
+        qk_layernorm=config.qk_layernorm,
+        normalization=normalization,
+        use_flash_attention=config.use_flash_attention,
+    )
+
+    moe_layer_spec = get_gpt_layer_local_spec(
+        num_experts=config.num_moe_experts,
+        moe_grouped_gemm=True,
+        qk_layernorm=config.qk_layernorm,
+        normalization=normalization,
+        use_flash_attention=config.use_flash_attention,
+    )
+
+    # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
+    # 0 stands for dense layers, 1 stands for expert layers.
+    # For integer N: Creates a pattern with one expert layer every N layers.
+    # For string pattern: Evaluates the str directly (e.g. "[1,0,1]" for alternating expert/dense).
+    if isinstance(config.moe_layer_freq, int):
+        moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
+    elif isinstance(config.moe_layer_freq, list):
+        moe_layer_pattern = config.moe_layer_freq
+        if len(moe_layer_pattern) != config.num_layers:
+            raise ValueError(
+                f"Invalid length of moe_layer_pattern: {len(moe_layer_pattern)}, "
+                f"expected {config.num_layers}, "
+                f"current moe layer pattern: {config.moe_layer_freq}"
+            )
+
+    else:
+        raise ValueError(
+            f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
+        )
+
+    # Create the layer specs for the model.
+    layer_specs = []
+    for layer_number in range(config.num_layers):
+        if moe_layer_pattern[layer_number] == 1:
+            layer_specs.append(moe_layer_spec)
+        elif moe_layer_pattern[layer_number] == 0:
+            layer_specs.append(dense_layer_spec)
+        else:
+            raise ValueError(f"Invalid layer pattern: {moe_layer_pattern}")
+
+    # Block spec.
+    block_spec = TransformerBlockSubmodules(layer_specs=layer_specs, layer_norm=get_norm_cls(config.normalization))
+
+    return block_spec
+
+
+def get_mlp_module_spec(
+        num_experts: Optional[int] = None,
+) -> ModuleSpec:
+    """Helper function to get module spec for MLP/MoE."""
+    if num_experts is None:
+        # Dense MLP w or w/o modules.
+        return ModuleSpec(
+            module=MLP,
+            submodules=MLPSubmodules(
+                linear_fc1=ColumnParallelLinear,
+                linear_fc2=RowParallelLinear,
+            ),
+        )
+    # Mixture of experts with modules.
+    return get_moe_module_spec(
+        num_experts=num_experts,
     )
