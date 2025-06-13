@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Qwen3 models' utils."""
+"""DeepSeek3 models' utils."""
 import os
 import json
 from safetensors.numpy import load_file
 
 from mindformers.tools.logger import logger
-from mindformers.models.qwen3.configuration_qwen3 import Qwen3Config
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.deepseek3.configuration_deepseek3 import Deepseek3Config
 
 
-class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
+class Deepseek3PreTrainedModel(PreTrainedModel, ModelMixin):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
     """
 
-    config_class = Qwen3Config
-    base_model_prefix = "Qwen3"
-
+    config_class = Deepseek3Config
+    base_model_prefix = "Deepseek3"
 
     def convert_name(self, weight_name):
         r"""
@@ -45,19 +44,25 @@ class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
         """
         origin_name = weight_name
         weight_name = weight_name.replace('embed_tokens.', 'embedding.word_embeddings.')
-        weight_name = weight_name.replace('.self_attn.q_proj.', '.self_attention.linear_q.')
-        weight_name = weight_name.replace('.self_attn.k_proj.', '.self_attention.linear_k.')
-        weight_name = weight_name.replace('.self_attn.v_proj.', '.self_attention.linear_v.')
+        weight_name = weight_name.replace('.self_attn.q_a_proj.', '.self_attention.linear_q_down_proj.')
+        weight_name = weight_name.replace('.self_attn.q_a_layernorm.', '.self_attention.q_layernorm.')
+        weight_name = weight_name.replace('.self_attn.q_b_proj.', '.self_attention.linear_q_up_proj.')
+        weight_name = weight_name.replace('.self_attn.kv_a_proj_with_mqa.', '.self_attention.linear_kv_down_proj.')
+        weight_name = weight_name.replace('.self_attn.kv_a_layernorm.', '.self_attention.kv_layernorm.')
+        weight_name = weight_name.replace('.self_attn.kv_b_proj.', '.self_attention.linear_kv_up_proj.')
         weight_name = weight_name.replace('.self_attn.o_proj.', '.self_attention.linear_proj.')
-        weight_name = weight_name.replace('.self_attn.q_norm.', '.self_attention.q_layernorm.')
-        weight_name = weight_name.replace('.self_attn.k_norm.', '.self_attention.k_layernorm.')
         weight_name = weight_name.replace('.mlp.gate_proj.', '.mlp.gating.')
         weight_name = weight_name.replace('.mlp.down_proj.', '.mlp.linear_fc2.')
         weight_name = weight_name.replace('.mlp.up_proj.', '.mlp.linear_fc1.')
         weight_name = weight_name.replace('.gate.weight', '.router.weight.weight')
+        weight_name = weight_name.replace('.gate.e_score_correction_bias', '.router.expert_bias')
+        weight_name = weight_name.replace('.shared_experts.gate_proj.', '.shared_experts.gating.')
+        weight_name = weight_name.replace('.shared_experts.up_proj.', '.shared_experts.linear_fc1.')
+        weight_name = weight_name.replace('.shared_experts.down_proj.', '.shared_experts.linear_fc2.')
         weight_name = weight_name.replace('.gate_proj.', '.gating.')
         weight_name = weight_name.replace('.down_proj.', '.linear_fc2.')
         weight_name = weight_name.replace('.up_proj.', '.linear_fc1.')
+
         weight_name = weight_name.replace('.post_attention_layernorm.', '.pre_mlp_layernorm.')
         weight_name = weight_name.replace('.norm.', '.decoder.final_norm.')
         weight_name = weight_name.replace('lm_head.', 'output_layer.')
@@ -79,20 +84,24 @@ class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
         convert_key_mapping = {
             "embed_tokens",
             "word_embeddings",
-            "q_proj",
-            "linear_q",
-            "k_proj",
-            "linear_k",
-            "v_proj",
-            "linear_v",
+            "q_a_proj",
+            "q_a_layernorm",
+            "q_b_proj",
+            "linear_q_up_proj",
+            "kv_a_proj_with_mqa",
+            "linear_kv_down_proj",
+            "kv_a_layernorm",
+            "kv_layernorm",
+            "kv_b_proj",
+            "linear_kv_up_proj",
             "o_proj",
             "linear_proj",
             "gate_proj",
             "gating",
-            "down_proj",
-            "linear_fc2",
             "up_proj",
             "linear_fc1",
+            "down_proj",
+            "linear_fc2",
             "post_attention_layernorm",
             "pre_mlp_layernorm",
             "norm",
@@ -100,10 +109,6 @@ class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
             "lm_head",
             "output_layer",
             "input_layernorm",
-            "q_norm",
-            "q_layernorm",
-            "k_norm",
-            "k_layernorm",
             "gate"
         }
         return convert_key_mapping
