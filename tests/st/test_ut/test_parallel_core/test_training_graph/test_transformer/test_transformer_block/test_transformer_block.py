@@ -58,7 +58,8 @@ def build_msrun_command_list(
         # Default dimensions, can be overridden by model_args if specific tests need them
         seq_length=DEFAULT_SEQ_LENGTH, batch_size=DEFAULT_BATCH_SIZE,
         hidden_size=DEFAULT_HIDDEN_SIZE, ffn_hidden_size=DEFAULT_FFN_HIDDEN_SIZE,
-        num_attention_heads=DEFAULT_NUM_HEADS
+        num_attention_heads=DEFAULT_NUM_HEADS,
+        port=8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -68,7 +69,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            "--master_port=8167",  # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}",  # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [str(run_script_path),
@@ -169,6 +170,7 @@ class TestTransformerBlock:
             tmp_path,  # Pytest fixture for temporary directory
             tensor_parallel=1,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -183,6 +185,7 @@ class TestTransformerBlock:
             model_args=model_args,
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            port=port
         )
 
         logger.info(f"Running command: {' '.join(cmd_list)}")

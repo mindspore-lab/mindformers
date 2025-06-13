@@ -13,8 +13,16 @@
 #  limitations under the License.
 #  ============================================================================
 """Test Multi-head Latent Attention (MLA) with various configurations."""
+import os
+import random
 import pytest
-from .test_multi_latent_attention import TestMultiLatentAttention
+from tests.st.test_multi_cards_cases.utils import TaskType
+from tests.st.test_ut.test_parallel_core.test_training_graph.test_transformer.test_multi_latent_attention.test_multi_latent_attention import TestMultiLatentAttention
+
+
+_LEVEL_0_TASK_TIME = 80
+_LEVEL_1_TASK_TIME = 0
+_TASK_TYPE = TaskType.TWO_CARDS_TASK
 
 MULTI_CARD_TEST_PARAM = 'model_args, golden_data_key, tensor_parallel'
 MULTI_CARD_TEST_CASES = [
@@ -44,8 +52,6 @@ MULTI_CARD_TEST_CASES = [
 class TestMultiLatentAttentionFourCards(TestMultiLatentAttention):
     """Test class for Multi-head Latent Attention with four cards configurations."""
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     @pytest.mark.parametrize('struct', ['megatron', 'a2'])
     @pytest.mark.parametrize(
         MULTI_CARD_TEST_PARAM,
@@ -61,11 +67,12 @@ class TestMultiLatentAttentionFourCards(TestMultiLatentAttention):
     ):
         """Test Multi-head Latent Attention on multiple cards with various configurations."""
         self.run_mla_test(
-            worker_num=4,
-            local_worker_num=4,
+            worker_num=2,
+            local_worker_num=2,
             struct=struct,
             model_args=model_args,
             golden_data_key=golden_data_key,
             tensor_parallel=tensor_parallel,
-            tmp_path=tmp_path
+            tmp_path=tmp_path,
+            port=int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         )

@@ -13,30 +13,26 @@
 # limitations under the License.
 # ============================================================================
 """Test GPTModel with various configurations"""
+import os
 from pathlib import Path
+import random
 import subprocess
 import pytest
 import numpy as np
 from mindformers.tools.logger import logger
-from .data_gen_utils import DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
-    DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS
+from tests.st.test_multi_cards_cases.utils import TaskType
+from tests.st.test_multi_cards_cases.test_parallel_core.test_train_graph.test_base_models.test_gpt_model.data_gen_utils import DEFAULT_SEQ_LENGTH, \
+    DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS
 
-SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
-SINGLE_CARD_TEST_CASES = [
-    # Case 1: Standard Norm, SelfAttention, Norm, MLP, num_layers=2
-    (
-        {
-            "input_layernorm": "Norm", "self_attention": "SelfAttention",
-            "pre_cross_attn_layernorm": "IdentityOp", "cross_attention": "IdentityOp",
-            "pre_mlp_layernorm": "Norm", "mlp": "MLP", "num_layers": 2,
-        },
-        {"output": "output_default"}, False
-    ),
-]
 
-FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
-FOUR_CARD_TEST_CASES = [
-    # Case 1: DP=2, TP=2 for Norm, SelfAttention, Norm, MLP, num_layers=2
+_LEVEL_0_TASK_TIME = 50
+_LEVEL_1_TASK_TIME = 0
+_TASK_TYPE = TaskType.TWO_CARDS_TASK
+
+
+TWO_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel"
+TWO_CARD_TEST_CASES = [
+    # Case 1: DP=1, TP=2 for Norm, SelfAttention, Norm, MLP, num_layers=2
     (
         {
             "input_layernorm": "Norm", "self_attention": "SelfAttention",
@@ -54,11 +50,12 @@ def build_msrun_command_list(
         hidden_size=DEFAULT_HIDDEN_SIZE, ffn_hidden_size=DEFAULT_FFN_HIDDEN_SIZE,
         num_attention_heads=DEFAULT_NUM_HEADS):
     """ Build the msrun command with the specified parameters. """
+    port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
     if worker_num == 1:
         cmd_list = ["python"]
     else:
         cmd_list = ["msrun", f"--worker_num={worker_num}", f"--local_worker_num={local_worker_num}",
-                    "--master_port=8167", f"--log_dir={log_dir}", "--join=True"]
+                    f"--master_port={port_id}", f"--log_dir={log_dir}", "--join=True"]
     cmd_list += [str(run_script_path),
                  f"--output_path={output_path_param}",
                  f"--tensor_parallel={tensor_parallel}",
@@ -131,22 +128,10 @@ class TestTransformerLayer:
             self.check_output_keys(output_ms_dict, data_keys)
 
     @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
-    @pytest.mark.parametrize(SINGLE_CARD_TEST_PARAM, SINGLE_CARD_TEST_CASES)
-    def test_single_card_configurations(self, model_args, data_keys, expect_error, tmp_path):
-        """Test single card with various configurations for GPTModel."""
-        logger.info(f"--- Running Single Card Test: model_args={model_args} ---")
-        self.run_test(worker_num=1, local_worker_num=1, model_args=model_args, data_keys=data_keys,
-                      expect_error=expect_error, tmp_path=tmp_path, tensor_parallel=1)
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_TEST_CASES)
+    @pytest.mark.parametrize(TWO_CARD_TEST_PARAM, TWO_CARD_TEST_CASES)
     def test_multi_card_configurations(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
         """Test four cards with various configurations for GPTModel."""
-        num_devices = 4
+        num_devices = 2
         logger.info(
             f"--- Running Multi-Card ({num_devices} devices) Test: model_args={model_args}, TP={tensor_parallel} ---")
         self.run_test(worker_num=num_devices, local_worker_num=num_devices, model_args=model_args,
