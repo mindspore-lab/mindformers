@@ -48,11 +48,15 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
    ```bash
    mindformers/models/llama
        ├── __init__.py
+       ├── convert_reversed.py       # 权重逆向转换
+       ├── convert_weight.py         # llama权重转换
        ├── llama.py                  # 模型实现
        ├── llama_config.py           # 模型配置项
+       ├── llama_interleave.py       # interleave优化
        ├── llama_layer.py            # llama网络层定义
        ├── llama_processor.py        # llama预处理
        ├── llama_tokenizer.py        # tokenizer
+       ├── llama_tokenizer_fast.py   # fast tokenizer
        └── llama_transformer.py      # transformer层实现
    ```
 
@@ -60,15 +64,38 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
    ```bash
    configs/llama2
-       ├── predict_llama2_7b.yaml          # 7b模型推理启动配置
-       ├── predict_llama2_13b.yaml         # 13b模型推理启动配置
-       ├── predict_llama2_70b.yaml         # 70b模型推理启动配置
-       ├── pretrain_llama2_7b.yaml         # 7b模型预训练启动配置
-       ├── pretrain_llama2_13b.yaml        # 13b模型预训练启动配置
-       ├── pretrain_llama2_70b.yaml        # 70b模型预训练启动配置
-       ├── finetune_llama2_7b.yaml         # 7b模型全量微调启动配置
-       ├── finetune_llama2_13b.yaml        # 13b模型全量微调启动配置
-       └── finetune_llama2_70b.yaml        # 70b模型全量微调启动配置
+       ├── finetune_llama2_13b.yaml               # 13b模型微调启动配置
+       ├── finetune_llama2_13b_bf16.yaml          # 13b模型bf16微调启动配置
+       ├── finetune_llama2_70b.yaml               # 70b模型微调启动配置
+       ├── finetune_llama2_70b_bf16_32p.yaml      # 70b模型bf16全量微调32卡启动配置
+       ├── finetune_llama2_70b_bf16_64p.yaml      # 70b模型bf16全量微调64卡启动配置
+       ├── finetune_llama2_7b.yaml                # 7b模型微调启动配置
+       ├── finetune_llama2_7b_bf16.yaml           # 7b模型bf16微调启动配置
+       ├── finetune_llama2_7b_prefixtuning.yaml   # 7b模型prefixtuning微调启动配置
+       ├── finetune_llama2_7b_ptuning2.yaml       # 7b模型ptuning2微调启动配置
+       ├── lora_llama2_13b.yaml                   # 13b模型lora微调启动配置
+       ├── lora_llama2_7b.yaml                    # 7b模型lora微调启动配置
+       ├── predict_llama2_13b.yaml                # 13b模型推理启动配置
+       ├── predict_llama2_13b_ptq.yaml            # 13b模型ptq推理启动配置
+       ├── predict_llama2_13b_rtn.yaml            # 13b模型rtn推理启动配置
+       ├── predict_llama2_13b_smooth_quant.yaml   # 13b模型smooth_quant推理启动配置
+       ├── predict_llama2_70b.yaml                # 70b模型推理启动配置
+       ├── predict_llama2_70b_rtn.yaml            # 70b模型rtn推理启动配置
+       ├── predict_llama2_70b_smooth_quant.yaml   # 70b模型smooth_quant推理启动配置
+       ├── predict_llama2_7b.yaml                 # 7b模型推理启动配置
+       ├── predict_llama2_7b_prefixtuning.yaml    # 7b模型prefixtuning推理启动配置
+       ├── predict_llama2_7b_ptuning2.yaml        # 7b模型ptuning2推理启动配置
+       ├── predict_llama2_7b_slora.yaml           # 7b模型slora推理启动配置
+       ├── pretrain_llama2_13b.yaml               # 13b模型预训练启动配置
+       ├── pretrain_llama2_13b_auto_parallel.yaml # 13b模型auto_parallel预训练启动配置
+       ├── pretrain_llama2_13b_bf16.yaml          # 13b模型bf16预训练启动配置
+       ├── pretrain_llama2_70b.yaml               # 70b模型预训练启动配置
+       ├── pretrain_llama2_70b_auto_parallel.yaml # 70b模型auto_parallel预训练启动配置
+       ├── pretrain_llama2_70b_bf16_32p.yaml      # 70b模型bf16预训练32卡启动配置
+       ├── pretrain_llama2_70b_bf16_64p.yaml      # 70b模型bf16预训练64卡启动配置
+       ├── pretrain_llama2_7b.yaml                # 7b模型预训练启动配置
+       ├── pretrain_llama2_7b_auto_parallel.yaml  # 7b模型auto_parallel预训练启动配置
+       └── pretrain_llama2_7b_bf16.yaml           # 7b模型bf16预训练启动配置
    ```
 
 3. 数据预处理脚本：
@@ -76,6 +103,7 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
    ```bash
    mindformers/tools/dataset_preprocess/llama
        ├── alpaca_converter.py     # 基于fschat的alpaca数据集格式转换脚本
+       ├── conversation.py         # 对话提示模板生成脚本
        ├── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
        └── squad_data_process.py   # squad数据集格式转换脚本
    ```
@@ -84,7 +112,7 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持7b,13b单机单卡推理，70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
 
@@ -94,11 +122,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测数据集，**alpaca**作为[微调](#微调)数据集，**SQuAD1.1**为阅读理解评测数据集。
 
-| 数据集名称     |                    适用模型                     |          适用阶段           |                                        下载链接                                        |
-|:----------|:-------------------------------------------:|:-----------------------:|:----------------------------------------------------------------------------------:|
-| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html)   |
-| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |  [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)   |
-| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                    [Link](https://data.deepai.org/squad1.1.zip)                    |
+| 数据集名称     |                    适用模型                     |          适用阶段           |                                         下载链接                                         |
+|:----------|:-------------------------------------------:|:-----------------------:|:------------------------------------------------------------------------------------:|
+| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/faq/func_related.html) |
+| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |   [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)    |
+| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                     [Link](https://data.deepai.org/squad1.1.zip)                     |
 
 数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
@@ -135,7 +163,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
     --input_glob  /{path}/wiki.valid.tokens \
     --model_file /{path}/tokenizer.model \
     --seq_length 4095 \
-    --output_file /{path}/wiki4096.mindrecord
+    --output_file /{path}/wiki_eval.mindrecord
 
     # 参数说明
   dataset_type: 预处理数据类型
@@ -147,7 +175,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
 
 - **alpaca 数据预处理**
 
-  1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
+  1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，将原始数据集转换为多轮对话格式。
 
      ```shell
      python mindformers/tools/dataset_preprocess/llama/alpaca_converter.py \
@@ -162,7 +190,6 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
   2. 执行`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`，生成Mindrecord数据，将带有prompt模板的数据转换为mindrecord格式。
 
      ```shell
-     # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
      python mindformers/tools/dataset_preprocess/llama/llama_preprocess.py \
        --dataset_type qa \
        --input_glob /{path}/alpaca-data-conversation.json \
@@ -188,7 +215,8 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
     --output_file /{path}/squad2048.mindrecord \
     --mode eval \
     --max_length 2048 \
-    --tokenizer_type "llama2_7b"
+    --tokenizer_type "llama2_7b" \
+    --model_file /{path}/tokenizer.model
   ```
 
 #### 模型权重下载
@@ -203,7 +231,7 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 | llama2-13b      | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2-13b-fp16.ckpt) | [Link](https://huggingface.co/meta-llama/Llama-2-13b-hf) |
 | llama2-70b      |                                                      /                                                       | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) |
 
-> 注：Llama2的所有权重都需要通过向Meta[提交申请](https://ai.meta.com/resources/models-and-libraries/llama-downloads)来获取，如有需要请自行申请。
+> 注：Llama2的所有权重可以向Meta[提交申请](https://ai.meta.com/resources/models-and-libraries/llama-downloads)来获取，如有需要请自行申请。
 
 #### 模型权重转换
 
@@ -236,7 +264,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 在`llama2_70b`预训练中，可以通过如下方式提升模型性能：
 
-1. 修改配置文件中`qkv_concat=True`, `micro_batch_num=256`
+1. 修改配置文件中`qkv_concat: True`, `micro_batch_num: 256`
 2. 创建`parallel_speed_up.json文件`，文件内容如下
 
    ```json
@@ -262,7 +290,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 > 如果报错提示显存不足，可以通过`export HCCL_BUFFSIZE=100`将对应环境变量下调至100。
 
-`ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，`parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3.0/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
+`yaml`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，`parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore/mindspore.set_context.html)。
 
 ### 多机训练
 
@@ -332,7 +360,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 #### 多机训练
 
-多机多卡微调任务启动预训练类似，可参考[预训练章节](#预训练)并对启动命令进行如下修改：
+多机多卡微调任务的启动方式与预训练类似，可参考[预训练章节](#预训练)并对启动命令进行如下修改：
 
 1. 增加脚本入参`--load_checkpoint /{path}/llama2_7b.ckpt`加载预训练权重
 2. 设置启动脚本中的`--train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord`加载微调数据集
@@ -356,13 +384,13 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
  --run_mode finetune" 8
 ```
 
-如果加载分布式权重，加载权重路径应设置为rank_0的上一层路径，同时开启权重自动转换功能`--auto_trans_ckpt True`：
+如果加载分布式权重，需要开启权重自动转换功能`--auto_trans_ckpt True`：
 
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --config configs/llama2/lora_llama2_7b.yaml \
  --train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord \
- --load_checkpoint /{path}/rank_0/ \
+ --load_checkpoint /{path}/llama2_7b.ckpt \
  --auto_trans_ckpt True \
  --use_parallel True \
  --run_mode finetune" 8
@@ -388,13 +416,13 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
  --run_mode finetune" 8
 ```
 
-如果加载分布式权重，加载权重路径应设置为rank_0的上一层路径，同时开启权重自动转换功能`--auto_trans_ckpt True`：
+如果加载分布式权重，需要开启权重自动转换功能`--auto_trans_ckpt True`：
 
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --config configs/llama2/finetune_llama2_7b_prefixtuning.yaml \
  --train_dataset_dir /{path}/alpaca-fastchat512.mindrecord \
- --load_checkpoint /{path}/rank_0/ \
+ --load_checkpoint /{path}/llama2_7b.ckpt \
  --auto_trans_ckpt True \
  --use_parallel True \
  --run_mode finetune" 8
@@ -412,13 +440,14 @@ MindFormers提供`Llama2-7b`的快速推理脚本，脚本主要通过generate�
 
 ```shell
 # 脚本使用
-bash scripts/examples/llama2/run_llama2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
+bash scripts/examples/llama2/run_llama2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER_PATH DEVICE_NUM
 
 # 参数说明
-PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-CONFIG_PATH: 模型配置文件路径
-CKPT_PATH:   模型权重文件路径
-DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
+PARALLEL:       是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH:    模型配置文件路径
+CKPT_PATH:      模型权重文件路径
+TOKENIZER_PATH: tokenizer模型文件路径
+DEVICE_NUM:     使用卡数, 仅开启多卡推理时生效
 ```
 
 ### 单卡推理
@@ -428,7 +457,8 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```shell
 bash scripts/examples/llama2/run_llama2_predict.sh single \
  configs/llama2/predict_llama2_7b.yaml \
- path/to/llama2_7b.ckpt
+ {path}/llama2_7b.ckpt \
+ {path}/tokenizer.model
 
 # 多batch输出
 # <s>I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years ...
@@ -443,7 +473,8 @@ bash scripts/examples/llama2/run_llama2_predict.sh single \
 ```shell
 bash scripts/examples/llama2/run_llama2_predict.sh parallel \
  configs/llama2/predict_llama2_7b.yaml \
- path/to/llama2_7b.ckpt 2
+ {path}/llama2_7b.ckpt \
+ {path}/tokenizer.model 2
 
 # 多batch输出
 # <s>I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years ...
@@ -486,6 +517,9 @@ processor:
    ```yaml
    metric:
      type: PerplexityMetric
+   context:
+     jit_config:
+       jit_level: "O0"
    ```
 
 3. 执行评测命令，指标为PPL
@@ -493,14 +527,14 @@ processor:
    ```shell
    python run_mindformer.py \
      --config configs/llama2/pretrain_llama2_7b_bf16.yaml \
-     --eval_dataset_dir /{path}/wiki4096.mindrecord \
+     --eval_dataset_dir /{path}/wiki_eval.mindrecord \
      --run_mode eval \
      --load_checkpoint /{path}/llama2_7b.ckpt \
      --epochs 1 \
      --use_parallel False \
      --device_id 0
 
-   # PerplexityMetric = {'PerplexityMetric': {'loss': 2.1142693907022476, 'PPL': 6.58}}
+   # PerplexityMetric = {'PerplexityMetric': {'loss': 2.2650830980503196, 'PPL': 9.631924962040777}}
    ```
 
 ### 阅读理解
@@ -509,7 +543,7 @@ processor:
 
    阅读理解任务评测使用**SQuAD 1.1**数据集，可通过[数据集下载](#数据集下载)得到，并进行相应的预处理。**SQuAD 1.1**中包含针对500+文章的10万+问答对，是一个阅读理解数据集，由维基百科文章上提出的问题组成，其中每个问题的答案都是相应文章中的一段文本。
 
-2. 修改模型配置文件`configs/llama2/predict_llama2_7b.yaml`
+2. 修改模型配置文件`configs/llama2/finetune_llama2_7b.yaml`
 
    ```yaml
    # eval dataset
@@ -538,7 +572,7 @@ processor:
 
    ```shell
    python run_mindformer.py \
-     --config configs/llama2/predict_llama2_7b.yaml \
+     --config configs/llama2/finetune_llama2_7b.yaml \
      --eval_dataset_dir /{path}/squad2048.mindrecord \
      --run_mode eval \
      --load_checkpoint /{path}/llama2_7b.ckpt \
@@ -547,7 +581,6 @@ processor:
      --use_parallel False \
      --device_id 0
 
-   # F1 score: 60.5, Em score: 39.6, total_count: 2067
    ```
 
 ### 分布式评测
@@ -556,29 +589,20 @@ processor:
 
 以`llama2_70b`在**SQuAD 1.1**数据集上进行测评为例。
 
-1. 切分模型权重
-
-   可参考[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html#%E5%8D%95%E5%8D%A1%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%BA%E5%A4%9A%E5%8D%A1%E6%9D%83%E9%87%8D)中的"单卡权重切分为多卡权重"进行完整权重切分以用于分布式评测。
-
-   修改权重文件夹目录结构如下，将模型权重放入`rank_0`的文件夹中。
-
-   ```text
-   path/to/checkpoint_dir
-       ├──rank_0
-       │  ├──model.ckpt
-   ```
-
-2. 修改模型配置文件
+1. 修改模型配置文件
 
    ```yaml
-   load_checkpoint: 'path/to/checkpoint_dir'
+   load_checkpoint: '/{path}/llama2_7b.ckpt'
    auto_trans_ckpt: True
    use_parallel: True
    parallel_config:
      data_parallel: 1
      model_parallel: 8  # 修改为使用卡数， 70b推荐设置为8卡推理
      pipeline_stage: 1
-     use_seq_parallel: False
+
+   context:
+     jit_config:
+       jit_level: "O0"
 
    # metric
    metric:
@@ -588,13 +612,21 @@ processor:
      data_loader:
        type: MindDataset
        dataset_dir: "{path}/squad2048.mindrecord"
+     input_columns: ["input_ids", "labels"]
+
+   # model config
+   model:
+     model_config:
+       type: LlamaConfig
+       batch_size: 1
+       seq_length: 2048
    ```
 
-3. 执行评测命令
+2. 执行评测命令
 
    ```shell
    bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/predict_llama2_70b.yaml \
+     --config configs/llama2/finetune_llama2_70b.yaml \
      --run_mode eval \
      --use_parallel True" 8
    ```

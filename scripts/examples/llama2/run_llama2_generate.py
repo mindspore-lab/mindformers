@@ -28,7 +28,7 @@ from mindformers.core.parallel_config import build_parallel_config
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
 
-def main(config_path, use_parallel, load_checkpoint):
+def main(config_path, use_parallel, load_checkpoint, model_file):
     # multi batch inputs
     inputs = ["I love Beijing, because",
               "LLaMA is a",
@@ -53,10 +53,11 @@ def main(config_path, use_parallel, load_checkpoint):
     config.model.model_config.batch_size = batch_size
     model_config = LlamaConfig(**config.model.model_config)
     model_config.checkpoint_name_or_path = None
-    model_name = config.trainer.model_name
 
     # build tokenizer
-    tokenizer = LlamaTokenizer.from_pretrained(model_name)
+    if not os.path.exists(model_file):
+        raise FileNotFoundError(f"file {model_file} does not exist")
+    tokenizer = LlamaTokenizer(vocab_file=model_file)
 
     # build model
     network = LlamaForCausalLM(model_config)
@@ -93,12 +94,15 @@ if __name__ == "__main__":
                         help='if run model prediction in parallel mode.')
     parser.add_argument('--load_checkpoint', type=str,
                         help='load model checkpoint path or directory.')
+    parser.add_argument('--model_file', type=str, default="./tokenizer.model",
+                        help='tokenizer model file path.')
 
     args = parser.parse_args()
     main(
         args.config_path,
         args.use_parallel,
-        args.load_checkpoint
+        args.load_checkpoint,
+        args.model_file
     )
 
 # 多batch输出
