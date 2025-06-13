@@ -200,7 +200,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     # pylint: disable=W0703
     except Exception as e:
         print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
-        return False
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
         name = name_replace(name)
@@ -215,7 +214,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
           flush=True)
-    return True
 
 
 def convert_to_new_ckpt(ckpt_path, config_path):

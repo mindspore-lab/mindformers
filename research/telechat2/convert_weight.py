@@ -137,7 +137,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
 
     ms.save_checkpoint(ckpt_list, output_path)
     logger.info(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.")
-    return True
 
 
 def transformer_new_kv_param(n_kv_heads, w_kv_weight, mp):

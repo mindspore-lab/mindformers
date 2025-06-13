@@ -107,7 +107,6 @@ def check_obs_url(url):
     if not (url.startswith(_PROTOCOL + '://') or url.startswith(_PROTOCOL_S3 + '://')):
         raise TypeError('remote_save_url should be start with obs:// or s3://, '
                         'but get {}, please check your remote_save_url config'.format(url))
-    return True
 
 
 def check_list(var_name: str, list_var: Union[Tuple, List], num: int):

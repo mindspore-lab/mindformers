@@ -148,7 +148,7 @@ def recursive_replace_dense_cell(net, config):
                 # pylint: disable=W0212
                 net._cells[name] = dest_cell
             else:
-                recursive_replace_dense_cell(cell, config)
+                _ = recursive_replace_dense_cell(cell, config)
     return net
 
 

@@ -439,7 +439,7 @@ class MindFormerRegister:
         register_path = os.path.realpath(os.getenv("REGISTER_PATH"))
         module_class = get_class_from_dynamic_module(
             class_reference=class_reference, pretrained_model_name_or_path=register_path)
-        cls.register_cls(module_class, module_type=module_type, legacy=get_legacy())
+        _ = cls.register_cls(module_class, module_type=module_type, legacy=get_legacy())
 
     @classmethod
     def _add_class_name_prefix(cls, module_type, class_name, legacy=True):

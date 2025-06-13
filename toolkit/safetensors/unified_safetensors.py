@@ -68,7 +68,6 @@ def clear_output_dir(output_dir):
         _timed_print(f"Start clear tmp file: {output_dir}")
         shutil.rmtree(output_dir)
         _timed_print("Clear tmp file completed")
-    return True
 
 
 def _timed_print(args):

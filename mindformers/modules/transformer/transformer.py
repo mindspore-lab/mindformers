@@ -3137,7 +3137,6 @@ class TransformerDecoderLayer(Cell):
         if self.use_past:
             _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
-        return True
 
 
 def _get_lambda_func(total_layer=None):

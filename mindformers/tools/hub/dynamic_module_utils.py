@@ -394,7 +394,7 @@ def get_cached_module_file(
         for module_needed in modules_needed:
             if not (submodule_path / f"{module_needed}.py").exists():
                 # pylint: disable=E1128
-                get_cached_module_file(
+                _ = get_cached_module_file(
                     pretrained_model_name_or_path,
                     f"{module_needed}.py",
                     cache_dir=cache_dir,

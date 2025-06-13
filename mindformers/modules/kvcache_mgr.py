@@ -178,10 +178,10 @@ class KVCacheMgr(nn.Cell):
             else:
                 key_padding, value_padding = key, value
             if self.use_kvcache_op:
-                self.auto_caching(key_padding, value_padding, batch_valid_length,
-                                  seq_length_tensor_pad, batch_index_pad)
+                _, _ = self.auto_caching(key_padding, value_padding, batch_valid_length,
+                                         seq_length_tensor_pad, batch_index_pad)
             else:
-                self.manual_caching(key_padding, value_padding, batch_valid_length, batch_size=batch_size)
+                _, _ = self.manual_caching(key_padding, value_padding, batch_valid_length, batch_size=batch_size)
         else:
             if self.use_kvcache_op:
                 key, value = self.auto_caching(key, value, batch_valid_length,
