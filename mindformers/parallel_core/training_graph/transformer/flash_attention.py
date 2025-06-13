@@ -18,11 +18,13 @@ __all__ = ['FlashAttention']
 import math
 
 import mindspore.common.dtype as mstype
+import mindspore as ms
 from mindspore import ops, ParallelMode
 from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
 from mindspore.ops import auto_generate as aclnn_ops
 from mindspore.ops import functional as F
+from mindspore.ops import cast
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.parallel.shard import Layout
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -244,6 +246,8 @@ class FlashAttention(Cell):
             raise NotImplementedError("For FlashAttention, 'attention_bias' is not supported for now.")
         if packed_seq_params:
             raise NotImplementedError("For FlashAttention, 'packed_seq_params' is not supported for now.")
+        if attention_mask is not None:
+            attention_mask = cast(attention_mask, ms.uint8)
 
         if self.input_layout == "TND":
             _, _, _, output = self.flash_attention(query,
