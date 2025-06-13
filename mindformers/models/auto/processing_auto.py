@@ -284,7 +284,8 @@ class AutoProcessor:
         # Filter the kwargs for `get_file_from_repo`.
         get_file_from_repo_kwargs = {
             key: kwargs.get(key)
-            for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
+            for key in inspect.signature(get_file_from_repo).parameters.keys()
+            if key in kwargs
         }
 
         # Let's start by checking whether the processor class is saved in an processor config
