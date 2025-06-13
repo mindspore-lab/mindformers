@@ -681,7 +681,7 @@ class BaseTrainer:
         calculate_per_token_loss = getattr(self.config, "calculate_per_token_loss", False)
         use_skip_data_by_global_norm = getattr(self.config, "use_skip_data_by_global_norm", False)
         global_norm_spike_threshold = 1.0
-        if self.config.get('monitor_config') is not None and isinstance(self.config.get('monitor_config'), float):
+        if self.config.get('monitor_config') is not None:
             global_norm_spike_threshold = getattr(self.config.monitor_config, "global_norm_spike_threshold", 1.0)
         model_wrapper = build_wrapper(self.config.runner_wrapper,
                                       default_args={"network": network,
@@ -1069,7 +1069,7 @@ class BaseTrainer:
         vocab_size = config.model.model_config.vocab_size
         embedding_size = None
         use_checkpoint_health_monitor = getattr(config, "use_checkpoint_health_monitor", False)
-        if use_checkpoint_health_monitor and isinstance(use_checkpoint_health_monitor, bool):
+        if use_checkpoint_health_monitor:
             if hidden_size is None:
                 raise ValueError("You should set the hidden_size while use the checkpoint health monitor function.")
             if vocab_size is None:
@@ -1105,13 +1105,14 @@ class BaseTrainer:
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
+                embedding_local_norm_threshold = callback.get("embedding_local_norm_threshold", 1.0)
                 # load params into net
                 default_args = {"append_info": append_info,
                                 "global_batch_size": self.global_batch_size,
                                 "remove_redundancy": callback.get("remove_redundancy", False),
                                 "checkpoint_format": callback.get("checkpoint_format", "ckpt"),
                                 "embedding_size": embedding_size,
-                                "embedding_local_norm_threshold": callback.get("embedding_local_norm_threshold", 1.0),
+                                "embedding_local_norm_threshold": embedding_local_norm_threshold,
                                 "use_checkpoint_health_monitor": use_checkpoint_health_monitor,
                                 "health_ckpts_record_dir": config.output_dir
                                 }
