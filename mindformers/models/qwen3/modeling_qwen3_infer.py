@@ -73,6 +73,7 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel):
             self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
+                                  num_experts=config.num_moe_experts,
                                   normalization=config.normalization,
                                   use_flash_attention=self.config.use_flash_attention,
                                   qk_layernorm=True,
