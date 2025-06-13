@@ -125,20 +125,19 @@ if __name__ == '__main__':
         if k.split('.')[0] in ['adam_m', 'adam_v']:
             continue
         logger.info(f'Merging {k}')
-        original_key = k.replace('_lora_a', '').replace('mindpet_delta', 'weight').replace('.lora_A', '.base_layer')
+        original_key = k.replace('_lora_a', '').replace('mindpet_delta', 'weight').replace('.lora_A', '')
         if original_key not in param_dict:
             raise ValueError(f"The original_key should in the param_dict, but got {original_key}.")
         lora_a_key = k
         lora_b_key = k.replace('lora_a', 'lora_b').replace('.lora_A', '.lora_B')
         original_value = param_dict_lora[original_key]
-        final_key = original_key.replace('.base_layer', '')
         logger.info("======================================================")
         logger.info(f"{original_key}: {param_dict[original_key].shape}")
         logger.info(f"{lora_b_key}: {param_dict[lora_b_key].shape}")
         logger.info(f"{lora_a_key}: {param_dict[lora_a_key].shape}")
-        logger.info(f"{final_key}")
+        logger.info(f"{original_key}")
 
-        param_dict_lora[final_key] = Parameter(Tensor(
+        param_dict_lora[original_key] = Parameter(Tensor(
             P.add(original_value,
                   P.mm(param_dict[lora_b_key], param_dict[lora_a_key]) * lora_scaling
                   ), original_value.dtype), name=original_key)

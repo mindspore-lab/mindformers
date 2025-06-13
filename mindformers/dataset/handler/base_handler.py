@@ -117,10 +117,10 @@ class BaseInstructDataHandler:
             else:
                 return None
         else:
-            from transforms import AutoTokenizer
+            from transformers import AutoTokenizer
             pretrained_model_dir = config.pretrained_model_dir
             trust_remote_code = config.trust_remote_code
-            word_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_dir=pretrained_model_dir,
+            word_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=pretrained_model_dir,
                                                            trust_remote_code=trust_remote_code)
             word_tokenizer.padding_side = config.get("padding_side", "right")
 
