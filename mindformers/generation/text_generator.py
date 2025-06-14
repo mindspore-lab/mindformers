@@ -131,11 +131,21 @@ class GenerationMixin:
             else:
                 num_query_groups_per_partition = divide(num_heads, tp_group_size)
 
-            kv_cache_shape = (tansformer_config.num_blocks,
-                              tansformer_config.block_size,
-                              num_query_groups_per_partition,
-                              hidden_size_per_attention_head
-                              )
+            if tansformer_config.multi_latent_attention:
+                kv_cache_shape = (
+                    tansformer_config.num_blocks,
+                    tansformer_config.block_size,
+                    1,
+                    tansformer_config.kv_lora_rank + tansformer_config.qk_pos_emb_head_dim
+                    )
+            else:
+                kv_cache_shape = (
+                    tansformer_config.num_blocks,
+                    tansformer_config.block_size,
+                    num_query_groups_per_partition,
+                    hidden_size_per_attention_head
+                    )
+
             key_cache = []
             value_cache = []
             for _ in range(tansformer_config.num_layers):

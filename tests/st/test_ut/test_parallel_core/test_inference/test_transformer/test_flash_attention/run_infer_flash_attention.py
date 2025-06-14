@@ -87,7 +87,8 @@ class FlashAttentionRunner:
             head_dim=self.head_dim,
             keep_prob=self.keep_prob,
             kv_head_num=self.n_kv_heads,
-            scale_value=self.scale_value
+            scale_value=self.scale_value,
+            pa_kv_head_num=self.n_kv_heads,
         )
         return net
 
@@ -105,7 +106,6 @@ class FlashAttentionRunner:
             query=self.query,
             key=self.key,
             value=self.value,
-            kv_cache=None,
             slot_mapping=self.slot_mapping,
             block_tables=self.block_tables,
             actual_seq_qlen=self.batch_valid_length,

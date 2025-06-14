@@ -28,7 +28,6 @@ class FlashAttention(Cell):
 
     Args：
         - head_num (int): Number of attention heads.
-        - kv_cache_shape (tuple): Shape of the key-value cache tensor.
         - head_dim (Optional[int]): Dimension of each attention head. Default: None.
         - kv_head_num (Optional[int]): Number of key-value heads. Default: None
         - keep_prob (float): Dropout keep probability. Default: 1.0.
@@ -78,7 +77,9 @@ class FlashAttention(Cell):
             pre_tokens=2147483647,
             next_tokens=2147483647,
             sparse_mode=0,
-            input_layout="TH"
+            input_layout="TH",
+            pa_kv_head_num=None,
+            pa_mla_v_dim=0
     ):
         super().__init__()
         self.head_num = head_num
@@ -87,6 +88,7 @@ class FlashAttention(Cell):
         self.sparse_mode = sparse_mode
         self.is_prefill = True
         self.input_layout = input_layout
+        self.use_multi_latent_attention: bool = pa_mla_v_dim > 0
 
         self.reshape_and_cache = ops.auto_generate.ReshapeAndCache()
 
@@ -101,7 +103,7 @@ class FlashAttention(Cell):
             sparse_mode=self.sparse_mode)
 
         self.paged_attention = ops.auto_generate.PagedAttention(
-            self.head_num, scale_value, self.kv_head_num)
+            self.head_num, scale_value, pa_kv_head_num, mla_v_dim=pa_mla_v_dim)
 
     def construct(self,
                   query,
@@ -123,7 +125,10 @@ class FlashAttention(Cell):
 
         bs, seq_len, _ = query.shape
 
-        self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
+        if self.use_multi_latent_attention:
+            self.reshape_and_cache(key, None, key_cache, None, slot_mapping)
+        else:
+            self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:
 
@@ -144,6 +149,8 @@ class FlashAttention(Cell):
                                                    actual_seq_kvlen)
             context_layer = output
         else:
+            if self.use_multi_latent_attention:
+                value_cache = key_cache
             context_layer = self.paged_attention(query, key_cache, value_cache,
                                                  block_tables, batch_valid_length, None,
                                                  None, attn_mask,
