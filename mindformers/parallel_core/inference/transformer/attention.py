@@ -217,7 +217,7 @@ class Attention(nn.Cell):
         """Forward process of the SelfAttention."""
         ori_dtype = hidden_states.dtype
 
-        if key_valus_states and position_ids:
+        if key_value_states and position_ids:
             pass
 
         # apply query, key, value projection

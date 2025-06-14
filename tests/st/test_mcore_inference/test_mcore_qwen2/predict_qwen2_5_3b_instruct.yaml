@@ -51,8 +51,8 @@ model:
     pad_token_id: 151643
     bos_token_id: 151643
     compute_dtype: "bfloat16"
-    layernorm_compute_dtype: "bfloat16"
-    softmax_compute_dtype: "bfloat16"
+    layernorm_compute_dtype: "float32"
+    softmax_compute_dtype: "float32"
     rotary_dtype: "bfloat16"
     params_dtype: "bfloat16"
     use_flash_attention: True
