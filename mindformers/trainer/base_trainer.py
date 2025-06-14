@@ -1228,14 +1228,16 @@ class BaseTrainer:
             # ColdHotExpertMonitor needs to be placed before CheckpointMonitor
             callbacks.insert(1, cold_hot_monitor)
 
-        logger.info(".........Starting Training Model..........")
         if get_real_rank() % 8 == 0:
             pprint(config)
         logger.info(".........Model Compiling, Please Wait a Moment...........")
         if self.network_delay_inited:
+            logger.info(".........train network delay initialize..........")
             network.init_parameters_data()
         if self.optimizer_delay_inited:
+            logger.info(".........optimizer delay initialize..........")
             optimizer.init_parameters_data()
+        logger.info(".........Starting Training Model..........")
         model.train(config.runner_config.epochs, dataset,
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
@@ -1308,6 +1310,7 @@ class BaseTrainer:
             transform_and_load_checkpoint(config, model, network, next(dataset.create_tuple_iterator()), do_eval=True)
 
         if self.network_delay_inited:
+            logger.info(".........eval network delay initialize..........")
             network.init_parameters_data()
 
         logger.info(".........Starting Evaluate Model..........")
@@ -1396,6 +1399,7 @@ class BaseTrainer:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
 
             if self.network_delay_inited:
+                logger.info(".........predict network delay initialize..........")
                 network.init_parameters_data()
 
             self.pipeline_task = pipeline(

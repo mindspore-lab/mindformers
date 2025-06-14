@@ -112,7 +112,7 @@ def main(**kwargs):
                 )
                 final_prompts.append(input_text)
             task.predict(input_data=final_prompts,
-                         predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
+                         predict_checkpoint=config.load_checkpoint, max_length=int(max_length), seq_length=max_length)
     elif run_mode in ['train', 'finetune']:
         trainer = Trainer(args=config)
         trainer.train()

@@ -19,18 +19,19 @@ import time
 from enum import Enum
 from glob import glob
 from multiprocessing import Process
+from safetensors import safe_open
 
 import mindspore as ms
-from mindspore import context
-from mindspore.communication.comm_func import barrier
-from mindspore.common.api import _pynative_executor
 from mindspore import Parameter
+from mindspore import context
+from mindspore.common.api import _pynative_executor
+from mindspore.communication.comm_func import barrier
 
-from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import (is_main_rank, get_epoch_and_step_from_ckpt_name,
                                      get_real_rank, clear_auto_trans_output)
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
+from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.version_control import check_safetensors_addition_param_support
 from ..version_control import check_tft_valid
 
@@ -352,6 +353,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
             if not config.model.model_config.get("qkv_concat", False) \
                     and is_hf_safetensors_dir(load_ckpt_path, origin_network):
                 try:
+                    logger.info("......obtain name map for HF safetensors.....")
                     name_map = origin_network.obtain_name_map(load_checkpoint_files)
                 except Exception as e:
                     raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
@@ -378,7 +380,10 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
     else:
         logger.info("......Start load checkpoint to model......")
         params_dict = dict()
+        remove_redundancy = config.get('remove_redundancy', False)
         for checkpoint_file in load_checkpoint_files:
+            with safe_open(checkpoint_file, framework='np') as f:
+                remove_redundancy = _revise_remove_redundancy_with_file(remove_redundancy, f)
             params_dict.update(ms.load_checkpoint(
                 ckpt_file_name=checkpoint_file,
                 format=config.load_ckpt_format
@@ -390,7 +395,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         if optimizer and config.resume_training:
             logger.info("......Start load hyper param into optimizer......")
             update_global_step(config, params_dict)
-        ms.load_param_into_net(network, params_dict, remove_redundancy=config.get('remove_redundancy', False))
+        ms.load_param_into_net(network, params_dict, remove_redundancy=remove_redundancy)
 
 
 def update_global_step(config, hyper_param_dict):
@@ -423,20 +428,22 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
     """build model and generate strategy file."""
     parallel_mode = context.get_auto_parallel_context('parallel_mode')
     if config.context.mode == ms.PYNATIVE_MODE:
+        logger.warning("current context mode is pynative which build_model will not generate strategy files.")
         return
     if parallel_mode not in ('semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'):
+        logger.warning("current parallel mode is not in (1,2,3) which build_model will not generate strategy files.")
         return
 
     if "runner_config" in config and not config.runner_config.sink_mode:
         raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
+    build_time_start = time.time()
     if do_predict or do_eval:
         model.infer_predict_layout(*dataset)
     else:
-        build_time_start = time.time()
         model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                     sink_size=config.runner_config.sink_size)
-        build_time_end = time.time()
-        logger.info("Time spent building the model: %.2fs", build_time_end - build_time_start)
+    build_time_end = time.time()
+    logger.info("Time spent building the model: %.2fs", build_time_end - build_time_start)
 
 
 def get_last_checkpoint(checkpoint_dir, ckpt_format='ckpt'):
@@ -543,3 +550,18 @@ def get_merged_dst_strategy_path(config, strategy_path):
         logger.info("merge dst strategy finished.")
         strategy_path = dst_strategy_path[1]
     return strategy_path
+
+
+def _revise_remove_redundancy_with_file(remove_redundancy, f):
+    """Check whether remove_redundancy is consistent with the safetensors file."""
+    if f.metadata() is not None and "remove_redundancy" in f.metadata().keys():
+        if f.metadata()["remove_redundancy"] == "True" and not remove_redundancy:
+            logger.warning("For 'load_checkpoint', the safetensors file is without redundancy "
+                           "but remove_redundancy in yaml is False and it will revise to True.")
+            return True
+        if f.metadata()["remove_redundancy"] == "False" and remove_redundancy:
+            logger.warning("For 'load_checkpoint', the safetensors file is with redundancy, "
+                           "but remove_redundancy is set to True and it will revise to False.")
+            return False
+    logger.warning("no metadata info in file.Please make sure remove_redundancy is consistent in file and config. ")
+    return remove_redundancy
