@@ -69,7 +69,7 @@ def compare_distance(x1, x2, bench_sim=0.95):
     assert sim >= bench_sim
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_qwen2_5_3b_predict_mcore():

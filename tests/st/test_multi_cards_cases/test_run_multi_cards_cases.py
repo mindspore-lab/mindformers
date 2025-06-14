@@ -14,6 +14,7 @@
 # ============================================================================
 """multi cards testcases scheduler."""
 
+import ast
 import glob
 import importlib.util
 import os
@@ -24,6 +25,7 @@ import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
+from mindformers.tools.logger import logger
 import pytest
 
 from tests.st.test_multi_cards_cases.utils import TaskType, TaskInfo
@@ -139,6 +141,7 @@ class CardStateManager:
         )
 
 
+
 class TaskScheduler(ABC):
     """
     Abstract base class for scheduling and executing groups of tasks.
@@ -194,7 +197,7 @@ class TaskScheduler(ABC):
             - Frees the allocated cards after execution.
         """
         if self.stop_event.is_set():
-            print(f"🛑 Task canceled before start: {task_info.task_command}")
+            logger.info(f"🛑 Task canceled before start: {task_info.task_command}")
             return 0
         try:
             card_list, port_id = card_manager.allocate(task_info.task_type)
@@ -203,7 +206,7 @@ class TaskScheduler(ABC):
             env["ASCEND_RT_VISIBLE_DEVICES"] = visible_devices
             env["ASCEND_PORT_ID"] = str(port_id)
 
-            print(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id})")
+            logger.info(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id})")
             start_time = time.time()
 
             process = subprocess.Popen(
@@ -217,28 +220,29 @@ class TaskScheduler(ABC):
             while process.poll() is None:
                 if self.stop_event.is_set():
                     process.terminate()  # Send terminate signal
-                    print(f"🛑 Terminated: {task_info.task_command}")
+                    logger.info(f"🛑 Terminated: {task_info.task_command}")
                     return 0
                 time.sleep(0.1)  # Avoid busy waiting on CPU
             stdout, _ = process.communicate()
             elapsed = time.time() - start_time
             if process.returncode == 0:
-                print(f"✅ PASSED: {task_info.task_command} | Time: {elapsed:.3f}s")
+                logger.info(f"✅ PASSED: {task_info.task_command} | Time: {elapsed:.3f}s")
             else:
-                print(f"❌ FAILED: {task_info.task_command} (exit code {process.returncode}) | Time: {elapsed:.3f}s")
-                print(f"Output:\n{stdout}")
+                logger.info(f"❌ FAILED: {task_info.task_command} (exit code {process.returncode}) | "
+                            f"Time: {elapsed:.3f}s")
+                logger.info(f"Output:\n{stdout}")
                 raise RuntimeError(f"Task failed: {task_info.task_command}")
         # pylint: disable=W0703
         except Exception as exc:
             if not self.stop_event.is_set():
-                print(f"🔥 Triggering a global stop due to failure: {exc}")
+                logger.info(f"🔥 Triggering a global stop due to failure: {exc}")
                 self.stop_event.set()
         finally:
             try:
                 card_manager.free(task_info.task_type, card_list)
             # pylint: disable=W0703
             except Exception as free_error:
-                print(f"🚨 Error freeing cards: {free_error}")
+                logger.info(f"🚨 Error freeing cards: {free_error}")
         return task_info.task_time
 
     @abstractmethod
@@ -273,21 +277,21 @@ class TaskScheduler(ABC):
             for group_type, tasks in self.grouped_tasks.items():
                 if self.stop_event.is_set() or not tasks:
                     continue
-                print(f"\n=== Processing Group: {group_type.value} ({len(tasks)} tasks) ===")
+                logger.info(f"\n=== Processing Group: {group_type.value} ({len(tasks)} tasks) ===")
                 group_start = last_end
                 self.schedule_group(tasks)
                 group_end = time.time()
                 last_end = group_end
-                print(f"Group {group_type.value} completed in {group_end - group_start:.3f}s")
+                logger.info(f"Group {group_type.value} completed in {group_end - group_start:.3f}s")
         # pylint: disable=W0703
         except Exception as e:
-            print(f"\n⛔ Execution stopped due to failure: {e}")
+            logger.info(f"\n⛔ Execution stopped due to failure: {e}")
             self.stop_event.set()
         finally:
             total_time = time.time() - total_start
             status = "INTERRUPTED" if self.stop_event.is_set() else "COMPLETED"
             success = (status == "COMPLETED")
-            print(f"\nTotal execution {status} in {total_time:.3f}s")
+            logger.info(f"\nTotal execution {status} in {total_time:.3f}s")
         return success, total_time
 
 
@@ -342,7 +346,6 @@ class GreedyTaskScheduler(TaskScheduler):
 
         actual_threads = min(concurrency, len(sorted_tasks))
         with ThreadPoolExecutor(max_workers=actual_threads) as executor:
-            # futures = [executor.submit(self.worker, task, self.card_manager) for task in sorted_tasks]
             futures = {executor.submit(self.worker, task, self.card_manager): task for task in sorted_tasks}
             try:
                 for future in as_completed(futures):
@@ -353,7 +356,7 @@ class GreedyTaskScheduler(TaskScheduler):
             except Exception as exc:
                 # Cancel all not-yet-started futures
                 if not self.stop_event.is_set():
-                    print(f"Group failure triggering global stop: {exc}")
+                    logger.info(f"Group failure triggering global stop: {exc}")
                     self.stop_event.set()
                 raise
             finally:
@@ -361,36 +364,87 @@ class GreedyTaskScheduler(TaskScheduler):
                 executor.shutdown(wait=False)
 
 
-def collect_task_cases(level_mark: str):
+def _process_py_file(py_file, level_mark, scheduler, imported_count, group_types):
     """
-    Collects all test cases under test_X_cards_cases directories for the specified level mark.
-    Recursively collects all subdirectories and their .py files.
-    Returns a GreedyTaskScheduler with all collected TaskInfo objects.
+    Helper function to process a single python file for collect_task_cases.
+    Only checks if the file contains the specified level_mark, and if so, adds one TaskInfo for the file.
     """
-    scheduler = GreedyTaskScheduler()
-    # Recursively find all Python files starting with test_ in current directory and subdirectories
-    py_files = glob.glob(os.path.join(WORK_DIR, "**", "test_*.py"), recursive=True)
-    # Exclude this file itself
-    current_file = os.path.abspath(__file__)
-    py_files = [f for f in py_files if os.path.abspath(f) != current_file]
-    for py_file in py_files:
-        # Dynamically import the module
+    try:
+        with open(py_file, "r", encoding="utf-8") as f:
+            source = f.read()
+        tree = ast.parse(source, filename=py_file)
+    except Exception as parse_exc:
+        raise RuntimeError(f"❌ Parse error in {py_file}: {parse_exc}") from parse_exc
+
+    # Check if any function/class is decorated with the correct pytest.mark.<level>
+    found = False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            for decorator in node.decorator_list:
+                if isinstance(decorator, ast.Call) and hasattr(decorator.func, "attr"):
+                    if (
+                            getattr(decorator.func, "attr", None) == level_mark
+                            and getattr(getattr(decorator.func, "value", None), "id", None) == "mark"
+                    ):
+                        found = True
+                        break
+                elif isinstance(decorator, ast.Attribute):
+                    # Handles @pytest.mark.level0 without ()
+                    if (
+                            decorator.attr == level_mark
+                            and getattr(getattr(decorator, "value", None), "attr", None) == "mark"
+                    ):
+                        found = True
+                        break
+
+    if not found:
+        return imported_count
+
+    try:
         module_name = os.path.splitext(os.path.basename(py_file))[0]
         spec = importlib.util.spec_from_file_location(module_name, py_file)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        # Get _TASK_TYPE and _LEVEL_0_TASK_TIME or _LEVEL_1_TASK_TIME
+    except Exception as import_exc:
+        raise RuntimeError(f"❌ Import error in {py_file}: {import_exc}") from import_exc
+
+    try:
         task_type = getattr(module, "_TASK_TYPE")
         if level_mark == "level0":
             task_time = getattr(module, "_LEVEL_0_TASK_TIME")
         else:
             task_time = getattr(module, "_LEVEL_1_TASK_TIME")
-        task_info = TaskInfo(
-            task_time=task_time,
-            task_command=f"pytest -vs --disable-warnings -m '{level_mark}' {py_file}",
-            task_type=task_type
-        )
-        scheduler.add_task(task_info)
+    except Exception as attr_exc:
+        raise RuntimeError(f"❌ Attribute error in {py_file}: {attr_exc}") from attr_exc
+
+    # Add only one TaskInfo for the file
+    task_info = TaskInfo(
+        task_time=task_time,
+        task_command=f"pytest -vs --disable-warnings -m '{level_mark}' {py_file}",
+        task_type=task_type
+    )
+    scheduler.add_task(task_info)
+    imported_count += 1
+    group_types.add(task_type)
+    return imported_count
+
+def collect_task_cases(level_mark: str):
+    """
+    Collects all test cases under test_X_cards_cases directories for the specified level mark.
+    Only collects test functions or classes decorated with @pytest.mark.level0 or @pytest.mark.level1.
+    Returns a GreedyTaskScheduler with all collected TaskInfo objects.
+    """
+    scheduler = GreedyTaskScheduler()
+    py_files = glob.glob(os.path.join(WORK_DIR, "**", "test_*.py"), recursive=True)
+    current_file = os.path.abspath(__file__)
+    py_files = [f for f in py_files if os.path.abspath(f) != current_file]
+    logger.info(f"🔍 Start importing test cases for level: {level_mark} ...")
+    imported_count = 0
+    group_types = set()
+    for py_file in py_files:
+        imported_count = _process_py_file(py_file, level_mark, scheduler, imported_count, group_types)
+    logger.info(f"✅ Finished importing {imported_count} test cases for level: {level_mark}. "
+                f"Group types: {list(group_types)}")
     return scheduler
 
 

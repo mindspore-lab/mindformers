@@ -20,7 +20,6 @@ import mindspore as ms
 from mindspore.communication.management import get_rank, get_group_size
 from mindformers.parallel_core.inference.transformer.mlp import MLP
 from mindformers.parallel_core.inference.transformer.attention import SelfAttention
-from mindformers.parallel_core.inference.transformer.multi_latent_attention import MLASelfAttention
 from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer
 from mindformers.parallel_core.inference.transformer.norm import RMSNorm, LayerNorm
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
