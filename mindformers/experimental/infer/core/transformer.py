@@ -341,6 +341,7 @@ class ParallelAttention(nn.Cell):
         self.num_heads_per_partition = divide(self.num_heads, self.tp_group_size)
 
         self.use_gqa = (self.num_heads != self.kv_num_heads)
+        self.cast = ops.Cast()
         if self.use_gqa:
             self._check_gqa_valid()
             self.kv_num_heads_per_partition = divide(self.kv_num_heads, self.tp_group_size)
