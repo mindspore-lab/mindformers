@@ -74,9 +74,10 @@ class Config:
         if not config and not cls._support_none_input:
             raise ValueError(f"The config '{cls._name}' is empty. Please check the yaml file.")
 
+        is_legacy = config.pop('is_legacy', True)
         if not config:
-            return cls._none_process()
-        result = cls._initialize_result()
+            return cls._none_process() if is_legacy else {}
+        result = cls._initialize_result() if is_legacy else {}
         return cls._update_value(result, config)
 
     @classmethod
@@ -679,6 +680,7 @@ class ConfigTemplate:
         Returns:
             dict: A new dict with the applied template.
         """
+        cls.use_legacy = config.get('use_legacy', True)
         run_mode = config.get('run_mode', None)
         if run_mode not in cls._run_modes:
             logger.warning(f"The specified run_mode '{run_mode}' is invalid. Expected one of {cls._run_modes}.")
@@ -709,7 +711,10 @@ class ConfigTemplate:
         new_config = {}
         for sub_config in template:
             class_ = CONFIG_NAME_TO_CLASS[sub_config]
-            new_config[sub_config] = class_.apply(config.pop(sub_config, None))
+            sub_config_content = config.pop(sub_config, {})
+            if sub_config == "moe_config":
+                sub_config_content['is_legacy'] = cls.use_legacy
+            new_config[sub_config] = class_.apply(sub_config_content)
 
         unused_config = [key for key in config.keys()]
         if unused_config:

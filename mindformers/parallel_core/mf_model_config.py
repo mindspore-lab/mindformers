@@ -152,7 +152,10 @@ class MFModelConfig:
     This value must be a floating point number greater than 1.0.
     """
 
-    rope_scaling: bool = False
+    rope_scaling: dict = None
+    """Dictionary containing the scaling configuration for the RoPE embeddings."""
+
+    use_rope_scaling: bool = False
     """Whether to use RoPE scaling."""
 
     input_layout: str = "BNSD"
@@ -212,9 +215,6 @@ class MFModelConfig:
     mask_func_type: str = "attn_mask_fill"
     """Mask function type to use for the attention layer."""
 
-    position_embedding_type: str = "rope"
-    """Position embedding type to use for the attention layer."""
-
     use_fused_ops_permute: bool = False
     """If True, use fused ops for permutation."""
 
@@ -267,6 +267,13 @@ class MFModelConfig:
                                                       \--k dense layers--/
     """
 
+    aux_loss_types: list = None
+    """List of auxiliary loss types."""
+
+    aux_loss_factors: list = None
+    """List of auxiliary loss factors."""
+
+
     ################################################
     # Training Parameters for MindSpore Transformers
     ################################################
@@ -276,15 +283,6 @@ class MFModelConfig:
 
     hidden_dropout: float = 0.0
     """Dropout probability for transformer hidden state."""
-
-    add_bias_linear: bool = False
-    """
-    Include a bias term in all linear layers
-    (QKV projections, after core attention, and two in MLP layer).
-    """
-
-    gated_linear_unit: bool = True
-    """Use a gated linear unit for the first linear layer in the MLP."""
 
     residual_dtype: str = None
     """
@@ -299,7 +297,7 @@ class MFModelConfig:
     vocab_size: int = 128000
     """Vocabulary size of the model."""
 
-    seq_length: int = None
+    seq_length: int = 4096
     """Model Seq Length"""
 
     pad_token_id: int = 0
@@ -328,9 +326,6 @@ class MFModelConfig:
 
     softmax_compute_dtype: str = 'float32'
     """Data type for computing softmax during attention computation."""
-
-    rotary_base: float = 10000.0
-    """Rotary base for the rotary embeddings."""
 
     def __post_init__(self):
         self.parallel_config = default_transformer_config
