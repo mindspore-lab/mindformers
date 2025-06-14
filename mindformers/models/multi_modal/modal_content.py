@@ -559,11 +559,12 @@ class ModalContentTransformTemplate:
         need_vstack = column_name in self.vstack_columns
         try:
             batched_data = self.stack_data(data_list, need_vstack)
-            batch_result = True
         # pylint: disable=W0703
         except Exception as e:
             logger.warning("batching %s failed, Error: %s.", column_name, e)
             batch_result = False
+        else:
+            batch_result = True
 
         return batch_result, batched_data
 

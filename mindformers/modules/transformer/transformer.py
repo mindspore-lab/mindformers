@@ -45,10 +45,12 @@ from mindspore.context import ParallelMode
 
 try:
     from mindspore.ops.operations.nn_ops import PromptFlashAttention
-
-    PROMPTFLASHATTENTION_VALID = True
 except ImportError:
     PROMPTFLASHATTENTION_VALID = False
+    logger.warning("PromptFlashAttention is not available.")
+else:
+    PROMPTFLASHATTENTION_VALID = True
+    logger.info("PromptFlashAttention is available.")
 
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
