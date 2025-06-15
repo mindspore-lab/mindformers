@@ -34,16 +34,18 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
 1. 模型具体实现：
 
-    ```text
-    mindformers/models/glm2      # glm3模型继承glm2的代码
-    ├── __init__.py
-    ├── convert_weight.py          # huggingface权重转ckpt实现
-    ├── glm2.py                    # 模型实现
-    ├── glm2_config.py             # 模型配置项
-    ├── glm2_modules.py            # 模组实现
-    ├── glm3_tokenizer.py          # tokenizer
-    └── glm2_transformer.py        # transformer层实现
-    ```
+   ```text
+   mindformers/models/glm2      # glm3模型继承glm2的代码
+   ├── __init__.py
+   ├── convert_reversed.py        # ckpt权重转huggingface实现
+   ├── convert_weight.py          # huggingface权重转ckpt实现
+   ├── glm2.py                    # 模型实现
+   ├── glm2_config.py             # 模型配置项
+   ├── glm2_modules.py            # 模组实现
+   ├── glm3_tokenizer.py          # tokenizer
+   ├── glm2_transformer.py        # transformer层实现
+   └── glm_processor.py           # processor实现
+   ```
 
 2. 模型配置：
 
@@ -60,7 +62,7 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ### 数据及权重准备
 
@@ -100,12 +102,13 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
 ```shell
-python convert_weight.py --model glm-n --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
+python convert_weight.py --model glm-n --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --config configs/glm3/predict_glm3_6b.yaml
 
 # 参数说明
 model:       模型名称
 input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
+config:      模型配置文件路径
 ```
 
 ## 微调
@@ -141,7 +144,7 @@ MindFormers提供`ChatGLM3-6B`的微调示例， 过程中使用`ADGEN`数据集
 
 #### 多机训练
 
-`ChatGLM3-6B`多机多卡训练可以参考[多机多卡启动方式](../../README.md#多机多卡)。
+`ChatGLM3-6B`多机多卡训练可以参考[多机多卡启动方式](../../README_CN.md#多机多卡)。
 
 ### 分布式训练权重合并
 
@@ -170,7 +173,8 @@ CKPT_PATH:   模型权重文件路径
 ```shell
 bash scripts/examples/glm3/run_glm3_predict.sh single \
  configs/glm3/predict_glm3_6b.yaml \
- path/to/glm3_6b.ckpt
+ path/to/glm3_6b.ckpt \
+ path/to/tokenizer.model
 
 # 输出推理结果
 # 你好:
@@ -188,7 +192,8 @@ bash scripts/examples/glm3/run_glm3_predict.sh single \
 ```shell
 bash scripts/examples/glm3/run_glm3_predict.sh multirole \
  configs/glm3/predict_glm3_6b.yaml \
- path/to/glm3_6b.ckpt
+ path/to/glm3_6b.ckpt \
+ path/to/tokenizer.model
 
 # 输入prompt: 假设你现在是一个导游，请尽可能贴近这个角色回答问题。
 # 输出推理结果
@@ -227,8 +232,7 @@ The result of multiplication calculation is correct, MindSpore has been installe
 
 并且没有报错，则说明成功安装了环境。
 
-或许你想问，有没有更方便的环境安装方式？恭喜你，有的，我们还提供现成的
-[docker镜像](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)，可以依据需求自行取用。
+我们已提供预配置的[Docker镜像](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)（筛选MIndSpore结果），可根据实际需求进行下载和使用。
 
 ### 微调报错：Sync stream Failed、exec graph xxx failed
 

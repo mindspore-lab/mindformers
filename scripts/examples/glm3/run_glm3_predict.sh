@@ -16,17 +16,20 @@
 PARALLEL=$1
 CONFIG_PATH=$2
 CKPT_PATH=$3
+VOCAB_FILE=$4
 
 script_path="$(realpath "$(dirname "$0")")"
 
 if [ "$PARALLEL" = "single" ]; then
   python "$script_path"/run_glm3_generate.py \
     --config_path "$CONFIG_PATH" \
-    --load_checkpoint "$CKPT_PATH"
+    --load_checkpoint "$CKPT_PATH" \
+    --vocab_file "$VOCAB_FILE"
 elif [ "$PARALLEL" = "multirole" ]; then
   python "$script_path"/run_glm3_generate.py \
     --config_path "$CONFIG_PATH" \
     --load_checkpoint "$CKPT_PATH" \
+    --vocab_file "$VOCAB_FILE" \
     --multi_role
 else
   echo "Only support 'single' or 'multirole', but got $PARALLEL."
