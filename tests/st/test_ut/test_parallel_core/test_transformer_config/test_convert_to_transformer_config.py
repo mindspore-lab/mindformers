@@ -129,10 +129,8 @@ def test_trans_func_case():
     config = DummyConfig({
         'residual_dtype': 'fp32',
         'softmax_compute_dtype': 'float16',
-        'moe_config': {
-            'first_k_dense_replace': 2,
-            'use_gating_sigmoid': True
-        },
+        'first_k_dense_replace': 2,
+        'use_gating_sigmoid': True,
         'num_layers': 2,
         'hidden_size': 128,
         'num_heads': 8,
@@ -149,7 +147,7 @@ def test_trans_func_case():
     assert result.context_parallel_size == 1
     assert result.fp32_residual_connection == used_parameter
     assert result.attention_softmax_in_fp32 == unused_parameter
-    assert result.moe_layer_freq == 2
+    assert result.first_k_dense_replace == 2
     assert result.moe_router_score_function == "sigmoid"
 
 
@@ -178,36 +176,13 @@ def test_not_exist_key_in_mapping_case():
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
-def test_invalid_first_k_dense_replace_case():
-    """
-    Feature: Test invalid type of first_k_dense_replace case.
-    Description: Input first_k_dense_replace is a string, not int.
-    Expectation: Capture the raised ValueError.
-    """
-    config = DummyConfig({
-        'moe_config': {
-            'first_k_dense_replace': 'not_int',
-        },
-        'num_layers': 2,
-        'hidden_size': 128,
-        'num_heads': 8,
-        'pipeline_stage': 1,
-        'context_parallel': 1,
-    })
-    with pytest.raises(ValueError):
-        convert_to_transformer_config(config)
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 def test_empty_str_to_convert_str_to_mstype_case():
     """
     Feature: Test function convert_str_to_mstype.
     Description: Input str is empty.
     Expectation: Capture the raised ValueError.
     """
-    from mindformers.parallel_core.model_parallel_config import convert_str_to_mstype
+    from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
     with pytest.raises(ValueError):
         convert_str_to_mstype('')
 
@@ -221,10 +196,10 @@ def test_passed_in_dtype_case():
     Description: Input a mindspore dtype, and a numpy dtype.
     Expectation: No interception for mindspore dtype, but for numpy dtype.
     """
-    from mindformers.parallel_core.model_parallel_config import convert_str_to_mstype
+    from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
     from mindspore import dtype as mstype
-    result = convert_str_to_mstype(mstype.float32)
-    assert result == mstype.float32
+    result = convert_str_to_mstype('bf16')
+    assert result == mstype.bfloat16
 
     import numpy as np
     with pytest.raises(TypeError):

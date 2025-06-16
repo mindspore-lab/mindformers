@@ -17,7 +17,7 @@ import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-from .configuration_deepseek_v3 import Deepseek3Config
+from .configuration_deepseek_v3 import DeepseekV3Config
 from .modeling_deepseek3_train import TrainingDeepseekV3ForCausalLM
 from .modeling_deepseek3_infer import InferenceDeepseek3ForCausalLM
 
@@ -33,7 +33,7 @@ class DeepseekV3ForCausalLM:
         Tensor, the loss or logits of the network.
     """
 
-    def __new__(cls, config: Deepseek3Config, *args, **kwargs):
+    def __new__(cls, config: DeepseekV3Config, *args, **kwargs):
         # get run mode to init different model.
         # predict mode used to deploy.
         # when predict mode not supported, we can use online_predict mode to do inference task.

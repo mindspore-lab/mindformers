@@ -14,7 +14,7 @@
 # ============================================================================
 """The export function for deepseek3"""
 
-from .deepseek3_config import DeepseekV3Config
+from .configuration_deepseek_v3 import DeepseekV3Config
 from .modeling_deepseek3 import DeepseekV3ForCausalLM
 
 __all__ = ['DeepseekV3Config', 'DeepseekV3ForCausalLM']
