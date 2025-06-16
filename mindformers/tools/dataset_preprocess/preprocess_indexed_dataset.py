@@ -25,7 +25,6 @@ except ImportError:
 from mindformers.dataset.dataloader import indexed_dataset
 from mindformers.models import build_tokenizer
 from research.internlm.internlm_tokenizer import InternLMTokenizer
-from research.internlm2.internlm2_tokenizer import InternLM2Tokenizer
 from research.llama3.llama3_tokenizer import Llama3Tokenizer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -255,7 +254,7 @@ def get_args():
     group = parser.add_argument_group(title='tokenizer')
     group.add_argument('--tokenizer-type', type=str, required=True,
                        choices=['LlamaTokenizer', 'Llama3Tokenizer',
-                                'InternLMTokenizer', 'InternLM2Tokenizer', 'LlamaTokenizerFast'],
+                                'InternLMTokenizer', 'LlamaTokenizerFast'],
                        help='The tokenizer of the corresponding model.')
     group.add_argument('--vocab-file', type=str, default=None,
                        help='Path to the vocab file or tokenizer.model')
