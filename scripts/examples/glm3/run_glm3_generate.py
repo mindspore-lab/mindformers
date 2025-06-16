@@ -29,7 +29,7 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration, ChatGLM3Tokenizer
 
 
-def get_model(config_path, load_checkpoint):
+def get_model(config_path, load_checkpoint, vocab_file):
     """build model for prediction."""
     # init config with yaml
     config = MindFormerConfig(config_path)
@@ -44,10 +44,9 @@ def get_model(config_path, load_checkpoint):
     model_config = ChatGLM2Config(**config.model.model_config)
     model_config.seq_length = 1024
     model_config.checkpoint_name_or_path = None
-    model_name = config.trainer.model_name
 
     # build tokenizer
-    tokenizer = ChatGLM3Tokenizer.from_pretrained(model_name)
+    tokenizer = ChatGLM3Tokenizer(vocab_file)
 
     # build model
     network = ChatGLM2ForConditionalGeneration(model_config)
@@ -69,8 +68,8 @@ def get_model(config_path, load_checkpoint):
     return network, model_config, tokenizer
 
 
-def main(config_path, load_checkpoint):
-    model, model_config, tokenizer = get_model(config_path, load_checkpoint)
+def main(config_path, load_checkpoint, vocab_file):
+    model, model_config, tokenizer = get_model(config_path, load_checkpoint, vocab_file)
 
     queries = ["你好",
                "请介绍一下华为"]
@@ -116,9 +115,9 @@ def process_response(output, history):
     return content_dict, history
 
 
-def multi_role_predict(config_path, load_checkpoint):
+def multi_role_predict(config_path, load_checkpoint, vocab_file):
     """multi-role predict process."""
-    model, model_config, tokenizer = get_model(config_path, load_checkpoint)
+    model, model_config, tokenizer = get_model(config_path, load_checkpoint, vocab_file)
 
     generate_config = {
         "max_length": model_config.seq_length,
@@ -235,6 +234,8 @@ if __name__ == '__main__':
                         help='model config file path.')
     parser.add_argument('--load_checkpoint', type=str,
                         help='load model checkpoint path or directory.')
+    parser.add_argument('--vocab_file', default=None, type=str,
+                        help='tokenizer model.')
     parser.add_argument('--multi_role', action='store_true',
                         help='if run model prediction in multi_role mode.')
 
@@ -242,10 +243,12 @@ if __name__ == '__main__':
     if args.multi_role:
         multi_role_predict(
             args.config_path,
-            args.load_checkpoint
+            args.load_checkpoint,
+            args.vocab_file
         )
     else:
         main(
             args.config_path,
-            args.load_checkpoint
+            args.load_checkpoint,
+            args.vocab_file
         )
