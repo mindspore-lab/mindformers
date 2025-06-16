@@ -22,11 +22,12 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.transformer.lower_triangular_mask import LowerTriangularMaskWithDynamic
-from mindformers.parallel_core.inference.transformer.rotary_embedding import (
+from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import (
     RotaryEmbedding,
-    Llama3RotaryEmbedding,
-    YaRNScalingRotaryEmbedding
+    Llama3RotaryEmbedding
 )
+from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import \
+    YaRNScalingRotaryEmbedding
 from mindformers.parallel_core.inference.base_models.common.embeddings.language_model_embedding import \
     LanguageModelEmbedding
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
