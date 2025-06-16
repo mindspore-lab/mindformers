@@ -23,10 +23,9 @@ parallel_config:
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
-
-model:
-  # dir path where store model_config(config.json, generation_config.json which direct downloaded from huggingface) 
-  pretrained_model_dir: './'  
+# dir path where store model_config(config.json, generation_config.json which direct downloaded from huggingface) 
+pretrained_model_dir: './'
+model:  
   # customed MF config 
   model_config:
     batch_size: 1

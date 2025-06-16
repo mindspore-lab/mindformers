@@ -42,7 +42,6 @@ from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, check_dataset_iterable, BaseDataset
 from mindformers.models import build_network, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
-from mindformers.generation import GenerationConfig
 from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper, PipelineCellWithTwoOutput, GradAccumulationCellWithTwoOutput
 from mindformers.tools.register import MindFormerConfig
@@ -489,17 +488,11 @@ class BaseTrainer:
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
+        if self.config.get("pretrained_model_dir", None):
+            self.config.model.pretrained_model_dir = self.config.pretrained_model_dir
+        if self.config.get("generation", None):
+            self.config.model.generation = self.config.generation
         network = build_network(self.config.model, default_args=default_args)
-        if network.can_generate() and self.config.model.get("pretrained_model_dir", None):
-            logger.info(
-                ".........load  generation_config from pretrained_model_dir "
-                "which is configured in yaml .........."
-            )
-            network.generation_config = GenerationConfig.from_pretrained(
-                self.config.model.pretrained_model_dir)
-        elif network.can_generate() and self.config.get("generation", None):
-            logger.info(".........build  customized generation_config which is is configured in yaml..........")
-            network.generation_config = GenerationConfig.from_dict(self.config.generation.to_dict())
         if hasattr(network, "check_pipeline_stage") and callable(network.check_pipeline_stage):
             network.check_pipeline_stage()
         return network

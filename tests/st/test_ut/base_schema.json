@@ -7410,10 +7410,10 @@
         "signature": "()"
     },
     "mindformers.tools.MindFormerRegister.register": {
-        "signature": "(module_type='tools', alias=None, legacy=True)"
+        "signature": "(module_type='tools', alias=None, legacy=True, search_names=None)"
     },
     "mindformers.tools.MindFormerRegister.register_cls": {
-        "signature": "(register_class, module_type='tools', alias=None, legacy=True)"
+        "signature": "(register_class, module_type='tools', alias=None, legacy=True, search_names=None)"
     },
     "mindformers.tools.MindFormerRegister.is_exist": {
         "signature": "(module_type, class_name=None)"
@@ -7545,10 +7545,10 @@
         "signature": "()"
     },
     "mindformers.tools.register.MindFormerRegister.register": {
-        "signature": "(module_type='tools', alias=None, legacy=True)"
+        "signature": "(module_type='tools', alias=None, legacy=True, search_names=None)"
     },
     "mindformers.tools.register.MindFormerRegister.register_cls": {
-        "signature": "(register_class, module_type='tools', alias=None, legacy=True)"
+        "signature": "(register_class, module_type='tools', alias=None, legacy=True, search_names=None)"
     },
     "mindformers.tools.register.MindFormerRegister.is_exist": {
         "signature": "(module_type, class_name=None)"
