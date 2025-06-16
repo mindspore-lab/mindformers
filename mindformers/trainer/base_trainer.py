@@ -34,14 +34,7 @@ from mindspore.dataset.engine.datasets import Dataset
 from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
-
-try:
-    # new interface in ms2.1.1
-    from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
-
-    GRAD_ACCUMULATION_VALID = True
-except ImportError:
-    GRAD_ACCUMULATION_VALID = False
+from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
@@ -288,11 +281,6 @@ class BaseTrainer:
         if not self.config.runner_config.gradient_accumulation_steps >= 1:
             raise ValueError("gradient_accumulation should be greater or equal than 1, "
                              f"but got {self.config.runner_config.gradient_accumulation_steps}")
-        if not GRAD_ACCUMULATION_VALID and self.config.runner_config.gradient_accumulation_steps > 1:
-            logger.warning("gradient_accumulation_steps only support mindspore version later than 2.1.1, "
-                           "reset the gradient_accumulation_steps from %s to 1.",
-                           self.config.runner_config.gradient_accumulation_steps)
-            self.config.runner_config.gradient_accumulation_steps = 1
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
         pp = self.get_pipeline_stages()
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and pp > 1 \

@@ -248,9 +248,11 @@ class TrainingDataset:
             try:
                 with open(dataset_dir, 'r', encoding='UTF-8') as f:
                     json.load(f)
-                file_format = "json"
             except JSONDecodeError:
                 file_format = "jsonl"
+                logger.warning("The dataset load failed, file format could be jsonl.")
+            else:
+                file_format = "json"
 
         if file_format in self._general_reader_map:
             return file_format

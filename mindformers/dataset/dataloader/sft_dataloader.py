@@ -28,6 +28,7 @@ from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.dataset.dataloader.datareaders import _DATA_READER_MAP
 from mindformers.dataset.dataloader.sft_map_functions import _SFT_MAP_FUNCTIONS
+from mindformers.tools.logger import logger
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
@@ -190,9 +191,11 @@ class SFTDataSet:
             try:
                 with open(dataset_dir, 'r', encoding='UTF-8') as f:
                     json.load(f)
-                file_format = "json"
             except JSONDecodeError:
                 file_format = "jsonl"
+                logger.warning("The dataset load failed, file format could be jsonl.")
+            else:
+                file_format = "json"
 
         if file_format in self._general_reader_map:
             return file_format
