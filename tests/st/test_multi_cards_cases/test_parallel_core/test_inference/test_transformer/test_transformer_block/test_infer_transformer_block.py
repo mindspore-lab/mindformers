@@ -54,7 +54,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestInferTransformerLayerParallel(TestInferTransformerLayer):
     """Test class for Transformer Block with different configurations"""
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES

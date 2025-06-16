@@ -19,15 +19,18 @@ import glob
 import importlib.util
 import os
 import random
+import signal
 import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
-from mindformers.tools.logger import logger
+
+import psutil
 import pytest
 
+from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType, TaskInfo
 
 
@@ -199,15 +202,22 @@ class TaskScheduler(ABC):
         if self.stop_event.is_set():
             logger.info(f"🛑 Task canceled before start: {task_info.task_command}")
             return 0
+
+        timeout = min(600, 3 * task_info.task_time)
+
+        start_time = time.time()
+        card_list = None
+
         try:
             card_list, port_id = card_manager.allocate(task_info.task_type)
             visible_devices = ",".join(str(card) for card in card_list)
             env = os.environ.copy()
             env["ASCEND_RT_VISIBLE_DEVICES"] = visible_devices
             env["ASCEND_PORT_ID"] = str(port_id)
+            env["MS_ENABLE_LCCL"] = "off"
 
-            logger.info(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id})")
-            start_time = time.time()
+            logger.info(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id}) "
+                        f"[Timeout: {timeout}s]")
 
             process = subprocess.Popen(
                 task_info.task_command,
@@ -215,35 +225,70 @@ class TaskScheduler(ABC):
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                encoding="utf-8"
+                encoding="utf-8",
+                start_new_session=True  # 创建新进程组
             )
-            while process.poll() is None:
-                if self.stop_event.is_set():
-                    process.terminate()  # Send terminate signal
-                    logger.info(f"🛑 Terminated: {task_info.task_command}")
-                    return 0
-                time.sleep(0.1)  # Avoid busy waiting on CPU
-            stdout, _ = process.communicate()
+
+            try:
+                stdout, _ = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self._terminate_process(process, f"timeout ({timeout}s)")
+                raise TimeoutError(f"Task exceeded timeout of {timeout}s")
+
             elapsed = time.time() - start_time
+
             if process.returncode == 0:
                 logger.info(f"✅ PASSED: {task_info.task_command} | Time: {elapsed:.3f}s")
             else:
                 logger.info(f"❌ FAILED: {task_info.task_command} (exit code {process.returncode}) | "
                             f"Time: {elapsed:.3f}s")
                 logger.info(f"Output:\n{stdout}")
-                raise RuntimeError(f"Task failed: {task_info.task_command}")
-        # pylint: disable=W0703
+                # Trigger global stop
+                if not self.stop_event.is_set():
+                    logger.error(f"🔥 Triggering global stop due to task failure")
+                    self.stop_event.set()
+                raise subprocess.CalledProcessError(
+                    process.returncode,
+                    task_info.task_command,
+                    stdout
+                )
+
         except Exception as exc:
-            if not self.stop_event.is_set():
-                logger.info(f"🔥 Triggering a global stop due to failure: {exc}")
+            # Check for global stop signal (may be set during waiting)
+            if self.stop_event.is_set():
+                logger.info(f"🛑 Task interrupted: {task_info.task_command}")
+            elif not self.stop_event.is_set():
+                logger.error(f"🔥 Triggering global stop due to exception: {exc}")
                 self.stop_event.set()
+            raise
         finally:
             try:
-                card_manager.free(task_info.task_type, card_list)
+                if card_list is not None:
+                    card_manager.free(task_info.task_type, card_list)
             # pylint: disable=W0703
             except Exception as free_error:
-                logger.info(f"🚨 Error freeing cards: {free_error}")
+                logger.error(f"🚨 Error freeing cards: {free_error}")
         return task_info.task_time
+
+    def _terminate_process(self, process, reason):
+        """Safely terminate the process and its child processes"""
+        try:
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGTERM)
+            logger.info(f"🛑 Terminating process group due to {reason}")
+
+            # Wait for the process to terminate
+            try:
+                process.wait(timeout=5.0)
+            except (subprocess.TimeoutExpired, TimeoutError):
+                logger.warning(f"⌛ Process not terminating, orce killing")
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+        except ProcessLookupError:
+            # Process already terminated
+            pass
 
     @abstractmethod
     def schedule_group(self, tasks):
@@ -336,32 +381,63 @@ class GreedyTaskScheduler(TaskScheduler):
         Notes:
             - If the stop event is set during execution, remaining tasks are not started.
             - Any exception raised by a worker will be propagated to the caller.
+            - After each worker finishes, proactively kills any leftover python processes.
         """
-        # Sort tasks in descending order by execution time
-        sorted_tasks = sorted(tasks, key=lambda t: t.task_time, reverse=True)
-        if not sorted_tasks:
-            return
-        # Concurrency is determined by the number of cards per group (assuming all tasks have the same group_type)
-        concurrency = NODE_WORK_NUM // sorted_tasks[0].task_type.value if sorted_tasks else 1
+        def cleanup_python_processes():
+            current_pid = os.getpid()
+            for proc in psutil.process_iter(['pid', 'name', 'ppid']):
+                try:
+                    if proc.ppid() == current_pid and 'python' in proc.name().lower():
+                        try:
+                            proc.terminate()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
 
+        if not tasks or self.stop_event.is_set():
+            return
+
+        sorted_tasks = sorted(tasks, key=lambda t: t.task_time, reverse=True)
+        concurrency = NODE_WORK_NUM // sorted_tasks[0].task_type.value
         actual_threads = min(concurrency, len(sorted_tasks))
-        with ThreadPoolExecutor(max_workers=actual_threads) as executor:
-            futures = {executor.submit(self.worker, task, self.card_manager): task for task in sorted_tasks}
-            try:
+
+        logger.info("📝 Task execution plan:")
+        for idx, task in enumerate(sorted_tasks, 1):
+            logger.info(f"  [{idx}] {task.task_command} (type: {task.task_type}, est. time: {task.task_time}s)")
+
+        try:
+            with ThreadPoolExecutor(max_workers=actual_threads) as executor:
+                # Submit all tasks
+                futures = {
+                    executor.submit(self.worker, task, self.card_manager): task
+                    for task in sorted_tasks
+                }
+
+                # Handle completed tasks
                 for future in as_completed(futures):
-                    if self.stop_event.is_set():
-                        break
-                    # This will re-raise any exception from the worker, allowing run() to catch it
-                    future.result()
-            except Exception as exc:
-                # Cancel all not-yet-started futures
-                if not self.stop_event.is_set():
-                    logger.info(f"Group failure triggering global stop: {exc}")
-                    self.stop_event.set()
-                raise
-            finally:
-                # Gracefully shut down the thread pool
-                executor.shutdown(wait=False)
+                    task = futures[future]
+                    try:
+                        future.result()
+                    # pylint: disable=W0703
+                    except Exception as e:
+                        logger.error(f"❌ Task failed: {task.task_command} - {str(e)}")
+                        if not self.stop_event.is_set():
+                            self.stop_event.set()
+                    finally:
+                        cleanup_python_processes()
+        # pylint: disable=W0703
+        except Exception as e:
+            logger.error(f"🔴 Group scheduling failed: {str(e)}")
+            if not self.stop_event.is_set():
+                self.stop_event.set()
+            raise
+        finally:
+            cleanup_python_processes()
+            if self.stop_event.is_set():
+                logger.warning("🔚 Group execution aborted due to failures")
+            else:
+                logger.info("👍 Group execution completed successfully")
 
 
 def _process_py_file(py_file, level_mark, scheduler, imported_count, group_types):
@@ -444,7 +520,10 @@ def collect_task_cases(level_mark: str):
     for py_file in py_files:
         imported_count = _process_py_file(py_file, level_mark, scheduler, imported_count, group_types)
     logger.info(f"✅ Finished importing {imported_count} test cases for level: {level_mark}. "
-                f"Group types: {list(group_types)}")
+                f"Group types: {[str(gt) for gt in group_types]}")
+    for group_type in group_types:
+        count = len(scheduler.grouped_tasks.get(group_type, []))
+        logger.info(f"  - Group {str(group_type)}: {count} tasks")
     return scheduler
 
 
@@ -464,6 +543,7 @@ def test_multi_cards_level0_cases():
     # 检查执行结果
     assert success, "One, or more tasks failed during execution."
     print(f"All level0 tasks completed successfully in {total_time:.3f}s")
+
 
 @pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
