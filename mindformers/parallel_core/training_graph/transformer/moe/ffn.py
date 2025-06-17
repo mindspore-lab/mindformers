@@ -141,7 +141,7 @@ class FFNGroupedGEMM(nn.Cell):
         """
         Handles the sharding configuration for the model's parallelism settings.
         """
-        dp = config.data_parallel_size * config.tensor_model_parallel_size
+        dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
         ep = config.expert_model_parallel_size
         if dp % ep != 0:
             raise ValueError(

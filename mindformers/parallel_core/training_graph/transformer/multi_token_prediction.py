@@ -92,6 +92,7 @@ class MultiTokenPredictionLayer(nn.Cell):
         self.config = config
         self.submodules = submodules
         self.dtype = config.compute_dtype
+        self.use_seq_parallel = config.sequence_parallel
         self.layer_number = layer_number
 
         self.concat = Concat(axis=-1)
@@ -137,13 +138,21 @@ class MultiTokenPredictionLayer(nn.Cell):
             param_init_type=config.layernorm_compute_dtype
         )
 
-        self.shard()
+        self.shard(config)
 
-    def shard(self):
+    def shard(self, config: TransformerConfig):
+        """Set parallel strategy."""
         dp = self.config.data_parallel_size
-        mp = self.config.tensor_model_parallel_size
-        self.concat.shard(((1, dp, 1), (1, dp, 1)))
-        self.concat_mp.shard(((dp, mp, 1), (dp, mp, 1)))
+        tp = self.config.tensor_model_parallel_size
+        cp = self.config.context_parallel_size
+        self.concat.shard(((cp, dp, 1), (cp, dp, 1)))
+        self.concat_mp.shard(((dp, tp, 1), (dp, tp, 1)))
+        if self.use_seq_parallel and cp == 1:
+            self.enorm.shard(config, in_strategy=(tp, dp, 1))
+            self.hnorm.shard(config, in_strategy=(tp, dp, 1))
+            self.concat.shard(((tp, dp, 1), (tp, dp, 1)))
+            self.eh_proj.matmul.shard(((dp * tp, 1), (1, 1)))
+            self.final_layernorm.shard(config, in_strategy=(tp, dp, 1))
 
     def construct(self,
                   decoder_input: Tensor,

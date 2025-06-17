@@ -345,8 +345,6 @@ class RowParallelLinear(nn.Cell):
         self.params_dtype = config.params_dtype
         self.has_bias = bias
         self.sequence_parallel = config.sequence_parallel
-        if self.sequence_parallel and not self.input_is_parallel:
-            raise RuntimeError("To enable `sequence_parallel`, `input_is_parallel` must be `True`")
 
         # use_cpu_initialization configuration is not supported for now.
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)

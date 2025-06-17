@@ -18,9 +18,10 @@ from typing import Union
 import mindspore as ms
 from mindspore import nn, Tensor
 from mindspore.mint import unsqueeze
-from mindspore.ops import cast
+from mindspore.ops import functional as F, cast
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
+from mindspore.parallel.shard import Layout
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
@@ -89,6 +90,11 @@ class MultiLatentAttention(nn.Cell):
         self.use_ring_attention = self.config.use_ring_attention
         self.use_eod_attn_mask_compression = self.config.use_eod_attn_mask_compression
         self.use_attn_mask_compression = self.config.use_attn_mask_compression
+        self.use_seq_parallel = self.config.sequence_parallel
+        self.seq_length = self.config.seq_length
+        self.dp = 1 if self.config.data_parallel_size is None else self.config.data_parallel_size
+        self.tp = 1 if self.config.tensor_model_parallel_size is None else self.config.tensor_model_parallel_size
+        self.cp = 1 if self.config.context_parallel_size is None else self.config.context_parallel_size
         self.num_attention_heads = self.config.num_attention_heads
         self.query_projection_size = self.config.v_head_dim * self.config.num_attention_heads
         self.qk_head_dim = self.config.qk_head_dim
@@ -98,6 +104,16 @@ class MultiLatentAttention(nn.Cell):
         self.v_head_dim = self.config.v_head_dim
         self.input_layout = self.config.input_layout
         self.compute_dtype = self.config.compute_dtype
+
+        # Define ulysses context parallel related parameters
+        self.cp_ds = self.config.hierarchical_context_parallel_sizes
+        self.cp_co = self.cp // self.cp_ds
+
+        if self.num_attention_heads % (self.tp * self.cp_ds) != 0:
+            raise ValueError("For 'ParallelAttention', the class variable 'num_heads' must be a multiple of "
+                             "'tensor_parallel * ulysses_cp_num', but got num_heads is {}, tensor_parallel is {}, "
+                             "ulysses_cp_num is {}."
+                             .format(self.num_attention_heads, self.tp, self.cp_ds))
 
         zero_pad_length = self.q_head_dim - self.v_head_dim
         if zero_pad_length == 0:
@@ -126,9 +142,12 @@ class MultiLatentAttention(nn.Cell):
             skip_bias_add=True,
         )
 
+        if self.cp_ds > 1:
+            self._ulysses_initial()
         self.shape = ms.ops.auto_generate.Shape()
         self.reshape = ms.ops.auto_generate.Reshape()
         self.bs_transpose = ms.ops.auto_generate.Transpose()
+        self.merge_head_transpose = ms.ops.auto_generate.Transpose()
         self.tile = ms.ops.auto_generate.Tile()
         self.value_concat = ms.ops.auto_generate.Concat(-1)
         self.value_tnd_concat = ms.ops.auto_generate.Concat(-1)
@@ -140,19 +159,45 @@ class MultiLatentAttention(nn.Cell):
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard()
 
+    def _ulysses_initial(self):
+        """Initialize ulysses related operations."""
+        self.transpose_back = ms.ops.auto_generate.Transpose()
+        self.transpose_ulysses = ms.ops.auto_generate.Transpose()
+        self.transpose_a2a = ms.ops.auto_generate.Transpose()
+        self.transpose_ulysses_merger_a2a = ms.ops.auto_generate.Transpose()
+        self.transpose_ulysses_merger = ms.ops.auto_generate.Transpose()
+
+        dp = self.dp
+        tp = self.tp
+        cp = self.cp
+
+        self.linear_proj.matmul.shard(in_strategy=((dp * cp, tp), (1, tp)), out_strategy=((dp * cp * tp, 1),))
+        layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
+        layout_transpose_back = (layout("cp", "dp", "tp", "None"),)
+        self.transpose_back.shard(in_strategy=layout_transpose_back)
+        self.transpose_ulysses.shard(((dp, cp, tp, 1, 1, 1),))
+        self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1, 1),))
+        self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1, 1),))
+        self.transpose_ulysses_merger.shard(((dp, cp, 1, tp, 1, 1),))
+
     def sharding_propagation(self):
-        pass
+        """Set parallel strategy."""
 
     def shard(self):
-        dp = self.config.data_parallel_size
-        tp = self.config.tensor_model_parallel_size
+        """Set parallel strategy."""
+        dp = self.dp
+        tp = self.tp
+        cp = self.cp
 
-        self.bs_transpose.shard(((dp, 1, tp),))
-        self.value_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
+        self.bs_transpose.shard(((dp, cp, tp),))
+        self.value_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
         self.value_tnd_concat.shard(((dp, tp, 1), (dp, tp, 1)))
-        self.dim_slice.shard(((1, dp, tp, 1),))
+        self.dim_slice.shard(((cp, dp, tp, 1),))
         self.dim_tnd_slice.shard(((dp, tp, 1),))
         self.tile.shard(((1, 1, 1, 1),))
+        layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
+        layout_merger_head_transpose = (layout("cp", "dp", "tp", "None"),)
+        self.merge_head_transpose.shard(in_strategy=layout_merger_head_transpose)
 
     def construct(self, x: Tensor, attention_mask=None, rotary_pos_emb=None, rotary_pos_cos=None,
                   rotary_pos_sin=None, prefix_keys_values=None, pad_zeros=None, actual_seq_len=None):
@@ -167,6 +212,22 @@ class MultiLatentAttention(nn.Cell):
         seq_len, bs, _ = self.shape(x)
 
         query, key, value = self.get_query_key_value_tensors(x, rotary_pos_emb=rotary_pos_emb)
+
+        # with ulysses context parallel, insert all to all before FA
+        if self.cp > 1:
+            if self.cp_ds > 1:
+                # For query & key & value, transpose from [S, B, N, D] back to [B, S, N, D]
+                query = self.transpose_back(query, (1, 0, 2, 3))
+                query = self._ulysses_qkv_a2a(query)
+                key = self.transpose_back(key, (1, 0, 2, 3))
+                key = self._ulysses_qkv_a2a(key)
+                value = self.transpose_back(value, (1, 0, 2, 3))
+                value = self._ulysses_qkv_a2a(value)
+            else:
+                # Merge heads for query and key
+                query = self._merge_heads(query)
+                key = self._merge_heads(key)
+                value = self._merge_heads(value)
 
         query = cast(query, self.compute_dtype)
         key = cast(key, self.compute_dtype)
@@ -195,6 +256,10 @@ class MultiLatentAttention(nn.Cell):
                 context_layer = self.core_attention(
                     query, key, value, attention_mask,
                 )
+                if self.cp > 1 and self.cp_ds > 1:
+                    context_layer = self._ulysses_context_layer_a2a(context_layer)
+                if self.cp > 1:
+                    context_layer = self.bs_transpose(context_layer, (1, 0, 2))
                 if self.use_zero_pad:
                     context_layer = self.reshape(context_layer, (seq_len, bs, self.num_attention_heads, -1))
                     context_layer = self.dim_slice(context_layer, (0, 0, 0, 0),
@@ -207,6 +272,66 @@ class MultiLatentAttention(nn.Cell):
         output = self.linear_proj(attn_out)[0]  # dp, mp -> dp, 1 / dp * mp, 1
         output = cast(output, ori_dtype)
         return output
+
+    def _merge_heads(self, x):
+        """
+        Convert a 4D input tensor to a 3D output tensor.
+
+        Inputs:
+            x: input tensor
+
+        Output:
+            x_merge: the 3D output tensor
+        """
+        x = self.merge_head_transpose(x, (1, 0, 2, 3))  # cp,dp,tp,1 -> dp,cp,tp,1
+        bs, seq_len, n_head, head_dim = self.shape(x)
+        new_shape = (bs, seq_len, n_head * head_dim)
+        x_merge = self.reshape(x, new_shape)
+        return x_merge
+
+    def _ulysses_qkv_a2a(self, qkv):
+        """Given a qkv tensor with shape of (bs, seq_len, n_head, head_dim),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            qkv (Tensor): qkv after rotary embedding and before attention, with shape of (B, S, N, D)
+
+        Returns:
+            Tensor: qkv tensor after all to all commu.
+        """
+        bs, seq_len, _, _ = F.shape(qkv)
+        new_shape = (bs, seq_len, self.tp, self.cp_ds, -1, self.q_head_dim)
+        # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
+        qkv = self.reshape(qkv, new_shape)
+        # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
+        # insert all-to-all (dp, cp, 1, tp, 1) -> (dp, cp_co, cp_ds, tp, 1)
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
+        # reshape to BSH, here set -1 to H, for kv head could be different from q head
+        qkv = F.reshape(qkv, (bs, seq_len, -1))
+        return qkv
+
+    def _ulysses_context_layer_a2a(self, context_layer):
+        """Given the context_layer tensor after fa, with shape of (bs, seq_len, hidden_size),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            context_layer (Tensor): context layer after attention, with shape of (B, S, H)
+
+        Returns:
+            Tensor: context layer tensor after all to all commu.
+        """
+        bs, seq_len, _ = F.shape(context_layer)
+        new_shape = (bs, seq_len, self.cp_ds, self.tp, -1, self.q_head_dim)
+        context_layer = F.reshape(context_layer, new_shape)
+        # insert all-to-all back (dp, cp_co, cp_ds, tp, 1) -> (dp, cp, 1, tp, 1)
+        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4, 5))
+        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4, 5))
+        # reshape back to BSH
+        context_layer = F.reshape(context_layer, (bs, seq_len, self.query_projection_size))
+        return context_layer
 
 
 class MLASelfAttentionConcatenated(MultiLatentAttention):
@@ -239,6 +364,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             attention_type="self",
         )
         self.use_tnd = config.input_layout == "TND"
+        self.use_seq_parallel = config.sequence_parallel
         self.split = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
         self.tile_kv = ms.ops.auto_generate.Tile()
         self.pe_concat = ms.ops.auto_generate.Concat(axis=3)
@@ -327,9 +453,13 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
     def shard_self_attn(self):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
+        cp = self.config.context_parallel_size
 
-        self.tile_kv.shard(((1, dp, tp, 1),))
-        self.pe_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
+        self.tile_kv.shard(((cp, dp, tp, 1),))
+        self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
+        if self.use_seq_parallel:
+            self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+            self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
 
     def get_query_key_value_tensors(self,
                                     hidden_states,
@@ -384,7 +514,13 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         )
 
         if self.q_layernorm is not None:
-            q_a = self.q_layernorm(q_a)
+            if self.use_seq_parallel:
+                input_q_a_shape = self.shape(q_a)
+                q_a = self.reshape(q_a, (-1, q_a.shape[-1]))
+                q_a = self.q_layernorm(q_a)
+                q_a = self.reshape(q_a, input_q_a_shape)
+            else:
+                q_a = self.q_layernorm(q_a)
             q = self.linear_qb(q_a)[0]
             q = self.reshape(q, (seq_len, bs, self.num_attention_heads, -1))
 
@@ -399,7 +535,13 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             )
 
         k_pe = self.reshape(k_pe, (seq_len, bs, 1, self.qk_pos_emb_head_dim))
-        compressed_kv_norm = self.k_layernorm(compressed_kv)
+        if self.use_seq_parallel:
+            compressed_kv_shape = self.shape(compressed_kv)
+            compressed_kv = self.reshape(compressed_kv, (-1, compressed_kv.shape[-1]))
+            compressed_kv_norm = self.k_layernorm(compressed_kv)
+            compressed_kv_norm = self.reshape(compressed_kv_norm, compressed_kv_shape)
+        else:
+            compressed_kv_norm = self.k_layernorm(compressed_kv)
 
         kv = self.linear_kvb(compressed_kv_norm)[0]
         kv = self.reshape(kv, (
@@ -558,9 +700,13 @@ class MLASelfAttention(MultiLatentAttention):
     def shard_self_attn(self):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
+        cp = self.config.context_parallel_size
 
-        self.tile_kv.shard(((1, dp, tp, 1),))
-        self.pe_concat.shard(((1, dp, tp, 1), (1, dp, tp, 1)))
+        self.tile_kv.shard(((cp, dp, tp, 1),))
+        self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
+        if self.use_seq_parallel:
+            self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+            self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
 
     def sbnd2tnd(self, x):
         seq_len, bs, *_ = x.shape

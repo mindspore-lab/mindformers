@@ -260,28 +260,34 @@ class FlashAttention(Cell):
                                                    prefix,
                                                    actual_seq_qlen,
                                                    actual_seq_kvlen)
-        elif self.input_layout == "BNSD":
+            return output
+
+        if self.input_layout == "BNSD":
             query = self.bnsd_transpose(query, (1, 2, 0, 3))
             key = self.bnsd_transpose(key, (1, 2, 0, 3))
             value = self.bnsd_transpose(value, (1, 2, 0, 3))
             bsz, _, q_seq_len, _ = query.shape
             _, _, kv_seq_len, _ = key.shape
-            if self.enable_dropout:
-                drop_mask_bits = self.reshape(
-                    self.drop_gen_mask((bsz, self.head_num, q_seq_len, kv_seq_len), self.keep_prob_tensor),
-                    (bsz, self.head_num, q_seq_len, kv_seq_len // 8))
-            else:
-                drop_mask_bits = None
-            if self.use_alibi_mask:
-                alibi_mask = self.alibi_rescale_mul(alibi_mask, F.cast(self.alibi_rescale_factor, alibi_mask.dtype))
-            _, _, _, output = self.flash_attention(query,
-                                                   key,
-                                                   value,
-                                                   alibi_mask,
-                                                   drop_mask_bits,
-                                                   padding_mask,
-                                                   attention_mask,
-                                                   prefix)
+        else:
+            bsz, q_seq_len, _ = query.shape
+            _, kv_seq_len, _ = key.shape
+        if self.enable_dropout:
+            drop_mask_bits = self.reshape(
+                self.drop_gen_mask((bsz, self.head_num, q_seq_len, kv_seq_len), self.keep_prob_tensor),
+                (bsz, self.head_num, q_seq_len, kv_seq_len // 8))
+        else:
+            drop_mask_bits = None
+        if self.use_alibi_mask:
+            alibi_mask = self.alibi_rescale_mul(alibi_mask, F.cast(self.alibi_rescale_factor, alibi_mask.dtype))
+        _, _, _, output = self.flash_attention(query,
+                                               key,
+                                               value,
+                                               alibi_mask,
+                                               drop_mask_bits,
+                                               padding_mask,
+                                               attention_mask,
+                                               prefix)
+        if self.input_layout == "BNSD":
             output = self._merge_heads(output)
 
         return output
@@ -298,7 +304,7 @@ class FlashAttention(Cell):
         """
         x = self.merge_head_transpose(x, (0, 2, 1, 3))  # dp,tp,cp,1 -> dp,cp,tp,1
         bs, seq_len, n_head, head_dim = self.shape(x)
-        if self.compute_2d:
+        if self.compute_2d and not self.config.multi_latent_attention:
             new_shape = (bs * seq_len, n_head * head_dim)
         else:
             new_shape = (bs, seq_len, n_head * head_dim)

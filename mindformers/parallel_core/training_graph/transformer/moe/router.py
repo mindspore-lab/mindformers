@@ -123,7 +123,7 @@ class TopKRouter(Router):
             self.afb_add_topk_bias.recompute(False)
 
         # for aux loss
-        self.dp = config.data_parallel_size
+        self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
         self.reduce_mean_aux_3d = ReduceMean(keep_dims=False)
         self.reduce_mean_aux_2d = ReduceMean(keep_dims=False)
         self.mul_aux_2d = Mul()
@@ -238,7 +238,7 @@ class TopKRouter(Router):
         """
         Handles the sharding configuration for the model's parallelism settings.
         """
-        dp = config.data_parallel_size * config.tensor_model_parallel_size
+        dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
         # for scaling factor
         self.mul.shard(((), (dp, 1, 1)))
         # normalize
@@ -259,9 +259,9 @@ class TopKRouter(Router):
             self.afb_topk.shard(((dp, 1, 1),))
             self.afb_add_topk_bias.shard(((dp, 1, 1), (1,)))
         # for aux loss
-        self.reduce_mean_aux_3d.shard(((self.dp, 1, 1),))
-        self.reduce_mean_aux_2d.shard(((self.dp, 1),))
-        self.mul_aux_2d.shard(((self.dp, 1), (self.dp, 1)))
-        self.onehot_aux.shard(((self.dp, 1, 1), (), ()))
+        self.reduce_mean_aux_3d.shard(((dp, 1, 1),))
+        self.reduce_mean_aux_2d.shard(((dp, 1),))
+        self.mul_aux_2d.shard(((dp, 1), (dp, 1)))
+        self.onehot_aux.shard(((dp, 1, 1), (), ()))
         self.mul_noshard.shard(((), ()))
         self.add_loss.shard(((1,), ()))
