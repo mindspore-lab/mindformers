@@ -15,13 +15,13 @@
 """Qwen models' APIs."""
 from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
+from safetensors import safe_open
+import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication._comm_helper import _is_initialized
 
 import mindspore as ms
-import numpy as np
-from safetensors import safe_open
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
 from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
@@ -141,7 +141,9 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
             model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
                                                                     batch_valid_length,
                                                                     slot_mapping,
-                                                                    model_inputs)
+                                                                    model_inputs,
+                                                                    True)
+        model_inputs["batch_valid_length"] = Tensor.from_numpy(batch_valid_length.astype(np.int32))
         position_ids = batch_valid_length - 1
         model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
 
@@ -152,7 +154,6 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
 
         model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
-        model_inputs["need_flatten"] = True
         return model_inputs
 
     def set_dynamic_inputs(self, **kwargs):
