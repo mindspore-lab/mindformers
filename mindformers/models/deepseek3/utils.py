@@ -19,7 +19,7 @@ from safetensors.numpy import load_file
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
-from mindformers.models.deepseek3.configuration_deepseek3 import Deepseek3Config
+from mindformers.models.deepseek3.configuration_deepseek_v3 import Deepseek3Config
 
 
 class Deepseek3PreTrainedModel(PreTrainedModel, ModelMixin):

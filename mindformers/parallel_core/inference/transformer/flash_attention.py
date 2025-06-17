@@ -125,9 +125,7 @@ class FlashAttention(Cell):
 
         bs, seq_len, _ = query.shape
 
-        if self.use_multi_latent_attention:
-            self.reshape_and_cache(key, None, key_cache, None, slot_mapping)
-        else:
+        if not self.use_multi_latent_attention:
             self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:

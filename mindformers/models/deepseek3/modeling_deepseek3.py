@@ -13,10 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 Model."""
+import os
+
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-from .deepseek3_config import DeepseekV3Config
+from .configuration_deepseek_v3 import Deepseek3Config
 from .modeling_deepseek3_train import TrainingDeepseekV3ForCausalLM
+from .modeling_deepseek3_infer import InferenceDeepseek3ForCausalLM
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
@@ -30,8 +33,10 @@ class DeepseekV3ForCausalLM:
         Tensor, the loss or logits of the network.
     """
 
-    def __new__(cls, config: DeepseekV3Config, *args, **kwargs):
+    def __new__(cls, config: Deepseek3Config, *args, **kwargs):
         # get run mode to init different model.
         # predict mode used to deploy.
         # when predict mode not supported, we can use online_predict mode to do inference task.
+        if os.environ.get("RUN_MODE") == "predict":
+            return InferenceDeepseek3ForCausalLM(config=config)
         return TrainingDeepseekV3ForCausalLM(config=config)

@@ -95,6 +95,7 @@ def get_gpt_layer_local_spec(
                         core_attention=FlashAttention if use_flash_attention else DotProductAttention,
                         linear_proj=RowParallelLinear,
                         q_layernorm=get_norm_cls(normalization) if qk_layernorm else IdentityOp,
+                        kv_layernorm=get_norm_cls(normalization) if qk_layernorm else IdentityOp,
                     ),
                 ),
                 pre_mlp_layernorm=get_norm_cls(normalization),
