@@ -11,7 +11,7 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 | Config                                           |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
 |:-------------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
 | [llama3_8b](llama3_8b/finetune_llama3_8b.yaml)   | text_generation |   8192    |  alpaca  | 2581 tokens/s/p | Finetune |
-| [llama3_70b](llama3_70b/predict_llama3_70b.yaml) | text_generation |   8192    |    -     |  335 tokens/s   | Finetune |
+| [llama3_70b](llama3_70b/predict_llama3_70b.yaml) | text_generation |   8192    |    -     |  335 tokens/s   | Predict |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 

@@ -11,7 +11,7 @@ Llama 3.2多语言大模型集合是1B和3B大小的预训练和指令调整生�
 
 | Config                                      |      Task       | Datasets | SeqLength | Performance  |  Phase  |
 |:--------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
-| [llama3_2_3b](./predict_llama3_2_3b.yaml)   | text_generation |    -     |   4096    | 1643 tokens/s | Predict |
+| [Llama3.2-3B](../../configs/llama3_2/predict_llama3_2_3b.yaml)   | text_generation |    -     |   4096    | 1643 tokens/s | Predict |
 
 ## 模型文件
 
@@ -47,12 +47,12 @@ Llama 3.2多语言大模型集合是1B和3B大小的预训练和指令调整生�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
-和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)
+和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 |      模型      |      硬件       | 全量微调 | 推理 |
 |:------------:|:-------------:|:----:|:--:|
-| Llama3.2-3b  | Atlas 800T A2 | 单节点 | 单卡 |
+| Llama3.2-3B  | Atlas 800T A2 | 单节点 | 单卡 |
 
 ### 数据集及权重准备
 
@@ -64,7 +64,7 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 
 | 模型名称         | MindSpore权重 |                        HuggingFace权重                         |
 |:-------------|:-----------:|:------------------------------------------------------------:|
-| llama3_2-3B  |      \      | [Link](https://huggingface.co/meta-llama/Llama-3.2-3B)  |
+| Llama3.2-3B  |      \      | [Link](https://huggingface.co/meta-llama/Llama-3.2-3B)  |
 
 > 注: 请自行申请huggingface上llama3_2使用权限，并安装transformers=4.40版本
 
@@ -84,7 +84,7 @@ dtype:       转换权重的精度
 
 ## 推理
 
-MindFormers提供`llama3_2-3b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡推理和多卡推理。推理输入默认不添加bos字符，如果需要添加可在模型的yaml文件中增加add_bos_token选项。
+MindFormers提供`Llama3.2-3B`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡推理和多卡推理。推理输入默认不添加bos字符，如果需要添加可在模型的yaml文件中增加add_bos_token选项。
 
 ```shell
 # 脚本使用
@@ -100,7 +100,7 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 
 ### 单卡推理
 
-以`llama3_2-3b`单卡推理为例。
+以`Llama3.2-3B`单卡推理为例。
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh single \
@@ -111,7 +111,7 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ### 多卡推理
 
-以`llama3_2-3b`4卡推理为例。
+以`Llama3.2-3B`4卡推理为例。
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
@@ -132,7 +132,7 @@ MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.c
 
 ### 单卡推理
 
-此例子使用llama3_2-3B模型演示。
+此例子使用`Llama3.2-3B`模型演示。
 
 #### 修改MindIE启动配置
 
@@ -156,7 +156,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
 
       该配置为模型配置文件目录，放置模型和tokenizer等相关文件。
 
-      以llama3_2-3B为例，`modelWeightPath`的组织结构如下：
+      以`Llama3.2-3B`为例，`modelWeightPath`的组织结构如下：
 
       ```reStructuredText
       mf_model
