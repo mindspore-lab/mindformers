@@ -22,10 +22,12 @@ import time
 import tempfile
 import datetime
 import hashlib
+import subprocess
+import shlex
 
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Dict, Tuple, List
 import numpy as np
 
 import mindspore as ms
@@ -55,6 +57,7 @@ from mindspore.common.api import flops_collection
 from mindspore.communication.management import create_group, get_group_size, get_rank
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.profiler import ProfilerLevel
+from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -2283,3 +2286,288 @@ def get_embedding_info(cb_params, embedding_size):
                 embedding_local_norm = local_norm
                 break
     return embedding_local_norm
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class StressTestModelMonitor(Callback):
+    """Initialize the StressTestModelMonitor.
+
+    Args:
+        interval_steps (int, optional): Number of steps after which to check the model.
+        stress_model_dir (str, optional): The directory where the model ymal file is stored.
+        stress_dataset_dir (str optional): The directory where the stress test dataset is stored.
+        compare_interval_steps (int, optional): Number of interval steps where the stress test result is compared.
+        stress_master_port (int, optional): The master port of stress test.
+        stress_test_log_dir (str optional): The directory where the stress test training log is stored.
+        check_stresslog_interval_time (int, optional): Time interval where the stress test log is checked.
+    """
+    def __init__(self,
+                 interval_steps=10,
+                 stress_model_dir=None,
+                 stress_dataset_dir=None,
+                 compare_interval_steps=None,
+                 stress_master_port=8338,
+                 stress_test_log_dir="test_output/stress_test_output1/msrun_log",
+                 check_stresslog_interval_time=60):
+        logger.warning('StressTestModelMonitor serves as an experimental interface and its functionality is '
+                       'not yet stable.')
+        super(StressTestModelMonitor, self).__init__()
+
+        self.interval_steps = interval_steps
+        self.last_checked_step = 0
+        self.model_dir = stress_model_dir
+        if not self.model_dir or not os.path.exists(self.model_dir):
+            logger.warning(f"model_dir {self.model_dir} was not found for StressTestModelMonitor, using default model")
+            self.model_dir = "configs/llama2/pretrain_llama2_7b_stress_test.yaml"
+        self.dataset_dir = stress_dataset_dir
+        self.stress_master_port = stress_master_port
+        if not isinstance(self.stress_master_port, int) or self.stress_master_port < 1:
+            logger.warning(f"For StressTestMonitor, stress_master_port must be an integer greater than or equal \
+                           to 1, but got {self.stress_master_port}. Setting to default value 8338")
+            self.stress_master_port = 8338
+        self.worker_num = int(os.getenv("MS_WORKER_NUM"))
+        self.compare_interval_steps = compare_interval_steps
+        if not isinstance(self.compare_interval_steps, int) or self.compare_interval_steps < 1:
+            logger.warning(f"For StressTestMonitor, compare_interval_steps must be an integer greater than or equal \
+                           to 1, but got {self.compare_interval_steps}.")
+            logger.warning(f"Skipping interval steps comparison, only the last step result will be compared. \
+                            compare_interval_steps is set to None")
+            self.compare_interval_steps = None
+        self.stress_test_log_dir = stress_test_log_dir
+        self.check_stresslog_interval_time = check_stresslog_interval_time
+        if not isinstance(self.check_stresslog_interval_time, int) or self.check_stresslog_interval_time < 1:
+            logger.warning(f"For StressTestMonitor, check_stresslog_interval_time must be an integer greater than or \
+                           equal to 1, but got {self.check_stresslog_interval_time}. Setting to default value 60")
+            self.check_stresslog_interval_time = 60
+
+    def on_train_step_end(self, run_context):
+        """Perform actions after each training step and check the criteria."""
+        cb_params = run_context.original_args()
+        current_step = cb_params.cur_step_num  # Retrieve the current step number
+
+        # Check if interval_steps is set and enough steps have passed
+        if self.interval_steps and (current_step - self.last_checked_step >= self.interval_steps):
+            self.check_stress_test_model(current_step)
+            self.last_checked_step = current_step  # Update the last checked step
+
+    def check_stress_test_model(self, current_step):
+        """Perform stress test on current step"""
+        logger.info(f"On Step {current_step}, Main Process paused. Running the stress test models...")
+        logger.info(f"Stress test model directory is: '{self.model_dir}'")
+        logger.info(f"Check stress test logs at {self.stress_test_log_dir} for details.")
+        if not self.dataset_dir or not os.path.exists(self.dataset_dir):
+            logger.error(f"dataset_dir: {self.dataset_dir} was not found for StressTestModelMonitor, \
+                           Exiting Stress test.")
+            return
+        num_cores = os.cpu_count()
+        cpu_cores = f"0-{num_cores - 1}"
+        logger.debug(f"CPU cores assigned to the stress test task: {cpu_cores}")
+
+        rank_id = get_rank()
+        if rank_id % self.worker_num == 0:
+            node_num = rank_id//self.worker_num
+            saved_dir = os.path.join(self.stress_test_log_dir, "node"+str(node_num))
+            command = f"""taskset -c {cpu_cores} bash scripts/msrun_launcher.sh "run_mindformer.py \
+                        --config {self.model_dir} \
+                        --use_parallel True\
+                        --run_mode train \
+                        --train_data {self.dataset_dir}" \
+                        {self.worker_num} {self.stress_master_port} {saved_dir} True 7200"""
+
+            logger.info(f"Running stress test on node {node_num}, RANK {rank_id} with logs in {saved_dir}")
+            log_file_path = os.path.join(saved_dir, "worker_0.log")
+            # Start the subprocess
+            command = shlex.split(command)
+            result_1 = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Monitor the log file
+            while result_1.poll() is None:  # While the subprocess is running
+                time.sleep(self.check_stresslog_interval_time)
+                log_msg = self.readlog(log_file_path)
+                logger.info(f"Checking stress test log every {self.check_stresslog_interval_time} seconds")
+                logger.info(f"Current state of stress_test: {log_msg}")
+
+            # Once the subprocess has finished, check the result
+            if result_1.returncode != 0:
+                logger.warning(f"An error occurred while running the stress test model on rank {rank_id}: \
+                               {result_1.stderr.read().decode('utf-8')}")
+                logger.warning(f"Check the sub task workers log for rank {rank_id} for more details.")
+        barrier()
+
+        logger.info(f"Stress tests ended, now starting to collect and compare results")
+
+        # If compare_interval_steps is None, only compare the last step result, and check for its validity.
+        if not self.compare_interval_steps:
+            logger.warning("For StressTestMonitor, compare_interval_steps is set to None, \
+                           so only the last step result is compared.")
+        else:
+            interval_results = None
+            logger.info(f"Test results are compared every {self.compare_interval_steps} steps")
+            for i in range(self.worker_num):
+                if get_rank() % self.worker_num == i:
+                    node_num = get_rank() // self.worker_num
+                    log_dir = os.path.join(self.stress_test_log_dir, "node" + str(node_num))
+                    log_file_path = os.path.join(log_dir, f"worker_{i}.log")
+                    logger.info(f"log_file_path created with {log_file_path}")
+                    interval_results, subtask_global_step_num = self.extract_interval_step_results(log_file_path)
+            barrier()
+
+            # Check if the compare_interval_steps is larger than the total steps in the stress test task
+            if interval_results is None:
+                logger.warning(f"compare_interval_steps {self.compare_interval_steps} is larger than the total number \
+                               of steps {subtask_global_step_num}, so only the last step result is compared.")
+            else:
+                gathered_interval_results, _ = all_gather_into_tensor(interval_results)
+                gathered_interval_results = gathered_interval_results.asnumpy()
+                logger.info("Stress tests interval results collected, now starting to compare interval results")
+                _ = self.compare_gathered_results(gathered_interval_results)
+
+        # Now compare the results from the last step, this is executed regardless of compare_interval_steps setting
+        last_step_results = None
+        for i in range(self.worker_num):
+            if get_rank() % self.worker_num == i:
+                node_num = get_rank() // self.worker_num
+                log_dir = os.path.join(self.stress_test_log_dir, "node" + str(node_num))
+                log_file_path = os.path.join(log_dir, f"worker_{i}.log")
+                logger.info(f"log_file_path created with {log_file_path}")
+                last_step_results = self.extract_last_step_result(log_file_path)
+        barrier()
+
+        gathered_results, _ = all_gather_into_tensor(last_step_results) # <class 'mindspore.common.tensor.Tensor'>
+        gathered_results = gathered_results.asnumpy()   # <class 'numpy.ndarray'>
+        logger.info("Last step results are collected from each rank, now starting to compare last step results")
+
+        rank0_result = gathered_results[0]
+        comparison = np.all(gathered_results == rank0_result, axis=1)
+        if np.all(comparison):
+            logger.info(f"STRESS TEST PASSED. ALL Results aligned at step {current_step}: \
+                        [loss, global_norm] = {rank0_result}")
+        else:
+            unmatched_rank = np.where(~comparison)[0]  # Indices of rows that do not match
+            discrepancies = gathered_results[unmatched_rank]  # Get the discrepancies
+            logger.warning(f"STRESS TEST FAILED at step {current_step}. Discrepancies found at rank: \
+                           {unmatched_rank}, values: {discrepancies}.")
+
+        logger.info(f"On Step {current_step}: Stress test ended! Resume training of the main model.")
+        return
+
+    def extract_last_step_result(self, log_file):
+        """Extract the last step's results from the log file."""
+        loss_value = None
+        global_norm_value = None
+        with open(log_file, 'r') as file:
+            lines = file.readlines()
+            for line in reversed(lines):
+                if "INFO - {" in line:
+                    # Extract loss and global_norm values
+                    loss_value = self.get_value_from_line(line, r"loss: (\d+\.\d+)")
+                    global_norm_value = self.get_value_from_line(line, r"global_norm: \[(\d+\.\d+)\]")
+                    if loss_value is not None and global_norm_value is not None:
+                        break
+        return Tensor([[loss_value, global_norm_value]], ms.float32)
+
+    def extract_interval_step_results(self, log_file):
+        """Extract results from specific steps in the middle of log file"""
+        last_recorded_step = 0
+        results = []
+        steps_per_epoch = None
+        with open(log_file, 'r') as file:
+            lines = file.readlines()
+            for line in lines:
+                if "INFO - {" in line:
+                    # Get the number of steps per epoch to calculate global step number
+                    if not steps_per_epoch:
+                        step_info = re.search(r"step:\[\s*\d+/\s*(\d+)\]", line)
+                        steps_per_epoch = int(step_info.group(1))
+
+                    # Calculate the global step number
+                    epoch_match = re.search(r"Epoch:\[\s*(\d+)", line)
+                    step_match = re.search(r"step:\[\s*(\d+)", line)
+                    epoch_number = int(epoch_match.group(1))
+                    step_number = int(step_match.group(1))
+                    global_step_number = (epoch_number - 1) * steps_per_epoch + step_number
+
+                    # Consider logging only if it matches the interval
+                    if global_step_number >= (self.compare_interval_steps+last_recorded_step):
+                        loss_value = self.get_value_from_line(line, r"loss: (\d+\.\d+)")
+                        global_norm_value = self.get_value_from_line(line, r"global_norm: \[(\d+\.\d+)\]")
+                        results.append(Tensor([[epoch_number, step_number, loss_value, global_norm_value]], ms.float32))
+                        last_recorded_step = global_step_number
+
+        # if results is empty, it means that compare_interval_steps is larger than the total step number
+        if not results:
+            return None, global_step_number
+
+        results = Tensor(results)
+        return results, global_step_number
+
+    def compare_gathered_results(self, gathered_interval_results):
+        """Compares results from different ranks at the same epoch and step number."""
+        results_dict: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
+        for result in gathered_interval_results:
+            epoch_number, step_number, loss_value, global_norm_value = result[0]
+            epoch_step_key = (int(epoch_number), int(step_number))
+
+            # Organize results by epoch and step
+            if epoch_step_key not in results_dict:
+                results_dict[epoch_step_key] = []
+            results_dict[epoch_step_key].append((loss_value, global_norm_value))
+        consistent = True
+        discrepancies = {}
+
+        # Now iterate through the results_dict to check for consistency
+        for epoch_step, values in results_dict.items():
+            # Retrieve loss-global pairs for comparison
+            loss_global_pairs = [(val[0], val[1]) for val in values]
+            # Check if all pairs are consistent
+            if all(pair == loss_global_pairs[0] for pair in loss_global_pairs):
+                logger.info(f"Results consistent for epoch {epoch_step[0]}, step {epoch_step[1]}: \
+                            (loss, global_norm) = {loss_global_pairs[0]}")
+            else:
+                consistent = False
+                discrepancies[epoch_step] = []
+                # Collect the ranks associated with discrepancies
+                for idx, val in enumerate(loss_global_pairs):
+                    if val != loss_global_pairs[0]:
+                        # Store the index in the original gathered_interval_results
+                        discrepancies[epoch_step].append((idx, val))
+
+        if consistent:
+            logger.info("ALL INTERVAL TESTS PASSED. All results aligned across all intervals.")
+            return True
+
+        for epoch_step, disc_values in discrepancies.items():
+            indices = [val[0] for val in disc_values]
+            value_pairs = [val[1] for val in disc_values]
+            logger.warning(f"STRESS TEST FAILED. DISCREPANCIES found in epoch {epoch_step[0]}, \
+                           step {epoch_step[1]}: ranks {indices}, (loss, global_norm) = {value_pairs}")
+        logger.warning(f"Check the workers log of the problematic rank for detailed results")
+        return False
+
+    def get_value_from_line(self, line, pattern):
+        """Extracts a numerical value from a line based on a regex pattern."""
+        match = re.search(pattern, line)
+        if match:
+            return float(match.group(1))
+        return None
+
+    def readlog(self, file_path):
+        """
+        Search for the latest line indicating training has started, based on key identifiers.
+        """
+        with open(file_path, 'r', errors='ignore') as f:
+            lines = f.readlines()
+
+        # Define the keywords indicating training has started
+        keywords = ['Epoch', 'step', 'loss', 'global_norm']
+
+        # Search backwards for the latest line containing all keywords
+        for line in reversed(lines):
+            if all(keyword in line for keyword in keywords):
+                parts = line.split("- INFO -")
+                if len(parts) > 1:
+                    return parts[1].strip()  # Return the part after '- INFO -'
+                return line.strip()
+
+        # If no such line, training hasn't started
+        return "Training has not started yet."
