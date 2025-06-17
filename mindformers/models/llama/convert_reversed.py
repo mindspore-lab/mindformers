@@ -63,7 +63,6 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     torch.save(state_dict, output_path)
     print(f"\rConvert mindspore checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.",
           flush=True)
-    return True
 
 
 if __name__ == "__main__":

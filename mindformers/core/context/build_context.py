@@ -289,7 +289,7 @@ class MFContextOperator(MFContextConfig):
         if run_mode in (
                 RunMode.TRAIN.value, RunMode.FINETUNE.value
             ) and self.train_precision_sync is not None:
-            self._call_ms_deterministic(self.train_precision_sync)
+            _, _ = self._call_ms_deterministic(self.train_precision_sync)
 
         if run_mode == RunMode.PREDICT.value and self.infer_precision_sync is not None:
             shuffle, lccl = self._call_ms_deterministic(

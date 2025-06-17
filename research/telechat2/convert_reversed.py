@@ -69,7 +69,6 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
 
     torch.save(state_dict, output_path)
     logger.info(f"\rConvert telechat checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.")
-    return True
 
 
 if __name__ == "__main__":

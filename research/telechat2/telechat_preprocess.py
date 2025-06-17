@@ -63,7 +63,6 @@ def write_instance_to_file(writer, instance):
     features["input_ids"] = np.asarray(input_ids).astype(np.int32)
     features["labels"] = np.asarray(labels).astype(np.int32)
     writer.write_raw_data([features])
-    return features
 
 
 def tokenizer_with_special_tokens(text, tokenizer):

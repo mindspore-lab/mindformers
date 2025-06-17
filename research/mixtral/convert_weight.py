@@ -59,7 +59,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
     # pylint: disable=W0703
     except Exception as e:
         print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
-        return False
     ckpt_list = []
     count = 0
     list_w1 = []
@@ -113,7 +112,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
 
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
-    return True
 
 
 def convert_ms_to_gmm(input_path, output_path, **kwargs):
@@ -129,7 +127,6 @@ def convert_ms_to_gmm(input_path, output_path, **kwargs):
             print(f"\rConvert {params[k]} to gmm weight.", flush=True)
     ms.save_checkpoint(params, output_path)
     print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
-    return True
 
 
 if __name__ == "__main__":
