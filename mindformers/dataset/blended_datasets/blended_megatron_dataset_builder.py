@@ -3,10 +3,7 @@
 import math
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Iterable, List, Optional, Type, Union
-
 import numpy
-
-from mindspore.communication.comm_func import barrier
 
 from mindformers.dataset.blended_datasets.blended_dataset import BlendedDataset
 from mindformers.dataset.blended_datasets.blended_megatron_dataset_config import BlendedMegatronDatasetConfig
