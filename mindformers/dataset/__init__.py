@@ -62,7 +62,6 @@ from .transforms.build_transforms import build_transforms
 from .base_dataset import BaseDataset
 from .causal_language_model_dataset import CausalLanguageModelDataset
 from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
-from .dpo_dataset import DPODataset
 from .img_cls_dataset import ImageCLSDataset
 from .keyword_gen_dataset import KeyWordGenDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
