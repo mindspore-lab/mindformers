@@ -18,7 +18,6 @@ import ast
 import glob
 import importlib.util
 import os
-import random
 import signal
 import subprocess
 import threading
@@ -84,8 +83,10 @@ class CardStateManager:
             TaskType.FOUR_CARDS_TASK: self.four_cards_group,
             TaskType.EIGHT_CARDS_TASK: self.eight_cards_group
         }
-        # Randomly generate four port numbers between 50000 and 65535, and save them as a list
-        self.task_port_ids: List[int] = random.sample(range(50000, 65536), 4)
+        # Assign initial ports to msrun, LCCL, and HCCL.
+        self.task_port_ids: List[int] = [50000, 50001, 50002, 50003]
+        self.lccl_port_ids: List[int] = [60000, 60001, 60002, 60003]
+        self.hccl_port_ids: List[int] = [61000, 61001, 61002, 61003]
 
     def allocate(self, task_type: TaskType):
         """
@@ -113,7 +114,10 @@ class CardStateManager:
             for idx, _ in enumerate(group.group_list):
                 if not group.ocupated[idx]:
                     group.ocupated[idx] = True
-                    return group.group_list[idx], self.task_port_ids[idx]
+                    return (group.group_list[idx],
+                            self.task_port_ids[idx],
+                            self.lccl_port_ids[idx],
+                            self.hccl_port_ids[idx])
         raise ValueError("No card is ready!!!")
 
     def free(self, task_type, card_list):
@@ -209,12 +213,13 @@ class TaskScheduler(ABC):
         card_list = None
 
         try:
-            card_list, port_id = card_manager.allocate(task_info.task_type)
+            card_list, port_id, lccl_id, hccl_id = card_manager.allocate(task_info.task_type)
             visible_devices = ",".join(str(card) for card in card_list)
             env = os.environ.copy()
             env["ASCEND_RT_VISIBLE_DEVICES"] = visible_devices
             env["ASCEND_PORT_ID"] = str(port_id)
-            env["MS_ENABLE_LCCL"] = "off"
+            env["LCAL_COMM_ID"] = f"127.0.0.1:{lccl_id}"
+            env["HCCL_IF_BASE_PORT"] = str(hccl_id)
 
             logger.info(f"🏃 Running: {task_info.task_command} on cards {card_list} (port {port_id}) "
                         f"[Timeout: {timeout}s]")
