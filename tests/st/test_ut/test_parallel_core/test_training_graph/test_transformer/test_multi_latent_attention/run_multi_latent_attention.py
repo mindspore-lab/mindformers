@@ -20,8 +20,8 @@ import numpy as np
 import mindspore as ms
 from mindspore.communication import init
 
-from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import MLASelfAttention, \
-    MLASelfAttentionMegatron, MLASelfAttentionSubmodules, MLASelfAttentionSubmodulesMegatron
+from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import MLASelfAttentionConcatenated, \
+    MLASelfAttention, MLASelfAttentionSubmodulesConcatenated, MLASelfAttentionSubmodules
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
@@ -78,10 +78,10 @@ class MLARunner:
         q_layernorm = IdentityOp if self.args.q_layernorm.lower() == 'none' else RMSNorm
         k_layernorm = IdentityOp if self.args.k_layernorm.lower() == 'none' else RMSNorm
 
-        if self.args.struct == 'a2':
+        if self.args.struct == 'concatenated':
             spec = ModuleSpec(
-                module=MLASelfAttention,
-                submodules=MLASelfAttentionSubmodules(
+                module=MLASelfAttentionConcatenated,
+                submodules=MLASelfAttentionSubmodulesConcatenated(
                     linear_qkv=ColumnParallelLinear,
                     linear_qb=ColumnParallelLinear,
                     linear_kvb=ColumnParallelLinear,
@@ -93,8 +93,8 @@ class MLARunner:
             )
         else:
             spec = ModuleSpec(
-                module=MLASelfAttentionMegatron,
-                submodules=MLASelfAttentionSubmodulesMegatron(
+                module=MLASelfAttention,
+                submodules=MLASelfAttentionSubmodules(
                     linear_q_proj=ColumnParallelLinear,
                     linear_q_down_proj=ColumnParallelLinear,
                     linear_q_up_proj=ColumnParallelLinear,
@@ -120,7 +120,7 @@ class MLARunner:
             self.args.batch_size,
         )
         hidden_state = ms.Tensor(hidden_state, dtype=ms.float32)
-        weight = mind_weight if self.args.struct == 'a2' else mega_weight
+        weight = mind_weight if self.args.struct == 'concatenated' else mega_weight
         for k in weight:
             weight[k] = ms.Parameter(ms.Tensor(weight[k], dtype=ms.float32))
         ms.load_param_into_net(net, weight)
@@ -143,7 +143,7 @@ def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Run Multi-head Latent Attention test")
     # Input shape parameters
-    parser.add_argument("--struct", type=str, default="a2")
+    parser.add_argument("--struct", type=str, default="concatenated")
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--seq_length", type=int, default=4)
     parser.add_argument("--hidden_size", type=int, default=16)
