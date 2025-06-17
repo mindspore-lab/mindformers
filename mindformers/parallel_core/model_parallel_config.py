@@ -87,7 +87,7 @@ class ModelParallelConfig:
     context_parallel_size: int = 1
     """Splits network input along sequence dimension across NPU ranks."""
 
-    hierarchical_context_parallel_sizes: Optional[list[int]] = None
+    hierarchical_context_parallel_sizes: int = 1
     """
     Reserved interface.
 

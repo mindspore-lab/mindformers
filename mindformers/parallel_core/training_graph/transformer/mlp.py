@@ -160,23 +160,26 @@ class MLP(nn.Cell):
             dp = config.data_parallel_size if config.data_parallel_size is not None else 1
             cp = config.context_parallel_size if config.context_parallel_size is not None else 1
             tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
-            if self.compute_2d:
+            if self.compute_2d and not config.multi_latent_attention:
                 mul_in_strategy = ((dp, tp), (dp, tp))
                 self.mul.shard(in_strategy=mul_in_strategy)
                 self.add.shard(((dp, tp), (tp,)))
+                self.linear_fc2.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
             else:
                 mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
                 self.mul.shard(in_strategy=mul_in_strategy)
                 self.add.shard(((cp, dp, tp), (tp,)))
-
-            if config.sequence_parallel and cp == 1:
-                self.linear_fc2.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
+                if self.activation_type == 'swiglu' or self.activation_type == 'silu':
+                    self.activation_func.silu.shard(((cp, dp, 1),))
+                if self.activation_type == 'swiglu':
+                    self.activation_func.slice.shard(((cp, dp, 1),))
+                    self.activation_func.mul.shard(((cp, dp, 1), (cp, dp, 1)))
 
             if self.gated_linear_unit and self.activation_type != 'swiglu':
-                if self.compute_2d:
+                if self.compute_2d and not config.multi_latent_attention:
                     self.split.shard(((dp, 1),))
                 else:
-                    self.split.shard(((1, dp, tp),)).add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((cp, dp, tp),)).add_prim_attr("skip_redistribution", True)
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

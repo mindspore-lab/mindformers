@@ -90,7 +90,8 @@ class MoELayer(BaseMoELayer):
         super().__init__(config=config, layer_number=layer_number)
         self.hidden_size = config.hidden_size
         self.use_seq_parallel = config.sequence_parallel
-        self.dp = config.data_parallel_size * config.tensor_model_parallel_size
+        self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
+        self.tp = config.tensor_model_parallel_size
 
         # ops
         self.add = AddExt()
@@ -101,6 +102,13 @@ class MoELayer(BaseMoELayer):
         self.add_loss = AddExt()
         self.transpose = Transpose()
         self.transpose2 = Transpose()
+
+        #check_rules
+        if self.tp > 1 and not self.use_seq_parallel:
+            raise ValueError(
+                "During training, performance may degrade if MoE and tensor parallelism"
+                "are enabled without also enabling sequence parallelism."
+                )
 
         # router
         self.router = TopKRouter(config)
@@ -151,9 +159,10 @@ class MoELayer(BaseMoELayer):
         """Set parallel strategy."""
         dp = config.data_parallel_size
         mp = config.tensor_model_parallel_size
-        self.transpose.shard(((1, dp, mp),))
-        self.transpose2.shard(((dp, 1, mp),))
+        cp = config.context_parallel_size
+        self.transpose.shard(((cp, dp, mp),))
+        self.transpose2.shard(((dp, cp, mp),))
         if self.use_seq_parallel:
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))
         else:
-            self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.add.shard(((dp, cp, mp), (dp, cp, mp)))

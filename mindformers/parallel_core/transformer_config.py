@@ -676,6 +676,8 @@ class TransformerConfig(ModelParallelConfig):
                     self.attention_dropout = 0.
             elif self.use_attn_mask_compression and not self.use_ring_attention:
                 self.sparse_mode = 2
+            elif self.context_parallel_size > 1:
+                self.input_layout = "BSH"
             else:
                 self.input_layout = "BNSD"
                 self.sparse_mode = 0

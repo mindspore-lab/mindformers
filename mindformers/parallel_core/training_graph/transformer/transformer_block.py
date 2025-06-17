@@ -122,6 +122,7 @@ class TransformerBlock(nn.Cell):
         if post_process:
             raise NotImplementedError("For TransformerBlock, `post_process=True` is not supported.")
 
+        self.config = config
         self.submodules = _get_block_submodules(config, spec)
         self.post_layer_norm = post_layer_norm
         self.num_layers = config.num_layers
@@ -179,7 +180,7 @@ class TransformerBlock(nn.Cell):
                   actual_seq_len=None):
         """ Construct function of transformer. """
         seq_len, bs, hs = self.shape(hidden_states)
-        if self.compute_2d:
+        if self.compute_2d and not self.config.multi_latent_attention:
             hidden_states = self.reshape_2d(hidden_states, (-1, hs))
             if seq_len != self.seq_length_in_cfg:
                 raise ValueError("config.seq_length is not equal to sequence length of input!")
@@ -206,7 +207,7 @@ class TransformerBlock(nn.Cell):
         if self.post_layer_norm:
             hidden_states = self.final_norm(hidden_states)
 
-        if self.compute_2d:
+        if self.compute_2d and not self.config.multi_latent_attention:
             hidden_states = self.reshape_back(hidden_states, (bs, seq_len, -1))
 
         return hidden_states, extra_loss
@@ -215,8 +216,12 @@ class TransformerBlock(nn.Cell):
         """ shard function of mlp block. """
         dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
         if self.post_layer_norm:
-            if self.compute_2d:
-                self.final_norm.shard(config, in_strategy=(dp * cp, 1))
+            if config.sequence_parallel and cp == 1:
+                if config.multi_latent_attention:
+                    self.final_norm.shard(config, in_strategy=(tp, dp, 1))
+                else:
+                    self.final_norm.shard(config, in_strategy=(dp * cp, 1))
             else:
                 self.final_norm.shard(config, in_strategy=(cp, dp, 1))

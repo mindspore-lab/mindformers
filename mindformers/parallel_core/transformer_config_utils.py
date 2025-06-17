@@ -84,6 +84,31 @@ def get_recompute(recompute):
     return recompute['recompute']
 
 
+def get_cp_comm_type(context_parallel_algo: str):
+    """
+    This method to check types of 'context_parallel_algo'.
+
+    Args:
+        context_parallel_algo (str): Algorithm to use for context parallelism.
+        Can be "colossalai_cp", "ulysses_cp" or "hybrid_cp". Only effective when context_parallel > 1
+
+    Returns:
+        A string to choose the function for context parallelism.
+        cp_comm_type can be "p2p" or "all_gather" or "a2a" or "a2a+p2p".
+    """
+    context_parallelism_mapping = {
+        "colossalai_cp": "all_gather",
+        "ulysses_cp": "a2a",
+    }
+
+    if context_parallel_algo not in context_parallelism_mapping:
+        raise ValueError(f"The context_parallel_algo {context_parallel_algo} is not supported, "
+                         f"context_parallel_algo only support colossalai_cp, ulysses_cp or hybrid_cp")
+    cp_comm_type = context_parallelism_mapping[context_parallel_algo]
+
+    return cp_comm_type
+
+
 def scatter_multi_mapping_keys_to_mapping(mapping):
     """
     Expand multiple mapping relationships contained in `convert_map`.
@@ -206,12 +231,10 @@ COMMON_CONFIG_MAPPING = {
     ("expert_parallel", "expert_model_parallel_size"): "expert_model_parallel_size",
     ("expert_model_parallel", "expert_tensor_parallel_size"): "expert_tensor_parallel_size",
     # not changes
-    "hierarchical_context_parallel_sizes": "hierarchical_context_parallel_sizes",
     "micro_batch_num": "micro_batch_num",
     "seq_split_num": "seq_split_num",
     "gradient_aggregation_group": "gradient_aggregation_group",
     "offset": "offset",
-    "ulysses_degree_in_cp": "ulysses_degree_in_cp",
     "vocab_emb_dp": "vocab_emb_dp",
 
     # Training
@@ -367,8 +390,8 @@ COMMON_CONFIG_MAPPING = {
 
     # Context Parallel
     # not changes
-    "cp_comm_type": "cp_comm_type",
-    "context_parallel_algo": "context_parallel_algo",
+    "context_parallel_algo": ("cp_comm_type", get_cp_comm_type),
+    "ulysses_degree_in_cp": "hierarchical_context_parallel_sizes",
 
     # MLATransformerConfig
     ("qk_nope_head_dim", "qk_head_dim"): "qk_head_dim",

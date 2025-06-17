@@ -59,6 +59,8 @@ class SharedExpertMLP(MLP):
         self.use_seq_parallel = config.sequence_parallel
         self.router_dense_type = config.moe_router_dtype
         self.use_shared_expert_gate = config.use_shared_expert_gating
+        if self.use_seq_parallel:
+            self.dp = config.data_parallel_size * config.tensor_model_parallel_size
         if self.use_shared_expert_gate:
             self.shared_experts_gate = Dense(in_channels=config.hidden_size,
                                              out_channels=1,
@@ -70,6 +72,7 @@ class SharedExpertMLP(MLP):
                 self.expert_sharding_propagation(self.parallel_config)
             else:
                 self.expert_gate_shard(config)
+        self.shard(config)
 
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of shared_expert_mlp block. """
@@ -96,3 +99,25 @@ class SharedExpertMLP(MLP):
 
     def expert_sharding_propagation(self, config: TransformerConfig):
         super().sharding_propagation(config)
+
+    def shard(self, config: TransformerConfig):
+        """ shard function of shared_expert_mlp block. """
+        if self.gated_linear_unit:
+            dp = config.data_parallel_size if config.data_parallel_size is not None else 1
+            cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+            tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+            if config.sequence_parallel:
+                dp = dp * tp
+                tp = 1
+
+                mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
+                self.mul.shard(in_strategy=mul_in_strategy)
+                self.add.shard(((cp, dp, tp), (tp,)))
+                self.linear_fc1.matmul.shard(((dp * cp, 1), (1, tp)))
+                self.linear_fc2.matmul.shard(((dp * cp, tp), (tp, 1)))
+                self.activation_func.silu.shard(((cp, dp, 1),))
+                if self.activation_type == 'swiglu':
+                    self.activation_func.slice.shard(((cp, dp, 1),))
+                    self.activation_func.mul.shard(((cp, dp, 1), (cp, dp, 1)))
+                if self.activation_type != 'swiglu':
+                    self.split.shard(((cp, dp, tp),)).add_prim_attr("skip_redistribution", True)

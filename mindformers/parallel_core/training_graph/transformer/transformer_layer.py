@@ -90,6 +90,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.apply_residual_connection_post_norm = config.apply_residual_connection_post_layernorm
         self.hidden_dropout = config.hidden_dropout if hidden_dropout is None else hidden_dropout
         self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
+        self.use_seq_parallel = config.sequence_parallel
 
         self.input_layernorm = build_module(
             submodules.input_layernorm,
@@ -257,18 +258,26 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         cp = config.context_parallel_size if config.context_parallel_size is not None else 1
         tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
 
-        if config.sequence_parallel and cp == 1:
-            self.input_layernorm.shard(config, in_strategy=(dp * tp, 1))
-            self.pre_mlp_layernorm.shard(config, in_strategy=(dp * tp, 1))
-            self.add.shard(((dp * tp, 1), (dp * tp, 1)))
-            self.hidden_states_droupout.shard((dp * tp, 1))
-            self.add_bias.shard(((dp, 1), (1,)))
-        else:
-            self.input_layernorm.shard(config)
-            self.pre_mlp_layernorm.shard(config)
-            self.add.shard(((cp, dp, 1), (cp, dp, 1)))
-            self.hidden_states_droupout.shard((cp, dp, 1))
-            self.add_bias.shard(((cp, dp, 1), (1,)))
+        self.add.shard(((cp, dp, 1), (cp, dp, 1)))
+        self.hidden_states_droupout.shard((cp, dp, 1))
+        self.add_bias.shard(((cp, dp, 1), (1,)))
+        if cp > 1:
+            self.input_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
+            self.pre_mlp_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
+
+        if self.use_seq_parallel:
+            if not config.multi_latent_attention and cp == 1:
+                self.input_layernorm.shard(config, in_strategy=(dp * tp, 1))
+                self.pre_mlp_layernorm.shard(config, in_strategy=(dp * tp, 1))
+                self.add.shard(((dp * tp, 1), (dp * tp, 1)))
+                self.hidden_states_droupout.shard((dp * tp, 1))
+                self.add_bias.shard(((dp, 1), (1,)))
+            else:
+                self.input_layernorm.shard(config, in_strategy=(tp, dp, 1))
+                self.pre_mlp_layernorm.shard(config, in_strategy=(tp, dp, 1))
+                self.add.shard(((tp, dp, 1), (tp, dp, 1)))
+                self.hidden_states_droupout.shard((tp, dp, 1))
+                self.add_bias.shard(((tp, dp, 1), (1,)))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
