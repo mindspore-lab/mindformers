@@ -21,7 +21,7 @@ from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer, TrainingArguments
-from mindformers.models import ChatGLM4Tokenizer, WhisperTokenizer
+from mindformers.models import ChatGLM4Tokenizer
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.models.auto import AutoTokenizer
 from research.qwenvl.qwenvl_tokenizer import QwenVLTokenizer
@@ -60,13 +60,6 @@ def create_glm4_tokenizer():
     """build glm4 tokenizer."""
     vocab_file = "/home/workspace/mindspore_vocab/GLM4/tokenizer.model"
     tokenizer = ChatGLM4Tokenizer(vocab_file=vocab_file)
-    return tokenizer
-
-
-def create_whisper_tokenizer():
-    """build whisper tokenizer."""
-    tokenizer_dir = "/home/workspace/mindspore_vocab/whisper"
-    tokenizer = WhisperTokenizer.from_pretrained(tokenizer_dir, language="Hindi", task="transcribe")
     return tokenizer
 
 

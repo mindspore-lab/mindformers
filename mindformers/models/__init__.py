@@ -115,11 +115,6 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
-from .whisper import (
-    WhisperConfig,
-    WhisperForConditionalGeneration,
-    WhisperTokenizer
-)
 from .tokenization_utils import (
     PreTrainedTokenizer,
     PreTrainedTokenizerBase

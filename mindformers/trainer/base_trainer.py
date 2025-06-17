@@ -84,7 +84,7 @@ SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
-NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer", "WhisperTokenizer"]
+NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer"]
 CALLBACK_HAS_SORT = [MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, CheckpointMonitor]
 
 
