@@ -35,8 +35,8 @@ def process_message(message):
         for tool in message['tools']:
             parameters = tool['function']['parameters']['properties']
             tool['function']['parameters']['properties'] = \
-                {k: v for k, v in parameters.items() if
-                 v is not None}
+                {k: v for k, v in parameters.items()
+                 if v is not None}
     elif 'tools' in message:
         del message['tools']
     return message
