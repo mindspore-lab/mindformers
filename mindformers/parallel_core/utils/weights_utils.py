@@ -20,6 +20,7 @@ import mindspore as ms
 from mindspore.communication.management import get_rank, get_group_size
 from mindformers.parallel_core.inference.transformer.mlp import MLP
 from mindformers.parallel_core.inference.transformer.attention import SelfAttention
+from mindformers.parallel_core.inference.transformer.multi_latent_attention import MLASelfAttention
 from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer
 from mindformers.parallel_core.inference.transformer.norm import RMSNorm, LayerNorm
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
@@ -60,8 +61,9 @@ def deal_non_layers_weights(parameter_dict, config, weights_path, weights, mf_hf
         mf_hf_map: Mapping table of hf weight and mf weight.
 
     """
-    weight_name = f"output_layer.weight"
-    add_param(parameter_dict, config, weight_name, weights_path, weights[weight_name], mf_hf_map, 0)
+    if not config.tie_word_embeddings:
+        weight_name = f"output_layer.weight"
+        add_param(parameter_dict, config, weight_name, weights_path, weights[weight_name], mf_hf_map, 0)
     weight_name = f"embedding.word_embeddings.weight"
     add_param(parameter_dict, config, weight_name, weights_path, weights[weight_name], mf_hf_map, 0)
     weight_name = "decoder.final_norm.weight"
@@ -85,19 +87,29 @@ def deal_attention_weights(layer_obj, parameter_dict, config, weights_path, weig
 
     """
     if isinstance(layer_obj.self_attention, SelfAttention):
-        q_norm_name = f"decoder.layers.{layer_id}.self_attention.q_layernorm.weight"
-        add_param(parameter_dict, config, q_norm_name, weights_path, weights[q_norm_name], mf_hf_map)
-        k_norm_name = f"decoder.layers.{layer_id}.self_attention.k_layernorm.weight"
-        add_param(parameter_dict, config, k_norm_name, weights_path, weights[k_norm_name], mf_hf_map)
+        if isinstance(layer_obj.self_attention.q_layernorm, RMSNorm):
+            q_norm_name = f"decoder.layers.{layer_id}.self_attention.q_layernorm.weight"
+            add_param(parameter_dict, config, q_norm_name, weights_path, weights[q_norm_name], mf_hf_map)
+        if isinstance(layer_obj.self_attention.k_layernorm, RMSNorm):
+            k_norm_name = f"decoder.layers.{layer_id}.self_attention.k_layernorm.weight"
+            add_param(parameter_dict, config, k_norm_name, weights_path, weights[k_norm_name], mf_hf_map)
         linear_proj_name = f"decoder.layers.{layer_id}.self_attention.linear_proj.weight"
         add_param(parameter_dict, config, linear_proj_name, weights_path, weights[linear_proj_name], mf_hf_map, 1)
         if not source_qkv_concat:
             wq_key = f"decoder.layers.{layer_id}.self_attention.linear_q.weight"
             w_qkv_key, w_qkv_value = concat_qkv_weight(wq_key, weights_path, weights, mf_hf_map)
             add_param(parameter_dict, config, w_qkv_key, weights_path, w_qkv_value, mf_hf_map, 0)
+            if config.add_qkv_bias:
+                wq_bias_key = f"decoder.layers.{layer_id}.self_attention.linear_q.bias"
+                w_qkv_key, w_qkv_value = concat_qkv_weight(wq_bias_key, weights_path, weights, mf_hf_map)
+                add_param(parameter_dict, config, w_qkv_key, weights_path, w_qkv_value, mf_hf_map, 0)
         else:
             linear_qkv_name = f"decoder.layers.{layer_id}.self_attention.linear_qkv.weight"
             add_param(parameter_dict, config, linear_qkv_name, weights_path, weights[linear_qkv_name], mf_hf_map, 0)
+            if config.add_qkv_bias:
+                linear_qkv_bias_name = f"decoder.layers.{layer_id}.self_attention.linear_qkv.bias"
+                add_param(parameter_dict, config, linear_qkv_name, weights_path, weights[linear_qkv_bias_name],
+                          mf_hf_map, 0)
 
 
 def deal_mlp_weights(layer_obj, parameter_dict, config, weights_path, weights, mf_hf_map, layer_id,
@@ -119,10 +131,17 @@ def deal_mlp_weights(layer_obj, parameter_dict, config, weights_path, weights, m
     if isinstance(layer_obj.mlp, MLP):
         linear_fc2_name = f"decoder.layers.{layer_id}.mlp.linear_fc2.weight"
         add_param(parameter_dict, config, linear_fc2_name, weights_path, weights[linear_fc2_name], mf_hf_map, 1)
-        if not source_qkv_concat:
-            w1_key = f"decoder.layers.{layer_id}.mlp.gating.weight"
-            w_gate_hidden_key, w_gate_hidden_value = concat_ffn_weight(w1_key, weights_path, weights, mf_hf_map)
-            add_param(parameter_dict, config, w_gate_hidden_key, weights_path, w_gate_hidden_value, mf_hf_map, 0)
+        if config.add_bias_linear:
+            linear_fc2_name = f"decoder.layers.{layer_id}.mlp.linear_fc2.bias"
+            add_param(parameter_dict, config, linear_fc2_name, weights_path, weights[linear_fc2_name], mf_hf_map, 1)
+        if config.gated_linear_unit:
+            if not source_qkv_concat:
+                w1_key = f"decoder.layers.{layer_id}.mlp.gating.weight"
+                w_gate_hidden_key, w_gate_hidden_value = concat_ffn_weight(w1_key, weights_path, weights, mf_hf_map)
+                add_param(parameter_dict, config, w_gate_hidden_key, weights_path, w_gate_hidden_value, mf_hf_map, 0)
+            else:
+                linear_fc1_name = f"decoder.layers.{layer_id}.mlp.linear_fc1.weight"
+                add_param(parameter_dict, config, linear_fc1_name, weights_path, weights[linear_fc1_name], mf_hf_map, 0)
         else:
             linear_fc1_name = f"decoder.layers.{layer_id}.mlp.linear_fc1.weight"
             add_param(parameter_dict, config, linear_fc1_name, weights_path, weights[linear_fc1_name], mf_hf_map, 0)
@@ -228,13 +247,26 @@ def deal_mla_weights(layer_obj, parameter_dict, config, weights_path, weights, m
 
         with safe_open(f"{weights_path}/{weights[linear_q_down_proj_name]}", framework="np") as sf_file:
             linear_q_down_proj_value = sf_file.get_tensor(mf_hf_map.get(linear_q_down_proj_name))
+            linear_q_down_proj_value = get_safetensor_from_file(config, linear_q_down_proj_name,
+                                                                weights_path, linear_q_down_proj_value,
+                                                                mf_hf_map, is_split_param=False)
         with safe_open(f"{weights_path}/{weights[linear_kv_down_proj_name]}", framework="np") as sf_file:
             linear_kv_down_proj_value = sf_file.get_tensor(mf_hf_map.get(linear_kv_down_proj_name))
+            linear_kv_down_proj_value = get_safetensor_from_file(config, linear_kv_down_proj_name, weights_path,
+                                                                 linear_kv_down_proj_value, mf_hf_map,
+                                                                 is_split_param=False)
+            kv_lora_rank = config.kv_lora_rank
+            qk_rope_head_dim = config.qk_pos_emb_head_dim
+            kv_head_dim = kv_lora_rank + qk_rope_head_dim
+            linear_kv_down_proj_value = linear_kv_down_proj_value.reshape(kv_head_dim, -1)
+            linear_kv_down_proj_value = infer_trans_rope_weight(linear_kv_down_proj_value, qk_rope_head_dim)
+
         if config.q_lora_rank is not None:
             linear_qkv_down_proj_value = np.concatenate(
                 (linear_q_down_proj_value, linear_kv_down_proj_value), 0)
-            add_param(parameter_dict, config, linear_qkv_down_proj_name, weights_path, linear_qkv_down_proj_value,
-                      mf_hf_map, 0)
+            parameter_dict[linear_qkv_down_proj_name] = ms.Parameter(
+                ms.Tensor(linear_qkv_down_proj_value, getattr(config, 'params_dtype')),
+                name=linear_qkv_down_proj_name, requires_grad=False)
         else:
             linear_q_proj_name = f"decoder.layers.{layer_id}.self_attention.linear_q_proj.weight"
             add_param(parameter_dict, config, linear_q_proj_name, weights_path, linear_q_down_proj_value,
@@ -243,17 +275,54 @@ def deal_mla_weights(layer_obj, parameter_dict, config, weights_path, weights, m
                       mf_hf_map, 0)
         add_param(parameter_dict, config, linear_q_layernorm, weights_path, weights[linear_q_layernorm], mf_hf_map)
 
-        add_param(parameter_dict, config, linear_kv_layernorm, weights_path,
-                  weights[linear_kv_layernorm], mf_hf_map)
+        add_param(parameter_dict, config, linear_kv_layernorm, weights_path, weights[linear_kv_layernorm], mf_hf_map)
 
-        add_param(parameter_dict, config, linear_proj_name, weights_path, weights[linear_proj_name],
-                  mf_hf_map, 1)
+        add_param(parameter_dict, config, linear_proj_name, weights_path, weights[linear_proj_name], mf_hf_map, 1)
 
-        add_param(parameter_dict, config, linear_q_up_proj_name, weights_path, weights[linear_q_up_proj_name],
-                  mf_hf_map, 0)
+        # linear_q_up_proj
+        with safe_open(f"{weights_path}/{weights[linear_q_up_proj_name]}", framework="np") as sf_file:
+            linear_q_up_proj_value = sf_file.get_tensor(mf_hf_map.get(linear_q_up_proj_name))
+        num_heads = config.num_attention_heads
+        rope_dim = config.qk_pos_emb_head_dim + config.qk_head_dim
+        linear_q_up_proj_value = linear_q_up_proj_value.reshape(num_heads, rope_dim, -1)
+        linear_q_up_proj_value = infer_trans_rope_weight(linear_q_up_proj_value, config.qk_pos_emb_head_dim)
+        linear_q_up_proj_value = linear_q_up_proj_value.reshape(num_heads * rope_dim, -1)
+        linear_q_up_proj_value = split(linear_q_up_proj_value, split_axis=0)
+        parameter_dict[linear_q_up_proj_name] = ms.Parameter(
+            ms.Tensor(linear_q_up_proj_value, getattr(config, 'params_dtype')), name=linear_q_up_proj_name,
+            requires_grad=False
+        )
 
-        add_param(parameter_dict, config, linear_kv_up_proj_name, weights_path, weights[linear_kv_up_proj_name],
-                  mf_hf_map, 0)
+
+        # linear_kv_up_proj
+        with safe_open(f"{weights_path}/{weights[linear_kv_up_proj_name]}", framework="np") as sf_file:
+            linear_kv_up_proj_value = sf_file.get_tensor(mf_hf_map.get(linear_kv_up_proj_name))
+        qk_nope_head_dim = config.qk_head_dim
+        v_head_dim = config.v_head_dim
+        lkv2kv_head = qk_nope_head_dim + v_head_dim
+        num_heads = config.num_attention_heads
+        linear_kv_up_proj_value = linear_kv_up_proj_value.reshape(num_heads, lkv2kv_head, -1)
+        value_k_nope, value_v = (linear_kv_up_proj_value[:, :qk_nope_head_dim, :],
+                                 linear_kv_up_proj_value[:, qk_nope_head_dim:, :])
+        # value_k_nope
+        value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1])
+        value_k_nope = split(value_k_nope, split_axis=0)
+        # value_v_nope
+        value_v = value_v.reshape(-1, value_v.shape[-1])
+        value_v = split(value_v, split_axis=0)
+        linear_kv_up_proj_value = np.concatenate((value_k_nope, value_v), 0)
+        parameter_dict[linear_kv_up_proj_name] = ms.Parameter(
+            ms.Tensor(linear_kv_up_proj_value, getattr(config, 'params_dtype')), name=linear_kv_up_proj_name,
+            requires_grad=False
+        )
+
+
+def infer_trans_rope_weight(weight, qk_pos_emb_head_dim):
+    """process rope router weight"""
+    w1 = weight[..., -qk_pos_emb_head_dim::2, :]
+    w2 = weight[..., -qk_pos_emb_head_dim + 1::2, :]
+    weight[..., -qk_pos_emb_head_dim:, :] = np.concatenate([w1, w2], axis=-2)
+    return weight
 
 
 def deal_layer_norm_weights(layer_obj, parameter_dict, config, weights_path, weights, mf_hf_map, layer_id):
@@ -358,13 +427,6 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
         np_data: Data after split.
     """
     tp_group_size = get_group_size()
-    rank_id = get_rank()
-
-    def split(tensor):
-        split_size = tensor.shape[split_axis] // tp_group_size
-        start = rank_id * split_size
-        stop = (rank_id + 1) * split_size
-        return tensor[start:stop] if split_axis == 0 else tensor[:, start:stop]
 
     def deal_qkv(np_data, config):
         qkv_dim = len(np_data.shape)
@@ -379,9 +441,9 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
         q_weight = np_data[:q_channel, :]
         k_weight = np_data[q_channel:q_channel + kv_channel, :]
         v_weight = np_data[q_channel + kv_channel:q_channel + 2 * kv_channel, :]
-        q_weight = split(q_weight)
-        k_weight = split(k_weight)
-        v_weight = split(v_weight)
+        q_weight = split(q_weight, split_axis)
+        k_weight = split(k_weight, split_axis)
+        v_weight = split(v_weight, split_axis)
         cat_qkv_weight = np.concatenate((q_weight, k_weight, v_weight), axis=0)
         if qkv_dim == 1:
             cat_qkv_weight = cat_qkv_weight.reshape(w // tp_group_size,)
@@ -394,8 +456,8 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
             np_data = np_data.reshape(w, -1)
         w1_weight = np_data[: w // 2, :]
         w3_weight = np_data[w // 2: w // 2 * 2, :]
-        w1_weight = split(w1_weight)
-        w3_weight = split(w3_weight)
+        w1_weight = split(w1_weight, split_axis)
+        w3_weight = split(w3_weight, split_axis)
         cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)
         if ffn_dim == 1:
             cat_ffn_weight = cat_ffn_weight.reshape(w // tp_group_size,)
@@ -411,7 +473,7 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
                 return deal_qkv(np_data, config)
             if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] == 'mlp':
                 return deal_ffn(np_data)
-            return split(np_data)
+            return split(np_data, split_axis)
     if not is_split_param:
         np_data = weight
         return np_data
@@ -419,6 +481,15 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
     np_dim = len(np_data.shape)
     if param_name.split('.')[-2] == 'linear_qkv':
         return deal_qkv(np_data, config)
-    if param_name.split('.')[-2] == 'linear_fc1':
+    if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] == 'mlp':
         return deal_ffn(np_data)
-    return split(np_data).reshape(-1) if np_dim == 1 else split(np_data)
+    return split(np_data, split_axis).reshape(-1) if np_dim == 1 else split(np_data, split_axis)
+
+
+def split(tensor, split_axis):
+    tp_group_size = get_group_size()
+    rank_id = get_rank()
+    split_size = tensor.shape[split_axis] // tp_group_size
+    start = rank_id * split_size
+    stop = (rank_id + 1) * split_size
+    return tensor[start:stop] if split_axis == 0 else tensor[:, start:stop]
