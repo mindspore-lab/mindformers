@@ -1,7 +1,7 @@
 mindformers.dataset.CausalLanguageModelDataset
 ==============================================
 
-.. py:class:: mindformers.dataset.CausalLanguageModelDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)
+.. py:class:: mindformers.dataset.CausalLanguageModelDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, token_monitor: bool = False, token_monitor_config: Optional[dict] = None, **kwargs)
 
     因果语言模型预训练数据集。
     生成的数据集的输出列取决于用户提供的配置信息。输出列均会被转换为int32类型。
@@ -31,6 +31,8 @@ mindformers.dataset.CausalLanguageModelDataset
         - **autotune_per_step** (int, 可选) - 设置调整自动数据加速配置步骤的间隔。默认值： ``10`` 。
         - **filepath_prefix** (str, 可选) - 保存优化参数配置的路径。默认值： ``'./autotune'`` 。
         - **profile** (bool, 可选) - 是否启用数据收集。默认值： ``False`` 。
+        - **token_monitor** (bool, 可选) - 是否启用词元监控功能。默认值： ``False`` 。
+        - **token_monitor_config** (dict, 可选) - 词元监控功能配置信息，当设置为 ``None`` 时，使用默认配置。默认值： ``None`` 。
 
     返回：
         `CausalLanguageModelDataset` 实例。

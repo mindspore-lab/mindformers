@@ -252,9 +252,9 @@ class CausalLanguageModelDataset(BaseDataset):
         profile (bool, optional):
             Whether to enable data collection. Default: ``False``.
         token_monitor (bool, optional):
-            Whether to enable token monitor function.  Default: ``False``.
+            Whether to enable token monitor function. Default: ``False``.
         token_monitor_config (dict, optional):
-            Config for token monitor function, When set to None, use deault value. Default: ``None``.
+            Config for token monitor function, When set to None, use default value. Default: ``None``.
 
     Returns:
         Instance of CausalLanguageModelDataset.

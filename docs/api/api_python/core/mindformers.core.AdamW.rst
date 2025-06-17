@@ -1,7 +1,7 @@
 mindformers.core.AdamW
 ======================
 
-.. py:class:: mindformers.core.AdamW(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0)
+.. py:class:: mindformers.core.AdamW(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)
 
     权重衰减Adam算法的实现。
 
