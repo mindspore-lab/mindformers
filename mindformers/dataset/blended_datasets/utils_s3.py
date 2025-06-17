@@ -10,7 +10,7 @@ except ModuleNotFoundError:
 
 from mindspore.communication.comm_func import barrier
 from mindformers.tools.utils import get_real_group_size, get_real_rank
-from mindformers.version_control import check_skip_barrier
+from mindformers.version_control import skip_barrier_controller
 
 S3_PREFIX = "s3://"
 
@@ -143,8 +143,8 @@ def maybe_download_file(s3_path: str, local_path: str) -> None:
     if (not os.path.exists(local_path)) and (rank == 0):
         _download_file(s3_client, s3_path, local_path)
 
-    if get_real_group_size() > 1 and not check_skip_barrier():
-        barrier()
+    if get_real_group_size() > 1:
+        skip_barrier_controller()
 
     # If the `local_path` is in a file system that is not
     # shared across all the ranks, then we assume it's in the
@@ -152,15 +152,15 @@ def maybe_download_file(s3_path: str, local_path: str) -> None:
     if (not os.path.exists(local_path)) and (local_rank == 0):
         _download_file(s3_client, s3_path, local_path)
 
-    if get_real_group_size() > 1 and not check_skip_barrier():
-        barrier()
+    if get_real_group_size() > 1:
+        skip_barrier_controller()
 
     # If the `local_path` still does not exist, then we assume
     # each rank is saving to a separate location.
     if not os.path.exists(local_path):
         _download_file(s3_client, s3_path, local_path)
 
-    if get_real_group_size() > 1 and not check_skip_barrier():
-        barrier()
+    if get_real_group_size() > 1:
+        skip_barrier_controller()
 
     assert os.path.exists(local_path)
