@@ -166,7 +166,7 @@ class GenerationMixin:
                 )
 
     @staticmethod
-    def _prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping, model_inputs, use_th=False):
+    def _prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping, model_inputs):
         """prepare inputs ids for prefill flatten"""
         batch_valid_length_bs = batch_valid_length.shape[0]  # [bs,]
         input_ids_list = []
@@ -174,7 +174,7 @@ class GenerationMixin:
             context_len = batch_valid_length[i]
             input_ids_list.append(input_ids[i][:context_len])
         input_ids = np.concatenate(input_ids_list, 0)
-        input_ids = input_ids.reshape((-1,)) if use_th else input_ids.reshape((1, -1))
+        input_ids = input_ids.reshape((1, -1))
         slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
         model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
@@ -418,7 +418,8 @@ class GenerationMixin:
             self.detailed_latency.start_predict_timer()
             if need_flatten:
                 model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
-                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape(-1)
+                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape((-1,))
+            model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -439,7 +440,8 @@ class GenerationMixin:
             self.detailed_latency.start_predict_timer()
             if need_flatten:
                 model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
-                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape(-1)
+                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape((-1,))
+            model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -1330,8 +1332,7 @@ class GenerationMixin:
                                                                           step=real_input_ids.shape[-1])
             if use_past:
                 if "batch_valid_length" not in model_inputs:
-                    model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                        np.array([valid_length_each_example], dtype=np.int32))
+                    model_inputs["batch_valid_length"] = np.array([valid_length_each_example], dtype=np.int32)
                 if block_tables is not None and "block_tables" not in model_inputs:
                     model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
                 if slot_mapping is not None and "slot_mapping" not in model_inputs:
