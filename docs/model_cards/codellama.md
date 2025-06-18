@@ -12,15 +12,6 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 
 [Code Llama: Open Foundation Models for Code](https://ai.meta.com/research/publications/code-llama-open-foundation-models-for-code/)
 
-``` text
-@article{roziere2023code,
-  title={Code llama: Open foundation models for code},
-  author={Roziere, Baptiste and Gehring, Jonas and Gloeckle, Fabian and Sootla, Sten and Gat, Itai and Tan, Xiaoqing Ellen and Adi, Yossi and Liu, Jingyu and Remez, Tal and Rapin, J{\'e}r{\'e}my and others},
-  journal={arXiv preprint arXiv:2308.12950},
-  year={2023}
-}
-```
-
 ## 模型性能
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
@@ -46,12 +37,16 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
    ```text
    mindformers/models/llama
        ├── __init__.py
-       ├── llama.py                  # 模型实现
-       ├── llama_config.py           # 模型配置项
-       ├── llama_layer.py            # llama网络层定义
-       ├── llama_processor.py        # llama预处理
-       ├── llama_tokenizer.py        # tokenizer
-       └── llama_transformer.py      # transformer层实现
+       ├── convert_reversed.py         # 权重逆向转换
+       ├── convert_weight.py           # llama权重转换
+       ├── llama.py                    # 模型实现
+       ├── llama_config.py             # 模型配置项
+       ├── llama_interleave.py         # interleave优化
+       ├── llama_layer.py              # llama网络层定义
+       ├── llama_processor.py          # llama预处理
+       ├── llama_tokenizer.py          # tokenizer
+       ├── llama_tokenizer_fast.py     # fast tokenizer
+       └── llama_transformer.py        # transformer层实现
    ```
 
 2. 模型配置：
@@ -69,6 +64,7 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
    ```text
    mindformers/tools/dataset_preprocess/llama/
        ├── alpaca_converter.py     # 基于fschat的alpaca数据集格式转换脚本
+       ├── conversation.py         # 对话提示模板生成脚本
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
@@ -76,7 +72,7 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：34b推理使用Atlas 800T A2 至少使用2卡，全量微调至少需要2机16卡，建议4机32卡。
 
@@ -116,7 +112,7 @@ MindFormers提供`Wikitext2`作为[预训练](#预训练)数据集，`code-alpac
 
 - **code-alpaca 数据预处理**
 
-1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
+1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，将原始数据集转换为多轮对话格式。
 
    ```shell
    python alpaca_converter.py \
@@ -131,7 +127,6 @@ MindFormers提供`Wikitext2`作为[预训练](#预训练)数据集，`code-alpac
 2. 执行`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
    ```shell
-   # 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
    python llama_preprocess.py \
     --dataset_type qa \
     --input_glob /{path}/code-alpaca-data-conversation.json \
@@ -189,7 +184,7 @@ MindFormers提供了`Code Llama 34b`多机预训练示例，使用`Wikitext2`数
 
 2. 在分布式节点上执行脚本
 
-   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
    ```shell
    # 节点0，节点ip为{ip_addr}，作为主节点，总共16卡且每个节点8卡
@@ -243,7 +238,7 @@ MindFormers提供`Code Llama 34b`的微调示例，使用`code-alpaca`数据集�
 
 3. 在分布式节点上执行脚本，进行2机16卡微调
 
-   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
    示例使用共享存储并开启`auto_trans_ckpt`进行权重自动转换。
 
@@ -295,6 +290,17 @@ DEVICE_NUM:  使用卡数
 ```
 
 `CodeLlama_34b`仅支持多卡推理，以`CodeLlama_34b`4卡推理为例。
+
+需要去配置文件`predict_codellama_34b.yaml`中修改配置，指定`tokenizer.model`的实际路径：
+
+```yaml
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: "{path}/tokenizer.model"
+```
+
+执行脚本如下：
 
 ```shell
 bash scripts/examples/codellama/run_codellama_predict.sh \
@@ -358,19 +364,19 @@ bash scripts/examples/codellama/run_codellama_predict.sh \
    # ['has_close_elements', 'separate_paren_groups',...
    ```
 
-   执行`preprocess.py`脚本提取出`data/HumanEval.jsonl.gz`中的`prompt`字符串列表，并对其进行推理，得到推理结果：
+   执行`preprocess.py`脚本，提取出`data/HumanEval.jsonl.gz`中的输入`prompt_input`，任务id`task_ids`和执行函数`entry_inputs`字符串列表。
 
    ```shell
-    # 运行以下命令可以获得数据集中的输入(prompt_input)，任务id(task_ids)和执行函数(entry_points)。
-    # 比如"HumanEval/0"的输入时from typing import List..., 而该代码的执行函数入口名称为has_close_elements.
     python preprocess.py --data_path path/to/HumanEval.jsonl.gz
     ```
 
-2. 提取出代码生成函数的主函数
-
-   由于生成代码会生成多余函数，评测时只需要评测函数即可，函数名为`data/HumanEval.jsonl.gz`中的`entry_point`，按照如下结构保存为`samples.jsonl`：
+2. 使用`prompt_input`数据进行推理并将推理结果用`completion`字段保存，整理为`samples.jsonl`。
 
    ```text
+   # 例如`task_id`为`HumanEval/0`,对应`prompt_input`为`from typing import List\n\n\ndef has_close_e...`；
+   # 使用`prompt_input`进行推理，得到推理结果为`"from typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\nfor i in range(len(numbers)):\n...`；
+   # 将推理结果去除`prompt_input`数据后保存至对应任务的`completion`字段；
+   # 最后将`{'task_id': "HumanEval/0","completion": "for i in range(len(numbers)):\n..."}`保存至`samples.jsonl`文件。
    {'task_id': "HumanEval/0","completion": "inference result"}
    ```
 
@@ -380,13 +386,10 @@ bash scripts/examples/codellama/run_codellama_predict.sh \
    pip install -e human-eval
    ```
 
-   > 1. 解除`human-eval/human_eval/execution.py`的第58行注释;
-   > 2. 由于代码生成时会自带prompt，因此将`human-eval/human_eval/execution.py`第39行的`problem["prompt"] + completion` 改为 `completion`即可。
-
 4. 生成测试分数
 
    ```shell
    evaluate_functional_correctness samples.jsonl
-    # {'pass@1': 0.4695}
+    # {'pass@1': 测试分数}
    ```
 
