@@ -92,6 +92,9 @@ def check_lazy_inline_version():
 
 def get_lazy_inline(func):
     """Lazy inline decorator."""
+    logger.info("The environment variables ENABLE_LAZY_INLINE and ENABLE_LAZY_INLINE_NO_PIPELINE will be deprecated "
+                "in a future release. The lazy_inline feature will be directly controlled by the presence of the "
+                "decorator.")
 
     @wraps(func)
     def decorator(*args, **kwargs):
