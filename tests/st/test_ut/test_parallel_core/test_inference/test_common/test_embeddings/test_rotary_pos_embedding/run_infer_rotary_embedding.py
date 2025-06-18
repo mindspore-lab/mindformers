@@ -24,13 +24,14 @@ import mindspore.common.dtype as mstype
 from mindspore.communication import init
 
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
-from mindformers.parallel_core.inference.transformer.rotary_embedding import (
+from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import (
     RotaryEmbedding,
     Llama3RotaryEmbedding,
-    YaRNScalingRotaryEmbedding,
 )
+from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import \
+    YaRNScalingRotaryEmbedding
 
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_rotary_embedding.data_gen_utils import (
+from tests.st.test_ut.test_parallel_core.test_inference.test_common.test_embeddings.test_rotary_pos_embedding.data_gen_utils import (
     get_init_params,
     KV_CHANNELS,
 )

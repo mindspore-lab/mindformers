@@ -29,7 +29,7 @@ from mindspore import mint, nn, ops
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.enums import AttnMaskType
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.inference.transformer.rotary_embedding import RotaryEmbedding
+from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
 from mindformers.parallel_core.inference.utils import (
     get_tp_world_size,
     divide,

@@ -22,7 +22,7 @@ import numpy as np
 from mindformers.tools.logger import logger
 
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_rotary_embedding.data_gen_utils import (
+from tests.st.test_ut.test_parallel_core.test_inference.test_common.test_embeddings.test_rotary_pos_embedding.data_gen_utils import (
     get_init_params,
     KV_CHANNELS,
     ROTARY_PERCENT,
@@ -30,7 +30,6 @@ from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_ro
     GPU_DATA,
     GOLDEN_DATA,
 )
-
 
 ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 ROPE_SINGLE_CARD_TEST_CASES = [
@@ -96,7 +95,6 @@ ROPE_SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-
 LLAMA3_ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 LLAMA3_ROPE_SINGLE_CARD_TEST_CASES = [
     (
@@ -148,7 +146,6 @@ LLAMA3_ROPE_SINGLE_CARD_TEST_CASES = [
         False
     ),
 ]
-
 
 YARN_ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 YARN_ROPE_SINGLE_CARD_TEST_CASES = [

@@ -32,8 +32,8 @@ from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import GatherFromModelParallelRegion
 from mindformers.parallel_core.inference.transformer.attention import Attention
-from mindformers.parallel_core.inference.transformer.rotary_embedding import (
-    RotaryEmbedding,
+from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
+from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import (
     YaRNScalingRotaryEmbedding,
     _yarn_get_mscale
 )
