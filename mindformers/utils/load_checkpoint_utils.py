@@ -74,9 +74,8 @@ def get_load_path_after_hf_convert(config, network):
     """check if it is hf safetensors and convert"""
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
-        #'qkv_concat is True' or 'Dpo model' save ms safetensors
-        if (config.model.model_config.get("qkv_concat", False) or
-                config.model.model_config.rl_config is not None or not check_safetensors_addition_param_support()):
+        #'qkv_concat is True' save ms safetensors
+        if (config.model.model_config.get("qkv_concat", False) or not check_safetensors_addition_param_support()):
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
             #wait for main rank to convert HF safetensors

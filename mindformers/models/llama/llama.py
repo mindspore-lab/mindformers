@@ -17,8 +17,8 @@ import copy
 from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
 
-import numpy as np
 from safetensors import safe_open
+import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, mint, Parameter
@@ -98,7 +98,6 @@ class LlamaModel(LlamaPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.rmsnorm_compute_2d = config.rmsnorm_compute_2d
-        self.rl_config = config.rl_config
         self.is_pynative = is_pynative()
 
         if config.moe_config.expert_num > 1:
@@ -250,7 +249,6 @@ class LlamaModel(LlamaPreTrainedModel):
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
-                                         rl_config=self.rl_config,
                                          fused_kernel=config.fused_rms_norm,
                                          init_method_std=config.init_method_std,
                                          chunk_prefill=config.chunk_prefill,
@@ -292,10 +290,7 @@ class LlamaModel(LlamaPreTrainedModel):
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             if self.fine_grain_interleave or config.rmsnorm_compute_2d:
-                if self.rl_config is not None:
-                    self.norm_out.shard((dp * cp * mp, 1))
-                else:
-                    self.norm_out.shard((dp * cp, 1))
+                self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
 
@@ -489,7 +484,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
         self.chunk_prefill = config.chunk_prefill
-        self.rl_config = config.rl_config
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -556,10 +550,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.prefill_gather_flatten.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
             if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
-                if self.rl_config is not None:
-                    self.lm_head.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
-                else:
-                    self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
 
@@ -670,8 +661,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         logits = self.lm_head(output)
         input_mask = loss_mask if has_loss_mask \
             else self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
-        if self.rl_config is not None:
-            return logits
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:

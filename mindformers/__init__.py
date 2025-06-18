@@ -123,7 +123,6 @@ from mindformers.dataset import (
     CodeAlpacaInstructDataHandler,
     CommonDataLoader,
     ContrastiveLanguageImagePretrainDataset,
-    DPODataset,
     Flickr8kDataLoader,
     GeneralDataset,
     ImageCLSDataset,

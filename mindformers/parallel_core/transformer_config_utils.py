@@ -192,7 +192,6 @@ PRETRAIN_CONFIG_KEY = set(PretrainedConfig().to_dict().keys())
 MOE_CONFIG_KEY = set(MoEConfig.keys())
 PARALLEL_CONFIG_KEY = set(ParallelConfig.keys())
 INFER_CONFIG_KEY = set({"mindformers_version",
-                        "rl_config",
                         "checkpoint_name_or_path",
                         "_name_or_path",
                         "tokenizer_class",

@@ -17,8 +17,8 @@ import copy
 from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
 
-import numpy as np
 from safetensors import safe_open
+import numpy as np
 
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
@@ -352,7 +352,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
-        self.rl_config = config.rl_config
         self.is_first_iteration = True
         self.not_equal = P.NotEqual()
         self.add = P.Add()
@@ -424,8 +423,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             hidden_states = self.gather(hidden_states, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         lm_logits = self.transformer.output_layer(hidden_states)
         outputs = (lm_logits,)
-        if self.rl_config is not None:
-            return lm_logits
 
         # train
         if labels is not None:
