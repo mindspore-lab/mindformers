@@ -21,7 +21,6 @@ from typing import Callable, List, Union
 import numpy as np
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
-from mindspore.communication.comm_func import barrier
 
 from mindformers.dataset.blended_datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
 from mindformers.dataset.blended_datasets.gpt_dataset import GPTDataset, GPTDatasetConfig
@@ -303,8 +302,8 @@ class BlendedMegatronDatasetDataLoader:
         if is_compile_runtime():
             # auto make megatron dataset helper
             compile_helpers()
-        if get_real_group_size() > 1 and not check_skip_barrier():  # use multi cards
-            barrier()
+        if get_real_group_size() > 1:
+            skip_barrier_controller()
 
         column_names = cls._default_column_names if column_names is None else column_names
 

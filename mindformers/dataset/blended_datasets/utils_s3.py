@@ -8,7 +8,6 @@ try:
 except ModuleNotFoundError:
     pass
 
-from mindspore.communication.comm_func import barrier
 from mindformers.tools.utils import get_real_group_size, get_real_rank
 from mindformers.version_control import skip_barrier_controller
 
