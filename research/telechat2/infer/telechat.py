@@ -27,12 +27,7 @@ from mindformers.modules import Linear
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
-from mindformers.parallel_core.inference.parallel_state import (
-    get_group_info,
-    initialize_model_parallel,
-    get_data_parallel_group,
-    get_tensor_model_parallel_group,
-)
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.utils import jit
 
 from research.telechat2.infer.telechat_transformers import TelechatParallelTransformer
@@ -71,14 +66,10 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         self.config.out_proj_has_bias = True
         tp_group = get_group_info('tp').group is None
         dp_group = get_group_info('dp').group is None
-        logger.info(f"tp_group is:{tp_group}")
-        logger.info(f"dp_group is:{dp_group}")
         all_groups_initialized = tp_group and dp_group
         if all_groups_initialized and _is_initialized():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
                                       order='tp-dp')
-        logger.info(f"data_parallel_group:{get_data_parallel_group()}")
-        logger.info(f"tensor_model_parallel_group:{get_tensor_model_parallel_group()}")
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
