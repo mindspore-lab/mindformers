@@ -19,8 +19,7 @@ os.environ["OPENMIND_HUB_ENDPOINT"] = "https://openmind.test.osinfra.cn"
 # pylint: disable=C0413
 import pytest
 
-from mindformers import LlamaConfig, MindFormerConfig, Blip2Config, ViTConfig
-from mindformers.models.blip2.qformer_config import QFormerConfig
+from mindformers import LlamaConfig, MindFormerConfig
 from mindformers.models.utils import CONFIG_NAME
 
 RMS_NORM_EPS = 1.0e-6
@@ -78,41 +77,3 @@ class TestLlamaConfig:
         assert os.path.exists(yaml_path)
         mf_config = MindFormerConfig(yaml_path)
         assert mf_config.model.model_config.batch_size == BATCH_SIZE
-
-
-class TestBlip2Config:
-    """A test class for testing blip2 config utils."""
-
-    def setup_method(self):
-        """init test class."""
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.path = self.temp_dir.name
-
-    def test_build_blip2_config_from_yaml(self):
-        """test build blip2 config from yaml."""
-        config = Blip2Config.from_pretrained("configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml")
-        assert isinstance(config, Blip2Config)
-        assert isinstance(config.vision_config, ViTConfig)
-        assert isinstance(config.qformer_config, QFormerConfig)
-        assert isinstance(config.text_config, LlamaConfig)
-
-    def test_build_blip2_config_from_name(self):
-        """test build blip2 config from name."""
-        config = Blip2Config.from_pretrained("blip2_stage2_vit_g_llama_7b")
-        assert isinstance(config, Blip2Config)
-        assert isinstance(config.vision_config, ViTConfig)
-        assert isinstance(config.qformer_config, QFormerConfig)
-        assert isinstance(config.text_config, LlamaConfig)
-
-    def test_blip2_save_pretrained(self):
-        """test blip2 config save pretrained."""
-        config = Blip2Config.from_pretrained("blip2_stage2_vit_g_llama_7b")
-        config.save_pretrained(self.path, save_name="mindspore_model")
-        yaml_path = self.path + "/" + "mindspore_model.yaml"
-        assert os.path.exists(yaml_path)
-        mf_config = MindFormerConfig(yaml_path)
-        assert mf_config.model.arch.type == "Blip2Llm"
-        assert mf_config.model.model_config.type == "Blip2Config"
-        assert mf_config.model.model_config.vision_config.type == "ViTConfig"
-        assert mf_config.model.model_config.text_config.type == "LlamaConfig"
-        assert mf_config.model.model_config.qformer_config.vocab_size == 44728

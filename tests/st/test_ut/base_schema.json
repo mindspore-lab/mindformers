@@ -4745,144 +4745,6 @@
     "mindformers.models.bert.bert_tokenizer_fast.BertTokenizerFast.save_vocabulary": {
         "signature": "(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]"
     },
-    "mindformers.models.blip2.BertLMHeadModel": {
-        "signature": "(config: mindformers.models.blip2.qformer_config.QFormerConfig)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.convert_bert_model_params": {
-        "signature": "(self, bert_model_params: collections.OrderedDict)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.load_bert_model_params": {
-        "signature": "(self, config: mindformers.models.blip2.qformer_config.QFormerConfig, param)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.load_checkpoint": {
-        "signature": "(self, config: mindformers.models.blip2.qformer_config.QFormerConfig)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.get_input_embeddings": {
-        "signature": "(self) -> mindspore.nn.cell.Cell"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.set_input_embeddings": {
-        "signature": "(self, value)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.get_output_embeddings": {
-        "signature": "(self) -> mindspore.nn.cell.Cell"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.set_output_embeddings": {
-        "signature": "(self, value)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.resize_token_embeddings": {
-        "signature": "(self, new_num_tokens: Optional[int] = None) -> mindspore.nn.layer.embedding.Embedding"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.tie_weights": {
-        "signature": "(self)"
-    },
-    "mindformers.models.blip2.BertLMHeadModel.construct": {
-        "signature": "(self, input_ids=None, attention_mask=None, position_ids=None, head_mask=None, query_embeds=None, encoder_hidden_states=None, encoder_attention_mask=None, labels=None, past_key_values=None, use_cache=True, output_attentions=None, output_hidden_states=None, return_dict=None, return_logits=False, is_decoder=True)"
-    },
-    "mindformers.models.blip2.Blip2Classifier": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2Classifier.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor, return_tuple: bool = False)"
-    },
-    "mindformers.models.blip2.Blip2Config": {
-        "signature": "(batch_size: int = 8, freeze_vision: bool = True, freeze_text: bool = True, max_txt_len: int = 32, prompt: bool = False, prompt_length: int = 0, checkpoint_name_or_path: str = None, dtype: str = 'float32', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', vision_config: Union[dict, mindformers.models.vit.vit_config.ViTConfig] = ViTConfig {\n  \"attention_probs_dropout_prob\": 0.0, \n  \"checkpoint_name_or_path\": \"\", \n  \"drop_path_rate\": 0.1, \n  \"encoder_stride\": 16, \n  \"hidden_act\": \"gelu\", \n  \"hidden_dropout_prob\": 0.0, \n  \"hidden_size\": 768, \n  \"image_size\": 224, \n  \"init_values\": null, \n  \"initializer_range\": 0.02, \n  \"intermediate_size\": 3072, \n  \"layer_norm_eps\": 1e-12, \n  \"layernorm_compute_type\": \"float32\", \n  \"loss_type\": \"SoftTargetCrossEntropy\", \n  \"mindformers_version\": \"1.6.0\", \n  \"model_type\": \"vit\", \n  \"num_attention_heads\": 12, \n  \"num_channels\": 3, \n  \"num_classes\": 1000, \n  \"num_hidden_layers\": 12, \n  \"param_init_type\": \"float32\", \n  \"patch_size\": 16, \n  \"post_layernorm_residual\": false, \n  \"qkv_bias\": true, \n  \"softmax_compute_type\": \"float32\", \n  \"use_mean_pooling\": true\n}\n, qformer_config: Union[dict, mindformers.models.blip2.qformer_config.QFormerConfig] = QFormerConfig {\n  \"add_cross_attention\": true, \n  \"assessment_method\": \"\", \n  \"attention_probs_dropout_prob\": 0.1, \n  \"batch_size\": 16, \n  \"bos_token_id\": 30522, \n  \"checkpoint_name_or_path\": \"\", \n  \"chunk_size_feed_forward\": 0, \n  \"compute_dtype\": \"float16\", \n  \"convert_param_from_bert\": false, \n  \"cross_attention_freq\": 2, \n  \"dropout_prob\": 0.1, \n  \"dtype\": \"float32\", \n  \"encoder_width\": 1408, \n  \"head_embed_dim\": 256, \n  \"hidden_act\": \"gelu\", \n  \"hidden_dropout_prob\": 0.1, \n  \"hidden_size\": 768, \n  \"initializer_range\": 0.02, \n  \"intermediate_size\": 3072, \n  \"layer_norm_eps\": 1e-12, \n  \"layernorm_dtype\": \"float32\", \n  \"loss_reduction\": \"mean\", \n  \"max_position_embeddings\": 512, \n  \"mindformers_version\": \"1.6.0\", \n  \"model_type\": \"blip_2_qformer\", \n  \"num_attention_heads\": 12, \n  \"num_hidden_layers\": 12, \n  \"num_labels\": 1, \n  \"output_attentions\": false, \n  \"output_hidden_states\": false, \n  \"pad_token_id\": 0, \n  \"position_embedding_type\": \"absolute\", \n  \"post_layernorm_residual\": true, \n  \"query_length\": 32, \n  \"resize_token_embeddings\": true, \n  \"sep_token_id\": 102, \n  \"seq_length\": 128, \n  \"softmax_dtype\": \"float32\", \n  \"special_token_nums\": 1, \n  \"tie_word_embeddings\": true, \n  \"type_vocab_size\": 2, \n  \"use_one_hot_embeddings\": false, \n  \"use_past\": false, \n  \"use_relative_positions\": false, \n  \"vocab_size\": 30523\n}\n, text_config: Optional[mindformers.models.llama.llama_config.LlamaConfig] = None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, is_training: bool = True, micro_batch_interleave_num=1, use_past=False, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ImageProcessor": {
-        "signature": "(image_size: Optional[int] = 224, interpolation: Optional[str] = 'bicubic', mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711), is_hwc=False, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ImageProcessor.preprocess": {
-        "signature": "(self, images: Union[List[PIL.Image.Image], PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray], **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ImageProcessor._bhwc_check": {
-        "signature": "(self, image_batch: Union[List[PIL.Image.Image], PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray])"
-    },
-    "mindformers.models.blip2.Blip2ImageToTextGeneration": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ImageToTextGeneration.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.Blip2ImageToTextGeneration.generate_text_for_image": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, prompt_input_ids: mindspore.common.tensor.Tensor, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ItmEvaluator": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, blip2_qformer: mindformers.models.blip2.blip2_qformer.Blip2Qformer = None, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2ItmEvaluator.load_checkpoint": {
-        "signature": "(self, config)"
-    },
-    "mindformers.models.blip2.Blip2ItmEvaluator.construct": {
-        "signature": "(self, image_feats, text_feats, vit_outputs=None, text_ids=None, add_extra_itm_score: bool = False)"
-    },
-    "mindformers.models.blip2.Blip2Llm": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2Llm.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.Blip2Llm.forward_qformer_and_proj": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.Blip2Processor": {
-        "signature": "(image_processor, tokenizer, max_length=32, padding='max_length', return_tensors='ms')"
-    },
-    "mindformers.models.blip2.Blip2Qformer": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor, return_tuple: bool = False)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.forward_image": {
-        "signature": "(self, image, use_cache=False)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.forward_text": {
-        "signature": "(self, text_input_ids)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.forward_text_and_image": {
-        "signature": "(self, image_inputs, text_ids, vit_computed=False)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.fill_masked_weight": {
-        "signature": "(self, sim_t2i, sim_i2t, batch_size)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.choose_negative_targets": {
-        "signature": "(self, weights_t2i, weights_i2t, batch_size, image_embeds, text_input_ids)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.compute_itm": {
-        "signature": "(self, image_inputs, text_ids, vit_computed=False)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.get_image_feature": {
-        "signature": "(self, image, output_past_keys=False)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.get_text_feature": {
-        "signature": "(self, input_ids)"
-    },
-    "mindformers.models.blip2.Blip2Qformer.extract_features": {
-        "signature": "(self, samples, mode='multimodal')"
-    },
-    "mindformers.models.blip2.blip2_config.Blip2Config": {
-        "signature": "(batch_size: int = 8, freeze_vision: bool = True, freeze_text: bool = True, max_txt_len: int = 32, prompt: bool = False, prompt_length: int = 0, checkpoint_name_or_path: str = None, dtype: str = 'float32', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', vision_config: Union[dict, mindformers.models.vit.vit_config.ViTConfig] = ViTConfig {\n  \"attention_probs_dropout_prob\": 0.0, \n  \"checkpoint_name_or_path\": \"\", \n  \"drop_path_rate\": 0.1, \n  \"encoder_stride\": 16, \n  \"hidden_act\": \"gelu\", \n  \"hidden_dropout_prob\": 0.0, \n  \"hidden_size\": 768, \n  \"image_size\": 224, \n  \"init_values\": null, \n  \"initializer_range\": 0.02, \n  \"intermediate_size\": 3072, \n  \"layer_norm_eps\": 1e-12, \n  \"layernorm_compute_type\": \"float32\", \n  \"loss_type\": \"SoftTargetCrossEntropy\", \n  \"mindformers_version\": \"1.6.0\", \n  \"model_type\": \"vit\", \n  \"num_attention_heads\": 12, \n  \"num_channels\": 3, \n  \"num_classes\": 1000, \n  \"num_hidden_layers\": 12, \n  \"param_init_type\": \"float32\", \n  \"patch_size\": 16, \n  \"post_layernorm_residual\": false, \n  \"qkv_bias\": true, \n  \"softmax_compute_type\": \"float32\", \n  \"use_mean_pooling\": true\n}\n, qformer_config: Union[dict, mindformers.models.blip2.qformer_config.QFormerConfig] = QFormerConfig {\n  \"add_cross_attention\": true, \n  \"assessment_method\": \"\", \n  \"attention_probs_dropout_prob\": 0.1, \n  \"batch_size\": 16, \n  \"bos_token_id\": 30522, \n  \"checkpoint_name_or_path\": \"\", \n  \"chunk_size_feed_forward\": 0, \n  \"compute_dtype\": \"float16\", \n  \"convert_param_from_bert\": false, \n  \"cross_attention_freq\": 2, \n  \"dropout_prob\": 0.1, \n  \"dtype\": \"float32\", \n  \"encoder_width\": 1408, \n  \"head_embed_dim\": 256, \n  \"hidden_act\": \"gelu\", \n  \"hidden_dropout_prob\": 0.1, \n  \"hidden_size\": 768, \n  \"initializer_range\": 0.02, \n  \"intermediate_size\": 3072, \n  \"layer_norm_eps\": 1e-12, \n  \"layernorm_dtype\": \"float32\", \n  \"loss_reduction\": \"mean\", \n  \"max_position_embeddings\": 512, \n  \"mindformers_version\": \"1.6.0\", \n  \"model_type\": \"blip_2_qformer\", \n  \"num_attention_heads\": 12, \n  \"num_hidden_layers\": 12, \n  \"num_labels\": 1, \n  \"output_attentions\": false, \n  \"output_hidden_states\": false, \n  \"pad_token_id\": 0, \n  \"position_embedding_type\": \"absolute\", \n  \"post_layernorm_residual\": true, \n  \"query_length\": 32, \n  \"resize_token_embeddings\": true, \n  \"sep_token_id\": 102, \n  \"seq_length\": 128, \n  \"softmax_dtype\": \"float32\", \n  \"special_token_nums\": 1, \n  \"tie_word_embeddings\": true, \n  \"type_vocab_size\": 2, \n  \"use_one_hot_embeddings\": false, \n  \"use_past\": false, \n  \"use_relative_positions\": false, \n  \"vocab_size\": 30523\n}\n, text_config: Optional[mindformers.models.llama.llama_config.LlamaConfig] = None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, is_training: bool = True, micro_batch_interleave_num=1, use_past=False, **kwargs)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2ImageToTextGeneration": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2ImageToTextGeneration.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2ImageToTextGeneration.generate_text_for_image": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, prompt_input_ids: mindspore.common.tensor.Tensor, **kwargs)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2Llm": {
-        "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2Llm.construct": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor, text_input_ids: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.blip2_llm.Blip2Llm.forward_qformer_and_proj": {
-        "signature": "(self, image: mindspore.common.tensor.Tensor)"
-    },
-    "mindformers.models.blip2.qformer_config.QFormerConfig": {
-        "signature": "(num_hidden_layers: int = 12, num_attention_heads: int = 12, query_length: int = 32, resize_token_embeddings: bool = True, special_token_nums: int = 1, vocab_size: int = 30523, hidden_size: int = 768, encoder_width: int = 1408, head_embed_dim: int = 256, bos_token_id: int = 30522, sep_token_id: int = 102, pad_token_id: int = 0, max_position_embeddings: int = 512, layer_norm_eps: float = 1e-12, hidden_dropout_prob: float = 0.1, attention_probs_dropout_prob: float = 0.1, chunk_size_feed_forward: int = 0, cross_attention_freq: int = 2, intermediate_size: int = 3072, initializer_range: float = 0.02, hidden_act: str = 'gelu', dtype: str = 'float32', layernorm_dtype: str = 'float32', softmax_dtype: str = 'float32', compute_dtype: str = 'float16', add_cross_attention: bool = True, use_relative_positions: bool = False, tie_word_embeddings: bool = True, output_attentions: bool = False, output_hidden_states: bool = False, convert_param_from_bert: bool = False, parallel_config: str = 'default', moe_config: str = 'default', **kwargs)"
-    },
     "mindformers.models.clip.clip_tokenizer.CLIPTokenizer": {
         "signature": "(vocab_file, eos_token='<|endoftext|>', bos_token='<|startoftext|>', pad_token='<|endoftext|>', unk_token='<|endoftext|>', add_bos_token=True, add_eos_token=True, **kwargs)"
     },
@@ -7187,21 +7049,6 @@
     "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline.postprocess": {
         "signature": "(self, model_outputs, **postprocess_params)"
     },
-    "mindformers.pipeline.image_to_text_generation_pipeline.ImageToTextPipeline": {
-        "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
-    },
-    "mindformers.pipeline.image_to_text_generation_pipeline.ImageToTextPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.image_to_text_generation_pipeline.ImageToTextPipeline.preprocess": {
-        "signature": "(self, inputs: Union[List[Dict[str, str]], List[List[Dict[str, str]]]], **preprocess_params)"
-    },
-    "mindformers.pipeline.image_to_text_generation_pipeline.ImageToTextPipeline._forward": {
-        "signature": "(self, model_inputs: dict, **forward_params)"
-    },
-    "mindformers.pipeline.image_to_text_generation_pipeline.ImageToTextPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
     "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline": {
         "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
     },
@@ -7822,18 +7669,6 @@
     },
     "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.predict": {
         "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, numpy.ndarray, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
-    },
-    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer": {
-        "signature": "(model_name: str = None)"
-    },
-    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.train": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, **kwargs)"
-    },
-    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.evaluate": {
-        "signature": "(self, *args, **kwargs)"
-    },
-    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.predict": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer": {
         "signature": "(model_name: str = None)"

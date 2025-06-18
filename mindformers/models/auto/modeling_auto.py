@@ -39,8 +39,6 @@ MODEL_FOR_PRETRAINING_MAPPING_NAMES = OrderedDict(
         ("bert", "BertForPreTraining"),
         ("glm", "GLMForPreTraining"),
         ("mae", "ViTMAEForPreTraining"),
-        ("blip2-stage1", "Blip2Qformer"),
-        ("blip2-stage2", "Blip2Llm")
     ]
 )
 
@@ -73,13 +71,6 @@ MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         # Model for Image Classification mapping
         ("swin", "SwinForImageClassification"),
         ("vit", "ViTForImageClassification"),
-        ("blip2", "Blip2Classifier")
-    ]
-)
-
-MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = OrderedDict(
-    [
-        ("blip2", "Blip2ImageToTextGeneration"),
     ]
 )
 
@@ -101,12 +92,6 @@ MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = OrderedDict(
     [
         # Model for Question Answering mapping
         ("bert", "BertForQuestionAnswering"),
-    ]
-)
-
-MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING_NAMES = OrderedDict(
-    [
-        ("blip2", "Blip2ForConditionalGeneration"),
     ]
 )
 
@@ -160,10 +145,6 @@ MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
 )
 MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES
-)
-MODEL_FOR_VISION_2_SEQ_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES)
-MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING = _LazyAutoMapping(
-    CONFIG_MAPPING_NAMES, MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING_NAMES
 )
 MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING_NAMES
@@ -257,19 +238,6 @@ class AutoModelForQuestionAnswering(_BaseAutoModelClass):
 AutoModelForQuestionAnswering = auto_class_update(AutoModelForQuestionAnswering, head_doc="question answering")
 
 
-class AutoModelForVisualQuestionAnswering(_BaseAutoModelClass):
-    r"""
-    This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the ``from_pretrained()`` class method.
-    This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
-    """
-    _model_mapping = MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING
-
-
-AutoModelForVisualQuestionAnswering = auto_class_update(AutoModelForVisualQuestionAnswering,
-                                                        head_doc="visual question answering")
-
-
 class AutoModelForTokenClassification(_BaseAutoModelClass):
     _model_mapping = MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING
 
@@ -305,13 +273,6 @@ AutoModelForZeroShotImageClassification = auto_class_update(
     checkpoint_for_example="clip_vit_b_16",
     head_doc="zero-shot image classification"
 )
-
-
-class AutoModelForVision2Seq(_BaseAutoModelClass):
-    _model_mapping = MODEL_FOR_VISION_2_SEQ_MAPPING
-
-
-AutoModelForVision2Seq = auto_class_update(AutoModelForVision2Seq, head_doc="vision-to-text modeling")
 
 
 class AutoModelForMaskedImageModeling(_BaseAutoModelClass):
