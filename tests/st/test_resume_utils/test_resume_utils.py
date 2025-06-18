@@ -51,12 +51,14 @@ def test_get_resume_checkpoint():
     assert resume_ckpt_ is None
 
     last_checkpoint = os.path.join(cur_dir, "rank_0", "test_rank_0-1_2.ckpt")
+    meta_json = os.path.join(cur_dir, "rank_0", "meta.json")
     with open(last_checkpoint, 'w') as file:
         pass
+    if os.path.exists(meta_json):
+        os.remove(meta_json)
     resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "ckpt")
     assert resume_ckpt_ == last_checkpoint
 
-    meta_json = os.path.join(cur_dir, "rank_0", "meta.json")
     with open(meta_json, 'w') as file:
         meta_data = {
             'last_epoch': 1,
