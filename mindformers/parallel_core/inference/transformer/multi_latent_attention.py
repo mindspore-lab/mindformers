@@ -422,12 +422,11 @@ class MLASelfAttention(MultiLatentAttention):
         if self.is_prefill:
             # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
             kv = self.linear_kv_up_proj(kv_compressed)
-            # kv: [num_tokens, n, (qk_head_dim + v_head_dim)]
-            kv = kv.reshape(*kv.shape[:-1], self.kv_num_heads_per_partition,
-                            self.config.qk_head_dim + self.config.v_head_dim)
 
-            # k_no_pe: [num_tokens, n, qk_head_dim], value: [num_tokens, n, v_head_dim]
-            k_no_pe, value = mint.split(kv, [self.config.qk_head_dim, self.config.v_head_dim], dim=-1)
+            # k_no_pe: [num_tokens, n, qk_head_dim * self.kv_num_heads_per_partition],
+            # value: [num_tokens, n, v_head_dim * self.kv_num_heads_per_partition]
+            k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
+                                             self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
             k_no_pe = k_no_pe.reshape(bs, seq_len, self.num_attention_heads_per_partition, self.config.qk_head_dim)
             value_states = value.reshape(bs, seq_len, self.num_attention_heads_per_partition, self.config.v_head_dim)
             # query_states: [num_tokens, n, (qk_head_dim + v_head_dim)]
