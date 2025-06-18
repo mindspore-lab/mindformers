@@ -16,18 +16,24 @@
 PARALLEL=$1
 CONFIG_PATH=$2
 CKPT_PATH=$3
-DEVICE_NUM=$4
+TOKENIZER_PATH=$4
+DEVICE_NUM=$5
+
 script_path="$(realpath "$(dirname "$0")")"
 if [ "$PARALLEL" = "single" ]; then
   python "$script_path"/run_llama2_generate.py \
-    --config_path "$CONFIG_PATH" \
-    --load_checkpoint "$CKPT_PATH"
+    "--config_path=$CONFIG_PATH" \
+    "--load_checkpoint=$CKPT_PATH" \
+    "--model_file=$TOKENIZER_PATH"
 elif [ "$PARALLEL" = "parallel" ]; then
+  PYTHON_CMD="python $script_path/run_llama2_generate.py \
+    --config_path=$CONFIG_PATH \
+    --load_checkpoint=$CKPT_PATH \
+    --model_file=$TOKENIZER_PATH \
+    --use_parallel"
   bash "$script_path"/../../msrun_launcher.sh \
-    "$script_path/run_llama2_generate.py \
-    --config_path $CONFIG_PATH \
-    --load_checkpoint $CKPT_PATH \
-    --use_parallel" "$DEVICE_NUM"
+    "$PYTHON_CMD" \
+    "$DEVICE_NUM"
 else
   echo "Only support 'single' or 'parallel', but got $PARALLEL."
 fi

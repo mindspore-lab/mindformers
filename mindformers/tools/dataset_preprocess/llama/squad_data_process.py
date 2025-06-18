@@ -15,6 +15,7 @@
 """Data process for SQuAD Dataset"""
 import argparse
 import json
+import os
 import collections
 import copy
 import logging
@@ -22,7 +23,7 @@ import pathlib
 
 import numpy as np
 from mindspore.mindrecord import FileWriter
-from mindformers import AutoTokenizer
+from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 
 IGNORE_TOKEN_ID = -100
 
@@ -52,13 +53,19 @@ def main():
     parser.add_argument("--tokenizer_type", type=str, default="llama_7b",
                         help="Tokenizer type, can be set to any tokenizer "
                              "if its relevant model supports prompt text classification. ")
+    parser.add_argument("--model_file", type=str, default="./tokenizer.model", required=False,
+                        help="Tokenizer model file. ")
 
     args = parser.parse_args()
 
     logging.info("***** Reading from input files *****")
     logging.info("Input File: %s", args.input_file)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_type)
+    # Start to load tokenizer model
+    if not os.path.exists(args.model_file):
+        raise FileNotFoundError(f"file {args.model_file} does not exist")
+
+    tokenizer = LlamaTokenizer(vocab_file=args.model_file)
 
     input_file = pathlib.Path(args.input_file)
 
