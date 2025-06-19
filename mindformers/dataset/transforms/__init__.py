@@ -27,6 +27,5 @@ from .vision_transforms import (
     Resize
 )
 from .mixup import Mixup
-from .random_erasing import RandomErasing
 
 __all__ = []
