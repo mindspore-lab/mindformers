@@ -30,10 +30,6 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.experimental.infer.models.llama.utils import convert_model_config
-from mindformers.parallel_core.inference.parallel_state import (
-    get_data_parallel_group,
-    get_tensor_model_parallel_group,
-)
 from mindformers.models.utils import jit
 
 
@@ -59,14 +55,10 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
 
         tp_group = get_group_info('tp').group is None
         dp_group = get_group_info('dp').group is None
-        print("tp_group is:{}".format(tp_group))
-        print("dp_group is:{}".format(dp_group))
         all_groups_initialized = tp_group and dp_group
         if all_groups_initialized and _is_initialized():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
                                       order='tp-dp')
-        print("data_parallel_group:{}".format(get_data_parallel_group()))
-        print("tensor_model_parallel_group:{}".format(get_tensor_model_parallel_group()))
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
