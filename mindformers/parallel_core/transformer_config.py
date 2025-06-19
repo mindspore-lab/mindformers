@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
 
 from mindformers.tools.logger import logger
-from mindformers.parallel_core.model_parallel_config import ModelParallelConfig, convert_str_to_mstype
+from mindformers.parallel_core.mf_model_config import MFModelConfig, convert_str_to_mstype
+from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
 from mindformers.parallel_core.utils.init_method import init_method_normal, scaled_init_method_normal
 
 
 @dataclass
-class TransformerConfig(ModelParallelConfig):
+class TransformerConfig(ModelParallelConfig, MFModelConfig):
     """
     Configuration object for MindSpore Transformer's transformers.
 
@@ -119,119 +120,6 @@ class TransformerConfig(ModelParallelConfig):
     multi_latent_attention: bool = False
     """Whether to use multi-latent attention."""
 
-    # MindFormers New
-    seq_length: int = None
-    """Model Seq Length"""
-
-    is_dynamic: bool = False
-    """Whether model is dynamic shape."""
-
-    pad_token_id: int = 0
-    """Model pad token id."""
-
-    ignore_token_id: int = -100
-    """Model ignore token id when training."""
-
-    compute_dtype: str = "bfloat16"
-    """Linear layer compute dtype."""
-
-    layernorm_compute_dtype: str = "float32"
-    """LayerNorm compute dtype."""
-
-    rotary_dtype: str = "float32"
-    """Custom rotary position embedding compute dtype."""
-
-    vocab_size: int = 128000
-    """Vocabulary size of the model."""
-
-    use_eod_reset: bool = False
-    """Whether to use eod reset."""
-
-    ####################
-    # Flash Attention
-    ####################
-
-    use_flash_attention: bool = True
-    """If true, use flash attention for the attention layer."""
-
-    attention_pre_tokens: int = None
-    """Pre-tokens for flash attention."""
-
-    attention_next_tokens: int = None
-    """Next tokens for flash attention."""
-
-    rotary_seq_len_interpolation_factor: float = None
-    """
-    RoPE scaling used for linear interpolation of longer sequences.
-    This value must be a floating point number greater than 1.0.
-    """
-
-    rope_scaling: bool = False
-    """Whether to use RoPE scaling."""
-
-    input_layout: str = "BNSD"
-    """
-    Specifies the layout of input query, key and value.
-    The value can be "BSH", "BNSD", "SBH", "BSND" or "TND". "TND" is an experimental format.
-    More details, please refer MindSpore API Document: mindspore.ops.flash_attention_score
-    (https://www.mindspore.cn/docs/en/master/api_python/ops/mindspore.ops.flash_attention_score.html)
-    """
-
-    sparse_mode: int = 0
-    """
-    Indicates sparse mode:
-    - 0: Indicates the defaultMask mode. If attn_mask is not passed, the mask operation is not performed,
-        and preTokens and nextTokens(internally assigned as INT_MAX) are ignored. If passed in, the full attn_mask
-        matrix (S1 * S2) needs to be passed in, indicating that the part between preTokens and nextTokens needs to
-        be calculated.
-    - 1: Represents allMask, that is, passing in the complete attn_mask matrix.
-    - 2: Representing the leftUpCausal mode corresponds to the lower triangle scenario divided by the left
-        vertex, and the optimized attn_mask matrix (2048*2048) is required.
-    - 3: Representing the rightDownCausal model corresponds to the lower triangle scene divided by the lower
-        right vertex, and the optimized attn_mask matrix (2048*2048) is required.
-    - 4: Represents the band scenario, that is, the part between counting preTokens and nextTokens, and the
-        optimized attn_mask matrix (2048*2048) is required..
-    - 5: Represents the prefix scenario, that is, on the basis of rightDownCasual, a matrix with length S1 and
-        width N is added to the left side. The value of N is obtained by the new input prefix, and the N value of
-        each Batch axis is different. Not implemented yet.
-    - 6: Represents the global scenario, not implemented yet.
-    - 7: Represents the dilated scenario, not implemented yet.
-    - 8: Represents the block_local scenario, not implemented yet.
-    """
-
-    use_alibi_mask: bool = False
-    """The value is True if alibi_mask is passed."""
-
-    use_attn_mask_compression: bool = False
-    """If true, use attention mask compression for the attention layer."""
-
-    use_eod_attn_mask_compression: bool = False
-    """If true, use end of sequence attention mask compression for the attention layer."""
-
-    use_attention_mask: bool = True
-    """If true, use attention mask for the attention layer."""
-
-    use_ring_attention: bool = False
-    """If true, use ring attention for the attention layer."""
-
-    fp16_lm_cross_entropy: bool = False
-    """If true, use fp16 for cross entropy loss calculation."""
-
-    untie_embeddings_and_output_weights: bool = True
-    """If true, untie the embeddings and output weights."""
-
-    hidden_act: str = "gelu"
-    """Activation function to use for the non-linearity in the MLP."""
-
-    mask_func_type: str = "attn_mask_fill"
-    """Mask function type to use for the attention layer."""
-
-    position_embedding_type: str = "rope"
-    """Position embedding type to use for the attention layer."""
-
-    use_fused_ops_permute: bool = False
-    """If True, use fused ops for permutation."""
-
     ####################
     # Initialization
     ####################
@@ -311,13 +199,10 @@ class TransformerConfig(ModelParallelConfig):
     apply_rope_fusion: bool = False
     """If True, use fused RoPE kernel."""
 
-    # MindFormers New
-    bias_swiglu_fusion: bool = False
-    """If True, use fused swiglu kernel."""
-
     ####################
     # Recompute
     ####################
+
     recompute: Optional[Union[bool, list, tuple]] = False
     """Whether enable recompute. Default: False."""
 
@@ -452,10 +337,10 @@ class TransformerConfig(ModelParallelConfig):
     """
 
     aux_loss_types: list = None
-    """list of auxiliary loss types"""
+    """List of auxiliary loss types."""
 
     aux_loss_factors: list = None
-    """list of auxiliary loss factors"""
+    """List of auxiliary loss factors."""
 
     moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
     """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
@@ -507,51 +392,8 @@ class TransformerConfig(ModelParallelConfig):
     """Apply probs on input of experts instead of applying after activation and glu."""
 
     # MindFormers New
-    comp_comm_parallel: bool = False
-    """
-    Whether to enable ffn compute and communication parallel,
-    which can reduce pure communicattion time by splitting and overlapping compute and communication.
-    """
-
-    comp_comm_parallel_degree: int = 2
-    """
-    The split number of compute and communication.
-    The larger the numbers,the more overlap there will be but will consume more memory.
-    This parameter is effective only when comp_comm_parallel enable.
-    """
-
-    norm_topk_prob: bool = True
-    """If True, use top-k probability for normalization."""
-
-    use_fused_ops_topkrouter: bool = False
-    """If True, use fused ops for top-k routing."""
-
     shared_expert_num: int = 0
     """Number of shared experts."""
-
-    use_shared_expert_gating: bool = False
-    """If True, use shared expert gating."""
-
-    topk_method: str = "greedy"
-    """Method to use for top-k routing."""
-
-    enable_deredundency: bool = False
-    """This parameter is used for inter-machine communication masking and performance optimization features."""
-
-    npu_nums_per_device: int = 1
-    """Set NPU ranks for each device."""
-
-    use_pad_tokens: bool = False
-    """If True, gmm pads an additional protection token to avoid 0-token calculation."""
-
-    callback_moe_droprate: bool = False
-    """Whether to print each expert's load information through callback."""
-
-    moe_init_method_std: float = 0.01
-    """Standard deviation of the zero mean normal for the MoE initialization method."""
-
-    use_pad_tokens: bool = False
-    """If True, use pad_tokens."""
 
     ##################
     # Context Parallel
@@ -576,46 +418,6 @@ class TransformerConfig(ModelParallelConfig):
 
     It uses A2A communications in low-level CP groups, and P2P communications in high-level CP groups.
     """
-
-    # MindFormers New
-    context_parallel_algo: str = "colossalai_cp"
-    """
-    Algorithm to use for context parallelism.
-    Can be "colossalai_cp", "ulysses_cp" or "hybrid_cp".
-    Only effective when context_parallel > 1
-    """
-
-    pet_config: dict = None
-
-    ##################
-    # Inference Param
-    ##################
-    max_position_embeddings: int = 4096
-    """Maximum sequence length that the model can handle."""
-
-    sandwich_norm: bool = False
-    """Whether to apply `normalization` type of normalization to the transformer layer."""
-
-    rotary_base: float = 10000.0
-    """Rotary base for the rotary embeddings."""
-
-    tie_word_embeddings: bool = False
-    """Whether to share the input and output embedding weights."""
-
-    block_size: int = 16
-    """Size of each memory block used in PagedAttention."""
-
-    num_blocks: int = 512
-    """Size of each memory block used in PagedAttention."""
-
-    parallel_decoding_params: dict = None
-    """Parameters used when hardware decoding."""
-
-    softmax_compute_dtype: str = 'float32'
-    """Data type for computing softmax during attention computation."""
-
-    pad_token_id: int = 0
-    """The id of padding token."""
 
     def __post_init__(self):
         """
@@ -796,6 +598,14 @@ class TransformerConfig(ModelParallelConfig):
                 "Using a large number of experts (e.g. >=32) without fp32 routing. "
                 "Consider enabling moe_router_dtype for better numerical stability."
             )
+
+        if self.first_k_dense_replace:
+            if self.moe_layer_freq > 1:
+                raise ValueError("Configuration conflict: 'first_k_dense_replace' cannot be "
+                                 "used together with 'moe_layer_freq > 1'.")
+            if self.first_k_dense_replace > self.num_layers:
+                raise ValueError(f"'first_k_dense_replace'({self.first_k_dense_replace}) cannot be bigger "
+                                 f"than 'num_layers'({self.num_layers}).")
 
 
 @dataclass

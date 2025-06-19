@@ -16,11 +16,12 @@
 
 from copy import deepcopy
 from typing import Union
+import types
 
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 from mindformers.tools.logger import logger
-from mindformers.tools.register.template import ParallelConfig, MoEConfig
+from mindformers.tools.register.template import ParallelConfig
 
 
 def is_float_32(dtype: Union[str, bool]) -> bool:
@@ -43,22 +44,6 @@ def is_float_32(dtype: Union[str, bool]) -> bool:
                         f"bot got '{type(dtype)}'.")
 
     return is_fp32
-
-
-def get_moe_layer_freq(value: int) -> dict:
-    """
-    This method to check parameter types of 'first_k_dense_replace'.
-
-    Args:
-        value (int): The value of 'first_k_dense_replace'. Currently only supports 'int'.
-
-    Returns:
-        The value of 'first_k_dense_replace'. If the type is 'int'.
-    """
-    if not isinstance(value, int):
-        raise ValueError(f"The type of key 'first_k_dense_replace' is 'int', but got '{type(value)}'.")
-
-    return value
 
 
 def is_use_gated_sigmoid(used_gated_sigmoid: bool) -> str:
@@ -189,36 +174,28 @@ def get_reversed_mapping(mapping):
 
 DEFAULT_WHITE_KEY = set()
 PRETRAIN_CONFIG_KEY = set(PretrainedConfig().to_dict().keys())
-MOE_CONFIG_KEY = set(MoEConfig.keys())
 PARALLEL_CONFIG_KEY = set(ParallelConfig.keys())
-INFER_CONFIG_KEY = set({"mindformers_version",
-                        "checkpoint_name_or_path",
-                        "_name_or_path",
-                        "tokenizer_class",
-                        "architectures",
-                        "is_encoder_decoder",
-                        "is_sample_acceleration",
-                        "type",
-                        "model_type",
-                        "bos_token_id",
-                        "eos_token_id",
-                        "temperature",
-                        "repetition_penalty",
-                        "max_decode_length",
-                        "top_k",
-                        "top_p",
-                        "do_sample",
-                        "post_process"})
+INFER_CONFIG_KEY = set({
+    "mindformers_version", "rl_config", "checkpoint_name_or_path", "_name_or_path", "type", "model_type",
+    "tokenizer_class", "architectures", "is_encoder_decoder", "is_sample_acceleration", "bos_token_id", "eos_token_id",
+    "temperature", "repetition_penalty", "max_decode_length", "top_k", "top_p", "do_sample", "post_process"
+})
 DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
-DEFAULT_WHITE_KEY.update(MOE_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(INFER_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update({
     'monitor_config', 'dataset_config', 'batch_size', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
-    'scaling_factor', 'input_sliced_sig', 'return_extra_loss'
+    'scaling_factor', 'input_sliced_sig', 'return_extra_loss', 'moe_config'
 })
 
 COMMON_CONFIG_MAPPING = {
+    #####################################################################################
+    # Maps the configuration keys on the left to the TransformerConfig keys on the right.
+    #
+    # If the format on the right of mapping value is similar to '("Key", trans_func)',
+    # then the corresponding value to be converted is obtained through `trans_func`.
+    #####################################################################################
+
     # ModelParallelConfig
     # Model parallelism
     ("data_parallel", "data_parallel_size"): "data_parallel_size",
@@ -254,18 +231,20 @@ COMMON_CONFIG_MAPPING = {
 
     # TransformerConfig
     # Model Architecture
-    ("mtp_depth", "mtp_num_layers"): "mtp_num_layers",
+    ("mtp_depth", "num_nextn_predict_layers", "mtp_num_layers"): "mtp_num_layers",
     ("mtp_loss_factor", "mtp_loss_scaling_factor"): "mtp_loss_scaling_factor",
     ("num_heads", "num_attention_heads"): "num_attention_heads",
-    ("n_kv_heads", "num_query_groups", "num_key_value_heads"): "num_query_groups",
+    ("n_kv_heads", "num_key_value_heads", "num_query_groups"): "num_query_groups",
     ("intermediate_size", "ffn_hidden_size"): "ffn_hidden_size",
     ("head_dim", "kv_channels"): "kv_channels",
-    ("residual_dtype", "fp32_residual_connection"): ("fp32_residual_connection", is_float_32),
+    ("residual_dtype", "fp32_residual_connection"): (
+        "fp32_residual_connection", is_float_32
+    ),
     ("rms_norm_eps", "layernorm_epsilon"): "layernorm_epsilon",
-    ("qkv_has_bias", "add_qkv_bias"): "add_qkv_bias",
-    ("expert_num", "num_moe_experts", "num_experts"): "num_moe_experts",
-    # not changes
+    ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
+    ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
     ("num_layers", "num_hidden_layers"): "num_layers",
+    # not changes
     "hidden_size": "hidden_size",
     "softmax_scale": "softmax_scale",
     "hidden_dropout": "hidden_dropout",
@@ -308,16 +287,18 @@ COMMON_CONFIG_MAPPING = {
     "hidden_act": "hidden_act",
     "mask_func_type": "mask_func_type",
     "position_embedding_type": "position_embedding_type",
+    ("init_method_std", "initializer_range"): "init_method_std",
 
     # Initialization
     # not changes
     "init_method": "init_method",
     "output_layer_init_method": "output_layer_init_method",
-    "init_method_std": "init_method_std",
     "init_model_with_meta_device": "init_model_with_meta_device",
 
     # Mixed-Precision
-    ("softmax_compute_dtype", "attention_softmax_in_fp32"): ("attention_softmax_in_fp32", is_float_32),
+    ("softmax_compute_dtype", "attention_softmax_in_fp32"): (
+        "attention_softmax_in_fp32", is_float_32
+    ),
     # not changes
     "apply_query_key_layer_scaling": "apply_query_key_layer_scaling",
     "disable_bf16_reduced_precision_matmul": "disable_bf16_reduced_precision_matmul",
@@ -333,7 +314,9 @@ COMMON_CONFIG_MAPPING = {
     "bias_dropout_fusion": "bias_dropout_fusion",
 
     # Recompute
-    "recompute": ("recompute", get_recompute),
+    "recompute": (
+        "recompute", get_recompute
+    ),
     # not changes
     "select_recompute": "select_recompute",
     "parallel_optimizer_comm_recompute": "parallel_optimizer_comm_recompute",
@@ -345,12 +328,13 @@ COMMON_CONFIG_MAPPING = {
 
     # Moe
     ("moe_intermediate_size", "moe_ffn_hidden_size"): "moe_ffn_hidden_size",
-    ("first_k_dense_replace", "get_moe_layer_freq"): ("moe_layer_freq", get_moe_layer_freq),
-    ("num_experts_chosen", "moe_router_topk", "num_experts_per_tok"): "moe_router_topk",
+    ("num_experts_chosen", "num_experts_per_tok", "moe_router_topk"): "moe_router_topk",
     ("n_group", "moe_router_num_groups"): "moe_router_num_groups",
     ("topk_group", "moe_router_group_topk"): "moe_router_group_topk",
     ("routed_scaling_factor", "moe_router_topk_scaling_factor"): "moe_router_topk_scaling_factor",
-    ("use_gating_sigmoid", "moe_router_score_function"): ("moe_router_score_function", is_use_gated_sigmoid),
+    ("use_gating_sigmoid", "scoring_func", "moe_router_score_function"): (
+        "moe_router_score_function", is_use_gated_sigmoid
+    ),
     ("router_dense_type", "moe_router_dtype"): "moe_router_dtype",
     ("balance_via_topk_bias", "moe_router_enable_expert_bias"): "moe_router_enable_expert_bias",
     ("topk_bias_update_rate", "moe_router_bias_update_rate"): "moe_router_bias_update_rate",
@@ -360,10 +344,10 @@ COMMON_CONFIG_MAPPING = {
     ("enable_sdrop", "moe_token_drop_policy"): "moe_token_drop_policy",
     ("enable_gmm_safe_tokens", "use_pad_tokens"): "use_pad_tokens",
     "moe_shared_expert_intermediate_size": "moe_shared_expert_intermediate_size",
-    "n_shared_experts": "shared_expert_num",
-    "n_routed_experts": "num_moe_experts",
+    ("n_shared_experts", "shared_expert_num"): "shared_expert_num",
     # not changes
     "moe_layer_freq": "moe_layer_freq",
+    "first_k_dense_replace": "first_k_dense_replace",
     "moe_shared_expert_overlap": "moe_shared_expert_overlap",
     "moe_router_load_balancing_type": "moe_router_load_balancing_type",
     "moe_router_pre_softmax": "moe_router_pre_softmax",
@@ -381,7 +365,6 @@ COMMON_CONFIG_MAPPING = {
     "comp_comm_parallel_degree": "comp_comm_parallel_degree",
     "norm_topk_prob": "norm_topk_prob",
     "use_fused_ops_topkrouter": "use_fused_ops_topkrouter",
-    "shared_expert_num": "shared_expert_num",
     "use_shared_expert_gating": "use_shared_expert_gating",
     "topk_method": "topk_method",
     "enable_deredundency": "enable_deredundency",
@@ -398,8 +381,8 @@ COMMON_CONFIG_MAPPING = {
     # MLATransformerConfig
     ("qk_nope_head_dim", "qk_head_dim"): "qk_head_dim",
     ("qk_rope_head_dim", "qk_pos_emb_head_dim"): "qk_pos_emb_head_dim",
-    ("theta", "rotary_base", "rope_theta"): "rotary_base",
-    ("scaling_factor", "rotary_scaling_factor", "factor"): "rotary_scaling_factor",
+    ("theta", "rope_theta", "rotary_base"): "rotary_base",
+    ("scaling_factor", "factor", "rotary_scaling_factor"): "rotary_scaling_factor",
     ("max_position_embeddings", "original_max_position_embeddings"): "max_position_embeddings",
     # not changes
     "q_lora_rank": "q_lora_rank",
@@ -419,6 +402,7 @@ COMMON_CONFIG_MAPPING = {
     "block_size": "block_size",
     "num_blocks": "num_blocks",
     "parallel_decoding_params": "parallel_decoding_params",
+    "sandwich_norm": "sandwich_norm",
 
     # Pet
     "pet_config": "pet_config"
@@ -444,6 +428,7 @@ def convert_to_transformer_config(
     Returns:
         An instance of TransformerConfig. If it is an MLA model, then returns an instance of MLATransformerConfig.
     """
+    # Check whether the type of `model_config` is legal
     if model_config is None or not isinstance(model_config, (dict, PretrainedConfig)):
         raise ValueError(f"The ModelConfig should be an instance of 'PretrainedConfig' or 'dict', "
                          f"but got '{type(model_config)}'.")
@@ -451,19 +436,21 @@ def convert_to_transformer_config(
     if isinstance(model_config, PretrainedConfig):
         model_config = model_config.to_dict()
 
-    # Get the convert_map and reversed_map
+    # Get the `convert_map` and `reversed_map`
     convert_map = deepcopy(COMMON_CONFIG_MAPPING)
     convert_map = scatter_multi_mapping_keys_to_mapping(convert_map)
     convert_map = update_addtional_map_to_mapping(convert_map, additional_map)
     reversed_mapping = get_reversed_mapping(convert_map)
 
+    # Get the `not_convert_whitelist`
     if not_convert_whitelist is None:
         not_convert_whitelist = set()
     not_convert_whitelist.update(DEFAULT_WHITE_KEY)
     logger.info(f"These Keys of this model will do not need to be mapped: {not_convert_whitelist}")
 
-    # Convert Config Keys
+    # Record the new Config after conversion
     update_dict = {}
+    # Record the keys of `model_config` outside the mapping rules in conversion
     not_convert_keys_list = []
 
     def mapping_config(key, value):
@@ -474,18 +461,15 @@ def convert_to_transformer_config(
             value = trans_func(value)
         if mapping_key in update_dict.keys():
             raise KeyError(f"Multiple configurations provided for the same setting. "
-                           f"Please check these conflicting configs: {reversed_mapping[mapping_key]}")
+                           f"Please check these conflicting configs: {list(reversed_mapping[mapping_key])}")
         update_dict[mapping_key] = value
 
+    # Start converting parameters
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
             continue
 
-        if model_config_key == 'moe_config':
-            for moe_key, moe_value in model_config['moe_config'].items():
-                if moe_key in convert_map.keys():
-                    mapping_config(moe_key, moe_value)
-        elif model_config_key == 'parallel_config':
+        if model_config_key == 'parallel_config':
             for parallel_key, parallel_value in model_config['parallel_config'].items():
                 if parallel_key in convert_map.keys():
                     mapping_config(parallel_key, parallel_value)
@@ -494,6 +478,7 @@ def convert_to_transformer_config(
         else:
             not_convert_keys_list.append(model_config_key)
 
+    # If there are any unconverted key values, print them out to inform the user to check the configuration
     if not_convert_keys_list:
         raise ValueError(f"Keys: {not_convert_keys_list} dose not be converted! "
                          f"Please check your config parameters.")

@@ -51,7 +51,7 @@ from mindformers.parallel_core.transformer_config_utils import convert_to_transf
 from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 
-from .deepseek3_config import DeepseekV3Config
+from .configuration_deepseek_v3 import DeepseekV3Config
 
 
 def get_spec(config: MLATransformerConfig):
