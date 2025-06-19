@@ -40,9 +40,17 @@ DEPRECATED_CLASS_LIST = [
 ]
 
 
-def special_case_process(api_str, signature):
+def special_case_process(api_str, signature, obj):
+    """process special cases"""
     if "MindFormerRegister._add_class_name_prefix" in api_str:
         signature = signature.replace("module_type, ", "")
+    if re.search("AdamW$", api_str) and "experimental" not in api_str:
+        signature = inspect.getsource(obj.__init__)
+        signature = re.sub("\n", "", signature)
+        signature = re.sub("self,", "", signature)
+        signature = re.sub(" +", " ", signature)
+        signature = re.findall(r"\(.*\)", signature)[0]
+        signature = f"({signature[1:-1].strip()})"
     return signature
 
 
@@ -129,7 +137,6 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
     if inspect.isclass(obj):
         signature_list = [
             str(inspect.signature(obj.__init__)), str(inspect.signature(obj.__new__)), str(inspect.signature(obj))
-
         ]
         if re.search(r"^\(self,? *", signature_list[0]):
             signature_list[0] = re.sub(r"^\(self,? *", r"(", signature_list[0])
@@ -159,7 +166,7 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
     else:
         signature = str(inspect.signature(obj))
 
-    signature = special_case_process(api_str=api_str, signature=signature)
+    signature = special_case_process(api_str=api_str, signature=signature, obj=obj)
     if re.search("Any = <module 'pickle' from .+.py'>", signature):
         signature = re.sub("Any = <module 'pickle' from .+\\.py'>", "Any = <module 'pickle'>", signature)
     if re.search(" at 0x[\\da-zA-Z]+>", signature):
@@ -252,7 +259,7 @@ class TestApiStability:
         self.content = {}
         self.failure_list = []
 
-    # @pytest.mark.level0
+    @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_modules(self):
@@ -316,3 +323,5 @@ class TestApiStability:
         else:
             with open(self.api_json_path, "w", encoding="utf-8") as w:
                 w.write(json.dumps(self.content, ensure_ascii=False, indent=4))
+
+        assert not self.is_update, f"self.is_update should be set to False"
