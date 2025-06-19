@@ -31,12 +31,15 @@ IGNORE_TOKEN_ID = -100
 
 
 def process_message(message):
+    """Preprocesses the message for supervised fine-tuning."""
     if 'tools' in message and message['role'] == 'system':
         for tool in message['tools']:
             parameters = tool['function']['parameters']['properties']
-            tool['function']['parameters']['properties'] = \
-                {k: v for k, v in parameters.items()
-                 if v is not None}
+            tool['function']['parameters']['properties'] = {
+                k: v
+                for k, v in parameters.items()
+                if v is not None
+            }
     elif 'tools' in message:
         del message['tools']
     return message
