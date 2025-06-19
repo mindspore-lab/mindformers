@@ -20,8 +20,6 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication._comm_helper import _is_initialized
 
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear
-from mindformers.experimental.infer.models.llama.utils import convert_model_config
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.logger import logger
@@ -30,6 +28,8 @@ from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.utils import jit
 
+from research.telechat2.infer.utils import convert_model_config
+from research.telechat2.infer.layers import ColumnParallelLinear
 from research.telechat2.infer.telechat_transformers import TelechatParallelTransformer
 from research.telechat2.telechat_config import TelechatConfig
 

@@ -19,15 +19,14 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import nn, ops, mint, Tensor
 
-from mindformers.experimental.parallel_core.pynative.utils import divide
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.infer.core.transformer import \
-    ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
-from mindformers.parallel_core.inference.utils import get_tp_world_size
+from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
-from research.deepseek3.moe import ParallelMoE, RoutedParallelMLP
+from research.telechat2.infer.moe import ParallelMoE, RoutedParallelMLP
+from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear
+from research.telechat2.infer.transformer import \
+    ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
 
 
 class TelechatParallelMoE(ParallelMoE):
