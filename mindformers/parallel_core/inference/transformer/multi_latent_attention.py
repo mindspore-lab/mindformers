@@ -104,7 +104,7 @@ class MultiLatentAttention(Attention):
         self.compute_dtype = self.config.compute_dtype
         self.cast = P.Cast()
         self.depend = P.Depend()
-        self.dim_slice_4d = P.Slice()
+        self.dim_slice_3d = P.Slice()
 
         self.gather_from_mp_region = GatherFromModelParallelRegion()
 
@@ -116,7 +116,7 @@ class MultiLatentAttention(Attention):
                 self.config.qk_pos_emb_head_dim,
                 rotary_percent=self.config.rotary_percent,
                 rotary_base=self.config.rotary_base,
-                rotary_cos_format=2,
+                rotary_cos_format=2
             )
         elif self.config.rope_type == "yarn":
             self.rotary_pos_emb = YaRNScalingRotaryEmbedding(
@@ -128,7 +128,7 @@ class MultiLatentAttention(Attention):
                 beta_slow=self.config.beta_slow,
                 mscale=self.config.mscale,
                 mscale_all_dim=self.config.mscale_all_dim,
-                rotary_cos_format=2,
+                rotary_cos_format=2
             )
         else:
             raise ValueError(
@@ -204,7 +204,6 @@ class MultiLatentAttention(Attention):
         # ==================================
         # core attention computation
         # ==================================
-        bs, seq_len, _ = query.shape
         if self.is_prefill:
             core_attn_out = self.core_attention(
                 query, key, value, slot_mapping, block_tables, batch_valid_length,
@@ -212,17 +211,9 @@ class MultiLatentAttention(Attention):
                 actual_seq_kvlen=actual_seq_kvlen, attn_mask=attention_mask,
                 key_cache=key_cache, value_cache=value_cache)
 
-            core_attn_out = core_attn_out.reshape(bs, seq_len, self.num_attention_heads_per_partition, self.q_head_dim)
-            core_attn_out = self.dim_slice_4d(core_attn_out, (0, 0, 0, 0),
-                                              (bs, seq_len, self.num_attention_heads_per_partition,
-                                               self.config.v_head_dim))
-            core_attn_out = core_attn_out.reshape(bs, seq_len,
-                                                  self.num_attention_heads_per_partition * self.config.v_head_dim)
-
-            # ==================================
-            # apply output projection. [b, s, h]
-            # ==================================
-            output = self.linear_proj(core_attn_out)
+            core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.q_head_dim)
+            core_attn_out = self.dim_slice_3d(core_attn_out, (0, 0, 0),
+                                              (-1, self.num_attention_heads_per_partition, self.config.v_head_dim))
         else:
             core_attn_out = self.core_attention(
                 query, key, value, slot_mapping, block_tables, batch_valid_length,
@@ -230,17 +221,16 @@ class MultiLatentAttention(Attention):
                 actual_seq_kvlen=actual_seq_kvlen, attn_mask=attention_mask,
                 key_cache=key_cache, value_cache=value_cache)
 
-            core_attn_out = core_attn_out.reshape(bs, seq_len, self.num_attention_heads_per_partition, -1)
+            core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
             core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
                                         mint.transpose(out_absorb, -2, -1))
             core_attn_out = mint.transpose(core_attn_out, -3, -2)
-            core_attn_out = core_attn_out.reshape(bs, seq_len,
-                                                  self.num_attention_heads_per_partition * self.config.v_head_dim)
 
-            # ==================================
-            # apply output projection. [b, s, h]
-            # ==================================
-            output = self.linear_proj(core_attn_out)
+        core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
+        # ==================================
+        # apply output projection. [t, h]
+        # ==================================
+        output = self.linear_proj(core_attn_out)
 
         return output
 
@@ -357,9 +347,6 @@ class MLASelfAttention(MultiLatentAttention):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
-
-        bs, seq_len, _ = hidden_states.shape
-
         # =========================================
         # QKV down projection and layernorm
         # =========================================
@@ -380,23 +367,13 @@ class MLASelfAttention(MultiLatentAttention):
 
         else:
             q_compressed = hidden_states
-            # if linear_kv_down_proj is ColumnParallelLinear:
-            #     kv_combined: [s, b, (kv_lora_rank + qk_pos_emb_head_dim) / TP]
-            # elif linear_kv_down_proj is ReplicatedLinear:
-            #     kv_combined: [s / TP, b, (kv_lora_rank + qk_pos_emb_head_dim)]
             kv_combined = self.linear_kv_down_proj(hidden_states)
             if kv_combined.shape[-1] != self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim:
                 # kv_combined: [s, b, (kv_lora_rank + qk_pos_emb_head_dim)]
                 kv_combined = self.gather_from_mp_region(kv_combined)
-                # kv_compressed: [s, b, kv_lora_rank], k_pos_emb: [s, b, qk_pos_emb_head_dim]
-                kv_compressed, k_pos_emb = mint.split(
-                    kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
-                )
-            else:
-                # kv_compressed: [s / TP, b, kv_lora_rank], k_pos_emb: [s / TP, b, qk_pos_emb_head_dim]
-                kv_compressed, k_pos_emb = mint.split(
-                    kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
-                )
+            kv_compressed, k_pos_emb = mint.split(
+                kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
+            )
             # q: [num_tokens, n * (qk_head_dim + qk_pos_emb_head_dim)]
             q = self.linear_q_proj(q_compressed)
 
@@ -404,20 +381,18 @@ class MLASelfAttention(MultiLatentAttention):
         q = q.reshape(*q.shape[:-1], self.num_attention_heads_per_partition, self.q_head_dim)
         # q_no_pe: [num_tokens, n, qk_head_dim], q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]
         q_no_pe, q_pos_emb = mint.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
+        # kv_compressed: [num_tokens, kv_lora_rank]
         kv_compressed = self.kv_layernorm(kv_compressed)
 
-        # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
-        k_pos_emb = mint.unsqueeze(k_pos_emb, -2)
+        # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
+        q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition * self.config.qk_pos_emb_head_dim)
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
             q_pos_emb, k_pos_emb = self.rotary_pos_emb(q_pos_emb, k_pos_emb,
                                                        rotary_pos_cos, rotary_pos_sin,
                                                        batch_valid_length)
-        q_pos_emb = q_pos_emb.reshape(bs, seq_len,
-                                      self.num_attention_heads_per_partition, self.config.qk_pos_emb_head_dim)
-        k_pos_emb = k_pos_emb.reshape(bs, seq_len, 1, self.config.qk_pos_emb_head_dim)
-
-        key_states_cache = mint.cat((kv_compressed,
-                                     k_pos_emb.reshape(bs, seq_len, self.config.qk_pos_emb_head_dim)), dim=-1)
+        # q_pos_emb: [num_tokens, n * qk_pos_emb_head_dim] -> [num_tokens, n, qk_pos_emb_head_dim]
+        q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition, self.config.qk_pos_emb_head_dim)
+        key_states_cache = mint.cat((kv_compressed, k_pos_emb), dim=-1)
         key_out = self.core_attention.reshape_and_cache(key_states_cache, None, key_cache, None, slot_mapping)
         q_no_pe = self.depend(q_no_pe, key_out)
 
@@ -425,31 +400,28 @@ class MLASelfAttention(MultiLatentAttention):
             # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
             kv = self.linear_kv_up_proj(kv_compressed)
 
-            # k_no_pe: [num_tokens, n, qk_head_dim * self.kv_num_heads_per_partition],
-            # value: [num_tokens, n, v_head_dim * self.kv_num_heads_per_partition]
+            # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
+            # value: [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
             k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
                                              self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
-            k_no_pe = k_no_pe.reshape(bs, seq_len, self.num_attention_heads_per_partition, self.config.qk_head_dim)
-            value_states = value.reshape(bs, seq_len, self.num_attention_heads_per_partition, self.config.v_head_dim)
+            k_no_pe = k_no_pe.reshape(-1, self.kv_num_heads_per_partition, self.config.qk_head_dim)
+
+            # value_states: [num_tokens, n, v_head_dim]
+            value_states = value.reshape(-1, self.kv_num_heads_per_partition, self.config.v_head_dim)
             # query_states: [num_tokens, n, (qk_head_dim + v_head_dim)]
             query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
 
+            # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
+            k_pos_emb = mint.unsqueeze(k_pos_emb, -2)
             # k_pos_emb: [num_tokens, n, (qk_head_dim + v_head_dim)]
-            if k_pos_emb.ndim == 4:
-                k_pos_emb = mint.tile(k_pos_emb, (1, 1, self.kv_num_heads_per_partition, 1))
-            elif k_pos_emb.ndim == 3:
-                k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
-            else:
-                raise RuntimeError(
-                    f"k_pos_emb's dim must be 3 or 4, but got {k_pos_emb.ndim}."
-                )
+            k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
 
             key_states = mint.cat((k_no_pe, k_pos_emb), dim=-1)
             value_states = mint.cat((value_states, k_pos_emb), dim=-1)
 
-            query = query_states.reshape(bs, seq_len, -1)
-            key = key_states.reshape(bs, seq_len, -1)
-            value = value_states.reshape(bs, seq_len, -1)
+            query = query_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
+            key = key_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
+            value = value_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
 
             return query, key, value, None
 
@@ -463,6 +435,8 @@ class MLASelfAttention(MultiLatentAttention):
 
         q_no_pe = mint.transpose(mint.matmul(mint.transpose(q_no_pe, -3, -2), q_absorb), -3, -2)
         query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
-        query = query_states.reshape(bs, seq_len, -1)
-        key = key_states_cache
-        return query, key, key, out_absorb
+        query = query_states.reshape(-1,
+                                     self.num_attention_heads_per_partition *
+                                     (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
+
+        return query, None, None, out_absorb
