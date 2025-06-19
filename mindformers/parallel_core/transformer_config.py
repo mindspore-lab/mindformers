@@ -584,11 +584,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     f"moe_router_num_groups ({self.moe_router_num_groups})."
                 )
 
-        assert (
-            self.pipeline_model_parallel_size > 0
-        ), f"Pipeline model parallel size must be larger than 0 \
-            when enable --standalone-embedding-stage and --standalone-loss-stage"
-
         if (
                 self.num_moe_experts is not None
                 and self.num_moe_experts >= 32

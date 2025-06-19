@@ -87,6 +87,8 @@ class LanguageModelEmbedding(nn.Cell):
                 config=config,
                 # perform_initialization=True in Megatron by default.
                 init_method=self.init_method)
+        else:
+            self.position_embeddings = None
 
         # tokentypes embedding
         if num_tokentypes > 0:

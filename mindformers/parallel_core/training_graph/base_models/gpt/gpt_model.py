@@ -27,7 +27,8 @@ from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
-from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
@@ -227,7 +228,7 @@ class GPTModel(nn.Cell):
 
         # multi token prediction block
         if self.mtp_process:
-            self.mtp = build_module(mtp_block_spec.module, config=config, **mtp_block_spec.params)
+            self.mtp = MultiTokenPredictionBlock(config=self.config, spec=mtp_block_spec)
 
         # Output
         if self.post_process or self.mtp_process:
@@ -302,11 +303,8 @@ class GPTModel(nn.Cell):
         # multi token prediction
         if self.mtp_process:
             rotary_pos_emb = None
-            position_embeddings_weight = None
             if self.use_rotary_position_embeddings:
                 rotary_pos_emb = self.rotary_pos_emb(self.seq_length, position_ids=position_ids)
-            else:
-                position_embeddings_weight = self.embedding.position_embeddings.weight
             mtp_loss, extra_loss = self.mtp(
                 tokens,
                 position_ids,
@@ -317,7 +315,7 @@ class GPTModel(nn.Cell):
                 loss_mask=loss_mask.reshape_as(tokens),
                 extra_block_kwargs=extra_block_kwargs,
                 word_embeddings_weight=self.embedding.word_embeddings.weight,
-                position_embeddings_weight=position_embeddings_weight,
+                position_embeddings_weight=getattr(self.embedding.position_embeddings, 'weight', None),
                 tokentype_embeddings_weight=getattr(self.embedding.tokentype_embeddings, 'weight', None),
                 output_weight=self.output_layer.weight,
                 extra_loss=extra_loss,

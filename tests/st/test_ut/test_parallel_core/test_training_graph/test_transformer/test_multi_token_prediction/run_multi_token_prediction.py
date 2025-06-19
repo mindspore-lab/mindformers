@@ -74,6 +74,7 @@ class MTPRunner:
             calculate_per_token_loss=False,
             mtp_loss_scaling_factor=0.5,
             mtp_num_layers=2,
+            vocab_size=self.args.vocab_size
         )
 
     def build_model(self):
@@ -116,7 +117,7 @@ class MTPRunner:
             )
         )
 
-        mtp_block = MultiTokenPredictionBlock(self.config, mtp_block_spec, self.args.vocab_size)
+        mtp_block = MultiTokenPredictionBlock(self.config, mtp_block_spec)
 
         return mtp_block
 
