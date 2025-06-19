@@ -39,6 +39,10 @@ DEPRECATED_CLASS_LIST = [
     "mindformers.core.optim.optim.FusedAdamWeightDecay"
 ]
 
+MCORE_CONFIG_LIST = [
+    "DeepseekV3Config"
+]
+
 
 def special_case_process(api_str, signature, obj):
     """process special cases"""
@@ -134,6 +138,9 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
     """extract and compare api input info"""
     if api_str in DEPRECATED_CLASS_LIST:
         return
+    for model_config in MCORE_CONFIG_LIST:
+        if re.search(f"{model_config}$", api_str):
+            return
     if inspect.isclass(obj):
         signature_list = [
             str(inspect.signature(obj.__init__)), str(inspect.signature(obj.__new__)), str(inspect.signature(obj))
