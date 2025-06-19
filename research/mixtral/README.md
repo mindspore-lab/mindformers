@@ -159,7 +159,7 @@ python llama_preprocess.py \
 | 模型名称               |                                                    MindSpore权重                                                     |                         HuggingFace权重                          |
 |:-------------------|:------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------:|
 | Mixtral-8x7b  | / | [Link](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1)  |
-|tokenizer.model|[Link](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/tokenizer.model)|/|
+|tokenizer.model|[Link](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/tree/main)|/|
 
 #### 模型权重转换
 
@@ -413,10 +413,10 @@ Mixtal-8x7b使用单机多卡推理，使能 gmm 算子优化需要对权重进�
 
 ```shell
 # pytorch权重 转换 ms_gmm权重
-python convert_weight.py --use_gmm=True --dtype='fp16' --torch_ckpt_idr=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
+python convert_weight.py --use_gmm=True --dtype='fp16' --torch_ckpt_dir=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
 
 # pytorch权重 转换 mindspore权重
-python convert_weight.py --use_gmm=False --dtype='fp16' --torch_ckpt_idr=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
+python convert_weight.py --use_gmm=False --dtype='fp16' --torch_ckpt_dir=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
 
 # mindspore权重 转换 ms_gmm权重
 python convert_weight.py --use_gmm=True --dtype='fp16' --pre_ckpt_path=/path/to/mixtral.ckpt --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
@@ -424,7 +424,7 @@ python convert_weight.py --use_gmm=True --dtype='fp16' --pre_ckpt_path=/path/to/
 # 参数说明
 use_gmm: 是否进行gmm转换
 dtype: 数据类型，可选择: 'fp16'，'fp32'，'bf16', 默认值为 'fp16'
-torch_ckpt_idr: 需要转换的torch权重的目录
+torch_ckpt_dir: 需要转换的torch权重的目录
 pre_ckpt_path: 需要转换的ms权重的路径
 mindspore_ckpt_path: 转换后gmm的权重的存储路径
  ```
