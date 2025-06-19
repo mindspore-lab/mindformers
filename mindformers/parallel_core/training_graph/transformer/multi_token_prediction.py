@@ -95,11 +95,6 @@ class MultiTokenPredictionLayer(nn.Cell):
         self.use_seq_parallel = config.sequence_parallel
         self.layer_number = layer_number
 
-        self.concat = Concat(axis=-1)
-        self.concat_mp = Concat(axis=-1)
-        self.cast = Cast()
-        self.reshape = Reshape()
-
         self.enorm = build_module(
             self.submodules.enorm,
             config=config,
@@ -122,7 +117,12 @@ class MultiTokenPredictionLayer(nn.Cell):
             self.config.hidden_size,
             config=config,
             init_method=self.config.init_method,
-            bias=config.add_bias_linear,
+            bias=False,
+            skip_bias_add=False,
+            # The gather_output/is_expert parameter is unnecessary.
+            # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
+            # requiring no awareness from upper layers.
+            # Other similar invocations should follow this same interpretation.
         )
 
         self.transformer_layer = build_module(
@@ -137,6 +137,11 @@ class MultiTokenPredictionLayer(nn.Cell):
             eps=self.config.layernorm_epsilon,
             param_init_type=config.layernorm_compute_dtype
         )
+
+        self.concat = Concat(axis=-1)
+        self.concat_mp = Concat(axis=-1)
+        self.cast = Cast()
+        self.reshape = Reshape()
 
         self.shard(config)
 
@@ -179,6 +184,8 @@ class MultiTokenPredictionLayer(nn.Cell):
             Union[Tensor, Tuple[Tensor, Tensor]]: The output hidden states tensor of shape
             [s, b, h], and optionally the updated context tensor if cross-attention is used.
         """
+
+        # Note: Not Support FP8 Training.
 
         decoder_input = self.enorm(decoder_input)
         hidden_states = self.hnorm(hidden_states)
@@ -243,114 +250,6 @@ def _get_mtp_block_submodules(
     raise Exception(f"specialize for {type(spec).__name__}.")
 
 
-class MtpSharedVocabParallelEmbedding(VocabParallelEmbedding):
-    """Embedding layer used in Multi-Token Prediction module, same to standard embedding."""
-
-    def __init__(self,
-                 num_embeddings: int,
-                 embedding_dim: int,
-                 config: TransformerConfig):
-        super().__init__(
-            num_embeddings=num_embeddings,
-            embedding_dim=embedding_dim,
-            config=config,
-            init_method=config.init_method,
-        )
-        # use shared embedding weights instead
-        del self.weight
-
-    def construct(self, weight, input_ids):
-        """Forward of vocab embedding."""
-        bs, seq_len = input_ids.shape
-        # in IndexSelect, input_ids should be 1-dimension
-        input_ids_ = self.reshape(input_ids, (bs * seq_len,))
-        output_ = self.gather(weight, 0, input_ids_)
-        output = self.reshape(output_, (bs, seq_len, -1))
-
-        return output
-
-
-class MtpSharedLanguageModelEmbedding(LanguageModelEmbedding):
-    """Embedding layer used in Multi-Token Prediction module, same to standard LanguageModelEmbedding."""
-
-    def __init__(
-            self,
-            config: TransformerConfig,
-            vocab_size: int,
-            max_sequence_length: int,
-            position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
-            num_tokentypes: int = 0
-    ):
-        super().__init__(
-            config,
-            vocab_size,
-            max_sequence_length,
-            position_embedding_type,
-            num_tokentypes
-        )
-        # Word embedding
-        self.word_embeddings = MtpSharedVocabParallelEmbedding(
-            num_embeddings=vocab_size,
-            embedding_dim=config.hidden_size,
-            config=config
-        )
-        # Position embedding
-        self.add_position_embedding = position_embedding_type == 'learned_absolute'
-        if self.add_position_embedding:
-            self.position_embeddings = MtpSharedVocabParallelEmbedding(
-                num_embeddings=max_sequence_length,
-                embedding_dim=config.hidden_size,
-                config=config,
-            )
-        # tokentypes embedding
-        if num_tokentypes > 0:
-            self.tokentype_embeddings = MtpSharedVocabParallelEmbedding(
-                num_embeddings=num_tokentypes,
-                embedding_dim=config.hidden_size,
-                config=config,
-            )
-        else:
-            self.tokentype_embeddings = None
-
-    def construct(
-            self,
-            input_ids,
-            position_ids,
-            word_embeddings_weight,
-            position_embeddings_weight,
-            tokentype_embeddings_weight,
-            tokentype_ids=None
-    ):
-        """embedding construct"""
-        words_embeddings = self.word_embeddings(word_embeddings_weight, input_ids)
-        if self.add_position_embedding:
-            position_embeddings = self.position_embeddings(position_embeddings_weight, position_ids)
-            embeddings = self.add_pe(words_embeddings, position_embeddings)
-        else:
-            embeddings = words_embeddings
-
-        if tokentype_ids is not None:
-            if self.tokentype_embeddings is None:
-                raise RuntimeError("Embedding layer got 'tokentype_ids' input, "
-                                   "but 'tokentype_embeddings' layer is not initialized")
-            tokentype_embedding = self.tokentype_embeddings(tokentype_embeddings_weight, tokentype_ids)
-            embeddings = self.add_te(embeddings, tokentype_embedding)
-        else:
-            if self.tokentype_embeddings is not None:
-                raise RuntimeError("The 'tokentype_ids' input for Embedding layer is None, "
-                                   "but 'tokentype_embeddings' layer is initialized")
-
-        # Data format change to avoid explicit transposes : [b s h] --> [s b h].
-        embeddings = self.transpose(embeddings, (1, 0, 2))
-
-        # Dropout
-        if self.embedding_dropout_prob > 0:
-            embeddings = self.embedding_dropout(embeddings)
-
-        embeddings = self.cast(embeddings, self.compute_dtype)
-        return embeddings
-
-
 class MultiTokenPredictionBlock(nn.Cell):
     """The implementation for Multi-Token Prediction (MTP) which extends
     the prediction scope to multiple future tokens at each position.
@@ -382,15 +281,8 @@ class MultiTokenPredictionBlock(nn.Cell):
             raise ValueError("MultiTokenPredictionBlock must have at least one layer.")
 
         self.init_extra_loss = Tensor([0], mstype.float32)
-        self.cast = Cast()
-        self.concat_2d = Concat(axis=-1)
-        self.shape = Shape()
-        self.slice = StridedSlice()
-        self.zeros_op = Zeros()
-        self.transpose = Transpose()
-        self.reshape = Reshape()
-        self.ones_like = OnesLike()
-        self.compute_language_model_loss = VocabParallelCrossEntropy(parallel_config=config)
+        self.compute_language_model_loss = VocabParallelCrossEntropy(
+            parallel_config=config, calculate_per_token_loss=config.calculate_per_token_loss)
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,
@@ -407,6 +299,15 @@ class MultiTokenPredictionBlock(nn.Cell):
             bias=False,
             skip_weight_param_allocation=False,
         )
+
+        self.cast = Cast()
+        self.concat_2d = Concat(axis=-1)
+        self.shape = Shape()
+        self.slice = StridedSlice()
+        self.zeros_op = Zeros()
+        self.transpose = Transpose()
+        self.reshape = Reshape()
+        self.ones_like = OnesLike()
 
         self.shard()
 
@@ -517,9 +418,119 @@ class MultiTokenPredictionBlock(nn.Cell):
             labels_t = self.reshape(self.transpose(labels, (1, 0)), (-1,))
             loss_mask_t = self.reshape(self.transpose(loss_mask, (1, 0)), (-1,))
 
+            # config.calculate_per_token_loss is supported in training_graph.loss_func.VocabParallelCrossEntropy
             mtp_layer_loss = self.compute_language_model_loss(mtp_logits, labels_t, loss_mask_t)
             mtp_layer_loss_scale = self.mtp_loss_scaling_factor / self.config.mtp_num_layers
             mtp_layer_loss = mtp_layer_loss_scale * mtp_layer_loss
+            # MTPLossAutoScaler is not supported for now, forward is not effective, backward grad scale=1.0 by default.
             mtp_loss = mtp_loss + mtp_layer_loss
 
         return mtp_loss, extra_loss
+
+
+class MtpSharedVocabParallelEmbedding(VocabParallelEmbedding):
+    """Embedding layer used in Multi-Token Prediction module, same to standard embedding."""
+
+    def __init__(self,
+                 num_embeddings: int,
+                 embedding_dim: int,
+                 config: TransformerConfig):
+        super().__init__(
+            num_embeddings=num_embeddings,
+            embedding_dim=embedding_dim,
+            config=config,
+            init_method=config.init_method,
+        )
+        # use shared embedding weights instead
+        del self.weight
+
+    def construct(self, weight, input_ids):
+        """Forward of vocab embedding."""
+        bs, seq_len = input_ids.shape
+        # in IndexSelect, input_ids should be 1-dimension
+        input_ids_ = self.reshape(input_ids, (bs * seq_len,))
+        output_ = self.gather(weight, 0, input_ids_)
+        output = self.reshape(output_, (bs, seq_len, -1))
+
+        return output
+
+
+class MtpSharedLanguageModelEmbedding(LanguageModelEmbedding):
+    """Embedding layer used in Multi-Token Prediction module, same to standard LanguageModelEmbedding."""
+
+    def __init__(
+            self,
+            config: TransformerConfig,
+            vocab_size: int,
+            max_sequence_length: int,
+            position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
+            num_tokentypes: int = 0
+    ):
+        super().__init__(
+            config,
+            vocab_size,
+            max_sequence_length,
+            position_embedding_type,
+            num_tokentypes
+        )
+        # Word embedding
+        self.word_embeddings = MtpSharedVocabParallelEmbedding(
+            num_embeddings=vocab_size,
+            embedding_dim=config.hidden_size,
+            config=config
+        )
+        # Position embedding
+        self.add_position_embedding = position_embedding_type == 'learned_absolute'
+        if self.add_position_embedding:
+            self.position_embeddings = MtpSharedVocabParallelEmbedding(
+                num_embeddings=max_sequence_length,
+                embedding_dim=config.hidden_size,
+                config=config,
+            )
+        # tokentypes embedding
+        if num_tokentypes > 0:
+            self.tokentype_embeddings = MtpSharedVocabParallelEmbedding(
+                num_embeddings=num_tokentypes,
+                embedding_dim=config.hidden_size,
+                config=config,
+            )
+        else:
+            self.tokentype_embeddings = None
+
+    def construct(
+            self,
+            input_ids,
+            position_ids,
+            word_embeddings_weight,
+            position_embeddings_weight,
+            tokentype_embeddings_weight,
+            tokentype_ids=None
+    ):
+        """embedding construct"""
+        words_embeddings = self.word_embeddings(word_embeddings_weight, input_ids)
+        if self.add_position_embedding:
+            position_embeddings = self.position_embeddings(position_embeddings_weight, position_ids)
+            embeddings = self.add_pe(words_embeddings, position_embeddings)
+        else:
+            embeddings = words_embeddings
+
+        if tokentype_ids is not None:
+            if self.tokentype_embeddings is None:
+                raise RuntimeError("Embedding layer got 'tokentype_ids' input, "
+                                   "but 'tokentype_embeddings' layer is not initialized")
+            tokentype_embedding = self.tokentype_embeddings(tokentype_embeddings_weight, tokentype_ids)
+            embeddings = self.add_te(embeddings, tokentype_embedding)
+        else:
+            if self.tokentype_embeddings is not None:
+                raise RuntimeError("The 'tokentype_ids' input for Embedding layer is None, "
+                                   "but 'tokentype_embeddings' layer is initialized")
+
+        # Data format change to avoid explicit transposes : [b s h] --> [s b h].
+        embeddings = self.transpose(embeddings, (1, 0, 2))
+
+        # Dropout
+        if self.embedding_dropout_prob > 0:
+            embeddings = self.embedding_dropout(embeddings)
+
+        embeddings = self.cast(embeddings, self.compute_dtype)
+        return embeddings
