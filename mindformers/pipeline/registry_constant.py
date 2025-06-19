@@ -17,8 +17,6 @@
 from mindformers.models.auto import AutoModel
 from mindformers.models.auto.modeling_auto import (
     AutoModelForCausalLM,
-    AutoModelForImageClassification,
-    AutoModelForMaskedImageModeling,
     AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
@@ -26,8 +24,6 @@ from mindformers.models.auto.modeling_auto import (
     AutoModelForZeroShotImageClassification)
 
 from .fill_mask_pipeline import FillMaskPipeline
-from .image_classification_pipeline import ImageClassificationPipeline
-from .masked_image_modeling_pipeline import MaskedImageModelingPipeline
 from .pipeline_registry import PipelineRegistry
 from .question_answering_pipeline import QuestionAnsweringPipeline
 from .text_classification_pipeline import TextClassificationPipeline
@@ -58,18 +54,6 @@ SUPPORTED_TASKS = {
         "ms": (AutoModel,),
         "default": {"model": {"ms": ()}},
         "type": "text",
-    },
-    "image-classification": {
-        "impl": ImageClassificationPipeline,
-        "ms": (AutoModelForImageClassification,),
-        "default": {"model": {"ms": ()}},
-        "type": "image",
-    },
-    "masked-image-modeling": {
-        "impl": MaskedImageModelingPipeline,
-        "ms": (AutoModelForMaskedImageModeling,),
-        "default": {"model": {"ms": ()}},
-        "type": "image",
     },
     "question-answering": {
         "impl": QuestionAnsweringPipeline,

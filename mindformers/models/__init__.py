@@ -19,9 +19,7 @@ from .auto import (
     AutoImageProcessor,
     AutoModel,
     AutoModelForCausalLM,
-    AutoModelForImageClassification,
     AutoModelForMaskGeneration,
-    AutoModelForMaskedImageModeling,
     AutoModelForMultipleChoice,
     AutoModelForPreTraining,
     AutoModelForQuestionAnswering,
@@ -55,27 +53,6 @@ from .bert import (
 from .deepseek3 import (
     DeepseekV3Config,
     DeepseekV3ForCausalLM
-)
-from .mae import (
-    ViTMAEConfig,
-    ViTMAEForPreTraining,
-    ViTMAEImageProcessor,
-    ViTMAEModel,
-    ViTMAEProcessor
-)
-from .vit import (
-    ViTConfig,
-    ViTForImageClassification,
-    ViTImageProcessor,
-    ViTModel,
-    ViTProcessor
-)
-from .swin import (
-    SwinConfig,
-    SwinForImageClassification,
-    SwinImageProcessor,
-    SwinModel,
-    SwinProcessor
 )
 from .clip import (
     CLIPConfig,

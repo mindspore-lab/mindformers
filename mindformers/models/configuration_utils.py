@@ -285,11 +285,7 @@ class PretrainedConfig(PushToHubMixin):
         From pretrain method, which instantiates a config by yaml name or path.
 
         Args:
-            yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
-                the supported model name could be selected from :func:`mindformers.AutoConfig.show_support_list` .
-                If yaml_name_or_path is model name,
-                it supports model names beginning with mindspore or the model name itself,
-                such as "mindspore/vit_base_p16" or "vit_base_p16".
+            yaml_name_or_path (str): It only supports passing in the YAML configuration file path of the model (.yaml).
             kwargs (Any): Keyword arguments.
 
                 - pretrained_model_name_or_path (str, optional):

@@ -29,10 +29,6 @@ from .dataloader import (
     TrainingDataLoader,
     WMT16DataLoader
 )
-from .mask import (
-    MaeMask,
-    SimMask
-)
 from .transforms import (
     BCHW2BHWC,
     BatchCenterCrop,
@@ -62,10 +58,8 @@ from .transforms.build_transforms import build_transforms
 from .base_dataset import BaseDataset
 from .causal_language_model_dataset import CausalLanguageModelDataset
 from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
-from .img_cls_dataset import ImageCLSDataset
 from .keyword_gen_dataset import KeyWordGenDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
-from .mim_dataset import MIMDataset
 from .question_answering_dataset import QuestionAnsweringDataset
 from .text_classification_dataset import TextClassificationDataset
 from .translation_dataset import TranslationDataset

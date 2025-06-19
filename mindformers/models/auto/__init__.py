@@ -22,9 +22,7 @@ from .configuration_auto import (
 from .modeling_auto import (
     AutoModel,
     AutoModelForCausalLM,
-    AutoModelForImageClassification,
     AutoModelForMaskGeneration,
-    AutoModelForMaskedImageModeling,
     AutoModelForMultipleChoice,
     AutoModelForPreTraining,
     AutoModelForQuestionAnswering,

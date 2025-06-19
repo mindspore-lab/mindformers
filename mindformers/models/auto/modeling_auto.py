@@ -37,8 +37,7 @@ MODEL_FOR_PRETRAINING_MAPPING_NAMES = OrderedDict(
     [
         # Model for pre-training mapping
         ("bert", "BertForPreTraining"),
-        ("glm", "GLMForPreTraining"),
-        ("mae", "ViTMAEForPreTraining"),
+        ("glm", "GLMForPreTraining")
     ]
 )
 
@@ -57,20 +56,6 @@ MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = OrderedDict(
         # Model with LM heads mapping
         ("glm2", "ChatGLM2ForConditionalGeneration"),
         ("llama", "LlamaForCausalLM")
-    ]
-)
-
-MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING_NAMES = OrderedDict(
-    [
-        ("vit", "ViTForMaskedImageModeling"),
-    ]
-)
-
-MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
-    [
-        # Model for Image Classification mapping
-        ("swin", "SwinForImageClassification"),
-        ("vit", "ViTForImageClassification"),
     ]
 )
 
@@ -116,13 +101,6 @@ MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
     ]
 )
 
-MODEL_FOR_BACKBONE_MAPPING_NAMES = OrderedDict(
-    [
-        # Backbone mapping
-        ("swin", "SwinBackbone"),
-    ]
-)
-
 MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = OrderedDict(
     [
         ("sam", "SamModel"),
@@ -140,14 +118,8 @@ MODEL_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_MAPPING_NAMES)
 MODEL_FOR_PRETRAINING_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_PRETRAINING_MAPPING_NAMES)
 MODEL_WITH_LM_HEAD_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_WITH_LM_HEAD_MAPPING_NAMES)
 MODEL_FOR_CAUSAL_LM_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_CAUSAL_LM_MAPPING_NAMES)
-MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
-    CONFIG_MAPPING_NAMES, MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES
-)
 MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES
-)
-MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING = _LazyAutoMapping(
-    CONFIG_MAPPING_NAMES, MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING_NAMES
 )
 MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES
@@ -162,7 +134,6 @@ MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES
 )
 MODEL_FOR_MULTIPLE_CHOICE_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_MULTIPLE_CHOICE_MAPPING_NAMES)
-MODEL_FOR_BACKBONE_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_BACKBONE_MAPPING_NAMES)
 MODEL_FOR_MASK_GENERATION_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_MASK_GENERATION_MAPPING_NAMES)
 MODEL_FOR_TEXT_ENCODING_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_TEXT_ENCODING_MAPPING_NAMES)
 
@@ -252,13 +223,6 @@ class AutoModelForMultipleChoice(_BaseAutoModelClass):
 AutoModelForMultipleChoice = auto_class_update(AutoModelForMultipleChoice, head_doc="multiple choice")
 
 
-class AutoModelForImageClassification(_BaseAutoModelClass):
-    _model_mapping = MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING
-
-
-AutoModelForImageClassification = auto_class_update(AutoModelForImageClassification, head_doc="image classification")
-
-
 class AutoModelForZeroShotImageClassification(_BaseAutoModelClass):
     r"""
     This is a generic model class that will be instantiated as one of the model
@@ -273,13 +237,6 @@ AutoModelForZeroShotImageClassification = auto_class_update(
     checkpoint_for_example="clip_vit_b_16",
     head_doc="zero-shot image classification"
 )
-
-
-class AutoModelForMaskedImageModeling(_BaseAutoModelClass):
-    _model_mapping = MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING
-
-
-AutoModelForMaskedImageModeling = auto_class_update(AutoModelForMaskedImageModeling, head_doc="masked image modeling")
 
 
 class AutoModelWithLMHead(_AutoModelWithLMHead):

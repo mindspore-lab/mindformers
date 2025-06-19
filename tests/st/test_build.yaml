@@ -84,10 +84,6 @@ do_train: True
 do_eval: False
 do_predict: False
 
-trainer:
-  type: TestTaskTrainer
-  model_name: 'mae'
-
 pipeline:
   type: TestPipeline
 

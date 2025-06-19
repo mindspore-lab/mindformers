@@ -47,11 +47,8 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("clip", "CLIPProcessor"),
         ("glm", "GLMProcessor"),
         ("llama", "LlamaProcessor"),
-        ("mae", "ViTMAEProcessor"),
         ("sam", "SamProcessor"),
-        ("swin", "SwinProcessor"),
-        ("t5", "T5Processor"),
-        ("vit", "ViTProcessor")
+        ("t5", "T5Processor")
     ]
 )
 

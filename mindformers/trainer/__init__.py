@@ -28,10 +28,8 @@ from .config_args import (
     WrapperConfig
 )
 from .image_classification import (
-    ImageClassificationTrainer,
     ZeroShotImageClassificationTrainer
 )
-from .masked_image_modeling import MaskedImageModelingTrainer
 from .masked_language_modeling import MaskedLanguageModelingTrainer
 from .general_task_trainer import GeneralTaskTrainer
 from .contrastive_language_image_pretrain import ContrastiveLanguageImagePretrainTrainer
