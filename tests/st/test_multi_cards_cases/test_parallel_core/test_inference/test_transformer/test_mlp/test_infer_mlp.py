@@ -54,7 +54,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestInferMLPParallel(TestInferMLP):
     """Test class for MLP with different configurations"""
-    @pytest.mark.level1
+    @pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES
