@@ -37,7 +37,7 @@ def _get_rope(config: MLATransformerConfig):
         rotary_interleaved=config.rotary_interleaved,
         seq_len_interpolation_factor=config.rotary_seq_len_interpolation_factor,
         rotary_base=config.rotary_base,
-        rope_scaling=config.rope_scaling
+        rope_scaling=config.use_rope_scaling
     )
 
 

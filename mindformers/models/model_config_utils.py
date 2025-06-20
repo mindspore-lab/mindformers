@@ -19,6 +19,7 @@ from dataclasses import dataclass, asdict
 from typing import List, Tuple
 from functools import wraps
 
+from mindformers.parallel_core.mf_model_config import MFModelConfig
 from mindformers.tools.logger import logger
 
 

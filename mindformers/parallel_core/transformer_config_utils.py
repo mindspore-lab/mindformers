@@ -46,19 +46,20 @@ def is_float_32(dtype: Union[str, bool]) -> bool:
     return is_fp32
 
 
-def is_use_gated_sigmoid(used_gated_sigmoid: bool) -> str:
+def is_use_gated_sigmoid(score_func: [bool, str]) -> str:
     """
     This method to check whether to use gated 'sigmoid' or 'softmax'.
 
     Args:
-        used_gated_sigmoid (bool): A flag that indicate whether to use gated sigmoid.
+        score_func (bool): A flag that indicate whether to use gated sigmoid.
 
     Returns:
         A string to choose the function for MoE router score.
     """
-    if used_gated_sigmoid:
+    if isinstance(score_func, str):
+        return score_func
+    if score_func:
         return "sigmoid"
-
     return "softmax"
 
 
@@ -92,6 +93,15 @@ def get_cp_comm_type(context_parallel_algo: str):
     cp_comm_type = context_parallelism_mapping[context_parallel_algo]
 
     return cp_comm_type
+
+
+def get_drop_policy(drop_policy: Union[bool, str]):
+    if isinstance(drop_policy, bool):
+        return 'position' if drop_policy else 'probs'
+    if isinstance(drop_policy, str):
+        return drop_policy
+    raise TypeError(f"drop_policy (enable_sdrop, moe_token_drop_policy) should be bool or str, "
+                    f"but get {type(drop_policy)}.")
 
 
 def scatter_multi_mapping_keys_to_mapping(mapping):
@@ -267,6 +277,7 @@ COMMON_CONFIG_MAPPING = {
     "ignore_token_id": "ignore_token_id",
     "is_dynamic": "is_dynamic",
     "use_eod_reset": "use_eod_reset",
+    "use_contiguous_weight_layout": "use_contiguous_weight_layout",
 
     # Flash Attention
     # not changes
@@ -274,6 +285,7 @@ COMMON_CONFIG_MAPPING = {
     "attention_pre_tokens": "attention_pre_tokens",
     "attention_next_tokens": "attention_next_tokens",
     "rotary_seq_len_interpolation_factor": "rotary_seq_len_interpolation_factor",
+    "use_rope_scaling": "use_rope_scaling",
     "rope_scaling": "rope_scaling",
     "input_layout": "input_layout",
     "sparse_mode": "sparse_mode",
@@ -286,7 +298,7 @@ COMMON_CONFIG_MAPPING = {
     "untie_embeddings_and_output_weights": "untie_embeddings_and_output_weights",
     "hidden_act": "hidden_act",
     "mask_func_type": "mask_func_type",
-    "position_embedding_type": "position_embedding_type",
+    ("extend_method", "position_embedding_type"): "position_embedding_type",
     ("init_method_std", "initializer_range"): "init_method_std",
 
     # Initialization
@@ -341,7 +353,7 @@ COMMON_CONFIG_MAPPING = {
     ("use_gmm", "moe_grouped_gemm"): "moe_grouped_gemm",
     ("z_loss_factor", "moe_z_loss_coeff"): "moe_z_loss_coeff",
     ("capacity_factor", "moe_expert_capacity_factor"): "moe_expert_capacity_factor",
-    ("enable_sdrop", "moe_token_drop_policy"): "moe_token_drop_policy",
+    ("enable_sdrop", "moe_token_drop_policy"): ("moe_token_drop_policy", get_drop_policy),
     ("enable_gmm_safe_tokens", "use_pad_tokens"): "use_pad_tokens",
     "moe_shared_expert_intermediate_size": "moe_shared_expert_intermediate_size",
     ("n_shared_experts", "shared_expert_num"): "shared_expert_num",
@@ -388,13 +400,12 @@ COMMON_CONFIG_MAPPING = {
     "q_lora_rank": "q_lora_rank",
     "kv_lora_rank": "kv_lora_rank",
     "v_head_dim": "v_head_dim",
-    "rope_type": "rope_type",
     "rotary_percent": "rotary_percent",
     "beta_fast": "beta_fast",
     "beta_slow": "beta_slow",
     "mscale": "mscale",
     "mscale_all_dim": "mscale_all_dim",
-    "extend_method": "position_embedding_type",
+    "mla_qkv_concat": "mla_qkv_concat",
 
     # Inference Param
     "pad_token_id": "pad_token_id",
@@ -465,15 +476,15 @@ def convert_to_transformer_config(
         update_dict[mapping_key] = value
 
     # Start converting parameters
+    if 'parallel_config' in model_config:
+        for parallel_key, parallel_value in model_config['parallel_config'].items():
+            if parallel_key in convert_map.keys():
+                mapping_config(parallel_key, parallel_value)
+        model_config.pop('parallel_config')
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
             continue
-
-        if model_config_key == 'parallel_config':
-            for parallel_key, parallel_value in model_config['parallel_config'].items():
-                if parallel_key in convert_map.keys():
-                    mapping_config(parallel_key, parallel_value)
-        elif model_config_key in convert_map.keys():
+        if model_config_key in convert_map.keys():
             mapping_config(model_config_key, model_config_value)
         else:
             not_convert_keys_list.append(model_config_key)

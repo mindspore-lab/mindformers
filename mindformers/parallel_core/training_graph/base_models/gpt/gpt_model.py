@@ -483,11 +483,22 @@ class GPTModel(nn.Cell):
             return expert_load_data
 
         num_layers = self.config.num_layers
+
+        if self.config.first_k_dense_replace:
+            moe_layer_pattern = [0] * self.config.first_k_dense_replace + \
+                                [1] * (num_layers - self.config.first_k_dense_replace)
+        elif isinstance(self.config.moe_layer_freq, int):
+            moe_layer_pattern = [1 if (i % self.config.moe_layer_freq == 0) else 0 for i in range(num_layers)]
+        else:
+            moe_layer_pattern = self.config.moe_layer_freq
+
         mtp_num_layers = self.config.mtp_num_layers
+        if moe_layer_pattern[-1] == 0:
+            mtp_num_layers = 0
         expert_loads = []
         if self.config.moe_router_enable_expert_bias:
             for i in range(num_layers + mtp_num_layers):
-                if i < self.config.moe_layer_freq:
+                if moe_layer_pattern[min(i, num_layers - 1)] == 0:
                     continue
                 if i < num_layers:
                     router = self.decoder.layers[i].mlp.router

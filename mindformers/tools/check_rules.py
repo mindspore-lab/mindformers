@@ -150,7 +150,7 @@ def _check_context_parallel_algo_valid(config, cp, mp):
 
 def _check_moe_parallel_valid(config, mp):
     """check moe parallel config"""
-    is_moe_network = False if config.moe_config is None else config.moe_config.expert_num > 1
+    is_moe_network = False if config.moe_config is None else (config.moe_config.expert_num or 1) > 1
     use_seq_parallel = False if config.parallel_config.use_seq_parallel is None \
         else config.parallel_config.use_seq_parallel
     if mp > 1 and not use_seq_parallel and is_moe_network:

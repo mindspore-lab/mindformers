@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Deepseek3 models' APIs."""
+"""Deepseek-V3 models' APIs."""
 import gc
 import os
 from typing import Dict
@@ -30,7 +30,7 @@ from mindformers.models.utils import jit
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.logger import logger
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
-from mindformers.models.deepseek3.utils import Deepseek3PreTrainedModel
+from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
     get_group_info,
     initialize_model_parallel
@@ -38,9 +38,11 @@ from mindformers.parallel_core.inference.parallel_state import (
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 
+from .configuration_deepseek_v3 import DeepseekV3Config
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class InferenceDeepseek3ForCausalLM(Deepseek3PreTrainedModel):
+class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
     r"""
     Provide Deepseek3 model infer through network.
 
@@ -52,7 +54,7 @@ class InferenceDeepseek3ForCausalLM(Deepseek3PreTrainedModel):
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
         if get_group_info('tp').group is None and _is_initialized():
             initialize_model_parallel(get_group_size(), order='tp')
@@ -71,16 +73,16 @@ class InferenceDeepseek3ForCausalLM(Deepseek3PreTrainedModel):
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
-        self.model = GPTModel(config=config,
-                              transformer_layer_spec=get_gpt_decoder_block_spec(
-                                  config=config,
-                                  normalization=config.normalization,
-                                  qk_l2_norm=False,
-                              ),
-                              vocab_size=self.vocab_size,
-                              max_sequence_length=self.max_position_embeddings,
-                              position_embedding_type=config.position_embedding_type,
-                              rotary_base=config.rotary_base)
+        self.network = GPTModel(config=config,
+                                transformer_layer_spec=get_gpt_decoder_block_spec(
+                                    config=config,
+                                    normalization=config.normalization,
+                                    qk_l2_norm=False,
+                                ),
+                                vocab_size=self.vocab_size,
+                                max_sequence_length=self.max_position_embeddings,
+                                position_embedding_type=config.position_embedding_type,
+                                rotary_base=config.rotary_base)
 
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
@@ -126,9 +128,7 @@ class InferenceDeepseek3ForCausalLM(Deepseek3PreTrainedModel):
             layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
 
     @jit
-    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
-                  block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None,
-                  key_cache=None, value_cache=None):
+    def construct(self, *args, **kwargs):
         r"""
         model forward.
 
@@ -149,19 +149,7 @@ class InferenceDeepseek3ForCausalLM(Deepseek3PreTrainedModel):
             logits: the output logits.
 
         """
-        logits = self.model(
-            input_ids=input_ids,
-            positions=positions,
-            batch_valid_length=batch_valid_length,
-            context_lens_tensor=context_lens_tensor,
-            q_seq_lens=q_seq_lens,
-            block_tables=block_tables,
-            slot_mapping=slot_mapping,
-            attention_mask=attention_mask,
-            attn_metadata=attn_metadata,
-            key_cache=key_cache,
-            value_cache=value_cache,
-        )
+        logits = self.network(*args, **kwargs)
         return logits
 
     def load_weights(self, weights_path):

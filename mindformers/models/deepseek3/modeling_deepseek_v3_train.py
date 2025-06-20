@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 Model for training."""
-from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
     get_gpt_mtp_block_spec, get_gpt_layer_local_spec
@@ -21,16 +21,6 @@ from mindformers.parallel_core.transformer_config_utils import convert_to_transf
 from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 
 from .configuration_deepseek_v3 import DeepseekV3Config
-
-
-class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
-    """
-    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
-    models.
-    """
-
-    config_class = DeepseekV3Config
-    base_model_prefix = "deepseekv3"
 
 
 class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
@@ -66,3 +56,7 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
     def construct(self, *args, **kwargs):
         """DeepseekV3 construct for training"""
         return self.network(*args, **kwargs)
+
+    @classmethod
+    def can_generate(cls):
+        return False

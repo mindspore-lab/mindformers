@@ -86,7 +86,10 @@ def _handle_runner_wrapper(key, value, config, writer):
 
 def _handle_moe_config(_, value, config, writer):
     """Handle moe config."""
-    cfg_dict = value.to_dict()
+    if not isinstance(value, dict):
+        cfg_dict = value.to_dict()
+    else:
+        cfg_dict = value
     _default_handle('moe_config', cfg_dict, config, writer)
 
 

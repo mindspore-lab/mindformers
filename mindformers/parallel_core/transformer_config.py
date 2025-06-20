@@ -120,6 +120,12 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     multi_latent_attention: bool = False
     """Whether to use multi-latent attention."""
 
+    position_embedding_type: str = "rope"
+    """Position embedding type to use for the attention layer."""
+
+    rotary_base: float = 10000.0
+    """Rotary base for the rotary embeddings, used by rope and yarn. Mindformers required."""
+
     ####################
     # Initialization
     ####################
@@ -335,12 +341,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     in a single kernel launch to improve the utilization and performance by leveraging the Grouped
     GEMM feature introduced since CUTLASS 2.8 (https://github.com/fanshiqing/grouped_gemm).
     """
-
-    aux_loss_types: list = None
-    """List of auxiliary loss types."""
-
-    aux_loss_factors: list = None
-    """List of auxiliary loss factors."""
 
     moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
     """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
@@ -602,6 +602,14 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise ValueError(f"'first_k_dense_replace'({self.first_k_dense_replace}) cannot be bigger "
                                  f"than 'num_layers'({self.num_layers}).")
 
+        if isinstance(self.rope_scaling, dict):
+            self.position_embedding_type = self.rope_scaling.pop("type")
+            self.rotary_scaling_factor = self.rope_scaling.pop("factor")
+            self.rope_scaling.pop("original_max_position_embeddings", None)
+            for k, v in self.rope_scaling.items():
+                setattr(self, k, v)
+            del self.rope_scaling
+
 
 @dataclass
 class MLATransformerConfig(TransformerConfig):
@@ -635,9 +643,6 @@ class MLATransformerConfig(TransformerConfig):
 
     rope_type: str = "yarn"
     """Type of RoPE to use. Default to yarn, options are rope and yarn."""
-
-    rotary_base: float = 10000.0
-    """Rotary base for the rotary embeddings, used by rope and yarn."""
 
     rotary_percent: float = 1.0
     """Rotary percent for the rotary embeddings, used by rope."""

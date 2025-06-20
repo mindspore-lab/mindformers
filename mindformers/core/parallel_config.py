@@ -15,6 +15,7 @@
 """Parallel Config Init."""
 from mindspore.parallel._cost_model_context import _set_rp_matmul_mem_coef
 
+from mindformers.tools.register.config import MindFormerConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoEConfig
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig, \
     TransformerSwapConfig
@@ -37,11 +38,11 @@ def build_parallel_config(config):
                 are initialized from dict or assigned with a default one.
     """
     if config.moe_config:
-        if not isinstance(config.moe_config, MoEConfig):
+        if config.use_legacy and not isinstance(config.moe_config, MoEConfig):
             logger.info("initial moe_config from dict: %s", config.moe_config)
             config.moe_config = MoEConfig(**config.moe_config)
     else:
-        config.moe_config = default_moe_config
+        config.moe_config = default_moe_config if config.use_legacy else MindFormerConfig()
 
     if config.swap_config:
         if not isinstance(config.swap_config, TransformerSwapConfig):

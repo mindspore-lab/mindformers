@@ -17,19 +17,21 @@ import os
 import json
 from safetensors.numpy import load_file
 
+import mindspore as ms
+
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
 from mindformers.models.deepseek3.configuration_deepseek_v3 import DeepseekV3Config
 
 
-class Deepseek3PreTrainedModel(PreTrainedModel, ModelMixin):
+class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
     """
 
     config_class = DeepseekV3Config
-    base_model_prefix = "Deepseek3"
+    base_model_prefix = "Deepseekv3"
 
     def convert_name(self, weight_name):
         r"""
@@ -150,3 +152,27 @@ class Deepseek3PreTrainedModel(PreTrainedModel, ModelMixin):
             else:
                 non_layer_weights[key] = value
         return non_layer_weights, layer_weights
+
+    def check_pipeline_stage(self):
+        """check pipeline_stage and num_layers"""
+        config = self.config
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        pp = config.parallel_config.pipeline_stage
+        if parallel_mode in ["semi_auto_parallel"]:
+            num_hidden_layers = config.num_hidden_layers
+            num_nextn_predict_layers = config.num_nextn_predict_layers
+            if num_hidden_layers and num_hidden_layers + num_nextn_predict_layers < pp:
+                raise ValueError(
+                    f"num_hidden_layers + num_nextn_predict_layers of model should be greater than or equal to "
+                    f"pipeline_stage, but get num_hidden_layers ({num_hidden_layers})"
+                    f" + num_nextn_predict_layers ({num_nextn_predict_layers}) < pp ({pp})"
+                )
+            pipeline_interleave_enabled = ms.get_auto_parallel_context("pipeline_interleave")
+            pp_interleave_num = getattr(config, 'pp_interleave_num', 0) or 0
+            if pipeline_interleave_enabled and pp_interleave_num * pp > num_hidden_layers + num_nextn_predict_layers:
+                raise ValueError(
+                    f"num_hidden_layers + num_nextn_predict_layers of model should be greater than "
+                    f"`pp * pp_interleave_num`, but got num_hidden_layers + num_nextn_predict_layers : "
+                    f"{num_hidden_layers} + {num_nextn_predict_layers} "
+                    f"and pp * pp_interleave_num = {pp * pp_interleave_num}."
+                )

@@ -56,6 +56,8 @@ def build_model(
             default_args = {}
         if isinstance(config.model_config, MindFormerConfig):
             if not use_legacy:
+                moe_config = default_args.pop('moe_config', {})
+                default_args.update(moe_config)
                 model_config = get_model_config(config, default_args=default_args)
             else:
                 model_config = build_model_config(config.model_config, default_args=default_args)
