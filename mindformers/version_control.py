@@ -395,7 +395,7 @@ def check_tft_valid():
 
     env_enable = os.getenv("MS_ENABLE_TFT", "")
 
-    remain_required_flags = ["TTP:1", "UCE:1", "ARF:1"]
+    remain_required_flags = ["TTP:1", "UCE:1", "ARF:1", "HCCE:1"]
     return any(flag in env_enable for flag in remain_required_flags)
 
 
