@@ -63,7 +63,7 @@ class MTPRunner:
             seq_length=self.args.seq_length,
             data_parallel_size=self.worker_num // self.args.tp,
             tensor_model_parallel_size=self.args.tp,
-            compute_dtype=self.compute_dtype,
+            compute_dtype='bf16',
             position_embedding_type=self.args.position_embedding_type,
             num_attention_heads=2,
             num_layers=1,

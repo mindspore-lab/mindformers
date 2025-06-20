@@ -32,8 +32,8 @@ class TestFusedNorm:
 
     def run_test(self, normalization: str, hidden_size=32):
         """Helper function to run test and check results"""
-        self.config = TransformerConfig(normalization=normalization, params_dtype=ms.float32,
-                                        layernorm_compute_dtype=ms.float32, num_layers=1, num_attention_heads=2)
+        self.config = TransformerConfig(normalization=normalization, params_dtype='float32',
+                                        layernorm_compute_dtype='float32', num_layers=1, num_attention_heads=2)
         self.norm = FusedNorm(config=self.config, dim=hidden_size, param_init_type=self.config.params_dtype,
                               layernorm_compute_dtype=self.config.layernorm_compute_dtype)
         output = self.norm.construct(self.inputs)

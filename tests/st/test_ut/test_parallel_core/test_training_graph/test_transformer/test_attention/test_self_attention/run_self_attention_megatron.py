@@ -74,7 +74,7 @@ class SelfAttentionMegatronRunner:
 
         # Transformer 配置
         self.config = TransformerConfig(
-            compute_dtype=self.compute_dtype,
+            compute_dtype='bfloat16',
             use_flash_attention=self.args.use_flash_attn,
             num_query_groups=self.args.num_query_groups,
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
@@ -84,7 +84,7 @@ class SelfAttentionMegatronRunner:
             add_bias_linear=self.has_bias,
             add_qkv_bias=self.has_bias,
             num_layers=1,
-            params_dtype=ms.float32,
+            params_dtype='float32',
             attention_dropout=0.0,
         )
 

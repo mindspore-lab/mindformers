@@ -62,7 +62,7 @@ class VocabParallelEmbeddingRunner:
             tensor_model_parallel_size=self.args.tensor_parallel,
             vocab_emb_dp=self.config_vocab_emb_dp,
             num_attention_heads=self.args.tensor_parallel,
-            params_dtype=self.param_init_dtype,
+            params_dtype='fp32',
             num_layers=1
         )
 

@@ -91,11 +91,11 @@ class TransformerLayerRunner:
             seq_length=self.seq_length,
             data_parallel_size=self.data_parallel,
             tensor_model_parallel_size=self.tensor_parallel,
-            compute_dtype=self.compute_dtype,
-            layernorm_compute_dtype=self.param_init_dtype,
+            compute_dtype='bfloat16',
+            layernorm_compute_dtype='float32',
             normalization="LayerNorm",
             num_layers=self.num_layers,
-            params_dtype=ms.float32,
+            params_dtype='float32',
         )
 
         # Submodules

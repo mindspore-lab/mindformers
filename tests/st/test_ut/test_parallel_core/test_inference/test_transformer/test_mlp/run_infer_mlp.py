@@ -86,8 +86,8 @@ class MLPRunner:
             gated_linear_unit=self.gated_linear_unit,
             hidden_act="silu",
             num_layers=1,
-            compute_dtype=self.compute_dtype,
-            params_dtype=self.params_dtype,
+            compute_dtype='bf16',
+            params_dtype='fp32',
         )
 
     @staticmethod

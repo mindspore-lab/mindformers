@@ -64,7 +64,7 @@ class RowParallelLinearRunner:
         # Transformer config
         self.config = TransformerConfig(
             tensor_model_parallel_size=self.args.tensor_parallel,
-            compute_dtype=self.compute_dtype,
+            compute_dtype='bf16',
             num_attention_heads=self.args.tensor_parallel,
             init_method=init_method_normal(0.01, self.param_init_dtype),
             output_layer_init_method=init_method_normal(0.01, self.param_init_dtype),

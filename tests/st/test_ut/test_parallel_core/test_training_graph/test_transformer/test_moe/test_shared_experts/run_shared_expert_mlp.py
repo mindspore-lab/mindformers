@@ -38,9 +38,9 @@ def get_config():
                              moe_shared_expert_intermediate_size=16,
                              hidden_act="silu",
                              add_bias_linear=False,
-                             compute_dtype=ms.bfloat16,
-                             params_dtype=ms.float32,
-                             moe_router_dtype=ms.float32,
+                             compute_dtype='bfloat16',
+                             params_dtype='float32',
+                             moe_router_dtype='float32',
                              )
 
 

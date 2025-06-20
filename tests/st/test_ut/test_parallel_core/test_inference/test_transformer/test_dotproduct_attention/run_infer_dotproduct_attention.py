@@ -66,9 +66,9 @@ class DotProductAttentionRunner:
             hidden_size=self.hidden_size,
             sequence_parallel=False,
             num_layers=1,
-            compute_dtype=mstype.bfloat16
+            compute_dtype='bf16',
+            softmax_compute_dtype='bf16'
         )
-        config.softmax_compute_dtype = mstype.bfloat16
 
         return config
 

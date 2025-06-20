@@ -97,8 +97,8 @@ class TransformerBlockRunner:
             num_blocks=DEFAULT_NUM_BLOCKS,
             block_size=DEFAULT_BLOCK_SIZE,
             use_flash_attention=True,
-            compute_dtype=self.compute_dtype,
-            params_dtype=self.params_dtype,
+            compute_dtype='bf16',
+            params_dtype='bf16'
         )
 
     def build_model(self):

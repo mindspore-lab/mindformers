@@ -37,8 +37,8 @@ def get_config():
                              hidden_size=16,
                              ffn_hidden_size=16,
                              num_moe_experts=args.num_moe_experts,
-                             compute_dtype=ms.bfloat16,
-                             params_dtype=ms.float32,
+                             compute_dtype='bfloat16',
+                             params_dtype='float32',
                              add_bias_linear=False
                              )
 
