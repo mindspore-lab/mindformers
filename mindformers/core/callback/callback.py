@@ -2308,7 +2308,11 @@ class TopkBiasBalanceCallback(Callback):
         self.cur_step = cb_params.cur_step_num
         if self.update_topk_bias_flag:
             # pylint: disable=W0212
-            self._update_topk_bias(cb_params.train_network.network.network._backbone)
+            network = cb_params.train_network.network.network
+            parallel_mode = get_auto_parallel_context("parallel_mode")
+            if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
+                network = network._backbone
+            self._update_topk_bias(network)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -2357,7 +2361,11 @@ class MoEDropRateCallback(Callback):
     def on_train_step_end(self, run_context):
         cb_params = run_context.original_args()
         # pylint: disable=W0212
-        self._callback_droprate(cb_params.train_network.network.network._backbone)
+        network = cb_params.train_network.network.network
+        parallel_mode = get_auto_parallel_context("parallel_mode")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
+            network = network._backbone
+        self._callback_droprate(network)
 
 
 def get_embedding_info(cb_params, embedding_size):

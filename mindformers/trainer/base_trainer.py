@@ -263,6 +263,8 @@ class BaseTrainer:
             self.config.runner_config.batch_size = batch_size * gradient_accumulation_steps
             self.config.parallel_config.data_parallel = 1
             self.config.parallel_config.model_parallel = 1
+            self.config.parallel_config.context_parallel = 1
+            self.config.parallel_config.expert_parallel = 1
             self.config.parallel_config.pipeline_stage = 1
             self.config.parallel_config.micro_batch_num = 1
             logger.info("parallel_config will be change to default config: %s.",
