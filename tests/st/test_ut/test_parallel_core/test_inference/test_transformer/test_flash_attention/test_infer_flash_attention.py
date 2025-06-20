@@ -19,66 +19,39 @@ import numpy as np
 import pytest
 
 from mindformers.tools.logger import logger
+from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
 from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_flash_attention.data_gen_utils import (
     get_init_params,
     BATCH_SIZE,
     SEQ_LENGTH,
     NUM_HEADS,
     HIDDEN_SIZE,
+    GOLDEN_DATA,
+    GPU_DATA
 )
 
 FA_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 FA_SINGLE_CARD_TEST_CASES = [
     (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 2, num_heads: 2,
-        # n_kv_heads: 1, hidden_size: 32, is_prefill: TRUE
+        # 并行策略: 单卡, batch_size: 2, seq_length: [2, 1], num_heads: 2,
+        # n_kv_heads: 1, hidden_size: 32,
         # keep_prob: 1.0, scale_value: 0.25
         # expected result: 功能跑通。
         {"batch_size": BATCH_SIZE, "seq_length": SEQ_LENGTH, "num_heads": NUM_HEADS,
-         "n_kv_heads": 1, "hidden_size": HIDDEN_SIZE, "is_prefill": True,
+         "n_kv_heads": NUM_HEADS, "hidden_size": HIDDEN_SIZE,
          "keep_prob": 1.0, "scale_value": 0.25},
-        {"output": "output_1"},
+        {"prefill_output": "prefill_output_1", "decode_output": "decode_output_1"},
         False
     ),
     (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 2, num_heads: 2,
-        # n_kv_heads: 2, hidden_size: 32, is_prefill: TRUE
+        # 并行策略: 单卡, batch_size: 2, seq_length: [2, 1], num_heads: 2,
+        # n_kv_heads: 2, hidden_size: 32,
         # keep_prob: 1.0, scale_value: 0.25
         # expected result: 功能跑通。
         {"batch_size": BATCH_SIZE, "seq_length": SEQ_LENGTH, "num_heads": NUM_HEADS,
-         "n_kv_heads": NUM_HEADS, "hidden_size": HIDDEN_SIZE, "is_prefill": True,
+         "n_kv_heads": 1, "hidden_size": HIDDEN_SIZE,
          "keep_prob": 1.0, "scale_value": 0.25},
-        {"output": "output_2"},
-        False
-    ), (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 1, num_heads: 2,
-        # n_kv_heads: 1, hidden_size: 32, is_prefill: FALSE
-        # keep_prob: 1.0, scale_value: 0.25
-        # expected result: 功能跑通。
-        {"batch_size": BATCH_SIZE, "seq_length": 1, "num_heads": NUM_HEADS,
-         "n_kv_heads": 1, "hidden_size": HIDDEN_SIZE, "is_prefill": False,
-         "keep_prob": 1.0, "scale_value": 0.25},
-        {"output": "output_3"},
-        False
-    ), (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 1, num_heads: 2,
-        # n_kv_heads: 2, hidden_size: 32, is_prefill: FALSE
-        # keep_prob: 1.0, scale_value: 0.25
-        # expected result: 功能跑通。
-        {"batch_size": BATCH_SIZE, "seq_length": 1, "num_heads": NUM_HEADS,
-         "n_kv_heads": NUM_HEADS, "hidden_size": HIDDEN_SIZE, "is_prefill": False,
-         "keep_prob": 1.0, "scale_value": 0.25},
-        {"output": "output_4"},
-        False
-    ), (
-        # 并行策略: 单卡, batch_size: 2, seq_length: 2, num_heads: 2,
-        # n_kv_heads: 1, hidden_size: 32, is_prefill: TRUE
-        # keep_prob: 1.0, scale_value: 1.0
-        # expected result: 功能跑通。
-        {"batch_size": BATCH_SIZE, "seq_length": SEQ_LENGTH, "num_heads": NUM_HEADS,
-         "n_kv_heads": 1, "hidden_size": HIDDEN_SIZE, "is_prefill": True,
-         "keep_prob": 1.0, "scale_value": 1.0},
-        {"output": "output_5"},
+        {"prefill_output": "prefill_output_2", "decode_output": "decode_output_2"},
         False
     )
 ]
@@ -86,7 +59,7 @@ FA_SINGLE_CARD_TEST_CASES = [
 
 def build_msrun_command_list(
         run_script_path, batch_size,
-        seq_length, num_heads, n_kv_heads, hidden_size, is_prefill,
+        seq_length, num_heads, n_kv_heads, hidden_size,
         keep_prob, scale_value, output_path_param: str = None
 ):
     """ Build the msrun command with the specified parameters. """
@@ -98,7 +71,6 @@ def build_msrun_command_list(
         f"--num_heads={num_heads}",
         f"--n_kv_heads={n_kv_heads}",
         f"--hidden_size={hidden_size}",
-        f"--is_prefill={str(is_prefill).lower()}",
         f"--keep_prob={keep_prob}",
         f"--scale_value={scale_value}",
         f"--output_path={output_path_param}",
@@ -125,12 +97,33 @@ class TestFlashAttention:
         """
         for key, _ in data_keys.items():
             output_data = output_ms_dict.get(key)
-            query = get_init_params(is_prefill=model_args["is_prefill"],
-                                    n_kv_heads=model_args["n_kv_heads"])["query"]
+            if key == "prefill_output":
+                query = get_init_params(n_kv_heads=model_args["n_kv_heads"])["prefill_query"]
+                query = query.reshape((1, BATCH_SIZE * SEQ_LENGTH[0], NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
+            else:
+                query = get_init_params(n_kv_heads=model_args["n_kv_heads"])["decoder_query"]
+                query = query.reshape((1, BATCH_SIZE * 1, NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
 
             assert output_data.shape == query.shape, \
                 (f"The shapes of output data and input data are different, "
                  f"got output shape: {output_data.shape} and input shape: {query.shape}")
+
+    @staticmethod
+    def check_acc(output_ms_dict, data_keys):
+        """Compare output_ms with GOLDEN_DATA and GPU_DATA using DoubleBenchmarkComparator."""
+        standard = DoubleBenchmarkStandard(dtype="bfloat16")
+
+        for key, data_key in data_keys.items():
+            npu_data = output_ms_dict.get(key)
+            golden_data = GOLDEN_DATA.get(data_key)
+            gpu_data = GPU_DATA.get(data_key)
+
+            DoubleBenchmarkComparator.check_pass_or_not(
+                npu_data=npu_data,
+                gpu_data=gpu_data,
+                golden_data=golden_data,
+                standard=standard
+            )
 
     def run_test(
             self,
@@ -151,7 +144,6 @@ class TestFlashAttention:
             num_heads=model_args["num_heads"],
             n_kv_heads=model_args["n_kv_heads"],
             hidden_size=model_args["hidden_size"],
-            is_prefill=model_args["is_prefill"],
             keep_prob=model_args["keep_prob"],
             scale_value=model_args["scale_value"],
             output_path_param=output_file_path,
@@ -178,6 +170,8 @@ class TestFlashAttention:
         ouput_ms_dict = np.load(output_file_path)
 
         self.check_function(ouput_ms_dict, model_args, data_keys)
+
+        self.check_acc(ouput_ms_dict, data_keys)
 
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training

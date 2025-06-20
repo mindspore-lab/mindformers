@@ -16,9 +16,10 @@
 import argparse
 import os
 import numpy as np
+
 import mindspore as ms
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, mint
+from mindspore import Tensor, mint, ops
 from mindspore.communication import init
 
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
@@ -27,6 +28,10 @@ from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_fl
     get_init_params,
     NUM_BLOCKS,
     BLOCK_SIZE,
+    BATCH_SIZE,
+    SEQ_LENGTH,
+    NUM_HEADS,
+    HIDDEN_SIZE
 )
 
 
@@ -37,8 +42,11 @@ class FlashAttentionRunner:
         self.args = args_from_parser
         self.num_heads = self.args.num_heads
         self.batch_size = self.args.batch_size
-        self.is_prefill = self.args.is_prefill
-        self.seq_length = self.args.seq_length
+        self.is_prefill = True
+        self.prefill_seq_length = self.args.seq_length[1]
+        self.prefill_seq_length = int(self.prefill_seq_length)
+        self.decoder_seq_length = self.args.seq_length[-2]
+        self.decoder_seq_length = int(self.decoder_seq_length)
         self.hidden_size = self.args.hidden_size
         self.n_kv_heads = self.args.n_kv_heads
         self.head_dim = int(self.hidden_size / self.num_heads)
@@ -48,28 +56,44 @@ class FlashAttentionRunner:
         self.kv_cache_shape = (
             NUM_BLOCKS, BLOCK_SIZE, self.n_kv_heads, self.head_dim
         )
+        self.block_tables = Tensor(np.ones((self.batch_size, 11)) * -1, dtype=mstype.int32)
+        self.block_tables[0][0] = 2
+        self.block_tables[1][0] = 1
+        init_params = get_init_params(n_kv_heads=self.n_kv_heads)
 
-        init_params = get_init_params(is_prefill=self.is_prefill,
-                                      n_kv_heads=self.n_kv_heads)
+        assert self.num_heads % self.n_kv_heads == 0, (
+            "n_kv_heads must be divided by num_heads!"
+        )
 
-        self.block_tables = Tensor(np.ones((self.batch_size, BLOCK_SIZE)) * -1, dtype=mstype.int32)
-        self.block_tables[0][0] = 0
+        self.prefill_query = ms.Tensor(init_params.get("prefill_query"),
+                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                                                      NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS))
+        self.prefill_key = ms.Tensor(init_params.get("prefill_key"),
+                                     dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                                                    self.n_kv_heads * int(HIDDEN_SIZE / NUM_HEADS))
+        self.prefill_value = ms.Tensor(init_params.get("prefill_value"),
+                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                                                      self.n_kv_heads * int(
+                                                                          HIDDEN_SIZE / NUM_HEADS))
+        self.decoder_query = ms.Tensor(init_params.get("decoder_query"),
+                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                                                      NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS))
+        self.decoder_key = ms.Tensor(init_params.get("decoder_key"),
+                                     dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                                                    self.n_kv_heads * int(HIDDEN_SIZE / NUM_HEADS))
+        self.decoder_value = ms.Tensor(init_params.get("decoder_value"),
+                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                                                      self.n_kv_heads * int(
+                                                                          HIDDEN_SIZE / NUM_HEADS))
 
-        if self.is_prefill:
-            self.slot_mapping = Tensor(np.arange(self.batch_size * self.seq_length), dtype=mstype.int32)
-            self.batch_valid_length = Tensor(np.ones((self.seq_length,)), dtype=mstype.int32)
-        else:
-            self.slot_mapping = Tensor(np.arange(self.batch_size * 1), dtype=mstype.int32)
-            self.batch_valid_length = Tensor(np.ones((1,)), dtype=mstype.int32)
+        self.prefill_slot_mapping = Tensor(init_params.get("prefill_slot_mapping"), dtype=mstype.int32)
+        self.decoder_slot_mapping = Tensor(init_params.get("decoder_slot_mapping"), dtype=mstype.int32)
 
-        self.flash_attn_mask = mint.ones((self.seq_length, self.seq_length), dtype=mstype.float16)
-        self.flash_attn_mask = mint.triu(self.flash_attn_mask, diagonal=1).astype(mstype.bfloat16)
+        self.reshape_and_cache = ops.auto_generate.ReshapeAndCache()
+        self.key_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
+        self.value_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
 
-        self.query = ms.Tensor(init_params.get("query"), dtype=mstype.bfloat16)
-        self.key = ms.Tensor(init_params.get("key"), dtype=mstype.bfloat16)
-        self.value = ms.Tensor(init_params.get("value"), dtype=mstype.bfloat16)
-
-        # RANK_ID and worker_num are set by msrun environment
+        self.get_slot_map()
         rank_id_str = os.environ.get("RANK_ID")
         self.rank_id = int(rank_id_str) if rank_id_str is not None else None
 
@@ -80,6 +104,17 @@ class FlashAttentionRunner:
             init()
             initialize_model_parallel(tensor_model_parallel_size=1)
 
+    def get_slot_map(self):
+        if self.is_prefill:
+            self.flash_attn_mask = mint.ones((self.prefill_seq_length, self.prefill_seq_length), dtype=mstype.float16)
+            self.flash_attn_mask = mint.triu(self.flash_attn_mask, diagonal=1).astype(mstype.bfloat16)
+            self.batch_valid_length = Tensor(np.ones((self.batch_size,)) * SEQ_LENGTH[0], dtype=mstype.int32)
+        else:
+            self.flash_attn_mask = mint.ones((self.decoder_seq_length, self.decoder_seq_length), dtype=mstype.float16)
+            self.flash_attn_mask = mint.triu(self.flash_attn_mask, diagonal=1).astype(mstype.bfloat16)
+            self.batch_valid_length = Tensor(np.ones((self.batch_size,)) * (SEQ_LENGTH[0] + SEQ_LENGTH[1]),
+                                             dtype=mstype.int32)
+
     def build_model(self):
         """Build Flash_Attn"""
         net = FlashAttention(
@@ -87,35 +122,59 @@ class FlashAttentionRunner:
             head_dim=self.head_dim,
             keep_prob=self.keep_prob,
             kv_head_num=self.n_kv_heads,
-            scale_value=self.scale_value,
             pa_kv_head_num=self.n_kv_heads,
+            scale_value=self.scale_value
         )
         return net
 
     def run(self):
         """Run the flash_attn with given inputs"""
+        # prefill
         net = self.build_model()
         if not self.is_prefill:
             net.phase = "increment"
             net.add_flags(is_prefill=False)
 
-        key_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
-        value_cache = mint.zeros(self.kv_cache_shape, dtype=mstype.bfloat16)
-
-        output = net(
-            query=self.query,
-            key=self.key,
-            value=self.value,
-            slot_mapping=self.slot_mapping,
+        prefill_output = net(
+            query=self.prefill_query,
+            key=self.prefill_key,
+            value=self.prefill_value,
+            slot_mapping=self.prefill_slot_mapping,
             block_tables=self.block_tables,
             actual_seq_qlen=self.batch_valid_length,
             actual_seq_kvlen=self.batch_valid_length,
             batch_valid_length=self.batch_valid_length,
             context_lens_tensor=self.batch_valid_length,
-            key_cache=key_cache,
-            value_cache=value_cache
+            attn_mask=self.flash_attn_mask,
+            key_cache=self.key_cache,
+            value_cache=self.value_cache
         )
-        output_ms = {"output": output}
+
+        # decode
+        self.is_prefill = False
+        self.get_slot_map()
+        if not self.is_prefill:
+            net.phase = "increment"
+            net.add_flags(is_prefill=False)
+
+        self.reshape_and_cache(self.prefill_key, self.prefill_value, self.key_cache, self.value_cache,
+                               self.prefill_slot_mapping)
+
+        decode_output = net(
+            query=self.decoder_query,
+            key=self.decoder_key,
+            value=self.decoder_value,
+            slot_mapping=self.decoder_slot_mapping,
+            block_tables=self.block_tables,
+            actual_seq_qlen=self.batch_valid_length,
+            actual_seq_kvlen=self.batch_valid_length,
+            batch_valid_length=self.batch_valid_length,
+            context_lens_tensor=self.batch_valid_length,
+            key_cache=self.key_cache,
+            value_cache=self.value_cache
+        )
+
+        output_ms = {"prefill_output": prefill_output, "decode_output": decode_output}
 
         if self.rank_id is None or int(self.rank_id) == 0:
             output_np = {k: v.asnumpy().astype(np.float16) for k, v in output_ms.items() if v is not None}
@@ -126,13 +185,12 @@ class FlashAttentionRunner:
 def main():
     parser = argparse.ArgumentParser(description="Run FA test")
     parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--seq_length", type=int, default=2)
+    parser.add_argument("--seq_length", type=list[int], default=[2, 1])
     parser.add_argument("--num_heads", type=int, default=2)
-    parser.add_argument("--n_kv_heads", type=int, default=1)
-    parser.add_argument("--hidden_size", type=int, default=32)
+    parser.add_argument("--n_kv_heads", type=int, default=2)
+    parser.add_argument("--hidden_size", type=int, default=64)  # 32
     parser.add_argument("--keep_prob", type=float, default=1.0)
     parser.add_argument("--scale_value", type=float, default=0.25)
-    parser.add_argument("--is_prefill", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--output_path", type=str, default="output_ms_fa.npz")
 
     args = parser.parse_args()
