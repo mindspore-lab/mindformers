@@ -36,7 +36,6 @@ import mindspore.ops.functional as F
 from mindspore._checkparam import args_type_check
 from mindspore import (
     Callback,
-    Profiler,
     ModelCheckpoint,
     CheckpointConfig,
     context,
@@ -56,8 +55,8 @@ from mindspore.train._utils import get_parameter_redundancy, remove_param_redund
 from mindspore.common.api import flops_collection
 from mindspore.communication.management import create_group, get_group_size, get_rank
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
-from mindspore.profiler import ProfilerLevel
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
+from mindspore.profiler import ProfilerLevel, schedule
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -1673,17 +1672,25 @@ class ProfileMonitor(Callback):
         super(ProfileMonitor, self).__init__()
         self.mstx_range_id = None
         self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and not _check_mspti_is_on()
-        self.start_step = start_step
         self.stop_step = stop_step
-        self.start_profile = start_profile
         self.profile_rank_ids = profile_rank_ids
         self.profile_pipeline = profile_pipeline
-        self.profile_communication = profile_communication
-        self.profiler_level = self._get_profiler_level(profiler_level)
         self.profiler = None
 
-        if profile_communication and not start_profile:
-            raise ValueError("When profile_communication is True, start_profile must also be True")
+        # check start_profile
+        start_profile = self._check_start_profile(start_profile, start_step)
+
+        # check step
+        self.start_step, stop_step = self._check_step(start_step, stop_step)
+
+        if profile_communication:
+            if profiler_level == 0:
+                profiler_level = 1
+                logger.warning(
+                    "When profile_communication is True, profiler_level must be greater than 0, reset "
+                    "profiler_level to 1")
+        # convert profiler_level
+        profiler_level = self._get_profiler_level(profiler_level)
 
         rank_id = get_real_rank()
         self.pipeline_rank_ids = get_pipeline_rank_ids() if self.profile_pipeline else None
@@ -1702,15 +1709,95 @@ class ProfileMonitor(Callback):
                                "so is changed to False. ")
                 profile_memory = False
 
-            self.profiler = Profiler(
-                start_profile=start_profile, output_path=output_path,
-                profile_communication=profile_communication, profile_memory=profile_memory,
-                profiler_level=self.profiler_level, with_stack=with_stack,
-                data_simplification=data_simplification, mstx=mstx, **kwargs
-            )
+            # get schedule config
+            schedule_config = self._get_schedule(start_profile, start_step, stop_step)
+            if is_version_ge(ms.__version__, '2.6.0'):
+                from mindspore.profiler import profile, _ExperimentalConfig, tensorboard_trace_handler
+
+                experimental_config = _ExperimentalConfig(profiler_level=profiler_level,
+                                                          data_simplification=data_simplification,
+                                                          mstx=mstx)
+                self.profiler = profile(
+                    profile_memory=profile_memory,
+                    start_profile=False,
+                    with_stack=with_stack,
+                    schedule=schedule_config,
+                    on_trace_ready=tensorboard_trace_handler(dir_name=output_path),
+                    experimental_config=experimental_config,
+                    **kwargs
+                )
+                self.is_profiler_start = False
+            # compatible to old version mindspore
+            else:
+                from mindspore.profiler import Profiler, tensor_board_trace_handler
+                self.profiler = Profiler(
+                    start_profile=False,
+                    profile_memory=profile_memory,
+                    profiler_level=profiler_level,
+                    with_stack=with_stack,
+                    data_simplification=data_simplification,
+                    mstx=mstx,
+                    schedule=schedule_config,
+                    on_trace_ready=tensor_board_trace_handler(dir_name=output_path),
+                    **kwargs
+                )
+                self.is_profiler_start = False
             self._record_metadata(config)
             self.run_context = None
-            self.output_path = output_path
+
+    @staticmethod
+    def _check_step(start_step, stop_step):
+        """
+        Check start_step and stop_step.
+
+        Args:
+            start_step: start step number.
+            stop_step: stop step number.
+        """
+        if start_step < 0:
+            start_step = 1
+            logger.warning("start_step must bo greater than 0, but got %s, reset to default 1")
+        if stop_step < 0:
+            stop_step = 10
+            logger.warning("stop_step must bo greater than 0, but got %s, reset to default 10")
+        if start_step > stop_step:
+            start_step = 1
+            stop_step = 10
+            logger.warning("stop_step must bo greater than start_step, but get start_step = %d, stop_step = %d, "
+                           "now start_step and stop_step are reset to 1 and 10.", start_step, stop_step)
+        return start_step, stop_step
+
+    @staticmethod
+    def _check_start_profile(start_profile, start_step):
+        """
+        Check start_step and stop_step.
+
+        Args:
+            start_profile: Whether to collect after initialization.
+            start_step: start step number.
+        """
+        if start_step != 1 and start_profile:
+            logger.warning("If the parameters start_step and init_start_profile are set simultaneously, "
+                           "the init_start_profile parameter will not take effect, reset init_start_profile to False.")
+            return False
+        return start_profile
+
+    @staticmethod
+    def _get_schedule(start_profile, start_step, stop_step):
+        """
+        Get schedule by start_step and stop_step.
+
+        Args:
+            start_profile: Whether to start the profiler from the first step.
+            start_step: start step number.
+            stop_step: stop step number.
+        """
+        if start_profile:
+            schedule_config = schedule(wait=0, active=stop_step, warmup=0, repeat=1, skip_first=1)
+        else:
+            schedule_config = schedule(wait=0, active=stop_step - start_step + 1, warmup=0, repeat=1,
+                                       skip_first=start_step)
+        return schedule_config
 
     def on_train_step_begin(self, run_context):
         """
@@ -1721,8 +1808,10 @@ class ProfileMonitor(Callback):
         """
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
-        if step_num == self.start_step and not self.start_profile and self.profiler:
+        if self.profiler and not self.is_profiler_start:
             self.profiler.start()
+            self.is_profiler_start = True
+
         if self.mstx_enabled:
             self.mstx_range_id = ms.profiler.mstx.range_start(f'step {step_num}', ms.runtime.current_stream())
 
@@ -1737,12 +1826,11 @@ class ProfileMonitor(Callback):
         step_num = cb_params.cur_step_num
         if self.mstx_enabled:
             ms.profiler.mstx.range_end(self.mstx_range_id)
+        if self.profiler:
+            self.profiler.step()
         if step_num == self.stop_step and self.profiler:
-            self.profiler.stop()
-            self.profiler.analyse()
-            logger.info("End of Profiling, please view the profile data under %s and analyze it using mindinsight."
-                        "MindInsight order as follow: "
-                        "mindinsight start --summary-base-dir %s", self.output_path, self.output_path)
+            logger.info("End of Profiling, please analyze it using mindinsight. MindInsight order as follow: "
+                        "mindinsight start --summary-base-dir %s", self.output_path)
 
     def _record_metadata(self, config):
         """
