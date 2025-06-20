@@ -129,6 +129,7 @@ class ColumnParallelLinear(nn.Cell):
         self.compute_dtype = compute_dtype
         self.params_dtype = config.params_dtype
         self.cast = P.Cast()
+        self.matmul = P.MatMul(transpose_b=self.transpose_b)
 
         self.tensor_parallel_group_size = get_tp_world_size()
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
@@ -179,9 +180,7 @@ class ColumnParallelLinear(nn.Cell):
         input_ = mint.reshape(input_, (-1, self.input_size))
         input_ = self.cast(input_, self.compute_dtype)
         weight = self.cast(weight, self.compute_dtype)
-        if self.transpose_b:
-            weight = mint.transpose(weight, -2, -1)
-        output_parallel = mint.matmul(input_, weight)
+        output_parallel = self.matmul(input_, weight)
 
         if self.has_bias and not self.skip_bias_add:
             bias = self.cast(self.bias, self.compute_dtype)
@@ -361,6 +360,7 @@ class RowParallelLinear(nn.Cell):
         self.transpose_b = transpose_b
         self.params_dtype = config.params_dtype
         self.cast = P.Cast()
+        self.matmul = P.MatMul(transpose_b=self.transpose_b)
 
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         if not self.input_is_parallel:
@@ -397,9 +397,7 @@ class RowParallelLinear(nn.Cell):
         input_parallel = mint.reshape(input_parallel, (-1, self.input_size_per_partition))
         input_parallel = self.cast(input_parallel, self.compute_dtype)
         weight = self.cast(self.weight, self.compute_dtype)
-        if self.transpose_b:
-            weight = mint.transpose(weight, -2, -1)
-        output_parallel = mint.matmul(input_parallel, weight)
+        output_parallel = self.matmul(input_parallel, weight)
         output = self.reduce_from_mp_region(output_parallel)
 
         if self.has_bias and not self.skip_bias_add:
@@ -495,6 +493,7 @@ class ReplicatedLinear(nn.Cell):
         self.compute_dtype = compute_dtype
         self.params_dtype = config.params_dtype
         self.cast = P.Cast()
+        self.matmul = P.MatMul(transpose_b=self.transpose_b)
 
         self.tensor_parallel_group_size = 1
 
@@ -541,9 +540,7 @@ class ReplicatedLinear(nn.Cell):
         input_ = mint.reshape(input_, (-1, self.input_size))
         input_ = self.cast(input_, self.compute_dtype)
         weight = self.cast(weight, self.compute_dtype)
-        if self.transpose_b:
-            weight = mint.transpose(weight, -2, -1)
-        output = mint.matmul(input_, weight)
+        output = self.matmul(input_, weight)
 
         if self.has_bias and not self.skip_bias_add:
             bias = self.cast(self.bias, self.compute_dtype)

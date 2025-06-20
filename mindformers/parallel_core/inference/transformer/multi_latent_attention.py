@@ -115,7 +115,8 @@ class MultiLatentAttention(Attention):
             self.rotary_pos_emb = RotaryEmbedding(
                 self.config.qk_pos_emb_head_dim,
                 rotary_percent=self.config.rotary_percent,
-                rotary_base=self.config.rotary_base
+                rotary_base=self.config.rotary_base,
+                rotary_cos_format=2,
             )
         elif self.config.rope_type == "yarn":
             self.rotary_pos_emb = YaRNScalingRotaryEmbedding(
@@ -126,7 +127,8 @@ class MultiLatentAttention(Attention):
                 beta_fast=self.config.beta_fast,
                 beta_slow=self.config.beta_slow,
                 mscale=self.config.mscale,
-                mscale_all_dim=self.config.mscale_all_dim
+                mscale_all_dim=self.config.mscale_all_dim,
+                rotary_cos_format=2,
             )
         else:
             raise ValueError(

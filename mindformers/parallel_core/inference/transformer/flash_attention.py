@@ -148,11 +148,15 @@ class FlashAttention(Cell):
             context_layer = output
         else:
             if self.use_multi_latent_attention:
-                value_cache = key_cache
-            context_layer = self.paged_attention(query, key_cache, value_cache,
-                                                 block_tables, batch_valid_length, None,
-                                                 None, attn_mask,
-                                                 q_seq_lens)
+                context_layer = self.paged_attention(query, key_cache, key_cache,
+                                                     block_tables, batch_valid_length, None,
+                                                     None, attn_mask,
+                                                     q_seq_lens)
+            else:
+                context_layer = self.paged_attention(query, key_cache, value_cache,
+                                                     block_tables, batch_valid_length, None,
+                                                     None, attn_mask,
+                                                     q_seq_lens)
 
         core_attn_out = context_layer.reshape(
             (bs, seq_len, self.head_num * self.hidden_size_per_attention_head))
