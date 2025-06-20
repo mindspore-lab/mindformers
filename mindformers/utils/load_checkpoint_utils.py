@@ -102,10 +102,6 @@ def _get_checkpoint_mode(config):
     checkpoint_path = config.load_checkpoint
 
     if os.path.isfile(checkpoint_path):
-        # check if checkpoint_path upper folder is rank_x/
-        upper_dir_name = os.path.basename(os.path.dirname(checkpoint_path))
-        if upper_dir_name.startswith('rank_'):
-            return CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value
         return CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value
 
     # check path is dir
@@ -161,9 +157,7 @@ def _is_distributed_checkpoint(checkpoint_file, ckpt_format='safetensors'):
 def _get_src_file_suffix(config):
     """get file_suffix from config.load_checkpoint."""
     if isinstance(config.resume_training, str):
-        epoch, step = get_epoch_and_step_from_ckpt_name(config.resume_training, config.load_ckpt_format)
-        logger.info(f"Load resume checkpoint from {config.load_checkpoint}, epoch: {epoch}, step: {step}.")
-        file_suffix = f"{epoch}_{step}"
+        file_suffix, _ = os.path.splitext(config.resume_training)
         return config.load_checkpoint, file_suffix
 
     if os.path.isfile(config.load_checkpoint):
@@ -217,6 +211,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         load_checkpoint_files = glob(
             os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
         load_checkpoint_files.sort()
+        config.remove_redundancy = False
     elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value:
         logger.info(f"......Use multi checkpoint file with rank id mode......")
         # change strategy
