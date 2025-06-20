@@ -148,6 +148,16 @@ def _check_context_parallel_algo_valid(config, cp, mp):
                          f"please check num_heads and n_kv_heads.")
 
 
+def _check_moe_parallel_valid(config, mp):
+    """check moe parallel config"""
+    is_moe_network = False if config.moe_config is None else config.moe_config.expert_num > 1
+    use_seq_parallel = False if config.parallel_config.use_seq_parallel is None \
+        else config.parallel_config.use_seq_parallel
+    if mp > 1 and not use_seq_parallel and is_moe_network:
+        raise ValueError(f"During training, performance may degrade if MoE and tensor parallelism "
+                         f"are enabled without also enabling sequence parallelism.")
+
+
 def _check_parallel(config):
     """check parallel config"""
     parallel_mode = ms.get_auto_parallel_context("parallel_mode")
@@ -183,6 +193,8 @@ def _check_parallel(config):
 
         if cp > 1:
             _check_context_parallel_algo_valid(config, cp, mp)
+
+        _check_moe_parallel_valid(config, mp)
 
     seq_split_num = getattr(config.parallel_config, 'seq_split_num', None)
     if seq_split_num not in (1, None):
