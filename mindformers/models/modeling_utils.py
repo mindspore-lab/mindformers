@@ -871,14 +871,11 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
+        if config_args.get("pretrained_model_dir", None):
+            config_args.model.pretrained_model_dir = config_args.pretrained_model_dir
+        if config_args.get("generation", None):
+            config_args.model.generation = config_args.generation
         model = build_network(config_args.model)
-        if model.can_generate() and config_args.model.pretrained_model_dir is not None:
-            model.generation_config = GenerationConfig.from_pretrained(
-                config_args.model.pretrained_model_dir,
-            )
-        elif model.can_generate() and config_args.get("generation", None):
-            model.generation_config = GenerationConfig.from_dict(config_args.generation.to_dict())
-            logger.info(".........build customized generation_config which is is configured in yaml..........")
         logger.info("model built successfully!")
         return model
 

@@ -340,6 +340,10 @@ class AutoConfig:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
         use_legacy = config_args.get_value('use_legacy', True)
+        if config_args.get("pretrained_model_dir", None):
+            config_args.model.pretrained_model_dir = config_args.pretrained_model_dir
+        if config_args.get("generation", None):
+            config_args.model.generation = config_args.generation
         config_args.model.model_config.update(**kwargs)
         if not use_legacy:
             config = get_model_config(config_args.model)

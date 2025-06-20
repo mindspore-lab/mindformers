@@ -358,6 +358,10 @@ class _BaseAutoModelClass:
         config_args.model.model_config.update(**kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
+        if config_args.get("pretrained_model_dir", None):
+            config_args.model.pretrained_model_dir = config_args.pretrained_model_dir
+        if config_args.get("generation", None):
+            config_args.model.generation = config_args.generation
         model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
