@@ -50,13 +50,18 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 
 ### 公网地址声明
 
-|  类型  | 开源代码地址 |                           文件名                            |                                                            公网IP地址/公网URL地址/域名/邮箱地址                                                            |             用途说明              |
-|:----:|:------:|:--------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------:|
-| 开发引入 |   -    |                   mindformers/build.sh                   |                                                   https://pypi.tuna.tsinghua.edu.cn/simple                                                   |  用于pip安装mindformers时, 修改安装源   |
-| 开发引入 |   -    | mindformers/.jenkins/test/config/dependent_packages.yaml | https://repo.mindspore.cn/mindspore/mindspore/version/202502/20250214/master_20250214091349_bba9269b8a6826c23ec33be9fd677178d52cfa3f_newest/ |     用于下载测试所依赖的mindspore包      |
-| 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                          https://hub-ci.openmind.cn                                                          | staging_mode下用于从openmind下载模型  |
-| 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                             https://openmind.cn                                                              | 非staging_mode下用于从openmind下载模型 |
-| 开发引入 |   -    |                   mindformers/setup.py                   |                                                   https://gitee.com/mindspore/mindformers                                                    |   setup脚本方式安装mindformers地址    |
+|  类型  | 开源代码地址 |                             文件名                             |                                                            公网IP地址/公网URL地址/域名/邮箱地址                                                            |             用途说明              |
+|:----:|:------:|:-----------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------:|
+| 开发引入 |   -    |                    mindformers/build.sh                     |                                                   https://pypi.tuna.tsinghua.edu.cn/simple                                                   |  用于pip安装mindformers时, 修改安装源   |
+| 开发引入 |   -    |  mindformers/.jenkins/test/config/dependent_packages.yaml   | https://repo.mindspore.cn/mindspore/mindspore/version/202502/20250214/master_20250214091349_bba9269b8a6826c23ec33be9fd677178d52cfa3f_newest/ |     用于下载测试所依赖的mindspore包      |
+| 开发引入 |   -    |          mindformers/mindformers/tools/hub/hub.py           |                                                          https://hub-ci.openmind.cn                                                          | staging_mode下用于从openmind下载模型  |
+| 开发引入 |   -    |          mindformers/mindformers/tools/hub/hub.py           |                                                             https://openmind.cn                                                              | 非staging_mode下用于从openmind下载模型 |
+| 开发引入 |   -    |                    mindformers/setup.py                     |                                                   https://gitee.com/mindspore/mindformers                                                    |   setup脚本方式安装mindformers地址    |
+| 开发引入 |   -    |            mindformers/trainer/training_args.py             |    https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6     |    mindformers权重切分与合并特性文档     |
+| 开发引入 |   -    |                  mindformers/run_check.py                   |                                         https://www.hiascend.com/document/detail/zh/canncommercial/                                          |          CANN官方使用文档           |
+| 开发引入 |   -    |                      run_mindformer.py                      |                                          https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D                                          |         mindformers介绍         |
+| 开发引入 |   -    |                    mindformers/setup.py                     |                                                 https://gitee.com/mindspore/mindformers/tags                                                 |       mindformers包下载链接        |
+| 开发引入 |   -    |                    mindformers/setup.py                     |                                                https://gitee.com/mindspore/mindformers/issues                                                |      mindformers的issue链接      |
 
 ### 公开接口声明
 
