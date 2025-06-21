@@ -26,6 +26,13 @@ from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
 from mindspore.communication._comm_helper import _is_initialized
 from mindspore.communication import get_group_size, get_rank
+try:
+    from mindspore.ops.auto_generate import (FusedAddTopKDiv,
+                                             MoeDistributeDispatch,
+                                             MoeDistributeCombine)
+    MOE_FUSED_OP_VALID = True
+except ImportError:
+    MOE_FUSED_OP_VALID = False
 
 try:
     from mindspore._checkparam import Validator
@@ -42,13 +49,15 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAtten
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
-from mindformers.parallel_core.inference.utils import get_tp_world_size
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel, \
+    get_moe_expert_parallel_group
+from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_tp_world_size, get_moe_ep_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceScatterToSequenceParallelRegion, \
     GatherFromWorldParallelRegionV2, GatherFromSequenceParallelRegion, ScatterToModelParallelRegion, \
     ReduceScatterToWorldParallelRegion, ReduceFromWorldParallelRegion
+from mindformers.version_control import is_910b
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
@@ -739,6 +748,85 @@ class DeepseekV3MoE(Cell):
 
         return output
 
+class DeepseekV3MoEWithMicroBatch(DeepseekV3MoE):
+    r"""
+    This is an implementation DualPipe based on self-attention mechanism in DeepSeek-V3.
+
+    Args:
+        - **config** (Config): Model config of DeepSeek-V3.
+
+    Inputs:
+        - **x** (Tensor): Should be `[batch, seq_length, hidden_size]`. Float tensor.
+
+    Outputs:
+        - **output** (Tensor): The output of this layer after mapping. The shape is `[batch, seq_length, hidden_size]`.
+    """
+
+    def __init__(self, config):
+        super(DeepseekV3MoEWithMicroBatch, self).__init__(config=config)
+        self.moe_tp_size = get_moe_tp_world_size()
+        self.moe_ep_size = get_moe_ep_world_size()
+        self.ep_rank_id = get_rank() // self.moe_tp_size
+        self.moe_expert_num = config.moe_config.expert_num
+        self.moe_ep_group = get_moe_expert_parallel_group()
+        self.dispatch_tp_world_size = 0 if is_910b() else 1
+        self.dispatch_shared_expert_num = 0 if is_910b() else 1
+        self.cast = P.Cast()
+
+        self.fused_add_topk_div = FusedAddTopKDiv()
+        self.dispatch = MoeDistributeDispatch()
+        self.dispatch.add_prim_attr("group", self.moe_ep_group)
+        self.dispatch.add_prim_attr("is_comm_op", True)
+        self.combine = MoeDistributeCombine()
+        self.combine.add_prim_attr("group", self.moe_ep_group)
+        self.combine.add_prim_attr("is_comm_op", True)
+
+    def moe_dispatch(self, x, expert_index):
+        """moe dispatch"""
+        expand_x, _, expand_idx, expert_token_nums, ep_recv_counts, tp_recv_counts, _ = \
+                            self.dispatch(x=x,
+                                          expert_ids=expert_index,
+                                          ep_world_size=self.moe_ep_size,
+                                          ep_rank_id=self.ep_rank_id,
+                                          moe_expert_num=self.moe_expert_num,
+                                          group_ep=self.moe_ep_group,
+                                          tp_world_size=self.dispatch_tp_world_size,
+                                          shared_expert_num=self.dispatch_shared_expert_num,
+                                          global_bs=self.routed_experts.dispatch_global_max_bs*self.moe_ep_size,
+                                          expert_token_nums_type=1)
+        return expand_x, _, expand_idx, expert_token_nums, ep_recv_counts, tp_recv_counts, _
+
+    def moe_combine(self, ffn_res, expert_index, expand_idx, ep_recv_counts, expert_weight, tp_recv_counts):
+        """moe combine"""
+        moe_output = self.combine(expand_x=ffn_res,
+                                  expert_ids=expert_index,
+                                  expand_idx=expand_idx,
+                                  ep_send_counts=ep_recv_counts,
+                                  expert_scales=expert_weight,
+                                  ep_world_size=self.moe_ep_size,
+                                  ep_rank_id=self.ep_rank_id,
+                                  moe_expert_num=self.moe_expert_num,
+                                  tp_send_counts=tp_recv_counts,
+                                  group_ep=self.moe_ep_group,
+                                  tp_world_size=self.dispatch_tp_world_size,
+                                  shared_expert_num=self.dispatch_shared_expert_num,
+                                  global_bs=self.routed_experts.dispatch_global_max_bs*self.moe_ep_size)
+        return moe_output
+
+    def gating_logits(self, x):
+        """gating logits"""
+        gating_logits = self.routed_experts.gating(self.cast(x, self.routed_experts.router_dense_type))
+        gating_logits = self.routed_experts.cast(gating_logits, mstype.float32)
+        expert_weight, expert_index = self.fused_add_topk_div(gating_logits,
+                                                              self.routed_experts.router.e_score_correction_bias,
+                                                              self.routed_experts.num_experts_chosen,
+                                                              self.routed_experts.topk_group,
+                                                              self.routed_experts.group_topk_inner,
+                                                              self.routed_experts.num_experts_chosen,
+                                                              0,
+                                                              True,
+                                                              self.routed_experts.moe_config.routed_scaling_factor)
+        return expert_weight, expert_index
 
 class AttentionReduceScatter(Cell):
     r"""
@@ -892,6 +980,9 @@ class DeepseekV3DecodeLayer(nn.Cell):
         self.add = P.Add()
         self.ffn_norm = RMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = RMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.moe_config = config.moe_config
+        self.enable_micro_batch = config.enable_micro_batch
+        self.num_layers = config.num_layers
 
         self.first_k_dense = (moe_config.first_k_dense_replace and layer_id < moe_config.first_k_dense_replace)
         self.attn_delay_allreduce = not config.parallel_config.attn_allreduce and not self.first_k_dense
@@ -927,6 +1018,8 @@ class DeepseekV3DecodeLayer(nn.Cell):
             logger.warning("first_k_dense_replace is provided in MoEConfig, "
                            "a normal dense FFN will be used in this block.")
             self.feed_forward = DeepseekV3ParallelMLP(config)
+        elif self.enable_micro_batch:
+            self.feed_forward = DeepseekV3MoEWithMicroBatch(config=config)
         else:
             self.feed_forward = DeepseekV3MoE(config=config)
 
@@ -950,6 +1043,10 @@ class DeepseekV3DecodeLayer(nn.Cell):
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
 
+        if self.enable_micro_batch and self.is_first_iteration and not self.first_k_dense:
+            # moe layers enable dual pipe overlap
+            return self._micro_batch_overlap(x, freqs_cis, mask, batch_valid_length, block_tables,
+                                             slot_mapping, q_seq_lens, key_cache)
         input_x = self.attention_norm(x)
         h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
                            slot_mapping, q_seq_lens, key_cache=key_cache)
@@ -988,6 +1085,91 @@ class DeepseekV3DecodeLayer(nn.Cell):
                                [mstype.float32, mstype.float16, mstype.bfloat16, mstype.uint8, mstype.bool_],
                                self.cls_name)
         return True
+
+    def _micro_batch_overlap(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
+                             slot_mapping=None, q_seq_lens=None, key_cache=None):
+        """dual batch dual-batch step level"""
+        # batch_0 stage0 computation
+        if self.layer_id == self.moe_config.first_k_dense_replace:
+            # attention
+            input_x_0 = self.attention_norm(x[0])
+            h_0 = self.attention(input_x_0, freqs_cis, mask, batch_valid_length[0], block_tables[0], slot_mapping[0],
+                                 q_seq_lens[0], key_cache=key_cache)
+            h_0_new = self.add(x[0], h_0)
+        else:
+            h_0_new = x[0]
+        ffn_norm_0 = self.ffn_norm(h_0_new)
+        # gating logicts
+        expert_weight_0, expert_index_0 = self.feed_forward.gating_logits(ffn_norm_0)
+
+        # batch_0 stage1 dispatch
+        expand_x_0, _, expand_idx_0, expert_token_nums_0, ep_recv_counts_0, tp_recv_counts_0, _ = \
+            self.feed_forward.moe_dispatch(x=ffn_norm_0,
+                                           expert_index=expert_index_0)
+
+        # batch_1 stage0 computation
+        # attention
+        input_x_1 = self.attention_norm(x[1])
+        input_x_1 = ops.depend(input_x_1, expert_index_0)  # depend
+        h_1 = self.attention(input_x_1, freqs_cis, mask, batch_valid_length[1], block_tables[1], slot_mapping[1],
+                             q_seq_lens[1], key_cache=key_cache)
+        h_1_new = self.add(x[1], h_1)
+        ffn_norm_1 = self.ffn_norm(h_1_new)
+        # gating logicts
+        expert_weight_1, expert_index_1 = self.feed_forward.gating_logits(ffn_norm_1)
+
+        # batch_0 stage2 computation
+        # shared experts
+        shared_res_0 = self.feed_forward.shared_experts(ffn_norm_0)
+        shared_res_0 = ops.depend(shared_res_0, expert_index_1)
+        # ffn
+        expand_x_0 = ops.depend(expand_x_0, expert_index_1)  # depend
+        ffn_res_0 = self.feed_forward.routed_experts.ffn(expand_x_0, expert_token_nums_0)
+        # ffn_res_0 = ops.depend(ffn_res_0, expert_index_1)
+
+        # batch_1 stage1 dispatch
+        ffn_norm_1 = ops.depend(ffn_norm_1, ffn_res_0)
+        expand_x_1, _, expand_idx_1, expert_token_nums_1, ep_recv_counts_1, tp_recv_counts_1, _ = \
+            self.feed_forward.moe_dispatch(x=ffn_norm_1,
+                                           expert_index=expert_index_1)
+
+        # batch_1 stage2 computation
+        # shared experts
+        shared_res_1 = self.feed_forward.shared_experts(ffn_norm_1)
+        shared_res_1 = ops.depend(shared_res_1, ffn_res_0)
+        # ffn
+        ffn_res_1 = self.feed_forward.routed_experts.ffn(expand_x_1, expert_token_nums_1)
+
+        # batch_0 stage3 combine
+        out_0 = self.feed_forward.moe_combine(ffn_res=ffn_res_0, expert_index=expert_index_0, expand_idx=expand_idx_0,
+                                              ep_recv_counts=ep_recv_counts_0, expert_weight=expert_weight_0,
+                                              tp_recv_counts=tp_recv_counts_0)
+
+        # batch_0 stage4 end
+        # add shared_res and h
+        out_0 = self.add(out_0, shared_res_0)
+        out_0 = self.add(out_0, h_0_new)
+
+        # batch_1 stage3 combine
+        out_1 = self.feed_forward.moe_combine(ffn_res=ffn_res_1, expert_index=expert_index_1, expand_idx=expand_idx_1,
+                                              ep_recv_counts=ep_recv_counts_1, expert_weight=expert_weight_1,
+                                              tp_recv_counts=tp_recv_counts_1)
+
+        # batch_1 stage4 end
+        # add shared_res and h
+        out_1 = self.add(out_1, shared_res_1)
+        out_1 = self.add(out_1, h_1_new)
+
+        # next layer batch_0 stage0 computation
+        if self.layer_id != self.num_layers - 1:
+            next_layer_x_0 = self.attention_norm(out_0)
+            next_layer_x_0 = ops.depend(next_layer_x_0, ffn_res_1)
+            next_layer_h_0 = self.attention(next_layer_x_0, freqs_cis, mask, batch_valid_length[0], block_tables[0],
+                                            slot_mapping[0], q_seq_lens[0], key_cache=key_cache)
+            next_layer_h_0_new = self.add(out_0, next_layer_h_0)
+        else:
+            next_layer_h_0_new = out_0
+        return next_layer_h_0_new, out_1
 
 
 class DeepseekV3PreTrainedModel(PreTrainedModel):
@@ -1034,6 +1216,8 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
 
         self.is_first_iteration = True
         self.use_past = config.use_past
+        self.moe_config = config.moe_config
+        self.enable_micro_batch = config.enable_micro_batch
         self.is_dynamic = config.is_dynamic
 
         self.shape = P.Shape()
@@ -1043,6 +1227,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         self.expand_dims = P.ExpandDims()
         self.gather = P.Gather()
         self.slice = P.StridedSlice()
+        self.mb_split = ops.Slice()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.qk_rope_head_dim,
                                   seq_length=config.seq_length,
@@ -1140,15 +1325,83 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
 
         h = self.cast(self.tok_embeddings(tokens), self.dtype)
 
+        # for splitting dual batch
+        split_input = None
+        split_bvl = None
+        split_bt = None
+        split_sm = None
+        split_qsl = None
+
         for i in range(self.num_layers):
             key_cache_i = key_cache[i] if key_cache is not None else None
-            h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
-                               block_tables=block_tables, slot_mapping=slot_mapping,
-                               q_seq_lens=q_seq_lens, attn_padding_idx=attn_padding_idx,
-                               attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
-                               ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i)
+            if (self.moe_config.first_k_dense_replace and i < self.moe_config.first_k_dense_replace) \
+                    or not (self.enable_micro_batch and self.is_first_iteration):
+                h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
+                                   block_tables=block_tables, slot_mapping=slot_mapping,
+                                   q_seq_lens=q_seq_lens, attn_padding_idx=attn_padding_idx,
+                                   attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
+                                   ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i)
+            else:
+                # split dual batch in prefilling
+                if i == self.moe_config.first_k_dense_replace:
+                    split_input, split_bvl, split_bt, split_sm, split_qsl = self._split_micro_batch_input(h, \
+                            batch_valid_length, block_tables, slot_mapping, q_seq_lens)
+                split_input = self.layers[i](split_input, freqs_cis, mask, batch_valid_length=split_bvl,
+                                             block_tables=split_bt, slot_mapping=split_sm,
+                                             q_seq_lens=split_qsl, attn_padding_idx=attn_padding_idx,
+                                             attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
+                                             ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i)
+                if i == self.num_layers - 1:
+                    h = mint.concat((split_input[0], split_input[1]), dim=0)
+
         output = self.norm_out(h)
         return output
+
+    def _split_micro_batch_input(self, h, batch_valid_length, block_tables, slot_mapping, q_seq_lens):
+        """split micro batch input tensors"""
+        seq_split_idx, token_split_idx = self._get_split_index(q_seq_lens)
+        # split h
+        split_input_0 = self.mb_split(h, (0, 0), (token_split_idx, h.shape[1]))
+        split_input_1 = self.mb_split(h, (token_split_idx, 0), (h.shape[0]-token_split_idx, h.shape[1]))
+        # split batch_valid_length
+        split_bvl_0 = self.mb_split(batch_valid_length, (0,), (seq_split_idx,))
+        split_bvl_1 = self.mb_split(batch_valid_length, (seq_split_idx,), \
+                                    (batch_valid_length.shape[0]-seq_split_idx,))
+        # split block_tables
+        split_bt_0 = self.mb_split(block_tables, (0, 0), (seq_split_idx, block_tables.shape[1]))
+        split_bt_1 = self.mb_split(block_tables, (seq_split_idx, 0), \
+                                   (block_tables.shape[0]-seq_split_idx, block_tables.shape[1]))
+        # split slot_mapping
+        split_sm_0 = self.mb_split(slot_mapping, (0,), (token_split_idx,))
+        split_sm_1 = self.mb_split(slot_mapping, (token_split_idx,), (slot_mapping.shape[0]-token_split_idx,))
+        # split q_seq_lens
+        split_qsl_0 = self.mb_split(q_seq_lens, (0,), (seq_split_idx,))
+        split_qsl_1 = self.mb_split(q_seq_lens, (seq_split_idx,), (q_seq_lens.shape[0]-seq_split_idx,))
+        return (split_input_0, split_input_1), (split_bvl_0, split_bvl_1), (split_bt_0, split_bt_1), \
+                (split_sm_0, split_sm_1), (split_qsl_0, split_qsl_1)
+
+    def _get_split_index(self, q_seq_lens):
+        """compute the minimum difference sum-tokens of the tensor after splitting"""
+        seq_split_idx = 0
+        token_split_idx = 0
+        if self.is_first_iteration:
+            total_sum = ops.ReduceSum()(q_seq_lens)
+            # prefix sum of q_seq_lens9 except last element
+            prefix_sums = ops.CumSum()(q_seq_lens, 0)[:-1]
+            # suffix sum of q_seq_lens except first element
+            suffix_sums = total_sum - prefix_sums
+            suffix_sums = prefix_sums
+            # abs difference of prefix and suffix sum
+            diffs = ops.Abs()(prefix_sums - suffix_sums)
+            # get the minimum difference splitting index
+            seq_split_idx = ops.Argmin()(diffs)
+            token_split_idx = prefix_sums[seq_split_idx]
+            seq_split_idx += 1
+        else:
+            # half split in decoding batch
+            seq_split_idx = q_seq_lens.shape[0] // 2
+            token_split_idx = seq_split_idx
+        return int(seq_split_idx), int(token_split_idx)
 
 
 class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
@@ -1283,6 +1536,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 config.parallel_config.attn_allreduce = False
                 config.parallel_config.ffn_reduce_scatter = True
                 config.parallel_config.ffn_allreduce = False
+                config.enable_micro_batch = False
         elif self.dp_size > 1:
             if self.moe_tp_size == 1:
                 config.parallel_config.attn_reduce_scatter = True
@@ -1290,6 +1544,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 config.parallel_config.ffn_allgather = True
                 config.parallel_config.ffn_allreduce = False
                 config.parallel_config.use_alltoall = True
+                config.enable_micro_batch = False
             else:
                 config.parallel_config.attn_reduce_scatter = True
                 config.parallel_config.attn_allgather = True
@@ -1297,6 +1552,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 config.parallel_config.ffn_reduce_scatter = True
                 config.parallel_config.ffn_allgather = True
                 config.parallel_config.ffn_allreduce = False
+                config.enable_micro_batch = False
         return config
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -1462,6 +1718,12 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         """Get the key_cache depend on layer_idx."""
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         return key_cache, None
+
+    def add_flags_enable_micro_batch(self, enable_micro_batch):
+        """Add customized attributes for specific cells in the model when the use_past is enabled."""
+        self.model.add_flags(enable_micro_batch=enable_micro_batch)
+        for layer in self.model.layers:
+            layer.add_flags(enable_micro_batch=enable_micro_batch)
 
 
 class DeepseekV3MTPLayer(nn.Cell):

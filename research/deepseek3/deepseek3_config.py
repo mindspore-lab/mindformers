@@ -163,6 +163,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  enable_fa_var_len=False,
                  return_hidden_states=False,
                  is_mtp_model: bool = False,
+                 enable_micro_batch: bool = False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -232,3 +233,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.enable_fa_var_len = enable_fa_var_len
         self.return_hidden_states = return_hidden_states
         self.is_mtp_model = is_mtp_model
+        self.enable_micro_batch = enable_micro_batch
