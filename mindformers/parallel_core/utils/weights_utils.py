@@ -17,7 +17,9 @@ from safetensors import safe_open
 import numpy as np
 
 import mindspore as ms
-from mindspore.communication.management import get_rank, get_group_size
+from mindspore.communication.management import get_rank
+
+from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.parallel_core.inference.transformer.mlp import MLP
 from mindformers.parallel_core.inference.transformer.attention import SelfAttention
 from mindformers.parallel_core.inference.transformer.multi_latent_attention import MLASelfAttention
@@ -287,7 +289,7 @@ def deal_mla_weights(layer_obj, parameter_dict, config, weights_path, weights, m
         linear_q_up_proj_value = linear_q_up_proj_value.reshape(num_heads, rope_dim, -1)
         linear_q_up_proj_value = infer_trans_rope_weight(linear_q_up_proj_value, config.qk_pos_emb_head_dim)
         linear_q_up_proj_value = linear_q_up_proj_value.reshape(num_heads * rope_dim, -1)
-        linear_q_up_proj_value = split(linear_q_up_proj_value, split_axis=0)
+        linear_q_up_proj_value = split_weight_by_rank(linear_q_up_proj_value, split_axis=0)
         parameter_dict[linear_q_up_proj_name] = ms.Parameter(
             ms.Tensor(linear_q_up_proj_value, getattr(config, 'params_dtype')), name=linear_q_up_proj_name,
             requires_grad=False
@@ -306,10 +308,10 @@ def deal_mla_weights(layer_obj, parameter_dict, config, weights_path, weights, m
                                  linear_kv_up_proj_value[:, qk_nope_head_dim:, :])
         # value_k_nope
         value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1])
-        value_k_nope = split(value_k_nope, split_axis=0)
+        value_k_nope = split_weight_by_rank(value_k_nope, split_axis=0)
         # value_v_nope
         value_v = value_v.reshape(-1, value_v.shape[-1])
-        value_v = split(value_v, split_axis=0)
+        value_v = split_weight_by_rank(value_v, split_axis=0)
         linear_kv_up_proj_value = np.concatenate((value_k_nope, value_v), 0)
         parameter_dict[linear_kv_up_proj_name] = ms.Parameter(
             ms.Tensor(linear_kv_up_proj_value, getattr(config, 'params_dtype')), name=linear_kv_up_proj_name,
@@ -424,9 +426,10 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
         split_axis: According to the first dimension or the second dimension to split.
 
     Returns:
-        np_data: Data after split.
+        np_data: Data after split_weight_by_rank.
     """
-    tp_group_size = get_group_size()
+    tp_group_size = get_tp_world_size()
+    tp_rank_id = get_rank()
 
     def deal_qkv(np_data, config):
         qkv_dim = len(np_data.shape)
@@ -441,9 +444,26 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
         q_weight = np_data[:q_channel, :]
         k_weight = np_data[q_channel:q_channel + kv_channel, :]
         v_weight = np_data[q_channel + kv_channel:q_channel + 2 * kv_channel, :]
-        q_weight = split(q_weight, split_axis)
-        k_weight = split(k_weight, split_axis)
-        v_weight = split(v_weight, split_axis)
+
+        q_weight = split_weight_by_rank(q_weight, split_axis)
+        # tp_size > kv_heads, the shape of kv weight will be replicated
+        if tp_group_size > config.num_query_groups:
+            replicate = tp_group_size // config.num_query_groups
+            k_weight = split_weight_specific_rank_with_resize(
+                k_weight,
+                split_axis=0,
+                rank_id=tp_rank_id // replicate,
+                group_size=config.num_query_groups
+            )
+            v_weight = split_weight_specific_rank_with_resize(
+                v_weight,
+                split_axis=0,
+                rank_id=tp_rank_id // replicate,
+                group_size=config.num_query_groups
+            )
+        else:
+            k_weight = split_weight_by_rank(k_weight, split_axis)
+            v_weight = split_weight_by_rank(v_weight, split_axis)
         cat_qkv_weight = np.concatenate((q_weight, k_weight, v_weight), axis=0)
         if qkv_dim == 1:
             cat_qkv_weight = cat_qkv_weight.reshape(w // tp_group_size,)
@@ -456,8 +476,8 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
             np_data = np_data.reshape(w, -1)
         w1_weight = np_data[: w // 2, :]
         w3_weight = np_data[w // 2: w // 2 * 2, :]
-        w1_weight = split(w1_weight, split_axis)
-        w3_weight = split(w3_weight, split_axis)
+        w1_weight = split_weight_by_rank(w1_weight, split_axis)
+        w3_weight = split_weight_by_rank(w3_weight, split_axis)
         cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)
         if ffn_dim == 1:
             cat_ffn_weight = cat_ffn_weight.reshape(w // tp_group_size,)
@@ -473,7 +493,7 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
                 return deal_qkv(np_data, config)
             if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] == 'mlp':
                 return deal_ffn(np_data)
-            return split(np_data, split_axis)
+            return split_weight_by_rank(np_data, split_axis)
     if not is_split_param:
         np_data = weight
         return np_data
@@ -483,13 +503,56 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
         return deal_qkv(np_data, config)
     if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] == 'mlp':
         return deal_ffn(np_data)
-    return split(np_data, split_axis).reshape(-1) if np_dim == 1 else split(np_data, split_axis)
+    if np_dim == 1:
+        return split_weight_by_rank(np_data, split_axis).reshape(-1)
+    return split_weight_by_rank(np_data, split_axis)
 
 
-def split(tensor, split_axis):
-    tp_group_size = get_group_size()
+def split_weight_by_rank(weight, split_axis):
+    """
+    Split model weight by the current rank id for tensor parallelism.
+
+    Args:
+        weight(np.array): The full weight tensor to be split.
+        split_axis(int): The axis along which to split the weight. Usually 0 (row-wise) or 1 (column-wise).
+
+    Returns:
+        weight: The split sub-tensor assigned to the current rank.
+    """
+    tp_group_size = get_tp_world_size()
     rank_id = get_rank()
-    split_size = tensor.shape[split_axis] // tp_group_size
+    split_size = weight.shape[split_axis] // tp_group_size
     start = rank_id * split_size
     stop = (rank_id + 1) * split_size
-    return tensor[start:stop] if split_axis == 0 else tensor[:, start:stop]
+    return weight[start:stop] if split_axis == 0 else weight[:, start:stop]
+
+
+def split_weight_specific_rank_with_resize(weight, split_axis, rank_id, group_size):
+    r"""
+    Split model weight by a specified rank id with replication,
+    used when tensor parallel size is greater than the number of kv heads.
+
+    Args:
+        weight(np.array): The full weight tensor to be split.
+        split_axis(int): The axis along which to split the weight. Usually 0 (row-wise) or 1 (column-wise).
+        rank_id(int): The id of the current device/rank to which this split will be assigned.
+        group_size(int): The number of query groups.
+
+    Returns:
+        weight: The split sub-tensor assigned to the current rank.
+    """
+    shape = weight.shape
+    if split_axis == 0:
+        split_size = shape[0] // group_size
+        start = rank_id * split_size
+        stop = (rank_id + 1) * split_size
+        split_data = weight[start:stop]
+    elif split_axis == 1:
+        split_size = shape[1] // group_size
+        start = rank_id * split_size
+        stop = (rank_id + 1) * split_size
+        split_data = weight[:, start:stop]
+    else:
+        raise ValueError(
+            "split_axis:{} is not supported.".format(split_axis))
+    return split_data

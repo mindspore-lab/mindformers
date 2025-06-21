@@ -121,6 +121,9 @@ class GenerationMixin:
             compute_dtype = tansformer_config.compute_dtype
 
             tp_group_size = get_tp_world_size()
+            # When kv heads < tp size, will replicate kv heads
+            if num_query_groups < tp_group_size:
+                num_query_groups = tp_group_size
 
             hidden_size_per_attention_head = getattr(tansformer_config, 'kv_channels', divide(
                 tansformer_config.hidden_size, num_heads
