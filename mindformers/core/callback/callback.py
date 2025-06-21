@@ -2267,8 +2267,8 @@ class TopkBiasBalanceCallback(Callback):
         """update topk bias tensor during training."""
         while hasattr(network, "network"):
             network = network.network
-        if hasattr(network, "update_topk_bias"):
-            expert_loads = network.update_topk_bias(self.acc_step_over_expert_num, self.topk_bias_update_rate)
+        if hasattr(network.model, "update_topk_bias"):
+            expert_loads = network.model.update_topk_bias(self.acc_step_over_expert_num, self.topk_bias_update_rate)
             if self.tensor_writer is not None and self.write_expert_load_to_tensorboard:
                 for layer, expert_load in expert_loads:
                     expert_load_dict = {f"ep_{i}": load_i.asnumpy() for i, load_i in enumerate(expert_load)}

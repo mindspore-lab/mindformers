@@ -255,6 +255,7 @@ COMMON_CONFIG_MAPPING = {
     ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
     ("num_layers", "num_hidden_layers"): "num_layers",
+    ("rope_interleave", "rotary_interleaved"): "rotary_interleaved",
     # not changes
     "hidden_size": "hidden_size",
     "softmax_scale": "softmax_scale",
@@ -265,7 +266,6 @@ COMMON_CONFIG_MAPPING = {
     "add_bias_linear": "add_bias_linear",
     "gated_linear_unit": "gated_linear_unit",
     "activation_func": "activation_func",
-    "rotary_interleaved": "rotary_interleaved",
     "normalization": "normalization",
     "qk_layernorm": "qk_layernorm",
     "calculate_per_token_loss": "calculate_per_token_loss",
