@@ -14,9 +14,9 @@ Llama 3.2-Vision多模态大语言模型集合是预训练和指令调整的图�
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-| Config                                      |      Task       | Datasets | SeqLength | Performance  |  Phase  |
-|:--------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
-| [mllama_11b](./predict_mllama_11b.yaml)   | text_generation |    -     |   4096    | 1643 tokens/s | Predict |
+| Config                                                     |      Task       | Datasets | SeqLength | Performance  |  Phase  |
+|:-----------------------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
+| [mllama_11b](../../configs/mllama/predict_mllama_11b.yaml) | text_generation |    -     |   4096    | 1643 tokens/s | Predict |
 
 ## 模型文件
 
@@ -55,8 +55,8 @@ Llama 3.2-Vision多模态大语言模型集合是预训练和指令调整的图�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
-和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)
+和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持11b单机单卡推理，全参微调至少需要单机8卡，推荐使用单机8卡。
 
@@ -68,12 +68,12 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 | 数据集名称 |    适用模型     |   适用阶段   |                                下载链接                                |
 |:------|:-----------:|:--------:|:------------------------------------------------------------------:|
-| ocrvqa | mllama | Finetune | [Link](https://huggingface.co/datasets/HuggingFaceM4/the_cauldron/viewer/ocrvqa) |
+| ocrvqa | mllama | Finetune | [Link](https://huggingface.co/datasets/HuggingFaceM4/the_cauldron/tree/main/ocrvqa) |
 
 通过以下脚本把下载好的arrow格式的数据集，转成json格式：
 
 ```shell
-python mindformers\models\mllama\data_process.py --data_dir "input" --output_file "output"
+python toolkit/data_preprocess/mllama/data_process.py --data_dir "input" --output_file "output"
 ```
 
 运行完成，会在output目录生成以下数据：
@@ -114,7 +114,7 @@ dtype:       转换权重的精度
 
 ### 单机训练
 
-以`llama3_2-vision-11b`为例，修改configs\mllama\finetune_mllama_11b.yaml配置文件，annotation_file替换为[数据处理](#数据集下载)好的train_data.json路径，vocab_file替换为对应的[词表](#模型权重下载)路径。
+以`llama3_2-vision-11b`为例，修改configs/mllama/finetune_mllama_11b.yaml配置文件，annotation_file替换为[数据处理](#数据集下载)好的train_data.json路径，vocab_file替换为对应的[词表](#模型权重下载)路径。
 
 ```yaml
 train_dataset: &train_dataset

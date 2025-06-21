@@ -19,7 +19,7 @@ import random
 import argparse
 import string
 import stat
-from datasets import load_from_disk
+from datasets import load_dataset
 
 
 def generate_random_code(length=6):
@@ -41,13 +41,13 @@ def convert_data_json(dataset_dir, output_file, image_pos_tag=None):
     if image_pos_tag is None:
         image_pos_tag = ('<|reserved_special_token_3|>', '<|reserved_special_token_4|>')
     text_pos_tag = "<|text|>"
-    data_set = load_from_disk(dataset_dir)
+    data_set = load_dataset(dataset_dir)
     result = []
     images_dir = os.path.join(output_file, "images")
     if not os.path.exists(images_dir):
         os.makedirs(images_dir)
 
-    for data in data_set:
+    for data in data_set['train']:
         conversations = []
         data_id = generate_random_code(8)
         image_list, sample_list = data["images"], data["texts"]
