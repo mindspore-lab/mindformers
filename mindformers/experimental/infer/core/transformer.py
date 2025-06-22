@@ -21,12 +21,15 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
+from collections import OrderedDict
 from mindformers.experimental.infer.core.parallel_paged_attention_mgr import ParallelPagedAttentionMgr
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
 from mindformers.experimental.parallel_core.pynative.utils import divide
+from mindformers.experimental.parallel_core.pynative.parallel_state import (get_pipeline_model_parallel_rank,
+    get_pipeline_model_parallel_world_size)
 from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.experimental.infer.core.utils import get_tp_world_size, get_pp_world_size
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
@@ -40,6 +43,40 @@ __all__ = [
     "ParallelTransformerLayer",
     "ParallelTransformer",
 ]
+
+
+def _get_num_layers(config):
+    """get transformer layers number for current rank"""
+    pp = get_pp_world_size()
+    if config.num_layers < pp:
+        raise RuntimeError(f"The number of model layers is {config.num_layers}, "
+                           f"but using pipeline parallel requires at least "
+                           f"'pp({pp})' layers for splitting")
+    if pp > 1:
+        def divide_layers(num_layers, stage, rank, offset):
+            num_layer_list = np.array([num_layers // stage] * stage)
+            offset = np.array(offset)
+            offset = np.broadcast_to(offset, (stage))
+            remain_layer_nums = num_layers - num_layer_list.sum()
+            if remain_layer_nums != offset.sum():
+                raise RuntimeError("Offset can't support.")
+            num_layer_list += offset
+            num_layers = num_layer_list[rank]
+            offset = num_layer_list[:rank].sum()
+            print(f"num_layer_list: {num_layer_list}")
+            return num_layers, offset
+
+        num_layers = config.num_layers
+        offset = config.offset
+
+        pp_stage = get_pipeline_model_parallel_world_size()
+        pp_rank = get_pipeline_model_parallel_rank()
+        num_layers, offset = divide_layers(num_layers, pp_stage, pp_rank, offset)
+
+    else:
+        num_layers = config.num_layers
+        offset = 0
+    return num_layers, offset
 
 
 class VocabEmbedding(nn.Cell):
@@ -754,10 +791,6 @@ class ParallelTransformer(nn.Cell):
             raise NotImplementedError("For ParallelTransformer, 'layer_type' is not support for now.")
         if self_attn_mask_type:
             raise NotImplementedError("For ParallelTransformer, 'self_attn_mask_type' is not support for now.")
-        if pre_process:
-            raise NotImplementedError("For ParallelTransformer, 'pre_process' is not support for now.")
-        if post_process:
-            raise NotImplementedError("For ParallelTransformer, 'post_process' is not support for now.")
         if drop_path_rate:
             raise NotImplementedError("For ParallelTransformer, 'drop_path_rate' is not support for now.")
         self.config = config
@@ -768,6 +801,8 @@ class ParallelTransformer(nn.Cell):
         self.is_first_iteration = True
         self.use_flash_attention = config.use_flash_attention
         self.compute_dtype = config.compute_dtype
+        self.pre_process = pre_process
+        self.post_process = post_process
 
         self.cast = ops.Cast()
         self.shape = ops.Shape()
@@ -792,33 +827,37 @@ class ParallelTransformer(nn.Cell):
                                                           use_past=config.use_past)
 
         self.tp_group_size = get_tp_world_size()
-        if config.parallel_config.vocab_emb_dp or self.tp_group_size == 1:
-            self.tok_embeddings = VocabEmbedding(
-                num_embeddings=config.vocab_size,
-                embedding_dim=config.hidden_size,
-                param_init_type=config.param_init_dtype,
-                param_init="normal",
-            )
-        else:
-            self.tok_embeddings = VocabParallelEmbedding(num_embeddings=config.vocab_size,
-                                                         embedding_dim=config.hidden_size,
-                                                         parallel_config=config.parallel_config,
-                                                         init_method="normal",
-                                                         init_type=config.param_init_dtype)
+        self.pipeline_parallel = get_pp_world_size() > 1
+        if pre_process:
+            if config.parallel_config.vocab_emb_dp or self.tp_group_size == 1:
+                self.tok_embeddings = VocabEmbedding(
+                    num_embeddings=config.vocab_size,
+                    embedding_dim=config.hidden_size,
+                    param_init_type=config.param_init_dtype,
+                    param_init="normal",
+                )
+            else:
+                self.tok_embeddings = VocabParallelEmbedding(num_embeddings=config.vocab_size,
+                                                            embedding_dim=config.hidden_size,
+                                                            parallel_config=config.parallel_config,
+                                                            init_method="normal",
+                                                            init_type=config.param_init_dtype)
 
-        self.layers = nn.CellList()
-        for layer_id in range(config.num_layers):
-            layer = ParallelTransformerLayer(config=self.config, layer_number=layer_id + 1)
-            self.layers.append(layer)
+        self.num_layers, offset = _get_num_layers(config)
+        layer_dict = OrderedDict()
+        for layer_id in range(self.num_layers):
+            layer = ParallelTransformerLayer(config=self.config, layer_number=layer_id + offset)
+            layer_dict[str(layer_id + offset)] = layer
+        self.layers = nn.SequentialCell(layer_dict)
 
-        if self.post_norm:
+        if post_process and self.post_norm:
             # final layernorm before output.
             self.norm_out = get_norm(config)
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None,
-                  q_seq_lens=None, key_cache=None, value_cache=None):
+                  q_seq_lens=None, key_cache=None, value_cache=None, hidden_states=None):
         """
         Forward of ParallelTransformer.
 
@@ -855,8 +894,12 @@ class ParallelTransformer(nn.Cell):
                 prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
                 mask = self.concat((prefix_mask, mask))
 
-        # tokens: [bs, seq/1]
-        hidden_states = self.cast(self.tok_embeddings(tokens), self.compute_dtype)
+        if self.pipeline_parallel and not self.pre_process:
+            if hidden_states is None:
+                raise ValueError("When pipeline stage is not 0, hidden_states can not be None.")
+        else:
+            # tokens: [bs, seq/1]
+            hidden_states = self.cast(self.tok_embeddings(tokens), self.compute_dtype)
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
@@ -867,6 +910,6 @@ class ParallelTransformer(nn.Cell):
                                            prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
                                            key_cache=key_cache_i, value_cache=value_cache_i)
 
-        if self.post_norm:
+        if self.post_process and self.post_norm:
             hidden_states = self.norm_out(hidden_states)
         return hidden_states
