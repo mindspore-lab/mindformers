@@ -1744,6 +1744,7 @@ class ProfileMonitor(Callback):
                 self.is_profiler_start = False
             self._record_metadata(config)
             self.run_context = None
+            self.output_path = output_path
 
     @staticmethod
     def _check_step(start_step, stop_step):
