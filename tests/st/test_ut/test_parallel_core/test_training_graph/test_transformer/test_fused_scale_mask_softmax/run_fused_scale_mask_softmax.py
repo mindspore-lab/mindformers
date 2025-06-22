@@ -40,18 +40,18 @@ class FusedSoftmaxRunner:
         self.head_dim = self.args.seq_length
 
         if self.args.input_in_bf16:
-            self.compute_dtype = ms.bfloat16
+            self.compute_dtype = 'bfloat16'
         elif self.args.input_in_fp16:
-            self.compute_dtype = ms.float16
+            self.compute_dtype = 'float16'
         else:
-            self.compute_dtype = ms.float32 # Default if neither is specified
+            self.compute_dtype = 'float32' # Default if neither is specified
 
         init_data = get_init_params(
             self.batch_size, self.num_heads, self.seq_length)
 
-        if self.compute_dtype == ms.bfloat16:
+        if self.compute_dtype == 'bfloat16':
             self.inputs = ms.Tensor(init_data["inputs"], dtype=ms.bfloat16)
-        elif self.compute_dtype == ms.float16:
+        elif self.compute_dtype == 'float16':
             self.inputs = ms.Tensor(init_data["inputs"].astype(np.float16), dtype=ms.float16)
         else:
             self.inputs = ms.Tensor(init_data["inputs"], dtype=ms.float32)

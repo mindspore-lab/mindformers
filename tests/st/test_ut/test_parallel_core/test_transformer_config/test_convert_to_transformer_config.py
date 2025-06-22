@@ -193,13 +193,16 @@ def test_empty_str_to_convert_str_to_mstype_case():
 def test_passed_in_dtype_case():
     """
     Feature: Test dtype passed in convert_str_to_mstype.
-    Description: Input a mindspore dtype, and a numpy dtype.
-    Expectation: No interception for mindspore dtype, but for numpy dtype.
+    Description: Input a string of dtype, mindspore dtype, and a numpy dtype.
+    Expectation: No interception for the string of dtype, but for mindspore dtype and numpy dtype.
     """
     from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
     from mindspore import dtype as mstype
     result = convert_str_to_mstype('bf16')
     assert result == mstype.bfloat16
+
+    with pytest.raises(TypeError):
+        convert_str_to_mstype(mstype.float16)
 
     import numpy as np
     with pytest.raises(TypeError):

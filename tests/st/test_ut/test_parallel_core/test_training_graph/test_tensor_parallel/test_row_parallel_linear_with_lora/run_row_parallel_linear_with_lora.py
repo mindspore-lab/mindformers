@@ -63,7 +63,7 @@ class RowParallelLinearWithLoRARunner:
         self.config = TransformerConfig(
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
             tensor_model_parallel_size=self.args.tensor_parallel,
-            compute_dtype=self.compute_dtype,
+            compute_dtype='bf16',
             num_attention_heads=self.args.tensor_parallel,
             num_layers=1
         )

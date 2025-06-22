@@ -90,13 +90,13 @@ class SelfAttnRunner:
             sequence_parallel=False,
             num_layers=1,
             seq_length=self.seq_length,
-            compute_dtype=mstype.bfloat16,
-            layernorm_compute_dtype=mstype.bfloat16,
+            compute_dtype='bf16',
+            layernorm_compute_dtype='bf16',
             add_qkv_bias=False,
             use_flash_attention=self.use_flash_attention,
-            tensor_model_parallel_size=self.tensor_parallel
+            tensor_model_parallel_size=self.tensor_parallel,
+            softmax_compute_dtype='bf16'
         )
-        config.softmax_compute_dtype = mstype.bfloat16
         config.num_blocks = NUM_BLOCKS
         config.block_size = BLOCK_SIZE
 

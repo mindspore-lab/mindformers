@@ -64,7 +64,7 @@ class ColumnParallelLinearRunner:
         # Transformer config
         self.config = TransformerConfig(
             tensor_model_parallel_size=self.args.tensor_parallel,
-            compute_dtype=self.compute_dtype,
+            compute_dtype='bf16',
             num_layers=1,
             num_attention_heads=self.args.tensor_parallel,
         )

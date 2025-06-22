@@ -38,8 +38,8 @@ def get_config():
                              gated_linear_unit=args.gated_linear_unit,
                              add_bias_linear=args.add_bias_linear,
                              hidden_act="silu",
-                             compute_dtype=ms.bfloat16,
-                             params_dtype=ms.float32
+                             compute_dtype='bfloat16',
+                             params_dtype='float32'
                              )
 
 

@@ -14,6 +14,7 @@
 # ============================================================================
 """Utility functions for TransformerConfig."""
 
+from dataclasses import asdict
 from copy import deepcopy
 from typing import Union
 import types
@@ -497,9 +498,9 @@ def convert_to_transformer_config(
     # If it is an MLA model, use MLATransformerConfig for initialization
     if is_mla_model:
         mla_transformer_config = MLATransformerConfig(**update_dict)
-        logger.info(f"The converted MLATransformerConfig is: \n{mla_transformer_config}")
+        logger.info(f"The converted MLATransformerConfig is: \n{asdict(mla_transformer_config)}")
         return mla_transformer_config
 
     transform_config = TransformerConfig(**update_dict)
-    logger.info(f"The converted TransformerConfig is: \n{transform_config}")
+    logger.info(f"The converted TransformerConfig is: \n{asdict(transform_config)}")
     return transform_config

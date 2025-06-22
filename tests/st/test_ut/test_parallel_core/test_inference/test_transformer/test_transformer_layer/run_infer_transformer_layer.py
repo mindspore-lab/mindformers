@@ -94,8 +94,8 @@ class TransformerLayerRunner:
             normalization="RMSNorm",
             num_layers=1,
             use_flash_attention=True,
-            compute_dtype=self.compute_dtype,
-            params_dtype=self.params_dtype,
+            compute_dtype='bf16',
+            params_dtype='bf16'
         )
         self.config.num_blocks = DEFAULT_NUM_BLOCKS
         self.config.block_size = DEFAULT_BLOCK_SIZE
