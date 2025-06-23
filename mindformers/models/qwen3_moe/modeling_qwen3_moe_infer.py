@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3 models' APIs."""
-__all__ = ['InferenceQwen3ForCausalLM']
+__all__ = ['InferenceQwen3MoeForCausalLM']
 
 from typing import Dict
 import gc
@@ -33,7 +33,7 @@ from mindformers.tools.register.register import MindFormerModuleType, MindFormer
 from mindformers.tools.logger import logger
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
-from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
+from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
     get_group_info,
     initialize_model_parallel
@@ -43,7 +43,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import 
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel):
+class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
     r"""
     Provide qwen3 model infer through network.
 
@@ -65,7 +65,6 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel):
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
         self.compute_dtype = config.compute_dtype
-
         self.is_prefill = True
         if isinstance(self.config.parallel_decoding_params, Dict):
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
@@ -73,6 +72,7 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel):
             self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
+                                  num_experts=config.num_moe_experts,
                                   normalization=config.normalization,
                                   use_flash_attention=self.config.use_flash_attention,
                                   qk_layernorm=True,

@@ -14,18 +14,18 @@
 # ============================================================================
 """Qwen3 models' APIs."""
 __all__ = [
-    'Qwen3ForCausalLM',
+    'Qwen3MoeForCausalLM',
 ]
 
 import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
-from mindformers.models.qwen3.modeling_qwen3_infer import InferenceQwen3ForCausalLM
+from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
+from mindformers.models.qwen3_moe.modeling_qwen3_moe_infer import InferenceQwen3MoeForCausalLM
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
-class Qwen3ForCausalLM(Qwen3PreTrainedModel):
+class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
     r"""
     Provide Qwen3 Model for training and inference.
     Args:
@@ -50,5 +50,5 @@ class Qwen3ForCausalLM(Qwen3PreTrainedModel):
 
         """
         if os.environ.get("RUN_MODE", "predict") == "predict":
-            return InferenceQwen3ForCausalLM(config=config)
+            return InferenceQwen3MoeForCausalLM(config=config)
         raise NotImplementedError("Train mode is not supported for Qwen3 model.")

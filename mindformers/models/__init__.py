@@ -90,6 +90,16 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
+from .qwen3 import (
+    Qwen3Config,
+    Qwen3PreTrainedModel,
+    Qwen3ForCausalLM,
+)
+from .qwen3_moe import (
+    Qwen3MoeConfig,
+    Qwen3MoePreTrainedModel,
+    Qwen3MoeForCausalLM,
+)
 from .tokenization_utils import (
     PreTrainedTokenizer,
     PreTrainedTokenizerBase
@@ -131,6 +141,8 @@ from .utils import (
 __all__ = ['PreTrainedTokenizer', 'PreTrainedTokenizerFast']
 __all__.extend(auto.__all__)
 __all__.extend(deepseek3.__all__)
+__all__.extend(qwen3.__all__)
+__all__.extend(qwen3_moe.__all__)
 __all__.extend(glm2.__all__)
 __all__.extend(llama.__all__)
 __all__.extend(multi_modal.__all__)

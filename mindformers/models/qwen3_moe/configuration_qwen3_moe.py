@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3 Config API."""
-__all__ = ['Qwen3Config']
+__all__ = ['Qwen3MoeConfig']
 
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.model_config_utils import (
@@ -25,13 +25,12 @@ from mindformers.parallel_core.mf_model_config import MFModelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
-@MindFormerRegister.register(MindFormerModuleType.CONFIG, legacy=False, search_names='qwen3')
-class Qwen3Config(PretrainedConfig):
+@MindFormerRegister.register(MindFormerModuleType.CONFIG, legacy=False, search_names='qwen3_moe')
+class Qwen3MoeConfig(PretrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a [`Qwen3Model`]. It is used to instantiate a
-    Qwen3 model according to the specified arguments, defining the model architecture. Instantiating a configuration
-    with the defaults will yield a similar configuration to that of
-    Qwen3-8B [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B).
+    This is the configuration class to store the configuration of a [`Qwen3MoeModel`]. It is used to instantiate a
+    Qwen3MoE model according to the specified arguments, defining the model architecture. Instantiating a configuration
+    with the defaults will yield a similar configuration to that of [Qwen/Qwen3-15B-A2B](https://huggingface.co/Qwen/Qwen3-15B-A2B).
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
@@ -39,25 +38,24 @@ class Qwen3Config(PretrainedConfig):
 
     Args:
         vocab_size (`int`, *optional*, defaults to 151936):
-            Vocabulary size of the Qwen3 model. Defines the number of different tokens that can be represented by the
-            `inputs_ids` passed when calling [`Qwen3Model`]
-        hidden_size (`int`, *optional*, defaults to 4096):
+            Vocabulary size of the Qwen3MoE model. Defines the number of different tokens that can be represented by the
+            `inputs_ids` passed when calling [`Qwen3MoeModel`]
+        hidden_size (`int`, *optional*, defaults to 2048):
             Dimension of the hidden representations.
-        intermediate_size (`int`, *optional*, defaults to 22016):
+        intermediate_size (`int`, *optional*, defaults to 6144):
             Dimension of the MLP representations.
-        num_hidden_layers (`int`, *optional*, defaults to 32):
+        num_hidden_layers (`int`, *optional*, defaults to 24):
             Number of hidden layers in the Transformer encoder.
         num_attention_heads (`int`, *optional*, defaults to 32):
             Number of attention heads for each attention layer in the Transformer encoder.
-        num_key_value_heads (`int`, *optional*, defaults to 32):
+        num_key_value_heads (`int`, *optional*, defaults to 4):
             This is the number of key_value heads that should be used to implement Grouped Query Attention. If
             `num_key_value_heads=num_attention_heads`, the model will use Multi Head Attention (MHA), if
             `num_key_value_heads=1` the model will use Multi Query Attention (MQA) otherwise GQA is used. When
             converting a multi-head checkpoint to a GQA checkpoint, each group key and value head should be constructed
             by meanpooling all the original heads within that group. For more details, check out [this
             paper](https://huggingface.co/papers/2305.13245). If it is not specified, will default to `32`.
-        head_dim (`int`, *optional*, defaults to 128):
-            The attention head dimension.
+
         hidden_act (`str` or `function`, *optional*, defaults to `"silu"`):
             The non-linear activation function (function or string) in the decoder.
         max_position_embeddings (`int`, *optional*, defaults to 32768):
@@ -116,25 +114,41 @@ class Qwen3Config(PretrainedConfig):
             Whether to use sliding window attention.
         sliding_window (`int`, *optional*, defaults to 4096):
             Sliding window attention (SWA) window size. If not specified, will default to `4096`.
-        max_window_layers (`int`, *optional*, defaults to 28):
-            The number of layers using full attention. The first `max_window_layers`
-            layers will use full attention, while any
-            additional layer afterwards will use SWA (Sliding Window Attention).
-        layer_types (`list`, *optional*):
-            Attention pattern for each layer.
         attention_dropout (`float`, *optional*, defaults to 0.0):
             The dropout ratio for the attention probabilities.
+        decoder_sparse_step (`int`, *optional*, defaults to 1):
+            The frequency of the MoE layer.
+        moe_intermediate_size (`int`, *optional*, defaults to 768):
+            Intermediate size of the routed expert.
+        num_experts_per_tok (`int`, *optional*, defaults to 8):
+            Number of selected experts.
+        num_experts (`int`, *optional*, defaults to 128):
+            Number of routed experts.
+        norm_topk_prob (`bool`, *optional*, defaults to `False`):
+            Whether to normalize the topk probabilities.
+        output_router_logits (`bool`, *optional*, defaults to `False`):
+            Whether or not the router logits should be returned by the model. Enabling this will also
+            allow the model to output the auxiliary loss, including load balancing loss and router z-loss.
+        router_aux_loss_coef (`float`, *optional*, defaults to 0.001):
+            The aux loss factor for the total loss.
+        mlp_only_layers (`list[int]`, *optional*, defaults to `[]`):
+            Indicate which layers use Qwen3MoeMLP rather than Qwen3MoeSparseMoeBlock
+            The list contains layer index, from 0 to num_layers-1 if we have num_layers layers
+            If `mlp_only_layers` is empty, `decoder_sparse_step` is used to determine the sparsity.
     """
 
-    model_type = "Qwen3"
+    model_type = "Qwen3Moe"
     keys_to_ignore_at_inference = ["past_key_values"]
 
-    # Default tensor parallel plan for base model `Qwen3`
+    # Default tensor parallel plan for base model `Qwen3Moe`
     base_model_tp_plan = {
         "layers.*.self_attn.q_proj": "colwise",
         "layers.*.self_attn.k_proj": "colwise",
         "layers.*.self_attn.v_proj": "colwise",
         "layers.*.self_attn.o_proj": "rowwise",
+        "layers.*.mlp.experts.*.gate_proj": "colwise",
+        "layers.*.mlp.experts.*.up_proj": "colwise",
+        "layers.*.mlp.experts.*.down_proj": "rowwise",
         "layers.*.mlp.gate_proj": "colwise",
         "layers.*.mlp.up_proj": "colwise",
         "layers.*.mlp.down_proj": "rowwise",
@@ -148,19 +162,21 @@ class Qwen3Config(PretrainedConfig):
     @register_mf_model_parameter(
         mf_model_kwargs=MFModelConfig())
     @ignore_and_delete_parameter(extra_ignore_param=[
+        ('decoder_sparse_step', NotSupportedInfo.useless),
         ('max_window_layers', NotSupportedInfo.useless),
+        ('mlp_only_layers', NotSupportedInfo.useless),
+        ('output_router_logits', NotSupportedInfo.useless),
+        ('router_aux_loss_coef', NotSupportedInfo.useless),
         ('sliding_window', NotSupportedInfo.useless),
         ('use_sliding_window', NotSupportedInfo.useless),
-        ('layer_types', NotSupportedInfo.useless),
     ])
     def __init__(self,
                  vocab_size=151936,
-                 hidden_size=4096,
-                 intermediate_size=22016,
-                 num_hidden_layers=32,
+                 hidden_size=2048,
+                 intermediate_size=6144,
+                 num_hidden_layers=24,
                  num_attention_heads=32,
-                 num_key_value_heads=32,
-                 head_dim=128,
+                 num_key_value_heads=4,
                  hidden_act="silu",
                  max_position_embeddings=32768,
                  initializer_range=0.02,
@@ -172,10 +188,17 @@ class Qwen3Config(PretrainedConfig):
                  attention_bias=False,
                  use_sliding_window=False,
                  sliding_window=4096,
-                 max_window_layers=28,
-                 layer_types=None,
                  attention_dropout=0.0,
-                 **kwargs):
+                 decoder_sparse_step=1,
+                 moe_intermediate_size=768,
+                 num_experts_per_tok=8,
+                 num_experts=128,
+                 norm_topk_prob=False,
+                 output_router_logits=False,
+                 router_aux_loss_coef=0.001,
+                 mlp_only_layers=None,
+                 **kwargs
+                 ):
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size
@@ -183,15 +206,9 @@ class Qwen3Config(PretrainedConfig):
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.use_sliding_window = use_sliding_window
-        self.sliding_window = sliding_window if self.use_sliding_window else None
-        self.max_window_layers = max_window_layers
-
-        # for backward compatibility
-        if num_key_value_heads is None:
-            num_key_value_heads = num_attention_heads
+        self.sliding_window = sliding_window if use_sliding_window else None
 
         self.num_key_value_heads = num_key_value_heads
-        self.head_dim = head_dim
         self.hidden_act = hidden_act
         self.initializer_range = initializer_range
         self.rms_norm_eps = rms_norm_eps
@@ -204,15 +221,15 @@ class Qwen3Config(PretrainedConfig):
         # BC: if there is a 'type' field, move it to 'rope_type'.
         if self.rope_scaling is not None and "type" in self.rope_scaling:
             self.rope_scaling["rope_type"] = self.rope_scaling["type"]
-
-        self.layer_types = layer_types
-        if self.layer_types is None:
-            self.layer_types = [
-                "sliding_attention"
-                if self.sliding_window is not None and i >= self.max_window_layers
-                else "full_attention"
-                for i in range(self.num_hidden_layers)
-            ]
+        # MoE arguments
+        self.decoder_sparse_step = decoder_sparse_step
+        self.moe_intermediate_size = moe_intermediate_size
+        self.num_experts_per_tok = num_experts_per_tok
+        self.num_experts = num_experts
+        self.norm_topk_prob = norm_topk_prob
+        self.output_router_logits = output_router_logits
+        self.router_aux_loss_coef = router_aux_loss_coef
+        self.mlp_only_layers = [] if mlp_only_layers is None else mlp_only_layers
         super().__init__(
             tie_word_embeddings=tie_word_embeddings,
             **kwargs,

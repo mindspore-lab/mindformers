@@ -15,7 +15,7 @@
 """Expert Router."""
 import numpy as np
 
-from mindspore import Tensor, nn, Parameter, ops
+from mindspore import Tensor, nn, Parameter, ops, mint
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import FusedAddTopKDiv
@@ -126,17 +126,24 @@ class TopKRouter(Router):
         input_dtype = logits.dtype
         gating_logits = self.gating(self.cast(logits, self.router_dense_type))
         gating_logits = self.cast(gating_logits, mstype.float32)
-        expert_weight, expert_index = \
-            self.fused_add_topk_div(
-                gating_logits,
-                self.expert_bias,
-                self.num_experts_chosen,
-                self.topk_group,
-                self.group_topk_inner,
-                self.num_experts_chosen,
-                0,
-                True,
-                self.config.moe_router_topk_scaling_factor)
+        if self.config.moe_router_group_topk:
+            expert_weight, expert_index = \
+                self.fused_add_topk_div(
+                    gating_logits,
+                    self.expert_bias,
+                    self.num_experts_chosen,
+                    self.topk_group,
+                    self.group_topk_inner,
+                    self.num_experts_chosen,
+                    0,
+                    True,
+                    self.config.moe_router_topk_scaling_factor)
+        else:
+            score = mint.sigmoid(gating_logits)
+            score = score + self.expert_bias
+            expert_weight, expert_index = mint.topk(score, self.config.moe_router_topk, dim=-1)
+            expert_index = self.cast(expert_index, mstype.int32)
+            expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
         expert_weight = expert_weight.astype(input_dtype)
         return expert_weight, expert_index
 
