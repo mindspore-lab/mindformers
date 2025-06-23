@@ -26,6 +26,5 @@ from .vision_transforms import (
     RandomResizedCrop,
     Resize
 )
-from .mixup import Mixup
 
 __all__ = []
