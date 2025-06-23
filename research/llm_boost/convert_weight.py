@@ -148,7 +148,7 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     except Exception as e:
         raise RuntimeError("Unexpected error occurred when loading PyTorch checkpoint.") from e
     try:
-        megatron_ckpt = torch.load(input_path, map_location='cpu')
+        megatron_ckpt = torch.load(input_path, map_location='cpu', weights_only=True)
     # pylint: disable=W0703
     except Exception as e:
         print(f"Fail to load megatron checkpoint '{input_path}', Error {e.message}.", flush=True)

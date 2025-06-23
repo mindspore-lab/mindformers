@@ -933,7 +933,7 @@ class TrainingStateMonitor(Callback):
                 dump_id, prefix, param_name = parsed_name
                 if not begin_id < dump_id < end_id:
                     continue
-                data = np.load(os.path.join(self.dump_path, f), allow_pickle=True)
+                data = np.load(os.path.join(self.dump_path, f), allow_pickle=False)
                 if prefix == 'device_local_norm':
                     self._output(f'device_local_norm', data, self.dump_step, self.device_local_norm_format)
                 elif prefix == 'local_loss':

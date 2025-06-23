@@ -93,7 +93,7 @@ def run_random_tracer_parallel():
     for mode in range(3):
         candidate = [[] for _ in range(world_size)]
         for rank_id in range(world_size):
-            candidate[rank_id] = np.load(f"./result{mode}-rank{rank_id}.npy", allow_pickle=True)
+            candidate[rank_id] = np.load(f"./result{mode}-rank{rank_id}.npy", allow_pickle=False)
         if mode == 0:  # in raw mode, the value should be the same in each rank
             assert np.allclose(candidate[0], candidate[1], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[1], candidate[2], rtol=1e-4, atol=1e-4)

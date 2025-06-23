@@ -97,7 +97,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         if convert_safetensors:
             pt_states = load_file(per_file)
         else:
-            pt_states = torch.load(per_file, map_location='cpu')
+            pt_states = torch.load(per_file, map_location='cpu', weights_only=True)
         pt_states_list.append(pt_states)
 
     ckpt_list = []

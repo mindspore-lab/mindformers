@@ -58,7 +58,7 @@ def merge_npy_files(str_layer, path_npy_list):
     sub_path_list.sort(key=lambda x: int(x.split(str_layer)[1].split('.')[0]))
     temp = []
     for path in sub_path_list:
-        real_data = np.load(path, allow_pickle=True)
+        real_data = np.load(path, allow_pickle=False)
         temp.append(real_data)
     return temp
 
