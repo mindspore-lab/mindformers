@@ -86,14 +86,12 @@ def build_network(
     pet_config = config.model_config.pet_config
     quant_config = config.model_config.quantization_config
     network = build_model(config, default_args=default_args)
-    if network.can_generate() and config.get("pretrained_model_dir", None):
+    if network.can_generate() and config.get("generation", None):
+        network.generation_config = GenerationConfig.from_dict(config.generation.to_dict())
+    elif network.can_generate() and config.get("pretrained_model_dir", None):
         network.generation_config = GenerationConfig.from_pretrained(
             config.pretrained_model_dir,
         )
-    elif network.can_generate() and config.get("generation", None):
-        merge_dict = network.generation_config.to_dict()
-        merge_dict.update(config.generation.to_dict())
-        network.generation_config = GenerationConfig.from_dict(merge_dict)
     if quant_config:
         from mindformers.modules.quantizers import AutoQuantizer
         quantizer = AutoQuantizer.from_config(quant_config)

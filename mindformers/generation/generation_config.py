@@ -237,22 +237,21 @@ class GenerationConfig:
             config_file_name if config_file_name is not None else GENERATION_CONFIG_NAME
         )
         config_path = os.path.join(pretrained_model_name, config_file_name)
-        config_path = os.path.realpath(config_path)
-        is_local = os.path.exists(config_path)
-        if not is_local:
-            raise ValueError(
-                f"It looks like the config file at '{config_path}' is not a valid file."
-            )
-        resolved_config_file = config_path
-        try:
-            # Load config dict
-            config_dict = cls._dict_from_json_file(resolved_config_file)
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            raise EnvironmentError(
-                f"It looks like the config file at '{resolved_config_file}' "
-                "is not a valid JSON file."
-            ) from e
-        config = cls.from_dict(config_dict, **kwargs)
+        resolved_config_file = os.path.realpath(config_path)
+        generation_config_is_exist = os.path.exists(resolved_config_file)
+        if generation_config_is_exist:
+            logger.info("Loading Generate config from %s", resolved_config_file)
+            try:
+                # Load config dict
+                config_dict = cls._dict_from_json_file(resolved_config_file)
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise EnvironmentError(
+                    f"It looks like the config file at '{resolved_config_file}' "
+                    "is not a valid JSON file."
+                ) from e
+            config = cls.from_dict(config_dict, **kwargs)
+        else:
+            config = cls(**kwargs)
         return config
 
     @classmethod
