@@ -935,7 +935,12 @@ class BaseTrainer:
             logger.info(".............Start load resume context from checkpoint..................")
             if check_tft_valid() and not config.remove_redundancy:
                 logger.info("..............Start resume checkpoint path from strategy..............")
-                config.load_checkpoint = self.resume_ckpt_path_with_strategy(config)
+                resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
+                if resume_ckpt_path is None:
+                    raise ValueError("Try to resume from checkpoints with strategy in directory '{}' failed, "
+                                     "please specify load_checkpoint to specific checkpoint file to resume training."
+                                     .format(config.load_checkpoint))
+                config.load_checkpoint = resume_ckpt_path
             load_resume_context_from_checkpoint(config, dataset)
             resume_dict = {
                 "step_num": config.runner_config.initial_step,
