@@ -14,6 +14,7 @@
 # ============================================================================
 """Deepseek-V3 Model for training."""
 from mindspore import Tensor
+
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
@@ -82,3 +83,10 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
     @classmethod
     def can_generate(cls):
         return False
+
+    def update_topk_bias(self, gradient_accumulation_steps=1):
+        """
+        Will be called by mindformer.core.callback.TopkBiasBalanceCallback to
+        update topk bias and reset expert_load of router in MoELayers.
+        """
+        return self.model.update_topk_bias(gradient_accumulation_steps)

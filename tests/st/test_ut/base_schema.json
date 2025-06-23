@@ -278,6 +278,15 @@
     "mindformers.core.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
+    "mindformers.core.ProfileMonitor._check_step": {
+        "signature": "(start_step, stop_step)"
+    },
+    "mindformers.core.ProfileMonitor._check_start_profile": {
+        "signature": "(start_profile, start_step)"
+    },
+    "mindformers.core.ProfileMonitor._get_schedule": {
+        "signature": "(start_profile, start_step, stop_step)"
+    },
     "mindformers.core.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
@@ -506,6 +515,15 @@
     "mindformers.core.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
+    "mindformers.core.callback.ProfileMonitor._check_step": {
+        "signature": "(start_step, stop_step)"
+    },
+    "mindformers.core.callback.ProfileMonitor._check_start_profile": {
+        "signature": "(start_profile, start_step)"
+    },
+    "mindformers.core.callback.ProfileMonitor._get_schedule": {
+        "signature": "(start_profile, start_step, stop_step)"
+    },
     "mindformers.core.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
@@ -658,6 +676,15 @@
     },
     "mindformers.core.callback.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
+    },
+    "mindformers.core.callback.callback.ProfileMonitor._check_step": {
+        "signature": "(start_step, stop_step)"
+    },
+    "mindformers.core.callback.callback.ProfileMonitor._check_start_profile": {
+        "signature": "(start_profile, start_step)"
+    },
+    "mindformers.core.callback.callback.ProfileMonitor._get_schedule": {
+        "signature": "(start_profile, start_step, stop_step)"
     },
     "mindformers.core.callback.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
@@ -6789,7 +6816,7 @@
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, labels: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None)"
     },
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.update_topk_bias": {
-        "signature": "(self, acc_step_over_expert_num, topk_bias_update_rate)"
+        "signature": "(self, gradient_accumulation_steps: int = 1)"
     },
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
@@ -7128,21 +7155,6 @@
         "signature": "(self, model_inputs, **forward_params)"
     },
     "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
-    "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline": {
-        "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
-    },
-    "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline.preprocess": {
-        "signature": "(self, inputs: Union[PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray, str], **preprocess_params)"
-    },
-    "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline._forward": {
-        "signature": "(self, model_inputs: dict, **forward_params)"
-    },
-    "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline.postprocess": {
         "signature": "(self, model_outputs, **postprocess_params)"
     },
     "mindformers.pipeline.multi_modal_to_text_generation_pipeline.MultiModalToTextPipeline": {
