@@ -129,7 +129,6 @@ class Attention(nn.Cell):
             self.config.hidden_size, self.num_heads
         ))
         self.query_projection_size = self.hidden_size_per_attention_head * self.num_heads
-        self.kv_projection_size = self.hidden_size_per_attention_head * self.num_query_groups
         self.n_rep = divide(self.num_heads, self.num_query_groups)
 
         self.use_flash_attention = self.config.use_flash_attention
@@ -146,12 +145,15 @@ class Attention(nn.Cell):
 
         if self.use_gqa:
             self._check_gqa_valid()
+            # Note: Special handling when kv heads is less than tp size
+            if self.num_query_groups < self.tp_group_size:
+                self.num_query_groups = self.tp_group_size
             self.num_query_groups_per_partition = divide(self.num_query_groups,
                                                          self.tp_group_size)
             self.repeat_num = divide(self.num_heads, self.num_query_groups)
         else:
             self.num_query_groups_per_partition = self.num_attention_heads_per_partition
-
+        self.kv_projection_size = self.hidden_size_per_attention_head * self.num_query_groups
         self.hidden_size_per_partition = divide(self.query_projection_size,
                                                 self.tp_group_size)
         self.kv_hidden_size_per_partition = divide(self.kv_projection_size,
@@ -192,11 +194,19 @@ class Attention(nn.Cell):
             raise ValueError(f"num_heads must be divisible by kv_num_heads, "
                              f"but got num_heads {self.num_heads} "
                              f"and kv_num_heads {self.num_query_groups}")
-        if self.num_query_groups % self.tp_group_size != 0:
-            raise ValueError(
-                f"kv_num_heads must be divisible by tp_group_size, "
-                f"but got kv_num_heads {self.num_query_groups} "
-                f"and tp_group_size {self.tp_group_size}")
+        if self.num_query_groups >= self.tp_group_size:
+            if self.num_query_groups % self.tp_group_size != 0:
+                raise ValueError(
+                    f"kv_num_heads must be divisible by tp_group_size when kv_num_heads is greater than tp_group_size, "
+                    f"but got kv_num_heads {self.num_query_groups} and tp_group_size {self.tp_group_size}"
+                )
+        else:
+            # Number of KV heads is less than TP size, will replicate the KV heads.
+            if self.tp_group_size % self.num_query_groups != 0:
+                raise ValueError(
+                    f"tp_group_size must be divisible by kv_num_heads when kv_num_heads is less than tp_group_size, "
+                    f"but got kv_num_heads {self.num_query_groups} and tp_group_size {self.tp_group_size}"
+                )
 
     def construct(self,
                   hidden_states,
