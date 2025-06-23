@@ -14,11 +14,14 @@
 # ============================================================================
 """Common DataLoader"""
 import types
-
 from typing import Optional
+
+from mindformers.version_control import skip_barrier_controller
 from mindformers.dataset.handler import build_data_handler
 from mindformers.tools.logger import logger
-from ...tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import get_real_group_size
+
 from .base_dataloader import BaseDataLoader
 from .ms_ds_convertor import to_ms_dataset
 
@@ -69,6 +72,9 @@ class CommonDataLoader(BaseDataLoader):
                                         packing=packing,
                                         adaptor_config=adaptor_config)
 
+        if get_real_group_size() > 1:
+            logger.info("waiting for all dataset init")
+            skip_barrier_controller()
         return dataset
 
     @classmethod
