@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 Model for training."""
+from mindspore import Tensor
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
@@ -41,7 +42,7 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
         mtp_block_spec = None
         if transformer_config.mtp_num_layers is not None:
             mtp_block_spec = get_gpt_mtp_block_spec(transformer_config, transformer_layer_spec)
-        self.network = GPTModel(
+        self.model = GPTModel(
             transformer_config,
             transformer_layer_spec,
             vocab_size=transformer_config.vocab_size,
@@ -53,9 +54,30 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
             mtp_block_spec=mtp_block_spec
         )
 
-    def construct(self, *args, **kwargs):
+    def construct(
+            self,
+            input_ids: Tensor,
+            position_ids: Tensor = None,
+            attention_mask: Tensor = None,
+            decoder_input: Tensor = None,
+            labels: Tensor = None,
+            extra_block_kwargs=None,
+            prefix_keys_values=None,
+            loss_mask=None,
+            actual_seq_len=None
+    ):
         """DeepseekV3 construct for training"""
-        return self.network(*args, **kwargs)
+        return self.model(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            decoder_input=decoder_input,
+            labels=labels,
+            extra_block_kwargs=extra_block_kwargs,
+            prefix_keys_values=prefix_keys_values,
+            loss_mask=loss_mask,
+            actual_seq_len=actual_seq_len
+        )
 
     @classmethod
     def can_generate(cls):

@@ -26,8 +26,6 @@
 
 __all__ = ['DeepseekV3Config']
 
-from typing import Union, List
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.parallel_core.mf_model_config import MFModelConfig
@@ -51,47 +49,50 @@ class DeepseekV3Config(PretrainedConfig):
     Read the documentation from [`PretrainedConfig`] for more information.
 
     Args:
-        vocab_size (int, optional):
-            Vocabulary size of the Deep model. Defines the number of different tokens that
-            can be represented by the `inputs_ids` passed when calling [`DeepseekV3Model`]. Default: 129280.
-        hidden_size (int, optional):
-            Dimension of the hidden representations. Default: 4096.
-        intermediate_size (int, optional):
-            Dimension of the MLP representations. Default: 11008.
-        moe_intermediate_size (int, optional):
-            Dimension of the MoE representations. Default: 1407.
-        num_hidden_layers (int, optional):
-            Number of hidden layers in the Transformer decoder. Default: 32.
-        num_nextn_predict_layers (int, optional):
-            Number of nextn predict layers in the DeepSeekV3 Model. Default: 1.
-        num_attention_heads (int, optional):
-            Number of attention heads for each attention layer in the Transformer decoder. Default: 32.
-        n_shared_experts (int, optional):
-            Number of shared experts, None means dense model. Default: None.
-        n_routed_experts (int, optional):
-            Number of routed experts, None means dense model. Default: None.
-        routed_scaling_factor (float, optional):
-            Scaling factor or routed experts. Default: 1.0.
-        topk_method (str, optional):
-            Topk method used in routed gate. Default: 'greedy'.
-        n_group (int, optional):
-            Number of groups for routed experts. Default: None.
-        topk_group (int, optional):
-            Number of selected groups for each token. Default: None.
-            (for each token, ensuring the selected experts is only within `topk_group` groups).
-        num_experts_per_tok (int, optional):
-            Number of selected experts, None means dense model. Default: None.
-        moe_layer_freq (int, optional):
-            The frequency of the MoE layer: one expert layer for every `moe_layer_freq - 1` dense layers. Default: 1.
-        first_k_dense_replace (int, optional):
-            Number of dense layers in shallow layers. Default: 0.
-            (embed->dense->dense->...->dense->moe->moe...->lm_head)
-                      \--k dense layers--/
-        norm_topk_prob (bool, optional):
-            Whether to normalize the weights of the routed experts. Default: `False`.
-        scoring_func (str, optional):
-            Method of computing expert weights. Default: 'softmax'.
-        num_key_value_heads (int, optional):
+        vocab_size (`int`, *optional*, defaults to 129280):
+            Vocabulary size of the Deep model. Defines the number of different tokens that can be represented by the
+            `inputs_ids` passed when calling [`DeepseekV3Model`]
+        hidden_size (`int`, *optional*, defaults to 4096):
+            Dimension of the hidden representations.
+        intermediate_size (`int`, *optional*, defaults to 11008):
+            Dimension of the MLP representations.
+        moe_intermediate_size (`int`, *optional*, defaults to 1407):
+            Dimension of the MoE representations.
+        num_hidden_layers (`int`, *optional*, defaults to 32):
+            Number of hidden layers in the Transformer decoder.
+        num_nextn_predict_layers (`int`, *optional*, defaults to 1):
+            Number of nextn predict layers in the DeepSeekV3 Model.
+        num_attention_heads (`int`, *optional*, defaults to 32):
+            Number of attention heads for each attention layer in the Transformer decoder.
+        n_shared_experts (`int`, *optional*, defaults to None):
+            Number of shared experts, None means dense model.
+        n_routed_experts (`int`, *optional*, defaults to None):
+            Number of routed experts, None means dense model.
+        routed_scaling_factor (`float`, *optional*, defaults to 1.0):
+            Scaling factor or routed experts.
+        topk_method (`str`, *optional*, defaults to `greedy`):
+            Topk method used in routed gate.
+        n_group (`int`, *optional*, defaults to None):
+            Number of groups for routed experts.
+        topk_group (`int`, *optional*, defaults to None):
+            Number of selected groups for each token.
+            for each token, ensuring the selected experts is only within `topk_group` groups.
+        num_experts_per_tok (`int`, *optional*, defaults to None):
+            Number of selected experts, None means dense model.
+        moe_layer_freq (`int`, *optional*, defaults to 1):
+            The frequency of the MoE layer: one expert layer for every `moe_layer_freq - 1` dense layers.
+        first_k_dense_replace (`int`, *optional*, defaults to 0):
+            Number of dense layers in shallow layers(embed->dense->dense->...->dense->moe->moe...->lm_head).
+                                                            \--k dense layers--/
+        norm_topk_prob (`bool`, *optional*, defaults to False):
+            Whether to normalize the weights of the routed experts.
+        scoring_func (`str`, *optional*, defaults to 'softmax'):
+            Method of computing expert weights.
+        aux_loss_alpha (`float`, *optional*, defaults to 0.001):
+            Auxiliary loss weight coefficient.
+        seq_aux = (`bool`, *optional*, defaults to True):
+            Whether to compute the auxiliary loss for each individual sample.
+        num_key_value_heads (`int`, *optional*):
             This is the number of key_value heads that should be used to implement Grouped Query Attention. If
             `num_key_value_heads=num_attention_heads`, the model will use Multi Head Attention (MHA), if
             `num_key_value_heads=1 the model will use Multi Query Attention (MQA) otherwise GQA is used. When
@@ -99,66 +100,36 @@ class DeepseekV3Config(PretrainedConfig):
             by mean-pooling all the original heads within that group. For more details checkout [this
             paper](https://arxiv.org/pdf/2305.13245.pdf). If it is not specified, will default to
             `num_attention_heads`.
-        hidden_act (str, optional):
-            The non-linear activation function (function or string) in the decoder. Default: 'silu'.
-        max_position_embeddings (int, optional):
-            The maximum sequence length that this model might ever be used with. Default: 4096.
-        initializer_range (float, optional):
-            The standard deviation of the truncated_normal_initializer
-            for initializing all weight matrices. Default: 0.02.
-        rms_norm_eps (float, optional):
-            The epsilon used by the rms normalization layers. Default: 1e-06.
-        pad_token_id (int, optional):
+        hidden_act (`str` or `function`, *optional*, defaults to `"silu"`):
+            The non-linear activation function (function or string) in the decoder.
+        max_position_embeddings (`int`, *optional*, defaults to 2048):
+            The maximum sequence length that this model might ever be used with.
+        initializer_range (`float`, *optional*, defaults to 0.02):
+            The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+        rms_norm_eps (`float`, *optional*, defaults to 1e-06):
+            The epsilon used by the rms normalization layers.
+        use_cache (`bool`, *optional*, defaults to `True`):
+            Whether or not the model should return the last key/values attentions (not used by all models). Only
+            relevant if `config.is_decoder=True`.
+        pad_token_id (`int`, *optional*):
             Padding token id.
-        bos_token_id (int, optional):
-            Beginning of stream token id. Default: 1.
-        eos_token_id (int, optional):
-            End of stream token id. Default: 2.
-        tie_word_embeddings (bool, optional):
-            Whether to tie weight embeddings. Default: `False`
-        rope_theta (float, optional):
-            The base period of the RoPE embeddings. Default: 10000.0.
-        rope_scaling (Dict, optional):
-            Dictionary containing the scaling configuration for the RoPE embeddings. Currently, supports two scaling
+        bos_token_id (`int`, *optional*, defaults to 1):
+            Beginning of stream token id.
+        eos_token_id (`int`, *optional*, defaults to 2):
+            End of stream token id.
+        tie_word_embeddings (`bool`, *optional*, defaults to `False`):
+            Whether to tie weight embeddings
+        rope_theta (`float`, *optional*, defaults to 10000.0):
+            The base period of the RoPE embeddings.
+        rope_scaling (`Dict`, *optional*):
+            Dictionary containing the scaling configuration for the RoPE embeddings. Currently supports two scaling
             strategies: linear and dynamic. Their scaling factor must be a float greater than 1. The expected format is
-            `{'type': strategy name, 'factor': scaling factor}`. When using this flag, don't update
+            `{"type": strategy name, "factor": scaling factor}`. When using this flag, don't update
             `max_position_embeddings` to the expected new maximum.
-        attention_bias (bool, optional):
-            Whether to use a bias in the query, key, value layers during self-attention. Default: `False`.
-        attention_dropout (float, optional):
-            The dropout ratio for the attention probabilities. Default: 0.0.
-        normalization (str, optional):
-            normalization layer for MLA. Default: 'RMSNorm'.
-        qk_layernorm (str, optional):
-            Whether to apply `normalization` type of normalization to the query and key embeddings. Default: `True`.
-        compute_dtype (str, optional): Linear layer compute dtype. Default: `float16`.
-        layernorm_compute_type (str, optional): Layernorm compute dtype. Default: `float32`.
-        softmax_compute_type (str, optional): Softmax compute dtype. Default: `float32`.
-        rotary_dtype (str, optional): RoPE compute dtype. Default: `float32`.
-        router_dense_type (str, optional): MoE router compute dtype. Default: `float32`.
-        params_dtype (str, optional): Parameter initial dtype. Default: `float16`.
-        residual_dtype (str, optional):
-            Residual connections compute data type. Defaults: None, means the same as `compute_dtype`.
-        gated_linear_unit (bool, optional):
-            Whether to use a gated linear unit for the first linear layer in the MLP. Default: `False`.
-        add_bias_linear (bool, optional):
-            Whether to use a bias in all linear layers. Default
-        hidden_dropout (float, optional):
-            The dropout ratio for the transformer hidden state. Default: 0.0.
-        moe_router_enable_expert_bias (bool, optional):
-            Whether to use topk bias update. Default: `False`.
-        moe_router_bias_update_rate (float, optional):
-            How fast is the bias updated. Default: 0.001.
-        moe_token_drop_policy (str, optional):
-            The policy to drop tokens.
-            If 'probs', the tokens with the lowest probabilities will be dropped.
-            if 'position', tokens at the end of each batch will be dropped. Default: probs.
-        aux_loss_factors (list, optional):
-            list of auxiliary loss factors. Default: [0.0001].
-        aux_loss_types (list, optional):
-            list of auxiliary loss types. Default: ['expert'].
-        moe_grouped_gemm (bool, optional):
-            Whether to enable group matrix matmul. Should be set True manually currently. Default: False
+        attention_bias (`bool`, defaults to `False`, *optional*, defaults to `False`):
+            Whether to use a bias in the query, key, value and output projection layers during self-attention.
+        attention_dropout (`float`, *optional*, defaults to 0.0):
+            The dropout ratio for the attention probabilities.
     """
 
     model_type = "deepseekv3"
@@ -182,45 +153,45 @@ class DeepseekV3Config(PretrainedConfig):
     ])
     def __init__(
             self,
-            vocab_size: int = 129280,
-            hidden_size: int = 7168,
-            intermediate_size: int = 18432,
-            moe_intermediate_size: int = 2048,
-            num_hidden_layers: int = 61,
-            num_nextn_predict_layers: int = 1,
-            num_attention_heads: int = 128,
-            num_key_value_heads: int = 128,
-            n_shared_experts: int = 1,
-            n_routed_experts: int = 256,
-            ep_size: int = 1,
-            routed_scaling_factor: float = 2.5,
-            kv_lora_rank: int = 512,
-            q_lora_rank: int = 1536,
-            qk_rope_head_dim: int = 64,
-            v_head_dim: int = 128,
-            qk_nope_head_dim: int = 128,
-            topk_method: str = 'noaux_tc',
-            n_group: int = 8,
-            topk_group: int = 4,
-            num_experts_per_tok: int = 8,
-            moe_layer_freq: Union[int, List[int]] = 1,
-            first_k_dense_replace: int = 3,
-            norm_topk_prob: bool = True,
-            scoring_func: str = "sigmoid",
-            hidden_act: str = "silu",
-            max_position_embeddings: int = 4096,
-            initializer_range: float = 0.02,
-            rms_norm_eps: float = 1e-6,
-            use_cache: bool = True,
-            pad_token_id: int = None,
-            bos_token_id: int = 0,
-            eos_token_id: int = 1,
-            tie_word_embeddings: bool = False,
-            rope_theta: float = 10000.0,
-            rope_scaling: dict = None,
-            attention_bias: bool = False,
-            attention_dropout: float = 0.0,
-            **kwargs
+            vocab_size=129280,
+            hidden_size=7168,
+            intermediate_size=18432,
+            moe_intermediate_size=2048,
+            num_hidden_layers=61,
+            num_nextn_predict_layers=1,
+            num_attention_heads=128,
+            num_key_value_heads=128,
+            n_shared_experts=1,
+            n_routed_experts=256,
+            ep_size=1,
+            routed_scaling_factor=2.5,
+            kv_lora_rank=512,
+            q_lora_rank=1536,
+            qk_rope_head_dim=64,
+            v_head_dim=128,
+            qk_nope_head_dim=128,
+            topk_method='noaux_tc',
+            n_group=8,
+            topk_group=4,
+            num_experts_per_tok=8,
+            moe_layer_freq=1,
+            first_k_dense_replace=3,
+            norm_topk_prob=True,
+            scoring_func='sigmoid',
+            hidden_act="silu",
+            max_position_embeddings=4096,
+            initializer_range=0.02,
+            rms_norm_eps=1e-6,
+            use_cache=True,
+            pad_token_id=None,
+            bos_token_id=0,
+            eos_token_id=1,
+            tie_word_embeddings=False,
+            rope_theta=10000.0,
+            rope_scaling=None,
+            attention_bias=False,
+            attention_dropout=0.0,
+            **kwargs,
     ):
         """Deepseek V3 Config"""
         self.vocab_size = vocab_size
@@ -248,7 +219,6 @@ class DeepseekV3Config(PretrainedConfig):
         self.first_k_dense_replace = first_k_dense_replace
         self.norm_topk_prob = norm_topk_prob
         self.scoring_func = scoring_func
-
         # for backward compatibility
         if num_key_value_heads is None:
             num_key_value_heads = num_attention_heads
@@ -259,6 +229,7 @@ class DeepseekV3Config(PretrainedConfig):
         self.rms_norm_eps = rms_norm_eps
         self.use_cache = use_cache
         self.rope_theta = rope_theta
+        self.rope_scaling = rope_scaling
         self.attention_bias = attention_bias
         self.attention_dropout = attention_dropout
 
