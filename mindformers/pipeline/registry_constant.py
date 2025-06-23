@@ -20,8 +20,7 @@ from mindformers.models.auto.modeling_auto import (
     AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
-    AutoModelForTokenClassification,
-    AutoModelForZeroShotImageClassification)
+    AutoModelForTokenClassification)
 
 from .fill_mask_pipeline import FillMaskPipeline
 from .pipeline_registry import PipelineRegistry
@@ -30,8 +29,6 @@ from .text_classification_pipeline import TextClassificationPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 from .token_classification_pipeline import TokenClassificationPipeline
 from .translation_pipeline import TranslationPipeline
-from .zero_shot_image_classification_pipeline import \
-    ZeroShotImageClassificationPipeline
 
 TASK_ALIASES = {
     "text_classification": "text-classification",
@@ -84,12 +81,6 @@ SUPPORTED_TASKS = {
         "ms": (AutoModelForSeq2SeqLM,),
         "default": {"model": {"ms": ()}},
         "type": "text",
-    },
-    "zero-shot-image-classification": {
-        "impl": ZeroShotImageClassificationPipeline,
-        "ms": (AutoModelForZeroShotImageClassification,),
-        "default": {"model": {"ms": ()}},
-        "type": "multimodal",
     },
 }
 

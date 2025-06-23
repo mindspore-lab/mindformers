@@ -7712,17 +7712,14 @@
     "mindformers.trainer.config_args.WrapperConfig": {
         "signature": "(wrapper_type: str = None, **kwargs)"
     },
-    "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer": {
-        "signature": "(model_name: str = None)"
+    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.train": {
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, **kwargs)"
     },
-    "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.train": {
+    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.evaluate": {
         "signature": "(self, *args, **kwargs)"
     },
-    "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.evaluate": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
-    },
-    "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.predict": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, numpy.ndarray, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
+    "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.predict": {
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer": {
         "signature": "(model_name: str = None)"

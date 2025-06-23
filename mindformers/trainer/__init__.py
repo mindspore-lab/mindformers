@@ -27,12 +27,8 @@ from .config_args import (
     RunnerConfig,
     WrapperConfig
 )
-from .image_classification import (
-    ZeroShotImageClassificationTrainer
-)
 from .masked_language_modeling import MaskedLanguageModelingTrainer
 from .general_task_trainer import GeneralTaskTrainer
-from .contrastive_language_image_pretrain import ContrastiveLanguageImagePretrainTrainer
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
 from .translation import TranslationTrainer
 from .text_classfication import TextClassificationTrainer

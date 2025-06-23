@@ -15,8 +15,6 @@
 """MindFormers DataLoader."""
 from .build_dataloader import build_dataset_loader
 from .common_dataloader import CommonDataLoader
-from .flickr8k_dataloader import Flickr8kDataLoader
-from .cifar100_dataloader import Cifar100DataLoader
 from .multi_source_dataloader import MultiSourceDataLoader
 from .wmt16_dataloader import WMT16DataLoader
 from .cluener_dataloader import CLUENERDataLoader

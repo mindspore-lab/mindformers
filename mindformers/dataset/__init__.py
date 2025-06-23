@@ -18,9 +18,7 @@ from .dataloader import (
     BaseMultiModalDataLoader,
     BlendedMegatronDatasetDataLoader,
     CLUENERDataLoader,
-    Cifar100DataLoader,
     CommonDataLoader,
-    Flickr8kDataLoader,
     IndexedDataLoader,
     MultiSourceDataLoader,
     SFTDataLoader,
@@ -56,13 +54,11 @@ from .sampler.build_sampler import build_sampler
 from .transforms.build_transforms import build_transforms
 from .base_dataset import BaseDataset
 from .causal_language_model_dataset import CausalLanguageModelDataset
-from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
 from .keyword_gen_dataset import KeyWordGenDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
 from .question_answering_dataset import QuestionAnsweringDataset
 from .text_classification_dataset import TextClassificationDataset
 from .translation_dataset import TranslationDataset
-from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
 from .multi_turn_dataset import MultiTurnDataset
 from .general_dataset import GeneralDataset
 from .utils import (
