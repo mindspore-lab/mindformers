@@ -389,7 +389,8 @@ class MllamaProcessor(ModalContentTransformTemplate):
         return f"{image_token * num_image_tokens_on_start}{bos_token}{prompt}"
 
     def build_predict_conversation(self, raw_inputs, result_recorder):
-        prompt = self.build_string_from_input(raw_inputs[1], self.bos_token, self.image_token)
+        raw_inputs = "".join(raw_inputs)
+        prompt = self.build_string_from_input(raw_inputs, self.bos_token, self.image_token)
         result_recorder.put("prompt", prompt)
         return prompt
 
