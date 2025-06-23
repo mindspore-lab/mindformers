@@ -160,7 +160,7 @@ class GenerationMixin:
         """Initial attention mask."""
         if self.lower_triangle_mask is None:
             compute_dtype = self.model.config.compute_dtype
-            mask_coeff = 1.0 if self.config.compute_dtype is mstype.bfloat16 else -10000.0
+            mask_coeff = 1.0 if compute_dtype is mstype.bfloat16 else -10000.0
             self.lower_triangle_mask = Tensor(
                 np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_dtype
                 )
@@ -1038,7 +1038,8 @@ class GenerationMixin:
             prefill = True
             model_kwargs["origin_inputs"] = origin_inputs
 
-            if hasattr(self.config, 'pet_config') and self.config.pet_config.pet_type == "slora":
+            if (hasattr(self.config, 'pet_config') and self.config.pet_config is not None
+                    and self.config.pet_config.pet_type == "slora"):
                 adapter_id = kwargs.pop("adapter_id", None)
                 if adapter_id is not None and len(adapter_id) > 1:
                     if len(adapter_id) != batch_size:

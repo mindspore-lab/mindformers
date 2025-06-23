@@ -1,0 +1,44 @@
+seed: 0
+output_dir: './output' # path to save checkpoint/strategy
+load_checkpoint: ''
+auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
+use_parallel: False
+run_mode: 'predict'
+use_legacy: False
+
+# default parallel of device num = 8 for Atlas 800T A2
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+# HuggingFace file directory
+pretrained_model_dir: '/path/hf_dir'
+model:
+  model_config:
+    type: Qwen3MoeConfig
+    position_embedding_type: "rope"
+    pad_token_id: 151643
+    compute_dtype: "bfloat16"
+    layernorm_compute_dtype: "float32"
+    softmax_compute_dtype: "float32"
+    rotary_dtype: "bfloat16"
+    params_dtype: "bfloat16"
+    block_size: 32
+    num_blocks: 1024
+    normalization: "RMSNorm"
+    add_bias_linear: False
+    gated_linear_unit: True
+
+# mindspore context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  enable_graph_kernel: False
+  ascend_config:
+    precision_mode: "must_keep_origin_dtype"
+  max_device_memory: "59GB"
+  save_graphs: False
+  save_graphs_path: "./graph"
+
+# parallel context config
+parallel:
+  parallel_mode: "MANUAL_PARALLEL"
+  enable_alltoall: False

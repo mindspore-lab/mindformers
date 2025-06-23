@@ -195,9 +195,19 @@ def register_mf_model_parameter(mf_model_kwargs=None):
         if mf_model_kwargs is not None else asdict(MFModelConfig())
 
     def decorator(init_func):
+        @wraps(init_func)
         def wrapper(self, *args, **kwargs):
+
+            sig = inspect.signature(init_func)
+            all_parameters_kwargs = dict()
+            for name, param in sig.parameters.items():
+                if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                    continue
+                if name in ('self', 'kwargs'):
+                    continue
+                all_parameters_kwargs.setdefault(name, param.default)
             # Merge default parameters with input parameters, giving priority to input parameters
-            merged_kwargs = {**mf_model_kwargs, **kwargs}
+            merged_kwargs = {**mf_model_kwargs, **all_parameters_kwargs, **kwargs}
             return init_func(self, *args, **merged_kwargs)
 
         return wrapper

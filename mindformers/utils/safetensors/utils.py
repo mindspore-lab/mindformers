@@ -53,11 +53,18 @@ def contains_safetensors_files(safetensors_dir):
     return False
 
 
-def check_safetensors_key(load_checkpoint_dir, key):
+def check_safetensors_key(load_checkpoint, key):
     """Check if there are any key names containing the character "key" in safetensors files"""
-    sf_list = [sf for sf in os.listdir(load_checkpoint_dir) if sf.endswith('.safetensors')]
+    # support the check of single safetensors file
+    if os.path.isfile(load_checkpoint) and load_checkpoint.endswith('.safetensors'):
+        sf_list = [load_checkpoint]
+    # load_checkpoint is either a single safetensors file or a valid directory
+    else:
+        sf_list = [sf for sf in os.listdir(load_checkpoint) if sf.endswith('.safetensors')]
+
     for sf in sf_list:
-        with safe_open(os.path.join(load_checkpoint_dir, sf), framework="np") as f:
+        safetensors_path = os.path.join(load_checkpoint, sf) if os.path.isdir(load_checkpoint) else sf
+        with safe_open(safetensors_path, framework="np") as f:
             all_items = f.keys()
         has_key = any(key in item for item in all_items)
         if has_key:

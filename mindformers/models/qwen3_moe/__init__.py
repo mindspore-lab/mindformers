@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """qwen3 model"""
-from .utils import Qwen3PreTrainedModel
-from .configuration_qwen3 import Qwen3Config
-from .modeling_qwen3 import Qwen3ForCausalLM
-from .modeling_qwen3_infer import InferenceQwen3ForCausalLM
+from .utils import Qwen3MoePreTrainedModel
+from .configuration_qwen3_moe import Qwen3MoeConfig
+from .modeling_qwen3_moe import Qwen3MoeForCausalLM
+from .modeling_qwen3_moe_infer import InferenceQwen3MoeForCausalLM
 
-__all__ = ['Qwen3Config', 'Qwen3ForCausalLM', 'InferenceQwen3ForCausalLM', 'Qwen3PreTrainedModel']
+__all__ = ['Qwen3MoeConfig', 'Qwen3MoeForCausalLM', 'InferenceQwen3MoeForCausalLM', 'Qwen3MoePreTrainedModel']
