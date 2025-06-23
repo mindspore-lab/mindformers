@@ -14,10 +14,9 @@
 # ============================================================================
 """Build Trainer API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from . import ZeroShotImageClassificationTrainer, \
-    MaskedLanguageModelingTrainer, \
+from . import MaskedLanguageModelingTrainer, \
     TranslationTrainer, TextClassificationTrainer, \
-    ContrastiveLanguageImagePretrainTrainer, QuestionAnsweringTrainer, GeneralTaskTrainer
+    QuestionAnsweringTrainer, GeneralTaskTrainer
 
 
 def build_trainer(
@@ -57,20 +56,12 @@ def register_mf_trainer():
     """ register MindFomrers builtin LR class. """
     # adapt huggingface
     MindFormerRegister.register_cls(
-        ZeroShotImageClassificationTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="zero_shot_image_classification")
-
-    MindFormerRegister.register_cls(
         MaskedLanguageModelingTrainer,
         module_type=MindFormerModuleType.TRAINER, alias="fill_mask")
 
     MindFormerRegister.register_cls(
         TextClassificationTrainer,
         module_type=MindFormerModuleType.TRAINER, alias="text_classification")
-
-    MindFormerRegister.register_cls(
-        ContrastiveLanguageImagePretrainTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="contrastive_language_image_pretrain")
 
     MindFormerRegister.register_cls(
         TranslationTrainer,

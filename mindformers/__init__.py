@@ -36,7 +36,6 @@ from mindformers.pipeline import (
     TextGenerationPipeline,
     TokenClassificationPipeline,
     TranslationPipeline,
-    ZeroShotImageClassificationPipeline,
     pipeline
 )
 from mindformers.trainer import (
@@ -46,7 +45,6 @@ from mindformers.trainer import (
     CheckpointConfig,
     ConfigArguments,
     ContextConfig,
-    ContrastiveLanguageImagePretrainTrainer,
     DataLoaderConfig,
     DatasetConfig,
     GeneralTaskTrainer,
@@ -62,7 +60,6 @@ from mindformers.trainer import (
     TrainingArguments,
     TranslationTrainer,
     WrapperConfig,
-    ZeroShotImageClassificationTrainer
 )
 from mindformers.core import (
     ADGENMetric,
@@ -115,11 +112,8 @@ from mindformers.dataset import (
     BatchToTensor,
     CLUENERDataLoader,
     CausalLanguageModelDataset,
-    Cifar100DataLoader,
     CodeAlpacaInstructDataHandler,
     CommonDataLoader,
-    ContrastiveLanguageImagePretrainDataset,
-    Flickr8kDataLoader,
     GeneralDataset,
     IndexedDataLoader,
     KeyWordGenDataset,
@@ -141,7 +135,6 @@ from mindformers.dataset import (
     TrainingDataLoader,
     TranslationDataset,
     WMT16DataLoader,
-    ZeroShotImageClassificationDataset,
     build_data_handler,
     check_dataset_config,
     check_dataset_iterable
