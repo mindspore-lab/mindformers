@@ -1328,6 +1328,11 @@ class Trainer:
 
     def _check_config_rules(self):
         """Check config rules."""
+        if not self.config.load_checkpoint and self.config.pretrained_model_dir:
+            self.config.load_checkpoint = self.config.pretrained_model_dir
+            logger.info(f'Parameter load_checkpoint does not set the weight path default read from '
+                        f'parameter pretrain_model_dir: {self.config.model.pretrained_model_dir}')
+
         if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
             if not is_publicly_accessible_path(get_output_root_path()):
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"

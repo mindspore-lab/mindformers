@@ -1095,6 +1095,10 @@ class BaseTrainer:
                                 "use_checkpoint_health_monitor": use_checkpoint_health_monitor,
                                 "health_ckpts_record_dir": config.output_dir
                                 }
+                if not config.get("use_legacy", True) and default_args.get("checkpoint_format") == "ckpt":
+                    logger.warning(
+                        "When use_legacy=False, it's not supported to save 'ckpt' files and switch to 'safetensors'.")
+                    default_args["checkpoint_format"] = "safetensors"
                 if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
                 ckpt_config = [callback, default_args]
@@ -1362,20 +1366,26 @@ class BaseTrainer:
 
             model = Model(network)
 
-            if config.load_checkpoint or config.only_save_strategy:
-                if ms.context.get_auto_parallel_context('parallel_mode') in \
-                        ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                    if network.config:
-                        batch_size = network.config.batch_size
-                        seq_length = network.config.seq_length
-                    else:
-                        batch_size = config.model.model_config.batch_size
-                        seq_length = config.model.model_config.seq_length
-                    input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-                    infer_data = network.prepare_inputs_for_predict_layout(input_ids)
-                    transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+            if not config.use_legacy and config.load_checkpoint:
+                if self.config.load_ckpt_format == 'safetensors':
+                    network.load_weights(config.load_checkpoint)
                 else:
-                    transform_and_load_checkpoint(config, model, network, None, do_predict=True)
+                    raise ValueError(f'The process of MCore does not support the weights of ckpt.')
+            else:
+                if config.load_checkpoint or config.only_save_strategy:
+                    if ms.context.get_auto_parallel_context('parallel_mode') in \
+                            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+                        if network.config:
+                            batch_size = network.config.batch_size
+                            seq_length = network.config.seq_length
+                        else:
+                            batch_size = config.model.model_config.batch_size
+                            seq_length = config.model.model_config.seq_length
+                        input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+                        infer_data = network.prepare_inputs_for_predict_layout(input_ids)
+                        transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+                    else:
+                        transform_and_load_checkpoint(config, model, network, None, do_predict=True)
 
             if self.network_delay_inited:
                 logger.info(".........predict network delay initialize..........")
