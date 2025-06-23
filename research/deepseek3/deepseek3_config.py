@@ -164,6 +164,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  return_hidden_states=False,
                  is_mtp_model: bool = False,
                  enable_micro_batch: bool = False,
+                 use_mla_pre: bool = False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -234,3 +235,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.return_hidden_states = return_hidden_states
         self.is_mtp_model = is_mtp_model
         self.enable_micro_batch = enable_micro_batch
+        self.use_mla_pre = use_mla_pre
