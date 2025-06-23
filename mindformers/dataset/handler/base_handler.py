@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.utils import get_context
+from mindformers.tools.logger import logger
 
 
 @dataclass
@@ -102,27 +103,25 @@ class BaseInstructDataHandler:
         dataset = dataset.remove_columns(remove_col_names)
         return dataset
 
-    @staticmethod
-    def get_tokenizer(config):
+    def get_tokenizer(self, config):
         """get tokenizer"""
         tokenizer_name = config.tokenizer_name
         use_legacy = get_context("use_legacy", True)
-        if use_legacy:
-            if tokenizer_name is not None and tokenizer_name.strip() != "":
-                from mindformers.auto_class import AutoTokenizer
-                word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-            elif config.tokenizer:
-                tokenizer_dict = config.tokenizer
-                word_tokenizer = build_tokenizer(tokenizer_dict)
-            else:
-                return None
+        if tokenizer_name is not None and tokenizer_name.strip() != "":
+            from mindformers.auto_class import AutoTokenizer
+            word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        elif config.tokenizer:
+            tokenizer_dict = config.tokenizer
+            pretrained_model_dir = config.get("pretrained_model_dir", None)
+            trust_remote_code = config.get("trust_remote_code", False)
+            word_tokenizer = build_tokenizer(tokenizer_dict,
+                                             use_legacy=use_legacy,
+                                             pretrained_model_dir=pretrained_model_dir,
+                                             trust_remote_code=trust_remote_code)
+            word_tokenizer.padding_side = config.tokenizer.get("padding_side", "right")
         else:
-            from transformers import AutoTokenizer
-            pretrained_model_dir = config.pretrained_model_dir
-            trust_remote_code = config.trust_remote_code
-            word_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=pretrained_model_dir,
-                                                           trust_remote_code=trust_remote_code)
-            word_tokenizer.padding_side = config.get("padding_side", "right")
+            logger.warning(f"The {type(self)} dose not set Tokenizer.")
+            return None
 
         if hasattr(word_tokenizer, 'add_bos_token'):
             word_tokenizer.add_bos_token = True
