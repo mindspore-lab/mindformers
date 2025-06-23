@@ -38,18 +38,3 @@ glm2:
   output_path:
   dtype:
   model_class: AutoModel
-
-mae:
-  input_path:
-  output_path:
-  dtype:
-
-vit:
-  input_path:
-  output_path:
-  dtype:
-
-swin:
-  input_path:
-  output_path:
-  dtype:

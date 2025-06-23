@@ -29,7 +29,7 @@ from mindspore import Parameter, Tensor
 from mindformers.tools.logger import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core import build_lr, build_optim, build_loss, build_metric
-from mindformers.trainer import build_trainer, BaseTrainer
+from mindformers.trainer import build_trainer
 from mindformers.models import build_model, build_processor, build_network
 from mindformers.models import PretrainedConfig, PreTrainedModel
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
@@ -226,13 +226,6 @@ class TestProcessor:
         pass
 
 
-@MindFormerRegister.register(MindFormerModuleType.TRAINER)
-class TestTaskTrainer(BaseTrainer):
-    """Test TimeMonitor API For Register."""
-    def __init__(self, model_name='vit'):
-        super(TestTaskTrainer, self).__init__(model_name=model_name)
-
-
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
@@ -336,10 +329,6 @@ def test_build_from_class_name():
     # build processor
     build_processor(class_name='TestProcessor')
     logger.info("Test Build Processor Success")
-
-    # build trainer
-    build_trainer(class_name='TestTaskTrainer')
-    logger.info("Test Build Trainer Success")
 
     # build pipeline
     build_pipeline(class_name='TestPipeline')

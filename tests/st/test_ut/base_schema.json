@@ -1172,12 +1172,6 @@
     "mindformers.dataset.dataloader.BlendedMegatronDatasetDataLoader": {
         "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },
-    "mindformers.dataset.mask.vision_mask.MaeMask": {
-        "signature": "(input_size=192, patch_size=4, mask_ratio=0.75)"
-    },
-    "mindformers.dataset.mask.vision_mask.SimMask": {
-        "signature": "(input_size=192, mask_patch_size=32, model_patch_size=4, mask_ratio=0.6)"
-    },
     "mindformers.dataset.transforms.vision_transforms.BCHW2BHWC": {
         "signature": "()"
     },
@@ -5426,48 +5420,6 @@
     "mindformers.models.llama.llama_tokenizer_fast.LlamaTokenizerFast.build_inputs_with_special_tokens": {
         "signature": "(self, token_ids_0, token_ids_1=None)"
     },
-    "mindformers.models.mae.mae.ViTMAEForPreTraining": {
-        "signature": "(config=None)"
-    },
-    "mindformers.models.mae.mae.ViTMAEForPreTraining.init_pos_emd": {
-        "signature": "(self)"
-    },
-    "mindformers.models.mae.mae.ViTMAEForPreTraining.init_weights": {
-        "signature": "(self)"
-    },
-    "mindformers.models.mae.mae.ViTMAEForPreTraining.construct": {
-        "signature": "(self, image, mask, ids_restore, unmask_index)"
-    },
-    "mindformers.models.mae.mae.ViTMAEModel": {
-        "signature": "(config=None)"
-    },
-    "mindformers.models.mae.mae.ViTMAEModel.init_pos_emd": {
-        "signature": "(self)"
-    },
-    "mindformers.models.mae.mae.ViTMAEModel.init_weights": {
-        "signature": "(self)"
-    },
-    "mindformers.models.mae.mae.ViTMAEModel.construct": {
-        "signature": "(self, image, unmask_index)"
-    },
-    "mindformers.models.mae.mae_config.ViTMAEConfig": {
-        "signature": "(mask_ratio: float = 0.75, image_size: int = 224, patch_size: int = 16, num_channels: int = 3, initializer_range: float = 0.02, hidden_size: int = 768, num_hidden_layers: int = 12, num_attention_heads: int = 12, intermediate_size: int = 3072, qkv_bias: bool = True, hidden_act: str = 'gelu', post_layernorm_residual: bool = False, layer_norm_eps: float = 1e-06, attention_probs_dropout_prob: float = 0.0, hidden_dropout_prob: float = 0.0, drop_path_rate: float = 0.0, decoder_hidden_size: int = 512, decoder_num_hidden_layers: int = 8, decoder_num_attention_heads: int = 16, decoder_intermediate_size: int = 2048, norm_pix_loss: bool = True, checkpoint_name_or_path: str = '', layernorm_compute_type: mindspore.common.dtype = mindspore.float32, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, init_values=None, window_size=None, **kwargs)"
-    },
-    "mindformers.models.mae.mae_processor.ViTMAEImageProcessor": {
-        "signature": "(size=224, patch_size=16, mask_ratio=0.75, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), is_hwc=False, interpolation='cubic', **kwargs)"
-    },
-    "mindformers.models.mae.mae_processor.ViTMAEImageProcessor.preprocess": {
-        "signature": "(self, images, **kwargs)"
-    },
-    "mindformers.models.mae.mae_processor.ViTMAEImageProcessor._format_inputs": {
-        "signature": "(self, inputs)"
-    },
-    "mindformers.models.mae.mae_processor.ViTMAEImageProcessor._chw2hwc": {
-        "signature": "(inputs)"
-    },
-    "mindformers.models.mae.mae_processor.ViTMAEProcessor": {
-        "signature": "(image_processor=None, return_tensors='ms')"
-    },
     "mindformers.models.modeling_utils.PreTrainedModel": {
         "signature": "(config: mindformers.models.configuration_utils.PretrainedConfig, *inputs, **kwargs)"
     },
@@ -5641,45 +5593,6 @@
     },
     "mindformers.models.qwen3.modeling_qwen3_infer.InferenceQwen3ForCausalLM.load_weights": {
         "signature": "(self, weights_path)"
-    },
-    "mindformers.models.swin.swin.SwinForImageClassification": {
-        "signature": "(config: mindformers.models.configuration_utils.PretrainedConfig = None)"
-    },
-    "mindformers.models.swin.swin.SwinForImageClassification.construct": {
-        "signature": "(self, image, target=None)"
-    },
-    "mindformers.models.swin.swin.SwinForImageClassification.load_checkpoint": {
-        "signature": "(self, config)"
-    },
-    "mindformers.models.swin.swin.SwinForImageClassification.remap_pretrained_keys_swin": {
-        "signature": "(self, checkpoint_model)"
-    },
-    "mindformers.models.swin.swin.SwinForImageClassification._del_unused_keys": {
-        "signature": "(checkpoint_model, key_name)"
-    },
-    "mindformers.models.swin.swin.SwinModel": {
-        "signature": "(config: mindformers.models.configuration_utils.PretrainedConfig = None)"
-    },
-    "mindformers.models.swin.swin.SwinModel.construct": {
-        "signature": "(self, x)"
-    },
-    "mindformers.models.swin.swin_config.SwinConfig": {
-        "signature": "(image_size: int = 224, patch_size: int = 4, num_channels: int = 3, embed_dim: int = 128, depths: list = (2, 2, 18, 2), num_heads: list = (4, 8, 16, 32), window_size: int = 7, shift_size: int = 0, mlp_ratio: float = 4.0, qkv_bias: bool = True, layer_norm_eps: float = 1e-05, hidden_dropout_prob: float = 0.0, attention_probs_dropout_prob: float = 0.0, drop_path_rate: float = 0.1, use_absolute_embeddings: bool = False, patch_norm: bool = True, hidden_act: str = 'gelu', weight_init: str = 'normal', num_labels: int = 1000, loss_type: str = 'SoftTargetCrossEntropy', param_init_type: mindspore.common.dtype = mindspore.float32, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, checkpoint_name_or_path: str = '', **kwargs)"
-    },
-    "mindformers.models.swin.swin_processor.SwinImageProcessor": {
-        "signature": "(size=224, resize=256, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), is_hwc=False, interpolation='cubic', **kwargs)"
-    },
-    "mindformers.models.swin.swin_processor.SwinImageProcessor.preprocess": {
-        "signature": "(self, images, **kwargs)"
-    },
-    "mindformers.models.swin.swin_processor.SwinImageProcessor._format_inputs": {
-        "signature": "(self, inputs)"
-    },
-    "mindformers.models.swin.swin_processor.SwinImageProcessor._chw2hwc": {
-        "signature": "(inputs)"
-    },
-    "mindformers.models.swin.swin_processor.SwinProcessor": {
-        "signature": "(image_processor=None, return_tensors='ms')"
     },
     "mindformers.models.t5.mt5.MT5ForConditionalGeneration": {
         "signature": "(config: mindformers.models.t5.t5_config.T5Config)"
@@ -7798,18 +7711,6 @@
     },
     "mindformers.trainer.config_args.WrapperConfig": {
         "signature": "(wrapper_type: str = None, **kwargs)"
-    },
-    "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer": {
-        "signature": "(model_name: str = None)"
-    },
-    "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.train": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, **kwargs)"
-    },
-    "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.evaluate": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
-    },
-    "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.predict": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, numpy.ndarray, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer": {
         "signature": "(model_name: str = None)"

@@ -792,12 +792,9 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         (only support standalone mode, and distribute mode waits for developing!)
 
         Args:
-            pretrained_model_name_or_dir (str): It supports the following two input types.
-                If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
-                it will download the necessary files from the cloud. User can pass one from the support list by call
-                `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
-                directory where there should have model weights ended with `.ckpt` and configuration file ended
-                with `yaml`.
+            pretrained_model_name_or_dir (str): It only supports passing in the local path.
+                If `pretrained_model_name_or_dir` is a path to the local directory where there should have model
+                weights ended with `.ckpt` and configuration file ended with `yaml`.
             model_args (str, optional): Model extension parameters. If included "pretrained_model_name_or_path",
                 equal to "pretrained_model_name_or_dir", if "pretrained_model_name_or_path" is set,
                 "pretrained_model_name_or_dir" is useless.

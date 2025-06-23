@@ -80,7 +80,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--config',
-        default="configs/mae/run_mae_vit_base_p16_224_800ep.yaml",
+        default=None,
         required=True,
         help='YAML config files')
     parser.add_argument(
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--load_checkpoint', default=None, type=str,
         help="load model checkpoint to train/finetune/eval/predict, "
-             "it is also support input model name, such as 'mae_vit_base_p16', "
+             "it is also support input model name, such as 'llama3_1_8b', "
              "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(

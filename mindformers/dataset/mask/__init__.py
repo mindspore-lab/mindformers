@@ -14,9 +14,5 @@
 # ============================================================================
 """MindFormers Mask API."""
 from .build_mask import build_mask
-from .vision_mask import (
-    MaeMask,
-    SimMask
-)
 
 __all__ = []
