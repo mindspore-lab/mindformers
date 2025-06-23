@@ -130,7 +130,6 @@ from mindformers.dataset import (
     MultiTurnDataset,
     QuestionAnsweringDataset,
     RandomCropDecodeResize,
-    RandomErasing,
     RandomHorizontalFlip,
     RandomResizedCrop,
     Resize,

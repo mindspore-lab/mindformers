@@ -38,7 +38,6 @@ from .transforms import (
     BatchToTensor,
     Mixup,
     RandomCropDecodeResize,
-    RandomErasing,
     RandomHorizontalFlip,
     RandomResizedCrop,
     Resize,
