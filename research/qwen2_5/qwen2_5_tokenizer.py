@@ -64,6 +64,10 @@ FIMSUFFIX = "<|fim_suffix|>"
 FIMPAD = "<|fim_pad|>"
 REPONAME = "<|repo_name|>"
 FILESEP = "<|file_sep|>"
+TOOLRESPONSESTART = "<tool_response>"
+TOOLRESPONSEEND = "</tool_response>"
+THINKSTART = "<think>"
+THINKEND = "</think>"
 ENDOFTEXTID = 151643
 IMSTARTID = 151644
 IMENDID = 151645
@@ -86,6 +90,10 @@ FIMSUFFIXID = 151661
 FIMPADID = 151662
 REPONAMEID = 151663
 FILESEPID = 151664
+TOOLRESPONSESTARTID = 151665
+TOOLRESPONSEENDID = 151666
+THINKSTARTID = 151667
+THINKENDID = 151668
 
 
 @lru_cache()
@@ -250,6 +258,15 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             REPONAME, lstrip=False, rstrip=False, special=True, normalized=False)
         file_sep_token = AddedToken(
             FILESEP, lstrip=False, rstrip=False, special=True, normalized=False)
+        tool_response_start_token = AddedToken(
+            FILESEP, lstrip=False, rstrip=False, special=True, normalized=False)
+        tool_response_end_token = AddedToken(
+            FILESEP, lstrip=False, rstrip=False, special=True, normalized=False)
+        think_start_token = AddedToken(
+            FILESEP, lstrip=False, rstrip=False, special=True, normalized=False)
+        think_end_token = AddedToken(
+            FILESEP, lstrip=False, rstrip=False, special=True, normalized=False)
+
         self.special_tokens = {
             ENDOFTEXT: ENDOFTEXTID,
             IMSTART: IMSTARTID,
@@ -273,6 +290,10 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             FIMPAD: FIMPADID,
             REPONAME: REPONAMEID,
             FILESEP: FILESEPID,
+            TOOLRESPONSESTART: TOOLRESPONSESTARTID,
+            TOOLRESPONSEEND: TOOLRESPONSEENDID,
+            THINKSTART: THINKSTARTID,
+            THINKEND: THINKENDID
         }
         self.end_of_text_id = self.special_tokens[ENDOFTEXT]
         self.im_start_id = self.special_tokens[IMSTART]
@@ -296,6 +317,10 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
         self.fim_pad_id = self.special_tokens[FIMPAD]
         self.repo_name_id = self.special_tokens[REPONAME]
         self.file_sep_id = self.special_tokens[FILESEP]
+        self.tool_response_start_id = self.special_tokens[TOOLRESPONSESTART]
+        self.tool_response_end_id = self.special_tokens[TOOLRESPONSEEND]
+        self.think_start_id = self.special_tokens[THINKSTART]
+        self.think_end_id = self.special_tokens[THINKEND]
         check_file(vocab_file, "tokenizer")
         with open(vocab_file, encoding="utf-8") as vocab_handle:
             self.encoder = json.load(vocab_handle)
@@ -344,6 +369,10 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             self.fim_pad_id: fim_pad_token,
             self.repo_name_id: repo_name_token,
             self.file_sep_id: file_sep_token,
+            self.tool_response_start_id: tool_response_start_token,
+            self.tool_response_end_id: tool_response_end_token,
+            self.think_start_id: think_start_token,
+            self.think_end_id: think_end_token,
         }
 
         super().__init__(

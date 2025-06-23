@@ -23,6 +23,7 @@ import mindspore as ms
 import numpy as np
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
+from mindformers.experimental.infer.core.utils import get_pp_world_size
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.models.utils import predict_jit
@@ -34,7 +35,13 @@ from mindformers.experimental.infer.models.llama.utils import convert_model_conf
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_data_parallel_group,
     get_tensor_model_parallel_group,
+    get_pipeline_model_parallel_group,
+    get_pipeline_model_parallel_rank,
+    get_pipeline_model_parallel_world_size,
+    is_pipeline_first_stage,
+    is_pipeline_last_stage
 )
+from mindformers.experimental.infer.core.mapping import p2p_send, p2p_recv
 
 
 __all__ = ["ParallelQwenForCausalLM"]
@@ -59,18 +66,25 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
 
         tp_group = get_group_info('tp').group is None
         dp_group = get_group_info('dp').group is None
+        pp_group = get_group_info('pp').group is None
         print("tp_group is:{}".format(tp_group))
         print("dp_group is:{}".format(dp_group))
-        all_groups_initialized = tp_group and dp_group
+        print("pp_group is:{}".format(pp_group))
+        all_groups_initialized = tp_group and dp_group and pp_group
         if all_groups_initialized and _is_initialized():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
-                                      order='tp-dp')
+                                      pipeline_model_parallel_size=self.config.parallel_config.pipeline_stage,
+                                      order='tp-dp-pp')
         print("data_parallel_group:{}".format(get_data_parallel_group()))
         print("tensor_model_parallel_group:{}".format(get_tensor_model_parallel_group()))
+        print("pipeline_model_parallel_group:{}".format(get_pipeline_model_parallel_group()))
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
+        self.pre_process = True
+        self.post_process = True
+        self.hidden_size = config.hidden_size
         self.is_first_iteration = True
         self.is_pynative = is_pynative()
 
@@ -84,26 +98,44 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.ones = ops.Ones()
         self.gather = ops.Gather(1) if self.is_pynative else ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
-        self.model = ParallelTransformer(config=config)
-        if config.parallel_config.vocab_emb_dp:
-            self.lm_head = Linear(
-                in_channels=config.hidden_size,
-                out_channels=config.vocab_size,
-                weight_init="normal",
-                has_bias=False,
-                param_init_type=config.param_init_type,
-                compute_dtype=config.compute_dtype
-            )
-        else:
-            self.lm_head = ColumnParallelLinear(
-                input_size=config.hidden_size,
-                output_size=config.vocab_size,
-                config=config.parallel_config,
-                bias=False,
-                gather_output=True,
-                param_init_type=config.param_init_dtype,
-                compute_dtype=config.compute_dtype,
-            )
+
+        self.pipeline_parallel = get_pp_world_size() > 1
+        if self.pipeline_parallel:
+            self.pre_process = is_pipeline_first_stage()
+            self.post_process = is_pipeline_last_stage()
+
+            self.pipeline_stage = get_pipeline_model_parallel_rank()
+            self.pipeline_parallel_world_size = get_pipeline_model_parallel_world_size()
+            self.hccl_pp_group = get_pipeline_model_parallel_group()
+            self.mccl_pp_group = f"mccl_{get_pipeline_model_parallel_group()}"
+            logger.info(f"pipeline parallel config: \n- pre_process: {self.pre_process}\n- post_process: {self.post_init}\n"
+                        f"- pipeline_stage: {self.pipeline_stage}\n- pipeline_parallel_world_size: {self.pipeline_parallel_world_size}\n"
+                        f"- hccl_pp_group: {self.hccl_pp_group}\n- mccl_pp_group: {self.mccl_pp_group}")
+            if not self.post_process:
+                self.send_dst = (self.pipeline_stage + 1) % self.pipeline_parallel_world_size
+            if not self.pre_process:
+                self.recv_src = (self.pipeline_stage - 1) % self.pipeline_parallel_world_size
+        self.model = ParallelTransformer(config=config, pre_process=self.pre_process, post_process=self.post_process)
+        if self.post_process:
+            if config.parallel_config.vocab_emb_dp:
+                self.lm_head = Linear(
+                    in_channels=config.hidden_size,
+                    out_channels=config.vocab_size,
+                    weight_init="normal",
+                    has_bias=False,
+                    param_init_type=config.param_init_type,
+                    compute_dtype=config.compute_dtype
+                )
+            else:
+                self.lm_head = ColumnParallelLinear(
+                    input_size=config.hidden_size,
+                    output_size=config.vocab_size,
+                    config=config.parallel_config,
+                    bias=False,
+                    gather_output=True,
+                    param_init_type=config.param_init_dtype,
+                    compute_dtype=config.compute_dtype,
+                )
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
@@ -171,6 +203,8 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.float16)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+        dynamic_hidden_states = Tensor(shape=[None, None, None], dtype=self.config.compute_dtype) if not self.pre_process else None
+
 
         def get_input():
             if self.npu_mem_size > 0:
@@ -186,11 +220,15 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache,
+                            dynamic_hidden_states)
         else:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, key_cache, value_cache)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, key_cache, value_cache,
+                            dynamic_hidden_states)
+
+        dynamic_inputs = self.get_inputs()
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -207,11 +245,14 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
-                  q_seq_lens=None, key_cache=None, value_cache=None):
+                  q_seq_lens=None, key_cache=None, value_cache=None, hidden_states=None):
         """
         Forward of qwen model.
         """
-        bsz, _ = self.shape(input_ids)
+        bsz, seq = self.shape(input_ids)
+        if hidden_states is not None and self.return_hidden_states:
+            # reshape when ms service for pipeline parallel
+            hidden_states = self.reshape(hidden_states, (bsz, seq, self.hidden_size))
         if self.use_past:
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((bsz,), mstype.int32)
@@ -219,22 +260,76 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values, position_ids=position_ids, attention_mask=attention_mask,
-                            q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache)
+                            q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache, hidden_states=hidden_states)
         if self.return_hidden_states:
             output = self.reshape(output, (-1, output.shape[-1]))
             return output
-        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        if pre_gather:
-            if not self.is_pynative:
-                batch_valid_length = mint.cumsum(batch_valid_length, 0)
-            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
-        logits = self.lm_head(output)
+        if self.post_process:
+            pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+            if pre_gather:
+                if not self.is_pynative:
+                    batch_valid_length = mint.cumsum(batch_valid_length, 0)
+                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            logits = self.lm_head(output)
 
-        logits = self.cast(logits, mstype.float32)
-        if self.predict_run_mode:
-            return self.reshape(logits, (-1, logits.shape[-1]))
-        input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
-        return logits, input_ids, input_mask
+            logits = self.cast(logits, mstype.float32)
+            if self.predict_run_mode:
+                return self.reshape(logits, (-1, logits.shape[-1]))
+            input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
+            return logits, input_ids, input_mask
+        return output
+
+    def forward_pp(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
+        """Forward for ParallelQwenForCausalLM with pipeline parallel"""
+        bsz, seq_len = self.shape(input_ids)
+        logits = ops.zeros((bsz, self.vocab_size), dtype=mstype.float32)
+        hidden_states = None
+        if not self.pre_process:
+            hidden_states = ops.zeros((bsz, seq_len, self.hidden_size), dtype=self.config.compute_dtype)
+            p2p_recv(hidden_states, src=self.recv_src, group=self.mccl_pp_group)
+
+        if not self.post_process:
+            hidden_states = self(input_ids=input_ids,
+                                 position_ids=position_ids,
+                                 attention_mask=attention_mask,
+                                 batch_valid_length=batch_valid_length,
+                                 batch_index=batch_index,
+                                 zactivate_len=zactivate_len,
+                                 block_tables=block_tables,
+                                 slot_mapping=slot_mapping,
+                                 prefix_keys_values=prefix_keys_values,
+                                 q_seq_lens=q_seq_lens,
+                                 key_cache=key_cache,
+                                 value_cache=value_cache,
+                                 hidden_states=hidden_states)
+            send_out = p2p_send(hidden_states, dst=self.send_dst, group=self.mccl_pp_group)
+            logits = ops.depend(logits, send_out)
+
+        if self.post_process:
+            logits = self(input_ids=input_ids,
+                                 position_ids=position_ids,
+                                 attention_mask=attention_mask,
+                                 batch_valid_length=batch_valid_length,
+                                 batch_index=batch_index,
+                                 zactivate_len=zactivate_len,
+                                 block_tables=block_tables,
+                                 slot_mapping=slot_mapping,
+                                 prefix_keys_values=prefix_keys_values,
+                                 q_seq_lens=q_seq_lens,
+                                 key_cache=key_cache,
+                                 value_cache=value_cache,
+                                 hidden_states=hidden_states)
+
+        return logits
+
+    def pp_warm_up(self, model_inputs):
+        bsz, seq_len = model_inputs["input_ids"].shape
+        hidden_states = ops.zeros((bsz, seq_len, self.hidden_size), dtype=self.config.compute_dtype)
+        self(**model_inputs, hidden_states=hidden_states if not self.pre_process else None)
+        logger.info("Warm up for pp.")
 
     def kvcache(self, layer_idx):
         key_cache = self.model.layers[layer_idx].attention.paged_attention_mgr.key_cache
