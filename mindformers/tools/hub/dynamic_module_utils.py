@@ -495,18 +495,6 @@ def get_class_from_dynamic_module(
 
     Returns:
         `typing.Type`: The class, dynamically imported from the module.
-
-    Examples:
-
-    ```python
-    # Download module `modeling.py` from openmind.cn and cache then extract the class `MyBertModel` from this
-    # module.
-    cls = get_class_from_dynamic_module("modeling.MyBertModel", "sgugger/my-bert-model")
-
-    # Download module `modeling.py` from a given repo and cache then extract the class `MyBertModel` from this
-    # module.
-    cls = get_class_from_dynamic_module("sgugger/my-bert-model--modeling.MyBertModel", "sgugger/another-bert-model")
-    ```
     """
     use_auth_token = kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:

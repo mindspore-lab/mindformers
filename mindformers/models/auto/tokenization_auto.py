@@ -77,7 +77,6 @@ else:
 
 TOKENIZER_MAPPING_NAMES = OrderedDict(
     [
-        ("bert", ("BertTokenizer", "BertTokenizerFast" if is_tokenizers_available() else None)),
         (
             "clip",
             (
@@ -93,13 +92,6 @@ TOKENIZER_MAPPING_NAMES = OrderedDict(
             (
                 "LlamaTokenizer" if is_sentencepiece_available() else None,
                 "LlamaTokenizerFast" if is_tokenizers_available() else None,
-            ),
-        ),
-        (
-            "t5",
-            (
-                "T5Tokenizer" if is_sentencepiece_available() else None,
-                "T5TokenizerFast" if is_tokenizers_available() else None,
             ),
         ),
     ]

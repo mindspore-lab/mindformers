@@ -17,18 +17,12 @@
 from mindformers.models.auto import AutoModel
 from mindformers.models.auto.modeling_auto import (
     AutoModelForCausalLM,
-    AutoModelForSequenceClassification,
-    AutoModelForQuestionAnswering,
-    AutoModelForSeq2SeqLM,
-    AutoModelForTokenClassification)
+    AutoModelForSequenceClassification)
 
 from .fill_mask_pipeline import FillMaskPipeline
 from .pipeline_registry import PipelineRegistry
-from .question_answering_pipeline import QuestionAnsweringPipeline
 from .text_classification_pipeline import TextClassificationPipeline
 from .text_generation_pipeline import TextGenerationPipeline
-from .token_classification_pipeline import TokenClassificationPipeline
-from .translation_pipeline import TranslationPipeline
 
 TASK_ALIASES = {
     "text_classification": "text-classification",
@@ -52,12 +46,6 @@ SUPPORTED_TASKS = {
         "default": {"model": {"ms": ()}},
         "type": "text",
     },
-    "question-answering": {
-        "impl": QuestionAnsweringPipeline,
-        "ms": (AutoModelForQuestionAnswering,),
-        "default": {"model": {"ms": ()}},
-        "type": "text",
-    },
     "text-classification": {
         "impl": TextClassificationPipeline,
         "ms": (AutoModelForSequenceClassification,),
@@ -67,18 +55,6 @@ SUPPORTED_TASKS = {
     "text-generation": {
         "impl": TextGenerationPipeline,
         "ms": (AutoModelForCausalLM,),
-        "default": {"model": {"ms": ()}},
-        "type": "text",
-    },
-    "token-classification": {
-        "impl": TokenClassificationPipeline,
-        "ms": (AutoModelForTokenClassification,),
-        "default": {"model": {"ms": ()}},
-        "type": "text",
-    },
-    "translation": {
-        "impl": TranslationPipeline,
-        "ms": (AutoModelForSeq2SeqLM,),
         "default": {"model": {"ms": ()}},
         "type": "text",
     },

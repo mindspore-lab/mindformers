@@ -43,12 +43,10 @@ EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, or a
 
 PROCESSOR_MAPPING_NAMES = OrderedDict(
     [
-        ("bert", "BertProcessor"),
         ("clip", "CLIPProcessor"),
         ("glm", "GLMProcessor"),
         ("llama", "LlamaProcessor"),
         ("sam", "SamProcessor"),
-        ("t5", "T5Processor")
     ]
 )
 

@@ -18,25 +18,6 @@ import re
 import json
 
 
-def squad_reader(path):
-    """Reading the SQUAD dataset."""
-    path = os.path.realpath(path)
-    with open(path) as f:
-        file = json.load(f)
-    sources = []
-    targets = []
-    for data in file["data"]:
-        for paragraph in data["paragraphs"]:
-            passage = paragraph["context"]
-            query = paragraph["qas"][0]["question"]
-            answer = paragraph["qas"][0]["answers"][0]["text"]
-            input_str = f"Read the passage and answer the question below.\n\n" \
-                        f"### Instruction:\n{passage}\n\n### Input:\n{query}\n\n### Response:"
-            sources.append(input_str)
-            targets.append(answer)
-    return dict(sources=sources, targets=targets)
-
-
 def cmrc2018_reader(path):
     """Reading the CMRC2018 dataset."""
     path = os.path.realpath(path)
@@ -146,7 +127,6 @@ def wikitext_reader(path):
 
 
 _DATA_READER_MAP = {
-    "squad": squad_reader,
     "cmrc2018": cmrc2018_reader,
     "ag-news": agnews_reader,
     "wikitext": wikitext_reader,

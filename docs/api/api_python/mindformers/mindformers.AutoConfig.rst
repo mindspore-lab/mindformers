@@ -30,7 +30,7 @@ mindformers.AutoConfig
             这个API正处于实验阶段，在下一个版本中可能会有一些突破性的变化。
 
         参数：
-            - **model_type** (str) - 模型简称，类似'bert'或'gpt'。
+            - **model_type** (str) - 模型简称，类似'llama3_1'。
             - **config** (PretrainedConfig) - 用于注册的类。
             - **exist_ok** (bool, 可选) - 为True时，若model_type已存在也不报错。默认值： ``False`` 。
 

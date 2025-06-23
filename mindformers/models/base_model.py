@@ -100,16 +100,6 @@ class BaseModel(nn.Cell, GenerationMixin):
                 `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
             save_name(str): the name of saved files, including model weight and configuration file.
                 Default mindspore_model.
-
-        Examples:
-            >>> import os
-            >>> from mindformers import T5ForConditionalGeneration, MindFormerBook
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
-            >>> net.save_pretrained()
-            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
-            >>> print(os.listdir(output_path))
-            ['mindspore_model.yaml', 'mindspore_model.ckpt']
-
         """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
@@ -302,10 +292,6 @@ class BaseModel(nn.Cell, GenerationMixin):
                 with `yaml`.
             pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
                 if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
-
-        Examples:
-            >>> from mindformers import T5ForConditionalGeneration
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
 
         Returns:
             A model, which inherited from BaseModel.
