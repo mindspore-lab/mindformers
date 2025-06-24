@@ -99,10 +99,10 @@ class TestFlashAttention:
             output_data = output_ms_dict.get(key)
             if key == "prefill_output":
                 query = get_init_params(n_kv_heads=model_args["n_kv_heads"])["prefill_query"]
-                query = query.reshape((1, BATCH_SIZE * SEQ_LENGTH[0], NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
+                query = query.reshape((BATCH_SIZE * SEQ_LENGTH[0], NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
             else:
                 query = get_init_params(n_kv_heads=model_args["n_kv_heads"])["decoder_query"]
-                query = query.reshape((1, BATCH_SIZE * 1, NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
+                query = query.reshape((BATCH_SIZE * 1, NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS)))
 
             assert output_data.shape == query.shape, \
                 (f"The shapes of output data and input data are different, "

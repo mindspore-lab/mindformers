@@ -43,10 +43,9 @@ class FlashAttentionRunner:
         self.num_heads = self.args.num_heads
         self.batch_size = self.args.batch_size
         self.is_prefill = True
-        self.prefill_seq_length = self.args.seq_length[1]
-        self.prefill_seq_length = int(self.prefill_seq_length)
-        self.decoder_seq_length = self.args.seq_length[-2]
-        self.decoder_seq_length = int(self.decoder_seq_length)
+        prefill_seq_length_str, decoder_seq_length_str = self.args.seq_length.strip('[]').split(',')
+        self.prefill_seq_length = int(prefill_seq_length_str.strip())
+        self.decoder_seq_length = int(decoder_seq_length_str.strip())
         self.hidden_size = self.args.hidden_size
         self.n_kv_heads = self.args.n_kv_heads
         self.head_dim = int(self.hidden_size / self.num_heads)
@@ -66,23 +65,23 @@ class FlashAttentionRunner:
         )
 
         self.prefill_query = ms.Tensor(init_params.get("prefill_query"),
-                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                       dtype=mstype.bfloat16).reshape(BATCH_SIZE * SEQ_LENGTH[0],
                                                                       NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS))
         self.prefill_key = ms.Tensor(init_params.get("prefill_key"),
-                                     dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                     dtype=mstype.bfloat16).reshape(BATCH_SIZE * SEQ_LENGTH[0],
                                                                     self.n_kv_heads * int(HIDDEN_SIZE / NUM_HEADS))
         self.prefill_value = ms.Tensor(init_params.get("prefill_value"),
-                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * SEQ_LENGTH[0],
+                                       dtype=mstype.bfloat16).reshape(BATCH_SIZE * SEQ_LENGTH[0],
                                                                       self.n_kv_heads * int(
                                                                           HIDDEN_SIZE / NUM_HEADS))
         self.decoder_query = ms.Tensor(init_params.get("decoder_query"),
-                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                       dtype=mstype.bfloat16).reshape(BATCH_SIZE * min(1, SEQ_LENGTH[1]),
                                                                       NUM_HEADS * int(HIDDEN_SIZE / NUM_HEADS))
         self.decoder_key = ms.Tensor(init_params.get("decoder_key"),
-                                     dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                     dtype=mstype.bfloat16).reshape(BATCH_SIZE * min(1, SEQ_LENGTH[1]),
                                                                     self.n_kv_heads * int(HIDDEN_SIZE / NUM_HEADS))
         self.decoder_value = ms.Tensor(init_params.get("decoder_value"),
-                                       dtype=mstype.bfloat16).reshape(1, BATCH_SIZE * min(1, SEQ_LENGTH[1]),
+                                       dtype=mstype.bfloat16).reshape(BATCH_SIZE * min(1, SEQ_LENGTH[1]),
                                                                       self.n_kv_heads * int(
                                                                           HIDDEN_SIZE / NUM_HEADS))
 
@@ -185,10 +184,10 @@ class FlashAttentionRunner:
 def main():
     parser = argparse.ArgumentParser(description="Run FA test")
     parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--seq_length", type=list[int], default=[2, 1])
+    parser.add_argument("--seq_length", type=str, default='[2, 1]')
     parser.add_argument("--num_heads", type=int, default=2)
     parser.add_argument("--n_kv_heads", type=int, default=2)
-    parser.add_argument("--hidden_size", type=int, default=64)  # 32
+    parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--keep_prob", type=float, default=1.0)
     parser.add_argument("--scale_value", type=float, default=0.25)
     parser.add_argument("--output_path", type=str, default="output_ms_fa.npz")
