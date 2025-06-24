@@ -106,6 +106,21 @@ def check_iteration_path_exists(checkpoints_path: str) -> bool:
     return os.path.exists(inter_dir) and os.path.isdir(inter_dir)
 
 
+def ensure_directory_exists(filename, check_parent=True):
+    """
+    Create filename's path if it does not already exist.
+
+    Args:
+        filename (str): The filename for which to ensure the directory exists.
+        check_parent (bool): Whether to check the parent directory as well. Defaults to True.
+
+    Returns:
+        None
+    """
+    dirname = os.path.dirname(filename) if check_parent else filename
+    os.makedirs(dirname, exist_ok=True)
+
+
 def _check_checkpoint_path(path: str):
     """check checkpoint path."""
     if not isinstance(path, str) or isinstance(path, os.PathLike):
