@@ -14,9 +14,7 @@
 # ============================================================================
 """Test Multi-Token Prediction (MTP) with various configurations."""
 import os
-import socket
 import subprocess
-import time
 from pathlib import Path
 import pytest
 import numpy as np
@@ -45,15 +43,6 @@ SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-
-def get_free_port():
-    """Getting a random free port."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('0.0.0.0', 0))
-        _, port = s.getsockname()
-    time.sleep(0.05)
-    return port
 
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
