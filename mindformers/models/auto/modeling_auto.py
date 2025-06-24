@@ -94,13 +94,6 @@ MODEL_FOR_MULTIPLE_CHOICE_MAPPING_NAMES = OrderedDict(
     ]
 )
 
-MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
-    [
-        # Model for Zero Shot Image Classification mapping
-        ("clip", "CLIPModel"),
-    ]
-)
-
 MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = OrderedDict(
     [
         ("sam", "SamModel"),
@@ -118,9 +111,6 @@ MODEL_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_MAPPING_NAMES)
 MODEL_FOR_PRETRAINING_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_PRETRAINING_MAPPING_NAMES)
 MODEL_WITH_LM_HEAD_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_WITH_LM_HEAD_MAPPING_NAMES)
 MODEL_FOR_CAUSAL_LM_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_CAUSAL_LM_MAPPING_NAMES)
-MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
-    CONFIG_MAPPING_NAMES, MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES
-)
 MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES
 )
@@ -221,22 +211,6 @@ class AutoModelForMultipleChoice(_BaseAutoModelClass):
 
 
 AutoModelForMultipleChoice = auto_class_update(AutoModelForMultipleChoice, head_doc="multiple choice")
-
-
-class AutoModelForZeroShotImageClassification(_BaseAutoModelClass):
-    r"""
-    This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the ``from_pretrained()`` class method.
-    This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
-    """
-    _model_mapping = MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING
-
-
-AutoModelForZeroShotImageClassification = auto_class_update(
-    AutoModelForZeroShotImageClassification,
-    checkpoint_for_example="clip_vit_b_16",
-    head_doc="zero-shot image classification"
-)
 
 
 class AutoModelWithLMHead(_AutoModelWithLMHead):

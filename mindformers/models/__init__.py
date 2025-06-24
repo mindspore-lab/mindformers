@@ -27,7 +27,6 @@ from .auto import (
     AutoModelForSequenceClassification,
     AutoModelForTextEncoding,
     AutoModelForTokenClassification,
-    AutoModelForZeroShotImageClassification,
     AutoModelWithLMHead,
     AutoProcessor,
     AutoTokenizer,
@@ -53,15 +52,6 @@ from .bert import (
 from .deepseek3 import (
     DeepseekV3Config,
     DeepseekV3ForCausalLM
-)
-from .clip import (
-    CLIPConfig,
-    CLIPImageProcessor,
-    CLIPModel,
-    CLIPProcessor,
-    CLIPTextConfig,
-    CLIPTokenizer,
-    CLIPVisionConfig
 )
 from .t5 import (
     MT5ForConditionalGeneration,

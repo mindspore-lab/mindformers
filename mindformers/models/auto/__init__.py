@@ -30,7 +30,6 @@ from .modeling_auto import (
     AutoModelForSequenceClassification,
     AutoModelForTextEncoding,
     AutoModelForTokenClassification,
-    AutoModelForZeroShotImageClassification,
     AutoModelWithLMHead,
     MODEL_FOR_CAUSAL_LM_MAPPING
 )
