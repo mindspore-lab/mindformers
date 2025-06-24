@@ -228,8 +228,8 @@ class TestMultiLatentAttention:
                 prefix, mode_num = tmp_path.name.split('mode')
                 mega_output_dir = prefix + 'mode' + str(int(mode_num) - 1)
                 mega_output_file = tmp_path.parent / mega_output_dir / "output_mla_ms_megatron_multi.npz"
-                output_ms_dict_mega = np.load(mega_output_file, allow_pickle=True)['output']
-                output_ms_dict_mind = np.load(output_file_path, allow_pickle=True)['output']
+                output_ms_dict_mega = np.load(mega_output_file, allow_pickle=False)['output']
+                output_ms_dict_mind = np.load(output_file_path, allow_pickle=False)['output']
                 assert np.allclose(output_ms_dict_mind, output_ms_dict_mega)
 
 class TestMultiLatentAttentionSingleCard(TestMultiLatentAttention):

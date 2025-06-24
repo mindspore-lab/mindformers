@@ -32,7 +32,7 @@ def convert_weight(torch_path="ViT-B-32.pt",
         mindspore_path： The save path for clip_vit_b_32.ckpt.
     """
 
-    param_dict = torch.load(torch_path, map_location=torch.device('cpu'))
+    param_dict = torch.load(torch_path, map_location=torch.device('cpu'), weights_only=True)
 
     new_dict = []
     for name, param in param_dict.items():
