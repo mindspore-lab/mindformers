@@ -118,7 +118,6 @@ from mindformers.dataset import (
     IndexedDataLoader,
     KeyWordGenDataset,
     MaskLanguageModelDataset,
-    Mixup,
     ModalToTextSFTDataset,
     MultiSourceDataLoader,
     MultiTurnDataset,

@@ -34,7 +34,6 @@ from .transforms import (
     BatchPILize,
     BatchResize,
     BatchToTensor,
-    Mixup,
     RandomCropDecodeResize,
     RandomHorizontalFlip,
     RandomResizedCrop,
