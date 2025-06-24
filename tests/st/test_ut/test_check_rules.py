@@ -26,7 +26,7 @@ class TestCheckYamlDepthBeforeLoading(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.yaml_path = os.path.join(MindFormerBook.get_project_path(), 'configs', 'llama2', 'predict_llama2_7b.yaml')
+        cls.yaml_path = os.path.join(MindFormerBook.get_project_path(), 'configs', 'glm4', 'predict_glm4_9b_chat.yaml')
         cls.yaml_str = """
         a:
             b:

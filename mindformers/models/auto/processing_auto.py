@@ -39,7 +39,7 @@ from ..build_processor import build_processor
 
 
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, or a " \
-                "path to directory which has yaml file, or a model name supported, e.g. llama2_7b."
+                "path to directory which has yaml file, or a model name supported, e.g. glm4_9b."
 
 PROCESSOR_MAPPING_NAMES = OrderedDict(
     [

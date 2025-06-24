@@ -155,7 +155,7 @@ class AutoModel(_BaseAutoModelClass):
     _model_mapping = MODEL_MAPPING
 
 
-AutoModel = auto_class_update(AutoModel, checkpoint_for_example="llama2_7b")
+AutoModel = auto_class_update(AutoModel, checkpoint_for_example="glm4_9b")
 
 
 class AutoModelForPreTraining(_BaseAutoModelClass):
@@ -184,7 +184,7 @@ class AutoModelForCausalLM(_BaseAutoModelClass):
 
 AutoModelForCausalLM = auto_class_update(
     AutoModelForCausalLM,
-    checkpoint_for_example="llama2_7b",
+    checkpoint_for_example="glm4_9b",
     head_doc="causal language modeling"
 )
 

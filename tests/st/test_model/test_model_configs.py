@@ -16,7 +16,6 @@
 import unittest
 from mindformers.models.auto.configuration_auto import AutoConfig
 from mindformers.models.glm2 import ChatGLM2ForConditionalGeneration
-from mindformers.models.llama import LlamaForCausalLM
 
 
 class TestGLM2Config(unittest.TestCase):
@@ -26,12 +25,3 @@ class TestGLM2Config(unittest.TestCase):
         config = AutoConfig.from_pretrained("configs/glm2/run_glm2_6b.yaml")
         config.checkpoint_name_or_path = ''
         model = ChatGLM2ForConditionalGeneration(config)
-
-
-class TestLlama2Config(unittest.TestCase):
-    """test llama2 config"""
-    def test_init_model_for_text_generation_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/llama2/run_llama2_7b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = LlamaForCausalLM(config)

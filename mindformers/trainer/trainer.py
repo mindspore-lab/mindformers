@@ -164,11 +164,11 @@ class Trainer:
 
     Examples:
         >>> from mindformers import Trainer
-        >>> trainer = Trainer(task="text_generation", model_name='llama2_7b')
+        >>> trainer = Trainer(task="text_generation", model_name='glm4_9b')
         >>> trainer.task
         'text_generation'
         >>> trainer.model_name
-        'llama2_7b'
+        'glm4_9b'
     """
 
     @args_type_check(

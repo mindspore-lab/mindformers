@@ -86,32 +86,6 @@ def pipeline(
 
     Raises:
         KeyError: If the task or model is not supported.
-
-    Examples:
-        >>> from mindformers import build_context
-        >>> from mindformers import AutoModel, AutoTokenizer, pipeline
-        >>> # Construct inputs
-        >>> inputs = ["I love Beijing, because", "LLaMA is a", "Huawei is a company that"]
-        >>> # Initialize the environment
-        >>> build_context({
-        ...     'context': {'mode': 0, 'jit_config': {'jit_level': 'O0', 'infer_boost': 'on'}},
-        ...     'parallel': {},
-        ...     'parallel_config': {}})
-        >>> # Tokenizer instantiation
-        >>> tokenizer = AutoTokenizer.from_pretrained('llama2_7b')
-        >>> # Model instantiation
-        >>> # Download the weights of the corresponding model from the HuggingFace model library,
-        >>> # Refer to the README.md of the model to convert the weights to ckpt format.
-        >>> model = AutoModel.from_pretrained('llama2_7b', checkpoint_name_or_path="path/to/llama2_7b.ckpt",
-        ...                                   use_past=True)
-        >>> # The pipeline performs inference task.
-        >>> text_generation_pipeline = pipeline(task="text_generation", model=model, tokenizer=tokenizer)
-        >>> outputs = text_generation_pipeline(inputs, max_length=512, do_sample=False)
-        >>> for output in outputs:
-        ...     print(output)
-        'text_generation_text': [I love Beijing, because it is a city that is constantly constantly changing. I ......]
-        'text_generation_text': [LLaMA is a large-scale, open-source, multimodal, multilingual, multitask, and ......]
-        'text_generation_text': [Huawei is a company that has been around for a long time. ......]
     """
 
     if backend == Backend.MS.value:

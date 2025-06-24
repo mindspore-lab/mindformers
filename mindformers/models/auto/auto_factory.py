@@ -42,7 +42,7 @@ from ...mindformer_book import MindFormerBook, print_dict
 from ..build_model import build_network
 
 EXP_ERROR_MSG = "Please use AutoModel.from_pretrained(), and the input pretrained_model_name_or_dir " \
-                "should be a path to directory which has yaml file, or a model name supported, e.g. llama2_7b."
+                "should be a path to directory which has yaml file, or a model name supported, e.g. glm4_9b."
 
 CLASS_DOCSTRING = """
     This is a generic model class that will be instantiated as one of the model classes of the library when created

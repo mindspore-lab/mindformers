@@ -31,7 +31,7 @@ def build_data_handler(config, module_type: str = 'data_handler', class_name: st
 
     Examples:
         >>> from mindformers.dataset.handler import build_data_handler
-        >>> handler_config = {'type': 'AlpacaInstructDataHandler', 'seq_length': 4096, 'tokenizer_name': 'llama2_7b'}
+        >>> handler_config = {'type': 'AlpacaInstructDataHandler', 'seq_length': 4096, 'tokenizer_name': 'glm4_9b'}
         >>> # 1) use config dict to build data handler
         >>> data_handler_from_config = build_data_handler(handler_config)
         >>> # 2) use class name to build data handler

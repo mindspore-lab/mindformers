@@ -476,20 +476,6 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
 
     Returns:
         PreTrainedTokenizer instance.
-
-    Examples:
-        >>> from mindformers import LlamaTokenizer
-        >>> tokenizer = LlamaTokenizer.from_pretrained("llama2_7b")
-        >>> res = tokenizer("hello world")
-        >>> print(res)
-        {'input_ids': [1, 27701, 924], 'attention_mask': [1, 1, 1]}
-        >>> res = tokenizer("hello world", padding='max_length', max_length=10)
-        >>> print(res)
-        {'input_ids': [1, 27701, 924, 0, 0, 0, 0, 0, 0, 0], 'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
-        >>> res = tokenizer("hello world", return_tensors='ms')
-        >>> print(res)
-        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [    1, 27701,  924]), 'attention_mask': Tensor(shape=[3],
-        dtype=Int32, value= [1, 1, 1])}
     """
     _support_list = []
 

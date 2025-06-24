@@ -457,19 +457,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         Tensor. If it is in training mode, the output Tensor contains loss;
         If it is in prediction mode, the output Tensor contains logits;
         If it is in evaluation mode, the output Tensor contains logits, tokens, and input masks.
-
-    Examples:
-        >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
-        >>> import mindspore as ms
-        >>> ms.set_context(mode=0)
-        >>> config = LlamaConfig(batch_size=2)
-        >>> network = LlamaForCausalLM(config=config)
-        >>> type(network)
-        <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
-        >>> from mindformers import LlamaForCausalLM
-        >>> network = LlamaForCausalLM.from_pretrained('llama2_7b')
-        >>> type(network)
-        <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
     """
     _support_list = []
 

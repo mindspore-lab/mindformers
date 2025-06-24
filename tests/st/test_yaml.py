@@ -45,7 +45,7 @@ def test_yaml():
     Expectation: TypeError
     """
     yaml_path = os.path.join(
-        MindFormerBook.get_project_path(), 'configs', 'llama2', 'predict_llama2_7b.yaml')
+        MindFormerBook.get_project_path(), 'configs', 'glm4', 'predict_glm4_9b_chat.yaml')
     yaml_content = MindFormerConfig(yaml_path)
 
     logger.info(yaml_content)

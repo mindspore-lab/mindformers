@@ -794,43 +794,6 @@ class GenerationMixin:
 
         Returns:
             A list of the generated token ids.
-
-        Examples:
-            >>> from mindformers import LlamaForCausalLM, LlamaTokenizer
-            >>> import mindspore as ms
-            >>> ms.set_context(mode=0)
-            >>> llama = LlamaForCausalLM.from_pretrained("llama2_7b")
-            >>> tokenizer = LlamaTokenizer.from_pretrained("llama2_7b")
-            >>> words = "translate the English to the Romanian: UN Chief Says There Is No Military Solution in Syria"
-            >>> words = tokenizer(words, max_length=21, padding='max_length')['input_ids']
-            >>> output = llama.generate(words, do_sample=True)
-            >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
-            >>> print(output)
-            UN Chief Says There Is No Military Solution in Syria
-            The United Nations Secretary-General, Ban Ki-moon, said that there is no military solution in Syria,
-            calling on the international community
-            >>> # Enable the top-p sampling
-            >>> output = llama.generate(words, do_sample=True, top_p=0.4)
-            >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
-            >>> print(output)
-            UN Chief Says There Is No Military Solution in Syria
-            UN Chief Says There Is No Military Solution in Syria.
-            >>> # Enable the top-k sampling.
-            >>> output = llama.generate(words, do_sample=True, top_k=10, top_p=1)
-            >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
-            >>> print(output)
-            Translation by: Adela Popa
-            English Text: UN chief warns Syria conflict threatens entire region
-            >>> from mindformers import LlamaForCausalLM, LlamaTokenizer
-            >>> llama = LlamaForCausalLM.from_pretrained("llama2_7b")
-            >>> tokenizer = LlamaTokenizer.from_pretrained("llama2_7b")
-            >>> words = "translate the English to the Romanian: UN Chief Says There Is No Military Solution in Syria"
-            >>> words = tokenizer(words, max_length=21, padding='max_length')['input_ids']
-            >>> output = llama.generate(words, num_beams=3)
-            >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
-            >>> print(output)
-            UN Chief Says There Is No Military Solution in Syria
-            UN Chief Says There Is No Military Solution in Syria.
         """
         self.detailed_latency.clear()
         origin_phase = self.phase
@@ -1818,18 +1781,6 @@ class GenerationMixin:
         Returns:
             response, the reply from the LLM in this session.
             history, the conversation history.
-
-        Examples:
-            >>> import mindspore as ms
-            >>> from mindformers.generation import text_generator
-            >>> from mindformers import AutoModel, AutoTokenizer
-            >>> ms.set_context(mode=0)
-            >>> model = AutoModel.from_pretrained("llama2_7b")
-            >>> tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
-            >>> query = "Hello!"
-            >>> response, history = model.chat(tokenizer=tokenizer, query=query, max_length=32)
-            >>> print(response)
-            Thanks, sir.
         """
         if history is None:
             history = []
