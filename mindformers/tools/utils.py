@@ -810,3 +810,14 @@ def get_context(attr_key, default_value=None):
         if attr_value is not None:
             return attr_value
     return default_value
+
+
+def get_ascend_log_path():
+    """Get Ascend log path: $ASCEND_PROCESS_LOG_PATH > $ASCEND_WORK_PATH/log > default($HOME/ascend/log)"""
+    ascend_log_path = os.getenv('ASCEND_PROCESS_LOG_PATH')
+    if ascend_log_path:
+        return ascend_log_path
+    ascend_log_path = os.getenv('ASCEND_WORK_PATH')
+    if ascend_log_path:
+        return os.path.join(ascend_log_path, 'log')
+    return os.path.join(os.path.expanduser("~"), 'ascend', 'log')
