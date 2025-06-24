@@ -625,17 +625,24 @@ class BaseTrainer:
         """Create the learning rate scheduler."""
         logger.info(".........Build LR Schedule From Config..........")
         train_data_size = self.get_train_data_size()
-
+        warmup_lr_init = None
         if self.config.lr_schedule:
             warmup_epochs = self.config.lr_schedule.pop("warmup_epochs", None)
-            warmup_ratio = self.config.lr_schedule.pop("warmup_ratio", None)
+            warmup_lr_init = self.config.lr_schedule.get("warmup_lr_init", None)
+
+            if warmup_epochs is not None:
+                if not isinstance(warmup_epochs, int):
+                    raise ValueError(f"The type of warmup_epochs must be int, but got type {type(warmup_epochs)}.")
+                if warmup_epochs < 0:
+                    raise ValueError(f"The value of warmup_epochs must be non-negative integer, "
+                                     f"but got {warmup_epochs}.")
 
             if not self.config.runner_config.sink_mode:
                 total_steps = int(self.config.runner_config.epochs * train_data_size)
             else:
                 total_steps = int(self.config.runner_config.epochs * self.config.runner_config.sink_size)
 
-            if warmup_epochs is not None and warmup_ratio is not None:
+            if warmup_epochs is not None and self.config.lr_schedule.warmup_ratio is not None:
                 logger.warning("warmup_epochs and warmup_ratio are set simultaneously,"
                                "warmup_ratio takes precedence.")
                 warmup_epochs = None
@@ -649,13 +656,12 @@ class BaseTrainer:
                 if self.config.lr_schedule.total_steps is None or self.config.lr_schedule.total_steps == -1 \
                 else int(self.config.lr_schedule.total_steps)
 
-            if warmup_ratio is not None:
-                self.config.lr_schedule.warmup_steps = int(self.config.lr_schedule.total_steps * warmup_ratio)
-
             self.config.lr_schedule.learning_rate = self.learning_rate_scale(
                 self.config.lr_schedule.learning_rate, scale_factor) \
                 if learning_scale and scale_factor is not None else self.config.lr_schedule.learning_rate
         lr_schedule = build_lr(self.config.lr_schedule)
+        if lr_schedule and hasattr(lr_schedule, "warmup_lr_init") is not None and warmup_lr_init is None:
+            logger.info(f"warmup_lr_init is not set. The default value {lr_schedule.warmup_lr_init} will be applied.")
         return lr_schedule
 
     def create_model_wrapper(self, network, optimizer):
