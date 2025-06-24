@@ -31,14 +31,14 @@ def get_init_params(seq_length=DEFAULT_SEQ_LENGTH,
     Generates initial parameters (inputs) for the TransformerLayer model.
     """
     np.random.seed(2025)
-    hidden_states_shape = (seq_length, batch_size, hidden_size)
+    hidden_states_shape = (seq_length * batch_size, hidden_size)
     init_params = {
         "hidden_states": 0.01 * np.random.randn(*hidden_states_shape),
     }
     return init_params
 
 
-_common_output_shape = (DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE)
+_common_output_shape = (DEFAULT_SEQ_LENGTH * DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE)
 
 GOLDEN_DATA = {
     "output_standard": np.random.rand(*_common_output_shape).astype(np.float32),

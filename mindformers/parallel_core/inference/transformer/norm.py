@@ -17,11 +17,10 @@ __all__ = ["get_norm_cls"]
 
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
-from mindspore import Parameter, nn, mint
+from mindspore import Parameter, nn
 from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
 
 class LayerNorm(nn.Cell):
@@ -106,31 +105,14 @@ class RMSNorm(nn.Cell):
                                 parallel_optimizer=False)
 
         self.cast = P.Cast()
-        if check_rmsnorm_big_kernel_valid():
-            self.norm = P.RmsNorm(eps)
-            self.rms_norm = self._rms_norm
-        else:
-            self.mean = P.ReduceMean(keep_dims=True)
-            self.rms_norm = self._self_norm
-
-    def _self_norm(self, x):
-        original_type = x.dtype
-        norm_factor = mint.square(self.cast(x, self.compute_type))
-        norm_factor = self.mean(norm_factor, -1)
-        norm_factor = mint.add(norm_factor, self.eps)
-        norm_factor = mint.rsqrt(norm_factor)
-        output = mint.mul(x, self.cast(norm_factor, original_type))
-        output = mint.mul(output, self.cast(self.weight, original_type))
-        return output
-
-    def _rms_norm(self, x):
-        original_type = x.dtype
-        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
-        return self.cast(output, original_type)
+        self.norm = P.RmsNorm(eps)
 
     def construct(self, x):
         """Forward of RMSNorm."""
-        return self.rms_norm(x)
+        original_type = x.dtype
+        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
+        output = self.cast(output, original_type)
+        return output
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""

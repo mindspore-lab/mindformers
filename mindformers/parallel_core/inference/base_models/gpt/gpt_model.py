@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """GPT Transformer language model"""
-from typing import Literal, Optional, Dict, Any
+from typing import Literal, Optional
 
 from mindspore import nn, ops, mint
 import mindspore.common.dtype as mstype
@@ -22,15 +22,10 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.transformer.lower_triangular_mask import LowerTriangularMaskWithDynamic
-from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import (
-    RotaryEmbedding,
-    Llama3RotaryEmbedding
-)
-from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import \
-    YaRNScalingRotaryEmbedding
 from mindformers.parallel_core.inference.base_models.common.embeddings.language_model_embedding import \
     LanguageModelEmbedding
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
+from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.inference.utils import get_tp_world_size, divide
 from mindformers.parallel_core.utils.weights_utils import (deal_non_layers_weights, deal_attention_weights,
                                                            deal_moe_weights, deal_mlp_weights,
@@ -62,7 +57,6 @@ class GPTModel(nn.Cell):
         seq_len_interpolation_factor (float, optional): Sequence length interpolation factor. Default: None.
         mtp_block_spec (ModuleSpec, optional): Specification for MTP blocks,
             does not support to set currently. Default: None.
-        tie_word_embeddings (bool, optional): Whether to share the input and output embedding weights. Default: False.
 
     Inputs:
         - **input_ids** (Tensor) - Input token ids
@@ -103,15 +97,12 @@ class GPTModel(nn.Cell):
             rope_scaling: bool = False,
             seq_len_interpolation_factor: Optional[float] = None,
             mtp_block_spec: Optional[ModuleSpec] = None,
-            tie_word_embeddings: Optional[bool] = False,
     ):
         super(GPTModel, self).__init__()
         if not pre_process:
             raise NotImplementedError("For GPTModel, `pre_process` is not supported to set False")
         if fp16_lm_cross_entropy:
             raise NotImplementedError("For GPTModel, `fp16_lm_cross_entropy` is not supported")
-        if share_embeddings_and_output_weights:
-            raise NotImplementedError("For GPTModel, `share_embeddings_and_output_weights` is not supported")
         if rope_scaling:
             raise NotImplementedError("For GPTModel, `rope_scaling` is not supported. "
                                       "Please use `rope_type` to control the selection of extrapolation algorithm.")
@@ -154,13 +145,23 @@ class GPTModel(nn.Cell):
                 max_sequence_length=self.max_sequence_length
             )
 
+        # Note: Declare the attn mask class for vLLM-MS startup
         self.casual_mask = LowerTriangularMaskWithDynamic(
             seq_length=self.config.seq_length,
             compute_type=self.config.compute_dtype,
             pad_token_id=self.config.pad_token_id,
         )
 
-        self.rotary_pos_emb = self.get_rope()
+        self.rotary_pos_emb = get_rope(
+            config,
+            hidden_dim=self.hidden_dim,
+            rotary_percent=self.rotary_percent,
+            rotary_base=self.rotary_base,
+            rotary_dtype=self.config.rotary_dtype,
+            seq_len_interpolation_factor=self.seq_len_interpolation_factor,
+            position_embedding_type=self.position_embedding_type,
+            original_max_position_embeddings=self.max_position_embeddings,
+        )
 
         # Transformer
         self.decoder = TransformerBlock(
@@ -177,7 +178,7 @@ class GPTModel(nn.Cell):
             gather_output=self.parallel_output,
             compute_dtype=self.config.compute_dtype,
         )
-        if tie_word_embeddings:
+        if share_embeddings_and_output_weights:
             self.output_layer.weight = self.embedding.word_embeddings.weight
 
         self.cast = ops.Cast()
@@ -188,81 +189,13 @@ class GPTModel(nn.Cell):
         if self.is_prefill:
             q_seq_lens_tensor = mint.sub(seq_lens_tensor, context_lens_tensor)
             gather_index = mint.sub(mint.cumsum(q_seq_lens_tensor, 0), 1)
-            output = self.gather(output, gather_index, 1)
+            output = self.gather(output, gather_index, 0)
         return output
-
-    def get_rope(self):
-        """Obtain an instantiation object of RoPE class based on `position_embedding_type`"""
-        # Defines the list of parameters metadata required for each RoPE type
-        # When adding a new RoPE class, add the param metadata here
-        extra_param_metadata = {
-            'rope': [],  # no extra parameter
-            'llama3': [
-                'scaling_factor',
-                'low_freq_factor',
-                'high_freq_factor',
-                'orig_max_position',
-            ],
-            'yarn': [
-                'scaling_factor',
-                'original_max_position_embeddings',
-                'beta_fast',
-                'beta_slow',
-                'mscale',
-                'mscale_all_dim',
-            ],
-            'none': [],  # no extra parameter
-        }
-
-        # Defines the mapping of parameters while instantiate RoPE
-        mapping = {
-            "scaling_factor": "rotary_scaling_factor",
-            "orig_max_position": "max_position_embeddings",
-            "original_max_position_embeddings": "max_position_embeddings",
-        }
-
-        # Define different RoPE class mappings
-        # When adding a new RoPE class, add the mapping relationship here
-        class_map: Dict[str, Any] = {
-            'rope': RotaryEmbedding,
-            'llama3': Llama3RotaryEmbedding,
-            'yarn': YaRNScalingRotaryEmbedding,
-            'none': None,
-        }
-
-        current_rope_type = self.position_embedding_type
-        cls = class_map.get(current_rope_type)
-        if cls is None:
-            raise ValueError(f"Unsupported position embedding type: {current_rope_type}")
-
-        required_params = extra_param_metadata.get(current_rope_type, [])
-        extra_params = {
-            param: getattr(self.config, mapping.get(param) if param in mapping.keys() else param, None)
-            for param in required_params
-        }
-
-        missing_params = [p for p in required_params if extra_params[p] is None]
-        if missing_params:
-            raise ValueError(f"Missing required parameters for '{current_rope_type}': {missing_params}")
-
-        # Base parameters for each rope
-        base_params = {
-            'kv_channels': self.hidden_dim,
-            'rotary_percent': self.rotary_percent,
-            'seq_len_interpolation_factor': self.seq_len_interpolation_factor,
-            'rotary_base': self.rotary_base,
-            'rotary_cos_format': 2,
-            'rotary_dtype': self.config.rotary_dtype,
-        }
-
-        params = {**base_params, **extra_params}
-        return cls(**params)
 
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
                   q_seq_lens=None, block_tables=None, slot_mapping=None,
                   attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None):
         """ Construct function of GPTModel. """
-        input_ids = input_ids.reshape((1, -1))
 
         # Generate cos and sin for RoPE.
         if self.is_prefill:
@@ -292,7 +225,6 @@ class GPTModel(nn.Cell):
 
         # Return hidden states.
         if not self.post_process:
-            hidden_states = hidden_states.reshape((-1, hidden_states.shape[-1]))
             return hidden_states
 
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)

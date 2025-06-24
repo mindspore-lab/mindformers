@@ -81,7 +81,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
                               max_sequence_length=self.max_position_embeddings,
                               position_embedding_type=config.position_embedding_type,
                               rotary_base=self.config.rope_theta,
-                              tie_word_embeddings=self.config.tie_word_embeddings,
+                              share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               post_process=self.config.post_process)
 
     def set_dynamic_inputs(self, **kwargs):

@@ -35,23 +35,24 @@ class FlashAttention(Cell):
         - pre_tokens (int): Number of previous tokens to consider. Default: 2147483647.
         - next_tokens (int): Number of next tokens to consider. Default: 2147483647.
         - sparse_mode (int): Mode for sparse attention. Default: 0.
-        - compute_dtype (mstype): Data type for computation. Default: mstype.float16.
         - input_layout (str): Layout of input tensors("TH" or "TND"). Default: "TH".
+        - pa_kv_head_num (Optional[int]): Key-value head number for PagedAttention. Default: None.
+        - pa_mla_v_dim (int): Dimension for multi-latent attention. Default: 0.
 
-
-    Inputs:
+     Inputs:
         - **query** (Tensor[float16, bfloat16]) - The query tensor.
         - **key** (Tensor[float16, bfloat16]) - The key tensor.
         - **value** (Tensor[float16, bfloat16]) - The value tensor.
         - **slot_mapping** (Tensor) - Store token cache physical slot index.
         - **block_tables** (Tensor) - The block mapping table with data type of int32.
-        - **batch_valid_length** (Tensor) -  In incremental inference, a tensor used for calculating the index
+        - **batch_valid_length** (Tensor) - In incremental inference, a tensor used for calculating the index
           of the previous step. It is of int32 type and has a shape of [batch_size].
         - **context_lens_tensor** (Tensor) - The context length of each sequence with data type of int32.
+        - **q_seq_lens** (Tensor) - Query sequence lengths for PagedAttention.
         - **actual_seq_qlen** (Union[List[int64], Tuple[int64], None]) - Size of query corresponding to each batch,
           array with increasing values and the last value equal to T1.
-        - **actual_seq_kvlen** (Union[List[int64], Tuple[int64], None]) - Size of key and value corresponding to each
-          batch, array with increasing values and the last value equal to T2.
+        - **actual_seq_kvlen** (Union[List[int64], Tuple[int64], None]) - Size of key and value corresponding to
+          each batch, array with increasing values and the last value equal to T2.
         - **attn_mask** (Union[Tensor, None]) - The attention mask tensor.
         - **padding_mask** (None) - Reserved parameter. Not implemented yet.
         - **prefix** (Union[Tensor[int64], None]) - N value of each Batch in the prefix sparse calculation scenario.
@@ -60,7 +61,7 @@ class FlashAttention(Cell):
         - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
     Outputs:
-        - **attention_out** (Tensor[float16, bfloat16]) - The output of attention, its shape, and data type
+        - **context** (Tensor[float16, bfloat16]) - The output of flash attention. its shape, and data type
           are the same as the query.
 
     Supported Platforms:
@@ -122,43 +123,23 @@ class FlashAttention(Cell):
                   key_cache=None,
                   value_cache=None):
         """Forward process of the FlashAttention."""
-
-        bs, seq_len, _ = query.shape
-
         if not self.use_multi_latent_attention:
             self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:
-
-            if self.input_layout == "TH":
-                query = query.reshape((-1, self.head_num * self.hidden_size_per_attention_head))
-                key = key.reshape((-1, self.kv_head_num * self.hidden_size_per_attention_head))
-                value = value.reshape((-1, self.kv_head_num * self.hidden_size_per_attention_head))
-
-            if self.input_layout == "TND":
-                query = query.reshape((-1, self.head_num, self.hidden_size_per_attention_head))
-                key = key.reshape((-1, self.kv_head_num, self.hidden_size_per_attention_head))
-                value = value.reshape((-1, self.kv_head_num, self.hidden_size_per_attention_head))
-
-            _, _, _, output = self.flash_attention(query, key, value,
-                                                   None, None,
-                                                   padding_mask, attn_mask,
-                                                   prefix, actual_seq_qlen,
-                                                   actual_seq_kvlen)
-            context_layer = output
+            _, _, _, context = self.flash_attention(query, key, value,
+                                                    None, None,
+                                                    padding_mask, attn_mask,
+                                                    prefix, actual_seq_qlen,
+                                                    actual_seq_kvlen)
         else:
             if self.use_multi_latent_attention:
-                context_layer = self.paged_attention(query, key_cache, key_cache,
-                                                     block_tables, batch_valid_length, None,
-                                                     None, attn_mask,
-                                                     q_seq_lens)
+                context = self.paged_attention(query, key_cache, key_cache,
+                                               block_tables, batch_valid_length, None,
+                                               None, attn_mask, q_seq_lens)
             else:
-                context_layer = self.paged_attention(query, key_cache, value_cache,
-                                                     block_tables, batch_valid_length, None,
-                                                     None, attn_mask,
-                                                     q_seq_lens)
+                context = self.paged_attention(query, key_cache, value_cache,
+                                               block_tables, batch_valid_length, None,
+                                               None, attn_mask, q_seq_lens)
 
-        core_attn_out = context_layer.reshape(
-            (bs, seq_len, self.head_num * self.hidden_size_per_attention_head))
-
-        return core_attn_out
+        return context

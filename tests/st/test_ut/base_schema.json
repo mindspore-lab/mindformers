@@ -6414,7 +6414,7 @@
         "signature": "(self, query: mindspore.common.tensor.Tensor, key: mindspore.common.tensor.Tensor, rotary_pos_cos: mindspore.common.tensor.Tensor, rotary_pos_sin: mindspore.common.tensor.Tensor, seq_lens_tensor: mindspore.common.tensor.Tensor) -> mindspore.common.tensor.Tensor"
     },
     "mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding.YaRNScalingRotaryEmbedding": {
-        "signature": "(kv_channels: int, rotary_percent: float = 1.0, rotary_interleaved: bool = False, seq_len_interpolation_factor: float = None, rotary_base: float = 10000.0, rotary_cos_format: int = 0, rotary_dtype: mindspore.common.dtype = mindspore.float16, scaling_factor: float = 1.0, original_max_position_embeddings: int = 4096, beta_fast: int = 32, beta_slow: int = 1, mscale: float = 1.0, mscale_all_dim: float = 0.0, extrapolation_factor: float = 1.0, attn_factor: float = 1.0)"
+        "signature": "(kv_channels: int, rotary_percent: float = 1.0, rotary_interleaved: bool = False, seq_len_interpolation_factor: float = None, rotary_base: float = 10000.0, rotary_cos_format: int = 0, rotary_dtype: mindspore.common.dtype = mindspore.float16, scaling_factor: float = 1.0, original_max_position_embeddings: int = 4096, beta_fast: float = 32.0, beta_slow: float = 1.0, mscale: float = 1.0, mscale_all_dim: float = 0.0, extrapolation_factor: float = 1.0, attn_factor: float = 1.0)"
     },
     "mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding.YaRNScalingRotaryEmbedding._compute_inv_freq": {
         "signature": "(self, base: Union[float, int]) -> mindspore.common.tensor.Tensor"

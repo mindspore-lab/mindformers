@@ -27,7 +27,7 @@ from mindformers.parallel_core.inference.parallel_state import initialize_model_
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_transformer_layer.data_gen_utils import (
+from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_transformer_block.data_gen_utils import (
     get_init_params,
     DEFAULT_NUM_BLOCKS,
     DEFAULT_BLOCK_SIZE,

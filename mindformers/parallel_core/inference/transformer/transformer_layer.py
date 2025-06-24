@@ -219,7 +219,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         This method implements the core computation of a transformer layer, including
         self-attention, cross-attention (is not supported currently), and feed-forward operations.
         """
-        pre_mlp_layernorm_output, residual, context = self._construct_attention(
+        pre_mlp_layernorm_output, residual = self._construct_attention(
             hidden_states,
             attention_mask=attention_mask,
             context=context,
@@ -284,8 +284,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             Tuple[Tensor, Tensor, Tensor]: A tuple containing:
                 pre_mlp_layernorm_output (Tensor): Transformed hidden states before the MLP.
                 residual (Tensor): Residual connection.
-                context (Tensor): Updated context tensor if cross-attention is used,
-                otherwise None, is not supported currently.
         """
         # Layer norm at the beginning
         input_layernorm_output = self.input_layernorm(hidden_states)
@@ -321,7 +319,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # Layer norm before MLP
         pre_mlp_layernorm_output = self.pre_mlp_layernorm(residual)
 
-        return pre_mlp_layernorm_output, residual, context
+        return pre_mlp_layernorm_output, residual
 
     def _construct_mlp(self, pre_mlp_layernorm_output, residual):
         """
