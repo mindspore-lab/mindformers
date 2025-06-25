@@ -14,8 +14,6 @@
 #  ============================================================================
 """Test Multi-head Latent Attention (MLA) with various configurations."""
 import os
-import time
-import socket
 import subprocess
 from pathlib import Path
 import pytest
@@ -87,15 +85,6 @@ SINGLE_CARD_TEST_CASES = [
         'q8_flash_kl'
     )
 ]
-
-def get_free_port():
-    """Getting a random free port."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('0.0.0.0', 0))
-        _, port = s.getsockname()
-    time.sleep(0.05)
-    return port
 
 
 def build_msrun_command_list(
@@ -231,6 +220,7 @@ class TestMultiLatentAttention:
                 output_ms_dict_mega = np.load(mega_output_file, allow_pickle=False)['output']
                 output_ms_dict_mind = np.load(output_file_path, allow_pickle=False)['output']
                 assert np.allclose(output_ms_dict_mind, output_ms_dict_mega)
+
 
 class TestMultiLatentAttentionSingleCard(TestMultiLatentAttention):
     """Test class for Multi-head Latent Attention on single card"""
