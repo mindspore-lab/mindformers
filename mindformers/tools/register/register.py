@@ -19,7 +19,6 @@ import os
 
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.tools.utils import get_context
-from mindformers.version_control import check_tft_valid
 
 
 NEW_CLASS_PREFIX = "mcore_"
@@ -404,10 +403,6 @@ class MindFormerRegister:
             raise ValueError(f"Can't find class type {type} class name {obj_type} in class registry")
 
         try:
-            if module_type == MindFormerModuleType.OPTIMIZER:
-                if check_tft_valid():
-                    from mindspore.train.callback import TrainFaultTolerance
-                    obj_cls = TrainFaultTolerance.get_optimizer_wrapper(obj_cls)
             if not use_legacy and module_type == MindFormerModuleType.MODELS:
                 return obj_cls(default_args['config'])
             return obj_cls(**args)

@@ -13,12 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Optimizer."""
-from typing import Union, Optional, Iterable
-
-from mindspore import Tensor, Parameter
-from mindspore.nn import Cell
-from mindspore.nn.learning_rate_schedule import LearningRateSchedule
-
+from typing import Union
+from mindspore import Parameter
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .build_optim import build_optim
 from .came import Came
@@ -176,19 +172,26 @@ class AdamW:
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = ms.Model(net, loss_fn=loss, optimizer=optim)
     """
-
-    def __init__(
-            self,
-            params: Union[list[Parameter], list[dict]],
-            learning_rate: Optional[Union[float, int, Tensor, Iterable, LearningRateSchedule]],
-            betas: Optional[Union[list[float], tuple[float]]],
-            eps: Optional[float],
-            weight_decay: Optional[Union[float, int, Cell]],
-            use_fused: Optional[bool],
-            amsgrad: Optional[bool],
-            maximize: Optional[bool]
-    ):
-        pass
+    def __new__(cls,
+                params,
+                learning_rate=1e-3,
+                betas=(0.9, 0.999),
+                eps=1e-8,
+                weight_decay=0.0,
+                use_fused=False,
+                amsgrad=False,
+                maximize=False):
+        if use_fused:
+            return FusedAdamW(params=params,
+                              learning_rate=learning_rate,
+                              betas=betas,
+                              eps=eps,
+                              weight_decay=weight_decay,
+                              amsgrad=amsgrad,
+                              maximize=maximize)
+        if amsgrad or maximize:
+            raise ValueError('amsgrad and maximize should not be set as True when use_fused is False')
+        return BasicAdamW(params=params, learning_rate=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay)
 
     @staticmethod
     def get_actual_adamw_cls(use_fused):

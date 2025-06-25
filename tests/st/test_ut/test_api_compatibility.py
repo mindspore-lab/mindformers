@@ -49,12 +49,12 @@ def special_case_process(api_str, signature, obj):
     if "MindFormerRegister._add_class_name_prefix" in api_str:
         signature = signature.replace("module_type, ", "")
     if re.search("AdamW$", api_str) and "experimental" not in api_str:
-        signature = inspect.getsource(obj.__init__)
+        signature = inspect.getsource(obj.__new__)
         signature = re.sub("\n", "", signature)
-        signature = re.sub("self,", "", signature)
+        signature = re.sub("cls,", "", signature)
         signature = re.sub(" +", " ", signature)
-        signature = re.findall(r"\(.*\)", signature)[0]
-        signature = f"({signature[1:-1].strip()})"
+        signature = re.findall(r"\((.*?)\):", signature)[0]
+        signature = f"({signature.strip()})"
     return signature
 
 

@@ -75,7 +75,7 @@
         "signature": "()"
     },
     "mindformers.core.AdamW": {
-        "signature": "(params: Union[list[Parameter], list[dict]], learning_rate: Optional[Union[Iterable, LearningRateSchedule, Tensor, float, int]], betas: Optional[Union[list[float], tuple[float]]], eps: Optional[float], weight_decay: Optional[Union[Cell, float, int]], use_fused: Optional[bool], amsgrad: Optional[bool], maximize: Optional[bool])"
+        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
     },
     "mindformers.core.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"
@@ -957,7 +957,7 @@
         "signature": "(self)"
     },
     "mindformers.core.optim.AdamW": {
-        "signature": "(params: Union[list[Parameter], list[dict]], learning_rate: Optional[Union[Iterable, LearningRateSchedule, Tensor, float, int]], betas: Optional[Union[list[float], tuple[float]]], eps: Optional[float], weight_decay: Optional[Union[Cell, float, int]], use_fused: Optional[bool], amsgrad: Optional[bool], maximize: Optional[bool])"
+        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
     },
     "mindformers.core.optim.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"
