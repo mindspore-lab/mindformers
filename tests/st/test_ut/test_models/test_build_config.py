@@ -23,6 +23,6 @@ class TestBuildModelConfig:
 
     def test_build_llama_config(self):
         """test build llama config from yaml."""
-        config = MindFormerConfig("configs/llama2/pretrain_llama2_7b.yaml")
+        config = MindFormerConfig("research/llama3_1/llama3_1_8b/finetune_llama3_1_8b.yaml")
         model_config = build_model_config(config.model.model_config)
         assert isinstance(model_config, LlamaConfig)

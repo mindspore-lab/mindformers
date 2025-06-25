@@ -162,7 +162,7 @@ class AdamW:
         >>> from mindformers.core.optim import AdamW
         >>>
         >>> ms.set_context(mode=ms.context.GRAPH_MODE)
-        >>> net = AutoModel.from_pretrained("llama2_7b", num_layers=2)
+        >>> net = AutoModel.from_pretrained("glm4_9b", num_layers=2)
         >>> #1) All parameters use the same learning rate and weight decay
         >>> optim = AdamW(params=net.trainable_params())
         >>>

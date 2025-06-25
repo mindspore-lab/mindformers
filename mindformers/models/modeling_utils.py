@@ -231,9 +231,9 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         >>> from mindformers import AutoModel
         >>> import mindspore as ms
         >>> ms.set_context(mode=0)
-        >>> network = AutoModel.from_pretrained('llama2_7b')
+        >>> network = AutoModel.from_pretrained('glm4_9b')
         >>> type(network)
-        <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
+        <class 'mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration'>
     """
     _support_list = []
     _model_type = 0
@@ -377,7 +377,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             >>> from mindformers import AutoModel
             >>> import mindspore as ms
             >>> ms.set_context(mode=0)
-            >>> net = AutoModel.from_pretrained('llama2_7b')
+            >>> net = AutoModel.from_pretrained('glm4_9b')
             >>> net.save_pretrained('./checkpoint_save')
         """
         is_main_process = kwargs.pop("is_main_process", True)

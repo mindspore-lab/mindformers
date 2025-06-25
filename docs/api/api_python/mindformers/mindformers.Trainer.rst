@@ -7,8 +7,8 @@ mindformers.Trainer
 
     可以通过以下方式对Trainer进行初始化：
 
-    1. 定义 `task` 和 `model_name`，例如：task='text_generation'，model_name='llama2'。指定正确的 `task` 和 `model_name`，会自动使用相应任务和模型的配置文件初始化Trainer。
-    2. 定义 `task` 和 `model`，例如：task='text_generation'，model='llama2'。其中， `model` 可以是一个模型实例或者模型名称，如果 `model` 是模型名称，它会覆盖 `model_name`。
+    1. 定义 `task` 和 `model_name`，例如：task='text_generation'，model_name='glm4'。指定正确的 `task` 和 `model_name`，会自动使用相应任务和模型的配置文件初始化Trainer。
+    2. 定义 `task` 和 `model`，例如：task='text_generation'，model='glm4'。其中， `model` 可以是一个模型实例或者模型名称，如果 `model` 是模型名称，它会覆盖 `model_name`。
     3. 定义 `task`、 `model_name` 和 `model`，此时 `model` 是模型实例。
     4. 定义 `args` 为MindFormerConfig实例或者YAML文件路径。此时也可以通过 `model` 参数传递模型实例，否则会通过 `args` 配置信息来实例化模型。
     5. 定义 `args` 为TrainingArguments实例，并且 `model` 是模型实例。

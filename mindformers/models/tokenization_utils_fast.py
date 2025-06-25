@@ -142,13 +142,6 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
 
     Returns:
         PreTrainedTokenizerFast instance.
-
-    Examples:
-        >>> from transformers import LlamaTokenizerFast
-        >>>
-        >>> tokenizer = LlamaTokenizerFast(vocab_file="./llama2/tokenizer.model")
-        >>> tokenizer.encode("Hello this is a test")
-        [1, 15043, 445, 338, 263, 1243]
     """
 
     vocab_files_names = VOCAB_FILES_NAMES

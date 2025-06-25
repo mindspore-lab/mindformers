@@ -250,7 +250,7 @@ class Came(Optimizer):
         >>> from mindformers.core.optim import Came
         >>>
         >>> ms.set_context(mode=ms.context.GRAPH_MODE)
-        >>> net = AutoModel.from_pretrained("llama2_7b", num_layers=2)
+        >>> net = AutoModel.from_pretrained("glm4_9b", num_layers=2)
         >>> #1) All parameters use the same learning rate and weight decay
         >>> optim = Came(params=net.trainable_params(), learning_rate=0.1)
         >>>

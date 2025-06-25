@@ -45,7 +45,7 @@ from mindformers.mindformer_book import MindFormerBook, print_dict
 TOKENIZER_SUPPORT_LIST = MindFormerBook.get_tokenizer_support_list()
 
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to directory which has " \
-                "yaml file, or a model name supported, e.g. llama2_7b."
+                "yaml file, or a model name supported, e.g. glm4_9b."
 
 
 def is_experimental_mode(path):
@@ -241,7 +241,7 @@ class AutoTokenizer:
 
     Examples:
         >>> from mindformers import AutoTokenizer
-        >>> tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
+        >>> tokenizer = AutoTokenizer.from_pretrained("glm4_9b")
     """
 
     _model_type = 0

@@ -50,7 +50,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
 )
 
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, e.g. " \
-                "'run_xxx_model.yaml', or a model name supported, e.g. llama2_7b."
+                "'run_xxx_model.yaml', or a model name supported, e.g. glm4_9b."
 
 
 def config_class_to_model_type(config):
@@ -195,7 +195,7 @@ class AutoConfig:
     Examples:
         >>> from mindformers import AutoConfig
         >>> # 1)  instantiates a config by yaml model name
-        >>> config_a = AutoConfig.from_pretrained('configs/llama2/predict_llama2_7b.yaml')
+        >>> config_a = AutoConfig.from_pretrained('configs/glm4/predict_glm4_9b_chat.yaml')
         >>> # 2)  instantiates a config by json file
         >>> config_b = AutoConfig.from_pretrained('./config.json')
         >>> # 3)  instantiates a config by directory containing a configuration json file
