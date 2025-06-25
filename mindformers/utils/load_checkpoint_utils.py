@@ -102,6 +102,10 @@ def _get_checkpoint_mode(config):
     checkpoint_path = config.load_checkpoint
 
     if os.path.isfile(checkpoint_path):
+        # check if checkpoint_path upper folder is rank_x/
+        upper_dir_name = os.path.basename(os.path.dirname(checkpoint_path))
+        if upper_dir_name.startswith('rank_'):
+            return CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value
         return CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value
 
     # check path is dir
