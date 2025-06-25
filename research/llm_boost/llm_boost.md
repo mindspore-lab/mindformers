@@ -95,7 +95,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 | 模型名称          |                                     Base权重（建议训练和微调使用）                                     |                  Instruct权重（建议推理使用）                   |
 | :---------------- | :----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------: |
-| llama2-7b         | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2_7b.ckpt) |     [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf)     |
+| llama2-7b         | [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf) |     [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf)     |
 | qwen2-7b-Instruct |                         [Link](https://huggingface.co/Qwen/Qwen2-7B/tree/main)                         | [Link](https://huggingface.co/Qwen/Qwen2-7B-Instruct/tree/main) |
 
 ## 模型权重转换
