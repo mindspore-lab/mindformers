@@ -1329,9 +1329,15 @@ class Trainer:
     def _check_config_rules(self):
         """Check config rules."""
         if not self.config.load_checkpoint and self.config.pretrained_model_dir:
-            self.config.load_checkpoint = self.config.pretrained_model_dir
-            logger.info(f'Parameter load_checkpoint does not set the weight path default read from '
-                        f'parameter pretrain_model_dir: {self.config.model.pretrained_model_dir}')
+            from mindformers.utils import contains_safetensors_files
+            if contains_safetensors_files(self.config.pretrained_model_dir):
+                self.config.load_checkpoint = self.config.pretrained_model_dir
+                logger.info(f'Parameter load_checkpoint does not set the weight path default read from '
+                            f'parameter pretrain_model_dir: {self.config.pretrained_model_dir}')
+            else:
+                logger.info(f'parameter pretrain_model_dir: {self.config.pretrained_model_dir} '
+                            f'does not contain any safetensors file and load_checkpoint is empty.'
+                            f'It will not load any weights.')
 
         if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
             if not is_publicly_accessible_path(get_output_root_path()):
