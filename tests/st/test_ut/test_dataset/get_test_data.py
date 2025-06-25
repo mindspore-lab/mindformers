@@ -15,65 +15,11 @@
 """get mock data for dataset"""
 import os
 import json
-import pickle
 import numpy as np
 import cv2
 from mindspore.mindrecord import FileWriter
 
 np.random.seed(0)
-
-
-# pylint: disable=W0703
-def get_cifar100_data(data_path, data_num: int = 1):
-    """get cifar100 data"""
-    np.random.seed(0)
-    meta_dict = {
-        b"fine_label_names": [b"fine_1", b"fine_2"],
-        b"coarse_label_names": [b"coarse_1", b"coarse_2"]
-    }
-
-    train_dict = {
-        b"fine_labels": list(np.random.randint(0, 2, size=data_num)),
-        b"coarse_labels": list(np.random.randint(0, 2, size=data_num)),
-        b"data": np.random.randint(0, 256, size=(data_num, 3*32*32))
-    }
-
-    test_dict = {
-        b"fine_labels": list(np.random.randint(0, 2, size=data_num)),
-        b"coarse_labels": list(np.random.randint(0, 2, size=data_num)),
-        b"data": np.random.randint(0, 256, size=(data_num, 3*32*32))
-    }
-
-    meta_path = os.path.join(data_path, "meta")
-    train_path = os.path.join(data_path, "train")
-    test_path = os.path.join(data_path, "test")
-
-    retry = True
-    count = 0
-    success_sig = False
-    while retry:
-        try:
-            count += 1
-            with open(meta_path, "wb") as w_meta, open(train_path, "wb") as w_train, \
-                    open(test_path, "wb") as w_test:
-                pickle.dump(meta_dict, w_meta)
-                pickle.dump(train_dict, w_train)
-                pickle.dump(test_dict, w_test)
-            retry = False
-            success_sig = True
-        except BaseException as e:
-            if os.path.exists(meta_path):
-                os.remove(meta_path)
-            if os.path.exists(train_path):
-                os.remove(train_path)
-            if os.path.exists(test_path):
-                os.remove(test_path)
-            print(f"cifar100 data initialize failed, due to \"{e}\".")
-            if count >= 3:
-                retry = False
-
-    if not success_sig:
-        raise RuntimeError(f"cifar100 data initialize failed for {count} times.")
 
 
 # pylint: disable=W0703

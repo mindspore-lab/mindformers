@@ -27,7 +27,6 @@ from .auto import (
     AutoModelForSequenceClassification,
     AutoModelForTextEncoding,
     AutoModelForTokenClassification,
-    AutoModelForZeroShotImageClassification,
     AutoModelWithLMHead,
     AutoProcessor,
     AutoTokenizer,
