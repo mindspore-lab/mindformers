@@ -155,6 +155,7 @@ class GPTModel(nn.Cell):
         self.hidden_dropout = config.hidden_dropout
         self.pad_token_id = config.pad_token_id
         self.ignore_token_id = config.ignore_token_id
+        use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
 
         # Internally generates AttentionMask.
         self.casual_mask = CausalMaskGenerate(
@@ -163,7 +164,7 @@ class GPTModel(nn.Cell):
             is_dynamic=config.is_dynamic,
             pad_token_id=config.pad_token_id,
             use_flash_attention=config.use_flash_attention,
-            use_attn_mask_compression=config.use_eod_attn_mask_compression,
+            use_attn_mask_compression=use_attn_mask_compression,
             config=config
         )
 
@@ -470,7 +471,7 @@ class GPTModel(nn.Cell):
         loss_mask = self.mul(loss_mask, label_mask)
         loss_mask = self.reshape(loss_mask, (-1,))
         labels = self.reshape(labels, (-1,))
-        if self.config.use_eod_attn_mask_compression:
+        if self.config.use_eod_attn_mask_compression or self.config.use_attn_mask_compression:
             attention_mask = self.casual_mask()
         elif attention_mask is None:
             attention_mask = self.casual_mask(tokens)

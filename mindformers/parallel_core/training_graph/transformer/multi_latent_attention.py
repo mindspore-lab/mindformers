@@ -27,6 +27,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
+from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
 
 
 @dataclass
@@ -171,7 +172,7 @@ class MultiLatentAttention(nn.Cell):
         tp = self.tp
         cp = self.cp
 
-        self.linear_proj.matmul.shard(in_strategy=((dp * cp, tp), (1, tp)), out_strategy=((dp * cp * tp, 1),))
+        self.linear_proj.matmul.shard(in_strategy=((dp * cp, tp), (tp, 1)), out_strategy=((dp * cp * tp, 1),))
         layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
         layout_transpose_back = (layout("cp", "dp", "tp", "None"),)
         self.transpose_back.shard(in_strategy=layout_transpose_back)
@@ -451,6 +452,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         self.tile_kv.shard(((1, dp, tp, 1),))
 
     def shard_self_attn(self):
+        """sharding for MLASelfAttentionConcatenated with semi_auto_parallel"""
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
         cp = self.config.context_parallel_size
@@ -458,8 +460,10 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         self.tile_kv.shard(((cp, dp, tp, 1),))
         self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
         if self.use_seq_parallel:
-            self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
-            self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+            if self.q_layernorm is not None and not isinstance(self.q_layernorm, IdentityOp):
+                self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+            if self.k_layernorm is not None and not isinstance(self.k_layernorm, IdentityOp):
+                self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
 
     def get_query_key_value_tensors(self,
                                     hidden_states,
@@ -698,6 +702,7 @@ class MLASelfAttention(MultiLatentAttention):
         self.tnd_transpose.shard(((1, dp, tp, 1),))
 
     def shard_self_attn(self):
+        """sharding for MLASelfAttention with semi_auto_parallel"""
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
         cp = self.config.context_parallel_size
@@ -705,8 +710,10 @@ class MLASelfAttention(MultiLatentAttention):
         self.tile_kv.shard(((cp, dp, tp, 1),))
         self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
         if self.use_seq_parallel:
-            self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
-            self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+            if self.q_layernorm is not None and not isinstance(self.q_layernorm, IdentityOp):
+                self.q_layernorm.shard(self.config, in_strategy=(cp * tp, dp, 1))
+            if self.kv_layernorm is not None and not isinstance(self.kv_layernorm, IdentityOp):
+                self.kv_layernorm.shard(self.config, in_strategy=(cp * tp, dp, 1))
 
     def sbnd2tnd(self, x):
         seq_len, bs, *_ = x.shape

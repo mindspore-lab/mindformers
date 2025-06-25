@@ -472,16 +472,19 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
                 self.input_layout = "TND"
-                self.sparse_mode = 3
                 if self.attention_dropout != 0:
                     logger.warning("When use TND layout of flash attention, attention_dropout is ignored. Set to 0.")
                     self.attention_dropout = 0.
-            elif self.use_attn_mask_compression and not self.use_ring_attention:
-                self.sparse_mode = 2
             elif self.context_parallel_size > 1:
                 self.input_layout = "BSH"
             else:
                 self.input_layout = "BNSD"
+
+            if self.use_eod_attn_mask_compression and not self.use_ring_attention:
+                self.sparse_mode = 3
+            elif self.use_attn_mask_compression and not self.use_ring_attention:
+                self.sparse_mode = 2
+            else:
                 self.sparse_mode = 0
         else:
             if self.use_eod_attn_mask_compression or self.use_attn_mask_compression:
