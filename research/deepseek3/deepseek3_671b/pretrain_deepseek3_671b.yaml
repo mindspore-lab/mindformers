@@ -199,8 +199,6 @@ callbacks:
   - type: TopkBiasBalanceCallback
     balance_via_topk_bias: *balance_via_topk_bias
     topk_bias_update_rate: *topk_bias_update_rate
-    num_layers: *num_layers
-    mtp_depth: *mtp_depth
     expert_num: *expert_num
     micro_batch_num: *micro_batch_num
   - type: CheckpointMonitor

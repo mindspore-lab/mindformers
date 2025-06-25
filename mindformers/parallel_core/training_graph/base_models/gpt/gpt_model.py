@@ -45,6 +45,7 @@ from mindformers.parallel_core.training_graph.transformer.transformer_block impo
     TransformerBlockSubmodules
 )
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.tools.logger import logger
 from mindformers.version_control import get_lazy_inline as lazy_inline
 
 
@@ -257,6 +258,18 @@ class GPTModel(nn.Cell):
         self.add = aclnn_ops.AddExt()
         self.transpose = aclnn_ops.Transpose()
 
+        # update topk-bias
+        if config.moe_router_enable_expert_bias:
+            if not config.num_moe_experts:
+                config.moe_router_enable_expert_bias = False
+                logger.warning("moe_router_enable_expert_bias is enabled, but num_moe_experts is 0 or not set. "
+                               "Reset moe_router_enable_expert_bias to False.")
+            else:
+                self.moe_router_bias_update_rate = config.moe_router_bias_update_rate
+                self.step_over_expert_num = \
+                    Tensor([config.micro_batch_num / config.num_moe_experts], ms.float32)
+                self.zeros_tensor = ms.Tensor(np.zeros([config.num_moe_experts]), ms.float32)
+
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
         else:
@@ -463,51 +476,52 @@ class GPTModel(nn.Cell):
             attention_mask = self.casual_mask(tokens)
         return tokens, labels, attention_mask, loss_mask
 
-    def update_topk_bias(self, acc_step_over_expert_num, topk_bias_update_rate):
+    def update_topk_bias(self, gradient_accumulation_steps: int = 1):
         """
         Will be called by mindformer.core.callback.TopkBiasBalanceCallback to
         update topk bias and reset expert_load of router in MoELayers.
         """
+        config = self.config
+        if not config.moe_router_enable_expert_bias:
+            return []
 
-        def _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate):
+        def _update_expert_load(router, gradient_accumulation_steps):
             expert_load_data = router.expert_load.value()
-            zeros_tensor = ms.Tensor(np.zeros([self.config.num_moe_experts]), ms.float32)
             if expert_load_data.sum() > 0:
-                err = F.sub(acc_step_over_expert_num, expert_load_data)
+                err = F.sub(self.step_over_expert_num * gradient_accumulation_steps, expert_load_data)
                 expert_bias_new = F.add(
                     router.expert_bias.value(),
-                    F.mul(F.sign(err), topk_bias_update_rate)
+                    F.mul(F.sign(err), self.moe_router_bias_update_rate)
                 )
                 F.assign(router.expert_bias, expert_bias_new)
-                F.assign(router.expert_load, zeros_tensor)
+                F.assign(router.expert_load, self.zeros_tensor)
             return expert_load_data
 
-        num_layers = self.config.num_layers
+        num_layers = config.num_layers
 
-        if self.config.first_k_dense_replace:
-            moe_layer_pattern = [0] * self.config.first_k_dense_replace + \
-                                [1] * (num_layers - self.config.first_k_dense_replace)
-        elif isinstance(self.config.moe_layer_freq, int):
-            moe_layer_pattern = [1 if (i % self.config.moe_layer_freq == 0) else 0 for i in range(num_layers)]
+        if config.first_k_dense_replace:
+            moe_layer_pattern = [0] * config.first_k_dense_replace + \
+                                [1] * (num_layers - config.first_k_dense_replace)
+        elif isinstance(config.moe_layer_freq, int):
+            moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(num_layers)]
         else:
-            moe_layer_pattern = self.config.moe_layer_freq
+            moe_layer_pattern = config.moe_layer_freq
 
-        mtp_num_layers = self.config.mtp_num_layers
+        mtp_num_layers = config.mtp_num_layers
         if moe_layer_pattern[-1] == 0:
             mtp_num_layers = 0
         expert_loads = []
-        if self.config.moe_router_enable_expert_bias:
-            for i in range(num_layers + mtp_num_layers):
-                if moe_layer_pattern[min(i, num_layers - 1)] == 0:
-                    continue
-                if i < num_layers:
-                    router = self.decoder.layers[i].mlp.router
-                    expert_load_data = _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate)
-                    expert_loads.append((f"decoder.layers.{i}.mlp.router", expert_load_data))
-                else:
-                    router = self.mtp.layers[i - num_layers].transformer_layer.mlp.router
-                    expert_load_data = _update_expert_load(router, acc_step_over_expert_num, topk_bias_update_rate)
-                    expert_loads.append((f"mtp.layers.{i - num_layers}.transformer_layer.mlp.router", expert_load_data))
+        for i in range(num_layers + mtp_num_layers):
+            if moe_layer_pattern[min(i, num_layers - 1)] == 0:
+                continue
+            if i < num_layers:
+                router = self.decoder.layers[i].mlp.router
+                expert_load_data = _update_expert_load(router, gradient_accumulation_steps)
+                expert_loads.append((f"decoder.layers.{i}.mlp.router", expert_load_data))
+            else:
+                router = self.mtp.layers[i - num_layers].transformer_layer.mlp.router
+                expert_load_data = _update_expert_load(router, gradient_accumulation_steps)
+                expert_loads.append((f"mtp.layers.{i - num_layers}.transformer_layer.mlp.router", expert_load_data))
         return expert_loads
 
     def shard(self, config: TransformerConfig):
