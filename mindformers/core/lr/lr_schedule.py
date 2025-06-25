@@ -42,8 +42,8 @@ def _get_lr_steps(steps: int, ratio: float, total_steps: int, phase_tag: str):
             raise ValueError(f"The {phase_tag}_step must be >= 0, but got {steps}")
         return steps
 
-    if not isinstance(ratio, float):
-        raise TypeError(f"The type of {phase_tag}_ratio must be float, but got {type(ratio)}")
+    if not isinstance(ratio, (float, int)):
+        raise TypeError(f"The type of {phase_tag}_ratio must be float or int, but got {type(ratio)}")
 
     if ratio > 1.0 or ratio < 0.0:
         raise ValueError(f"The {phase_tag}_ratio's value range must be in [0,1], but got {ratio}")
