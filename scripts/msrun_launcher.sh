@@ -125,14 +125,16 @@ LOG_DIR=${LOG_DIR}${MF_LOG_SUFFIX}
 # Init msrun Command
 if [ $SINGLE_NODE == true ]
 then
-  MSRUN_CMD="msrun --worker_num=$WORKER_NUM \
+  MSRUN_CMD="msrun --bind_core=True \
+   --worker_num=$WORKER_NUM \
    --local_worker_num=$LOCAL_WORKER \
    --master_port=$MASTER_PORT \
    --log_dir=$LOG_DIR \
    --join=$JOIN \
    --cluster_time_out=$CLUSTER_TIME_OUT"
 else
-  MSRUN_CMD="msrun --worker_num=$WORKER_NUM \
+  MSRUN_CMD="msrun --bind_core=True \
+   --worker_num=$WORKER_NUM \
    --local_worker_num=$LOCAL_WORKER \
    --master_addr=$MASTER_ADDR \
    --master_port=$MASTER_PORT \
