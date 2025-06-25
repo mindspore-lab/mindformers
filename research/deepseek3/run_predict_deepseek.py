@@ -53,7 +53,7 @@ def run_predict(args):
                                    unk_token=config.processor.tokenizer.unk_token,
                                    bos_token=config.processor.tokenizer.bos_token,
                                    eos_token=config.processor.tokenizer.eos_token,
-                                   fast_tokenizer=True, trust_remote_code=True)
+                                   fast_tokenizer=True)
     tokenizer.pad_token = tokenizer.eos_token
 
     # build model from config

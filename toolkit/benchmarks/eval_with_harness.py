@@ -212,7 +212,7 @@ class MFLM(TemplateLM):
 
     def _create_tokenizer(self, pretrained: str) -> None:
         """Initialize Tokenizer"""
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained)
         eval_logger.info(f"Build tokenizer finished.")
 
     def tok_encode(

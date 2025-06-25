@@ -62,9 +62,9 @@ class MultiModalToTextPipeline(Pipeline):
         >>> config = MindFormerConfig(config_path)
         >>> build_context(config)
         >>> model_config = AutoConfig.from_pretrained(config_path)
-        >>> tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+        >>> tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
         >>> model = AutoModel.from_config(model_config)
-        >>> processor = AutoProcessor.from_pretrained(config_path, trust_remote_code=True, use_fast=True)
+        >>> processor = AutoProcessor.from_pretrained(config_path, use_fast=True)
         >>> param_dict = ms.load_checkpoint("/path/to/cogvlm2image.ckpt")
         >>> _, not_load = ms.load_param_into_net(model, param_dict)
         >>> text_generation_pipeline = pipeline(task="multi_modal_to_text_generation",

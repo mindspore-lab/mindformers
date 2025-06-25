@@ -52,13 +52,13 @@ def init_model(model_path):
 
     generation_config = GenerationConfig.from_model_config(model_config)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
     logger.info(f"Build tokenizer finished.")
 
     model = AutoModel.from_config(model_config)
     logger.info(f"Build model finished.")
 
-    processor = AutoProcessor.from_pretrained(config_path[0], trust_remote_code=True, use_fast=True)
+    processor = AutoProcessor.from_pretrained(config_path[0], use_fast=True)
     logger.info(f"Build processor finished.")
 
     batch_size = 1
