@@ -26,7 +26,8 @@ import mindspore as ms
 from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import Trainer, TrainingArguments, CosineWithWarmUpLR, FP32StateAdamWeightDecay
+from mindformers import Trainer, TrainingArguments, CosineWithWarmUpLR
+from mindformers.core.optim.adamw import AdamW
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from mindformers.modules.transformer.moe import MoEConfig
 
@@ -114,12 +115,11 @@ class TestDeepseek3TrainingPrecision:
 
         lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=20)
         group_params = get_optimizer_grouped_parameters(model=model)
-        optimizer = FP32StateAdamWeightDecay(params=group_params,
-                                             beta1=0.9,
-                                             beta2=0.95,
-                                             eps=1.e-6,
-                                             weight_decay=0.1,
-                                             learning_rate=lr_schedule)
+        optimizer = AdamW(params=group_params,
+                          betas=(0.9, 0.95),
+                          eps=1.e-6,
+                          weight_decay=0.1,
+                          learning_rate=lr_schedule)
 
         loss_list_std = [15.534294, 15.543676, 15.536600, 15.539999,
                          15.544024, 15.543823, 15.539525, 15.540895,

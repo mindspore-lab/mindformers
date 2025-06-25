@@ -19,8 +19,7 @@ from .metric import (
     EmF1Metric,
     EntityScore,
     PerplexityMetric,
-    PromptAccMetric,
-    SQuADMetric
+    PromptAccMetric
 )
 
-__all__ = ['EmF1Metric', 'EntityScore', 'PerplexityMetric', 'PromptAccMetric', 'SQuADMetric']
+__all__ = ['EmF1Metric', 'EntityScore', 'PerplexityMetric', 'PromptAccMetric']

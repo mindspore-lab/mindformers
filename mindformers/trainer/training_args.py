@@ -222,7 +222,7 @@ class TrainingArguments:
         recompute_slice_activation (bool, optional):
             Whether to slice the Cell outputs retained in memory. Default: ``False``.
         optim (Union[OptimizerType, str], optional):
-            The optimizer type to use. Default: ``'fp32_adamw'``.
+            The optimizer type to use. Default: ``'AdamW'``.
         adam_beta1 (float, optional):
              Beta1 for AdamW optimizer. Default: ``0.9``.
         adam_beta2 (float, optional):
@@ -787,7 +787,7 @@ class TrainingArguments:
     )
 
     # optimizer config
-    default_optim = "fp32_adamw"
+    default_optim = "AdamW"
     optim: Union[OptimizerType, str] = field(
         default=default_optim,
         metadata={"help": "The optimizer type to use."},
@@ -1725,7 +1725,7 @@ class TrainingArguments:
 
     def set_optimizer(
             self,
-            name: Union[str, OptimizerType] = "adamw",
+            name: Union[str, OptimizerType] = "AdamW",
             learning_rate: float = 5e-5,
             lr_end: float = 1e-6,
             weight_decay: float = 0,
@@ -1739,8 +1739,8 @@ class TrainingArguments:
 
         Args:
             name (Union[str, OptimizerType], optional):
-                The optimizer to use: `"AdamWeightDecay"`, `"adamw"`, `"adam"`, `"sgd"`,
-                `"adagrad"` or `"adafactor"`. Default: ``adamw``.
+                The optimizer to use: `"AdamWeightDecay"`, `"AdamW"`, `"adam"`, `"sgd"`,
+                `"adagrad"` or `"adafactor"`. Default: ``AdamW``.
             learning_rate (float, optional):
                 The initial learning rate. Default: ``5e-5``.
             lr_end (float, optional):
@@ -1760,9 +1760,9 @@ class TrainingArguments:
         Examples:
             >>> from mindformers import TrainingArguments
             >>> args = TrainingArguments(output_dir="output")
-            >>> args = args.set_optimizer(name="adamw", beta1=0.8)
+            >>> args = args.set_optimizer(name="AdamW", beta1=0.8)
             >>> args.optim
-            'adamw'
+            'AdamW'
         """
         self.optim = OptimizerType(name).value
         self.learning_rate = learning_rate
@@ -2088,6 +2088,10 @@ class TrainingArguments:
         task_config.optimizer.type = _check_training_args(task_config.optimizer.type, self.optim)
         task_config.optimizer.beta1 = _check_training_args(task_config.optimizer.beta1, self.adam_beta1)
         task_config.optimizer.beta2 = _check_training_args(task_config.optimizer.beta2, self.adam_beta2)
+        if task_config.optimizer.type == "AdamW":
+            beta1 = task_config.optimizer.pop("beta1")
+            beta2 = task_config.optimizer.pop("beta2")
+            task_config.optimizer.betas = _check_training_args(task_config.optimizer.betas, (beta1, beta2))
         task_config.optimizer.eps = _check_training_args(task_config.optimizer.eps, self.adam_epsilon)
         task_config.optimizer.weight_decay = _check_training_args(task_config.optimizer.weight_decay, self.weight_decay)
         task_config.layer_scale = _check_training_args(task_config.layer_scale, self.layer_scale)

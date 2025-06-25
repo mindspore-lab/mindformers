@@ -25,9 +25,10 @@ import mindspore as ms
 from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import Trainer, CosineWithWarmUpLR, FP32StateAdamWeightDecay
+from mindformers import Trainer, CosineWithWarmUpLR
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from mindformers.core import MFLossMonitor
+from mindformers.core.optim.adamw import AdamW
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.utils.tensorboard import get_text_mapping
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
@@ -79,12 +80,11 @@ class TestTensorBoard:
         self.model = LlamaForCausalLM(model_config)
         self.lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=10)
         group_params = get_optimizer_grouped_parameters(model=self.model)
-        self.optimizer = FP32StateAdamWeightDecay(params=group_params,
-                                                  beta1=0.9,
-                                                  beta2=0.95,
-                                                  eps=1.e-6,
-                                                  weight_decay=0.1,
-                                                  learning_rate=self.lr_schedule)
+        self.optimizer = AdamW(params=group_params,
+                               betas=(0.9, 0.95),
+                               eps=1.e-6,
+                               weight_decay=0.1,
+                               learning_rate=self.lr_schedule)
         self.callback = MFLossMonitor(learning_rate=self.lr_schedule, origin_epochs=1, dataset_size=10)
 
     @pytest.mark.level0

@@ -66,8 +66,8 @@ def parallel_train_gmm_dp2mp2ep4pp2():
     model = get_model(model_config)
 
     # set golden loss
-    loss_std = [12.257065, 12.258296, 12.254546, 12.259129, 12.254330,
-                12.256960, 12.259062, 12.260056, 12.258081, 12.257051]
+    loss_std = [12.257065, 12.258930, 12.255604, 12.259243, 12.255402,
+                12.256328, 12.259763, 12.260870, 12.258238, 12.256720]
 
     # set golden step time
     # self-test result: 181ms
@@ -121,8 +121,8 @@ def parallel_train_gmm_dp2mp2ep2pp2_deredundency():
     model = get_model(model_config)
 
     # set golden loss
-    loss_std = [12.261398, 12.262476, 12.256500, 12.257759, 12.256720,
-                12.258426, 12.258975, 12.260340, 12.262029, 12.260349]
+    loss_std = [12.261398, 12.262625, 12.256847, 12.257218, 12.256212,
+                12.258841, 12.258032, 12.259226, 12.262531, 12.260574]
 
     # set golden step time
     # CI result: 298ms
@@ -172,9 +172,8 @@ def parallel_train_bmm_dp2mp2ep2pp2():
     model = get_model(model_config)
 
     # set golden loss
-    loss_std = [12.259258, 12.256123, 12.255330, 12.254366, 12.252504,
-                12.259155, 12.259117, 12.255864, 12.260283, 12.257797]
-
+    loss_std = [12.259258, 12.258073, 12.255019, 12.254008, 12.253603,
+                12.259208, 12.258643, 12.256802, 12.259776, 12.257800]
     # set golden step time
     # self-test result: 162ms
     time_std = 180

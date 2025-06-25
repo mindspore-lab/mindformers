@@ -104,7 +104,7 @@ class ModelTester:
 
         optimizer_config = {
             # optimizer config
-            'optim': 'fp32_adamw',
+            'optim': 'AdamW',
             'adam_beta1': 0.9,
             'adam_beta2': 0.95,
             'adam_epsilon': 1.e-8,

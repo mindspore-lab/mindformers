@@ -16,9 +16,6 @@
 from .build_loss import build_loss
 from .loss import (
     CrossEntropyLoss,
-    L1Loss,
-    MSELoss,
-    SoftTargetCrossEntropy,
     get_device_local_loss
 )
 

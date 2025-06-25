@@ -19,7 +19,6 @@ from mindspore import nn, Tensor, Parameter, get_auto_parallel_context
 from mindspore import ops as P
 from mindspore.ops import functional as F
 from mindspore.common import dtype as mstype
-from mindspore.nn.loss.loss import LossBase
 
 from mindspore.context import ParallelMode
 from mindspore.parallel import set_algo_parameters
@@ -32,9 +31,8 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
-from mindformers.utils import deprecated
 
-__all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss']
+__all__ = ['CrossEntropyLoss']
 
 _device_local_loss = None
 
@@ -45,159 +43,6 @@ def get_device_local_loss():
     if _device_local_loss is None:
         _device_local_loss = Parameter(Tensor([0.0], mstype.float32), name="_device_local_loss", requires_grad=False)
     return _device_local_loss
-
-
-@deprecated(version="1.5.0")
-@MindFormerRegister.register(MindFormerModuleType.LOSS)
-class SoftTargetCrossEntropy(LossBase):
-    """
-    Calculate the SoftTargetCrossEntropy loss with given logits and labels.
-
-    Args:
-        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
-            an instance of `OpParallelConfig` with default args.
-
-    Inputs:
-        - **logits** (Tensor) - The output logits of the backbone.
-
-        - **label** (Tensor) - The ground truth label of the sample.
-
-    Returns:
-        The corresponding loss results.
-    """
-
-    def __init__(self, parallel_config=default_dpmp_config):
-        super().__init__()
-        dp = parallel_config.data_parallel
-        self.mean_ops = P.ReduceMean(keep_dims=False).shard(((1,),))
-        self.sum_ops = P.ReduceSum(keep_dims=False).shard(((dp, 1),))
-        self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
-        self.mul1d = P.Mul().shard(((dp, 1), ()))
-        self.log_softmax = P.LogSoftmax().shard(((dp, 1),))
-
-    def construct(self, logit, label):
-        logit = P.Cast()(logit, mstype.float32)
-        label = P.Cast()(label, mstype.float32)
-        logit_softmax = self.log_softmax(logit)
-        neg_target = self.mul1d(label, -1)
-        soft_target = self.mul(neg_target, logit_softmax)
-        loss = self.sum_ops(soft_target, -1)
-        return self.mean_ops(loss)
-
-
-@deprecated(version="1.5.0")
-@MindFormerRegister.register(MindFormerModuleType.LOSS)
-class MSELoss(nn.Cell):
-    """
-    Calculate the MSE loss with given logits and labels.
-
-    Args:
-        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
-            an instance of `OpParallelConfig` with default args.
-
-    Inputs:
-        - **pred** (Tensor) - The output pred of the backbone.
-
-        - **target** (Tensor) - The ground truth label of the sample.
-
-        - **mask** (Tensor) - mask indicates whether there are padded inputs and for padded inputs,
-          it will not be counted into loss.
-
-    Returns:
-        The corresponding loss results.
-    """
-
-    def __init__(self, norm_pixel_loss=True, parallel_config=default_dpmp_config):
-        super().__init__()
-        dp = parallel_config.data_parallel
-        self.add_loss = P.Add().shard(((dp, 1, 1), ()))
-        self.sub = P.Sub().shard(((dp, 1, 1), (dp, 1, 1)))
-        self.divide = P.RealDiv().shard(((dp, 1, 1), (dp, 1, 1)))
-        self.pow = P.Pow().shard(((dp, 1, 1), ()))
-        self.divide1 = P.RealDiv().shard(((), ()))
-        self.divide2 = P.RealDiv().shard(((dp, 1, 1), ()))
-        self.square = P.Square().shard(((dp, 1, 1),))
-        self.cast = P.Cast()
-        self.mean1 = P.ReduceMean(keep_dims=True).shard(((dp, 1, 1),))
-        self.mean2 = P.ReduceMean().shard(((dp, 1, 1),))
-        self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
-        self.sum = P.ReduceSum().shard(((dp, 1,),))
-        self.sum2 = P.ReduceSum(keep_dims=True).shard(((dp, 1, 1),))
-        self.norm_pixel_loss = norm_pixel_loss
-
-    def construct(self, pred, target, mask):
-        """mse loss construct."""
-        pred = self.cast(pred, mstype.float32)
-        target = self.cast(target, mstype.float32)
-        mask = self.cast(mask, mstype.float32)
-        if self.norm_pixel_loss:
-            mean = self.mean1(target, -1)
-            var = self.variance(target)
-            var = self.add_loss(var, 1e-6)
-            std = self.pow(var, 0.5)
-            sub = self.sub(target, mean)
-            target = self.divide(sub, std)
-        res = self.sub(pred, target)
-        recon_loss = self.square(res)
-        recon_loss = self.mean2(recon_loss, -1)
-        loss_mask = self.mul(recon_loss, mask)
-        loss_sum = self.sum(loss_mask)
-        mask_sum = self.sum(mask)
-        loss = self.divide1(loss_sum, mask_sum)
-        return loss
-
-    def variance(self, x):
-        """get variance."""
-        axis = (x.ndim - 1,)
-        x_mean = self.mean1(x, axis)
-        x_sub = self.sub(x, x_mean)
-        x_pow = self.pow(x_sub, 2)
-        x_sum = self.sum2(x_pow, axis)
-        x_var = self.divide2(x_sum, x.shape[-1])
-        return x_var
-
-
-@deprecated(version="1.5.0")
-@MindFormerRegister.register(MindFormerModuleType.LOSS)
-class L1Loss(LossBase):
-    """L1Loss for parallel."""
-    def __init__(self, reduction='mean', parallel_config=default_dpmp_config):
-        super().__init__()
-        dp = parallel_config.data_parallel
-
-        self.abs = P.Abs().shard(((dp, 1, 1, 1),))
-        self.sub = P.Sub().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
-
-        self.mul = P.Mul().shard(((), (dp, 1, 1, 1)))
-        self.reduce_mean = P.ReduceMean().shard(((dp, 1, 1, 1),))
-        self.reduce_sum = P.ReduceSum().shard(((dp, 1, 1, 1),))
-        self.cast = P.Cast()
-
-        self.average = True
-        self.reduce = True
-        if reduction == 'sum':
-            self.average = False
-        if reduction == 'none':
-            self.reduce = False
-
-    def get_loss(self, x, weights=1.0):
-        """get loss."""
-        input_dtype = x.dtype
-        x = self.cast(x, mstype.float32)
-        weights = self.cast(weights, mstype.float32)
-        x = self.mul(weights, x)
-        if self.reduce and self.average:
-            x = self.reduce_mean(x, self.get_axis(x))
-        if self.reduce and not self.average:
-            x = self.reduce_sum(x, self.get_axis(x))
-        x = self.cast(x, input_dtype)
-        return x
-
-    def construct(self, logits, labels):
-        """L1Loss construct."""
-        x_sub = self.sub(logits, labels)
-        x = self.abs(x_sub)
-        return self.get_loss(x)
 
 
 class _LogSoftmax(nn.Cell):
@@ -263,7 +108,7 @@ class _LogSoftmax(nn.Cell):
 class _NLLLoss(nn.Cell):
     """
     Calculate the NLLLoss results with given log softmax results and the label. The bprop of the cell is rewritten.
-    This cell should be used together with _Log_softmax, to optimize the bprop of the cross entroy loss.
+    This cell should be used together with _Log_softmax, to optimize the bprop of the cross entropy loss.
 
     Args:
         parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,

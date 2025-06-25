@@ -100,17 +100,12 @@ class OptimizerType(BaseEnum):
     """
     Stores the acceptable string identifiers for optimizers.
     """
-    # supported item for test, will be deleted in the future.
-    ADAMWEIGHTDECAY = 'AdamWeightDecay'
-
     # will be support item for future.
-    ADAMW = "adamw"
+    ADAMW = "AdamW"
     ADAM = "adam"
     SGD = "sgd"
     ADAGRAD = "adagrad"
     ADAFACTOR = "adafactor"
-    FUSED_ADAMW = "fused_adamw"
-    FP32_ADAMW = "fp32_adamw"
 
 
 class WrapperType(BaseEnum):

@@ -317,54 +317,6 @@
     "mindformers.core.PromptAccMetric.eval": {
         "signature": "(self)"
     },
-    "mindformers.core.SQuADMetric": {
-        "signature": "(dataset_dir, n_best_size=20, max_answer_len=30, do_lower_case=True, temp_file_dir='./squad_temp')"
-    },
-    "mindformers.core.SQuADMetric.clear": {
-        "signature": "(self)"
-    },
-    "mindformers.core.SQuADMetric.update": {
-        "signature": "(self, *inputs)"
-    },
-    "mindformers.core.SQuADMetric.eval": {
-        "signature": "(self)"
-    },
-    "mindformers.core.SQuADMetric._remove_temp_data": {
-        "signature": "(self)"
-    },
-    "mindformers.core.SQuADMetric._load_temp_data": {
-        "signature": "(self, temp_file_path)"
-    },
-    "mindformers.core.SQuADMetric._normalize_answer": {
-        "signature": "(self, s)"
-    },
-    "mindformers.core.SQuADMetric._f1_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.SQuADMetric._exact_match_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.SQuADMetric._metric_max_over_ground_truths": {
-        "signature": "(self, metric_fn, prediction, ground_truths)"
-    },
-    "mindformers.core.SQuADMetric._get_predictions": {
-        "signature": "(self)"
-    },
-    "mindformers.core.SQuADMetric._get_prelim_predictions": {
-        "signature": "(self, features, unique_id_to_result)"
-    },
-    "mindformers.core.SQuADMetric._get_nbest": {
-        "signature": "(self, prelim_predictions, features, example)"
-    },
-    "mindformers.core.SQuADMetric._compute_softmax": {
-        "signature": "(self, scores)"
-    },
-    "mindformers.core.SQuADMetric._get_final_text": {
-        "signature": "(self, pred_text, orig_text)"
-    },
-    "mindformers.core.SQuADMetric._get_best_indexes": {
-        "signature": "(self, logits)"
-    },
     "mindformers.core.SummaryMonitor": {
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
@@ -734,21 +686,6 @@
     "mindformers.core.loss.loss.CrossEntropyLoss.construct": {
         "signature": "(self, logits, label, input_mask)"
     },
-    "mindformers.core.loss.loss.L1Loss.get_loss": {
-        "signature": "(self, x, weights=1.0)"
-    },
-    "mindformers.core.loss.loss.L1Loss.construct": {
-        "signature": "(self, logits, labels)"
-    },
-    "mindformers.core.loss.loss.MSELoss.construct": {
-        "signature": "(self, pred, target, mask)"
-    },
-    "mindformers.core.loss.loss.MSELoss.variance": {
-        "signature": "(self, x)"
-    },
-    "mindformers.core.loss.loss.SoftTargetCrossEntropy.construct": {
-        "signature": "(self, logit, label)"
-    },
     "mindformers.core.lr.ConstantWarmUpLR": {
         "signature": "(learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0.0, warmup_ratio: float = None, total_steps: int = None, **kwargs)"
     },
@@ -932,54 +869,6 @@
     "mindformers.core.metric.PromptAccMetric.eval": {
         "signature": "(self)"
     },
-    "mindformers.core.metric.SQuADMetric": {
-        "signature": "(dataset_dir, n_best_size=20, max_answer_len=30, do_lower_case=True, temp_file_dir='./squad_temp')"
-    },
-    "mindformers.core.metric.SQuADMetric.clear": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.SQuADMetric.update": {
-        "signature": "(self, *inputs)"
-    },
-    "mindformers.core.metric.SQuADMetric.eval": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.SQuADMetric._remove_temp_data": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.SQuADMetric._load_temp_data": {
-        "signature": "(self, temp_file_path)"
-    },
-    "mindformers.core.metric.SQuADMetric._normalize_answer": {
-        "signature": "(self, s)"
-    },
-    "mindformers.core.metric.SQuADMetric._f1_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.metric.SQuADMetric._exact_match_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.metric.SQuADMetric._metric_max_over_ground_truths": {
-        "signature": "(self, metric_fn, prediction, ground_truths)"
-    },
-    "mindformers.core.metric.SQuADMetric._get_predictions": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.SQuADMetric._get_prelim_predictions": {
-        "signature": "(self, features, unique_id_to_result)"
-    },
-    "mindformers.core.metric.SQuADMetric._get_nbest": {
-        "signature": "(self, prelim_predictions, features, example)"
-    },
-    "mindformers.core.metric.SQuADMetric._compute_softmax": {
-        "signature": "(self, scores)"
-    },
-    "mindformers.core.metric.SQuADMetric._get_final_text": {
-        "signature": "(self, pred_text, orig_text)"
-    },
-    "mindformers.core.metric.SQuADMetric._get_best_indexes": {
-        "signature": "(self, logits)"
-    },
     "mindformers.core.metric.metric.ADGENMetric": {
         "signature": "()"
     },
@@ -1067,65 +956,11 @@
     "mindformers.core.metric.metric.PromptAccMetric.eval": {
         "signature": "(self)"
     },
-    "mindformers.core.metric.metric.SQuADMetric": {
-        "signature": "(dataset_dir, n_best_size=20, max_answer_len=30, do_lower_case=True, temp_file_dir='./squad_temp')"
-    },
-    "mindformers.core.metric.metric.SQuADMetric.clear": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric.update": {
-        "signature": "(self, *inputs)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric.eval": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._remove_temp_data": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._load_temp_data": {
-        "signature": "(self, temp_file_path)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._normalize_answer": {
-        "signature": "(self, s)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._f1_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._exact_match_score": {
-        "signature": "(self, prediction, ground_truth)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._metric_max_over_ground_truths": {
-        "signature": "(self, metric_fn, prediction, ground_truths)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._get_predictions": {
-        "signature": "(self)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._get_prelim_predictions": {
-        "signature": "(self, features, unique_id_to_result)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._get_nbest": {
-        "signature": "(self, prelim_predictions, features, example)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._compute_softmax": {
-        "signature": "(self, scores)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._get_final_text": {
-        "signature": "(self, pred_text, orig_text)"
-    },
-    "mindformers.core.metric.metric.SQuADMetric._get_best_indexes": {
-        "signature": "(self, logits)"
-    },
     "mindformers.core.optim.AdamW": {
         "signature": "(params: Union[list[Parameter], list[dict]], learning_rate: Optional[Union[Iterable, LearningRateSchedule, Tensor, float, int]], betas: Optional[Union[list[float], tuple[float]]], eps: Optional[float], weight_decay: Optional[Union[Cell, float, int]], use_fused: Optional[bool], amsgrad: Optional[bool], maximize: Optional[bool])"
     },
     "mindformers.core.optim.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"
-    },
-    "mindformers.core.optim.optim.FusedAdamWeightDecay.construct": {
-        "signature": "(self, gradients)"
-    },
-    "mindformers.core.optim.optim.FusedAdamWeightDecay.clone_state": {
-        "signature": "(self, prefix, init, forced_dtype=mindspore.float32, is_follow=False)"
     },
     "mindformers.dataset.BlendedMegatronDatasetDataLoader": {
         "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
@@ -7569,7 +7404,7 @@
         "signature": "(self, commit_message: Optional[str] = 'End of training', blocking: bool = True) -> str"
     },
     "mindformers.trainer.TrainingArguments": {
-        "signature": "(output_dir: str = './output', overwrite_output_dir: bool = False, seed: int = 42, data_seed: Optional[int] = None, only_save_strategy: bool = False, auto_trans_ckpt: bool = False, src_strategy: Optional[str] = None, transform_process_num: int = 1, resume_from_checkpoint: Optional[str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, do_train: bool = False, do_eval: bool = False, do_predict: bool = False, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, remote_save_url: Optional[str] = None, batch_size: Optional[int] = None, num_train_epochs: float = 3.0, sink_mode: bool = True, sink_size: int = 2, gradient_accumulation_steps: int = 1, mode: int = 0, use_cpu: bool = False, device_id: int = 0, device_target: str = 'Ascend', max_call_depth: int = 10000, max_device_memory: str = '1024GB', save_graphs: bool = False, save_graphs_path: str = './graph', use_parallel: bool = False, parallel_mode: int = 1, gradients_mean: bool = False, loss_repeated_mean: bool = False, enable_alltoall: bool = False, full_batch: bool = True, dataset_strategy: Union[str, tuple] = 'full_batch', search_mode: str = 'sharding_propagation', enable_parallel_optimizer: bool = False, gradient_accumulation_shard: bool = False, parallel_optimizer_threshold: int = 64, optimizer_weight_shard_size: int = -1, strategy_ckpt_save_file: str = './ckpt_strategy.ckpt', data_parallel: int = 1, model_parallel: int = 1, expert_parallel: int = 1, pipeline_stage: int = 1, micro_batch_num: int = 1, gradient_aggregation_group: int = 4, micro_batch_interleave_num: int = 1, use_seq_parallel: bool = False, vocab_emb_dp: bool = True, expert_num: int = 1, capacity_factor: float = 1.05, aux_loss_factor: float = 0.05, num_experts_chosen: int = 1, recompute: bool = False, select_recompute: bool = False, parallel_optimizer_comm_recompute: bool = False, mp_comm_recompute: bool = True, recompute_slice_activation: bool = False, optim: Union[mindformers.trainer.utils.OptimizerType, str] = 'fp32_adamw', adam_beta1: float = 0.9, adam_beta2: float = 0.999, adam_epsilon: float = 1e-08, weight_decay: float = 0.0, layer_scale: bool = False, layer_decay: float = 0.65, lr_scheduler_type: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'cosine', learning_rate: float = 5e-05, lr_end: float = 1e-06, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, lr_scale: bool = False, lr_scale_factor: int = 256, dataset_task: Optional[str] = None, dataset_type: Optional[str] = None, train_dataset: Optional[str] = None, train_dataset_in_columns: Optional[List[str]] = None, train_dataset_out_columns: Optional[List[str]] = None, eval_dataset: Optional[str] = None, eval_dataset_in_columns: Optional[List[str]] = None, eval_dataset_out_columns: Optional[List[str]] = None, shuffle: bool = True, dataloader_drop_last: bool = True, repeat: int = 1, per_device_train_batch_size: int = 8, per_device_eval_batch_size: int = 8, prediction_loss_only: bool = False, dataloader_num_workers: int = 8, python_multiprocessing: bool = False, numa_enable: bool = False, prefetch_size: int = 1, wrapper_type: str = 'MFTrainOneStepCell', scale_sense: Union[float, str] = 'DynamicLossScaleUpdateCell', loss_scale_value: int = 65536, loss_scale_factor: int = 2, loss_scale_window: int = 1000, use_clip_grad: bool = True, max_grad_norm: float = 1.0, max_scale_window: int = 1000, min_scale_window: int = 20, metric_type: Union[List[str], NoneType, str] = None, logging_strategy: Union[mindformers.trainer.utils.LoggingIntervalStrategy, str] = 'steps', logging_steps: int = 1, save_prefix: str = 'CKP', save_directory: Optional[str] = None, save_strategy: Union[mindformers.trainer.utils.SaveIntervalStrategy, str] = 'steps', save_steps: int = 500, save_seconds: Optional[int] = None, save_total_limit: Optional[int] = 5, keep_checkpoint_per_n_minutes: int = 0, save_on_each_node: bool = True, integrated_save: bool = None, save_network_params: bool = True, save_trainable_params: bool = False, async_save: bool = False, evaluation_strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'no', eval_steps: Optional[float] = None, eval_epochs: Optional[int] = None, profile: bool = False, profile_start_step: int = 1, profile_end_step: int = 10, init_start_profile: bool = False, profile_communication: bool = False, profile_memory: bool = True, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, push_to_hub: bool = False, hub_model_id: Optional[str] = None, hub_strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', hub_token: Optional[str] = None, hub_private_repo: bool = False, hub_always_push: bool = False) -> None"
+        "signature": "(output_dir: str = './output', overwrite_output_dir: bool = False, seed: int = 42, data_seed: Optional[int] = None, only_save_strategy: bool = False, auto_trans_ckpt: bool = False, src_strategy: Optional[str] = None, transform_process_num: int = 1, resume_from_checkpoint: Optional[str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, do_train: bool = False, do_eval: bool = False, do_predict: bool = False, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, remote_save_url: Optional[str] = None, batch_size: Optional[int] = None, num_train_epochs: float = 3.0, sink_mode: bool = True, sink_size: int = 2, gradient_accumulation_steps: int = 1, mode: int = 0, use_cpu: bool = False, device_id: int = 0, device_target: str = 'Ascend', max_call_depth: int = 10000, max_device_memory: str = '1024GB', save_graphs: bool = False, save_graphs_path: str = './graph', use_parallel: bool = False, parallel_mode: int = 1, gradients_mean: bool = False, loss_repeated_mean: bool = False, enable_alltoall: bool = False, full_batch: bool = True, dataset_strategy: Union[str, tuple] = 'full_batch', search_mode: str = 'sharding_propagation', enable_parallel_optimizer: bool = False, gradient_accumulation_shard: bool = False, parallel_optimizer_threshold: int = 64, optimizer_weight_shard_size: int = -1, strategy_ckpt_save_file: str = './ckpt_strategy.ckpt', data_parallel: int = 1, model_parallel: int = 1, expert_parallel: int = 1, pipeline_stage: int = 1, micro_batch_num: int = 1, gradient_aggregation_group: int = 4, micro_batch_interleave_num: int = 1, use_seq_parallel: bool = False, vocab_emb_dp: bool = True, expert_num: int = 1, capacity_factor: float = 1.05, aux_loss_factor: float = 0.05, num_experts_chosen: int = 1, recompute: bool = False, select_recompute: bool = False, parallel_optimizer_comm_recompute: bool = False, mp_comm_recompute: bool = True, recompute_slice_activation: bool = False, optim: Union[mindformers.trainer.utils.OptimizerType, str] = 'AdamW', adam_beta1: float = 0.9, adam_beta2: float = 0.999, adam_epsilon: float = 1e-08, weight_decay: float = 0.0, layer_scale: bool = False, layer_decay: float = 0.65, lr_scheduler_type: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'cosine', learning_rate: float = 5e-05, lr_end: float = 1e-06, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, lr_scale: bool = False, lr_scale_factor: int = 256, dataset_task: Optional[str] = None, dataset_type: Optional[str] = None, train_dataset: Optional[str] = None, train_dataset_in_columns: Optional[List[str]] = None, train_dataset_out_columns: Optional[List[str]] = None, eval_dataset: Optional[str] = None, eval_dataset_in_columns: Optional[List[str]] = None, eval_dataset_out_columns: Optional[List[str]] = None, shuffle: bool = True, dataloader_drop_last: bool = True, repeat: int = 1, per_device_train_batch_size: int = 8, per_device_eval_batch_size: int = 8, prediction_loss_only: bool = False, dataloader_num_workers: int = 8, python_multiprocessing: bool = False, numa_enable: bool = False, prefetch_size: int = 1, wrapper_type: str = 'MFTrainOneStepCell', scale_sense: Union[float, str] = 'DynamicLossScaleUpdateCell', loss_scale_value: int = 65536, loss_scale_factor: int = 2, loss_scale_window: int = 1000, use_clip_grad: bool = True, max_grad_norm: float = 1.0, max_scale_window: int = 1000, min_scale_window: int = 20, metric_type: Union[List[str], NoneType, str] = None, logging_strategy: Union[mindformers.trainer.utils.LoggingIntervalStrategy, str] = 'steps', logging_steps: int = 1, save_prefix: str = 'CKP', save_directory: Optional[str] = None, save_strategy: Union[mindformers.trainer.utils.SaveIntervalStrategy, str] = 'steps', save_steps: int = 500, save_seconds: Optional[int] = None, save_total_limit: Optional[int] = 5, keep_checkpoint_per_n_minutes: int = 0, save_on_each_node: bool = True, integrated_save: bool = None, save_network_params: bool = True, save_trainable_params: bool = False, async_save: bool = False, evaluation_strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'no', eval_steps: Optional[float] = None, eval_epochs: Optional[int] = None, profile: bool = False, profile_start_step: int = 1, profile_end_step: int = 10, init_start_profile: bool = False, profile_communication: bool = False, profile_memory: bool = True, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, push_to_hub: bool = False, hub_model_id: Optional[str] = None, hub_strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', hub_token: Optional[str] = None, hub_private_repo: bool = False, hub_always_push: bool = False) -> None"
     },
     "mindformers.trainer.TrainingArguments._check_rules": {
         "signature": "(self)"
@@ -7623,7 +7458,7 @@
         "signature": "(self, model_id: str, strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', token: Optional[str] = None, private_repo: bool = False, always_push: bool = False, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_optimizer": {
-        "signature": "(self, name: Union[mindformers.trainer.utils.OptimizerType, str] = 'adamw', learning_rate: float = 5e-05, lr_end: float = 1e-06, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-08, **kwargs)"
+        "signature": "(self, name: Union[mindformers.trainer.utils.OptimizerType, str] = 'AdamW', learning_rate: float = 5e-05, lr_end: float = 1e-06, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-08, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_lr_scheduler": {
         "signature": "(self, name: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, **kwargs)"
