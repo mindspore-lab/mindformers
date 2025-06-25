@@ -26,3 +26,6 @@ class IdentityOp(nn.Cell):
 
     def construct(self, x, *args, **kwargs):
         return x
+
+    def shard(self, *args, **kwargs):
+        pass
