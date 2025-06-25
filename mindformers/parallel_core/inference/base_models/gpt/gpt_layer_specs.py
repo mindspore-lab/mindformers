@@ -155,7 +155,10 @@ def get_gpt_decoder_block_spec(
     # 0 stands for dense layers, 1 stands for expert layers.
     # For integer N: Creates a pattern with one expert layer every N layers.
     # For string pattern: Evaluates the str directly (e.g. "[1,0,1]" for alternating expert/dense).
-    if isinstance(config.moe_layer_freq, int):
+    if config.first_k_dense_replace:
+        moe_layer_pattern = [0] * config.first_k_dense_replace + \
+                            [1] * (config.num_layers - config.first_k_dense_replace)
+    elif isinstance(config.moe_layer_freq, int):
         moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
     elif isinstance(config.moe_layer_freq, list):
         moe_layer_pattern = config.moe_layer_freq

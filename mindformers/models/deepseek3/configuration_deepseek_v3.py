@@ -38,7 +38,7 @@ from mindformers.models.model_config_utils import (
 DEEPSEEK_PRETRAINED_CONFIG_ARCHIVE_MAP = {}
 
 
-@MindFormerRegister.register(MindFormerModuleType.CONFIG, legacy=False, search_names='deepseekv3')
+@MindFormerRegister.register(MindFormerModuleType.CONFIG, legacy=False, search_names='deepseek_v3')
 class DeepseekV3Config(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`DeepseekV3Model`].
@@ -145,7 +145,12 @@ class DeepseekV3Config(PretrainedConfig):
         hidden_dropout=0.0,
         use_flash_attention=True,
         aux_loss_factors=[0.0001],
-        aux_loss_types=['expert']
+        aux_loss_types=['expert'],
+        qk_layernorm=True,
+        moe_router_enable_expert_bias=True,
+        normalization="RMSNorm",
+        add_bias_linear=False,
+        gated_linear_unit=True,
     ))
     @ignore_and_delete_parameter(extra_ignore_param=[
         ('ep_size', NotSupportedInfo.useless),

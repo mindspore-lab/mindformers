@@ -108,6 +108,9 @@ class MFModelConfig:
     bias_swiglu_fusion: bool = False
     """If True, use fused swiglu kernel."""
 
+    qk_layernorm: bool = False
+    """Whether to apply `normalization` type of normalization to the query and key embeddings."""
+
     mla_qkv_concat: bool = True
     """If True, Multi Latent Attention computes q_compressed, k, kv_compressed in a single linear transformation;
     if False, computes them separately."""
@@ -281,6 +284,13 @@ class MFModelConfig:
 
     aux_loss_factors: list = None
     """List of auxiliary loss factors."""
+
+    moe_router_enable_expert_bias: bool = False
+    """
+    TopK routing with dynamic per-expert bias in the aux-loss-free load balancing strategy.
+    The routing decision is based on the sum of the routing scores and the expert bias.
+    See https://arxiv.org/abs/2408.15664 for details.
+    """
 
 
     ################################################
