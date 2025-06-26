@@ -21,7 +21,6 @@ from .translation_pipeline import TranslationPipeline
 from .fill_mask_pipeline import FillMaskPipeline
 from .text_classification_pipeline import TextClassificationPipeline
 from .token_classification_pipeline import TokenClassificationPipeline
-from .question_answering_pipeline import QuestionAnsweringPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 
 __all__ = ['pipeline']

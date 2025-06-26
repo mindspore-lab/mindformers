@@ -562,16 +562,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
                 `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
             save_name(str): the name of saved files, including model weight and configuration file.
                 Default mindspore_model.
-
-        Examples:
-            >>> import os
-            >>> from mindformers import T5ForConditionalGeneration, MindFormerBook
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
-            >>> net.save_pretrained()
-            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
-            >>> print(os.listdir(output_path))
-            ['mindspore_model.yaml', 'mindspore_model.ckpt']
-
         """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
@@ -852,10 +842,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
 
         Returns:
             A model, which inherited from PreTrainedModel.
-
-        Examples:
-            >>> from mindformers import T5ForConditionalGeneration
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         download_checkpoint = kwargs.pop("download_checkpoint", True)
@@ -1413,8 +1399,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
                 f"Some weights of the model checkpoint at {pretrained_model_name_or_path} were not used when"
                 f" initializing {model.__class__.__name__}: {unexpected_keys}\n- This IS expected if you are"
                 f" initializing {model.__class__.__name__} from the checkpoint of a model trained on another task or"
-                " with another architecture (e.g. initializing a BertForSequenceClassification model from a"
-                " BertForPreTraining model).\n- This IS NOT expected if you are initializing"
+                " with another architecture.\n- This IS NOT expected if you are initializing"
                 f" {model.__class__.__name__} from the checkpoint of a model that you expect to be exactly identical"
                 " (initializing a BertForSequenceClassification model from a BertForSequenceClassification model)."
             )

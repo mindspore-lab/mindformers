@@ -898,9 +898,7 @@ class SpecialTokensMixin:
         - You can easily refer to special tokens using tokenizer class attributes like `tokenizer.cls_token`. This
           makes it easy to develop model-agnostic training and fine-tuning scripts.
 
-        When possible, special tokens are already registered for provided pretrained models (for instance
-        [`BertTokenizer`] `cls_token` is already registered to be :obj*'[CLS]'* and XLM's one is also registered to be
-        `'</s>'`).
+        When possible, special tokens are already registered for provided pretrained models.
 
         Args:
             special_tokens_dict (dictionary *str* to *str* or `tokenizers.AddedToken`):
@@ -989,20 +987,6 @@ class SpecialTokensMixin:
 
         Returns:
             `int`: Number of tokens added to the vocabulary.
-
-        Examples:
-
-        ```python
-        # Let's see how to increase the vocabulary of Bert model and tokenizer
-        tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-        model = BertModel.from_pretrained("bert-base-uncased")
-
-        num_added_toks = tokenizer.add_tokens(["new_tok1", "my_new-tok2"])
-        print("We have added", num_added_toks, "tokens")
-        # Notice: resize_token_embeddings expect to receive the full size of the new vocabulary,
-        # i.e., the length of the tokenizer.
-        model.resize_token_embeddings(len(tokenizer))
-        ```
         """
         if not new_tokens:
             return 0
@@ -1831,13 +1815,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             pretrained_model_name_or_path (Optional[str]): Equal to "name_or_path",
                 if "pretrained_model_name_or_path" is set, "name_or_path" is useless.
 
-        Examples:
-            >>> from mindformers import T5Tokenizer
-            >>> tokenizer = T5Tokenizer.from_pretrained("The directory path which contains vocabulary file of t5_small")
-            >>> res = tokenizer.encode("hello world!")
-            >>> print(res)
-            [21820, 296, 55, 1]
-
         Returns:
             A instanced tokenizer.
         """
@@ -2431,15 +2408,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 which can be obtained by the `MindFormerBook.get_default_checkpoint_save_folder()`. Default None.
             save_name(str): The file name of the saved files. Default mindspore_model.
             file_format(str): Support json or yaml. Default yaml.
-
-        Examples:
-            >>> from mindformers import T5Tokenizer, MindFormerBook
-            >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
-            >>> tokenizer.save_pretrained()
-            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
-            >>> print(os.listdir(output_path))
-            ['mindspore_model.yaml', 'spiece.model']
-
         """
         default_directory = MindFormerBook.get_default_checkpoint_save_folder()
         if not os.path.exists(save_directory):

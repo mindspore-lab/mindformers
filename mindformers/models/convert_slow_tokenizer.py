@@ -24,7 +24,7 @@ from typing import Dict, List, Tuple
 import importlib.util
 from packaging import version
 from tokenizers import AddedToken, Regex, Tokenizer, decoders, normalizers, pre_tokenizers, processors
-from tokenizers.models import BPE, Unigram, WordPiece
+from tokenizers.models import BPE, Unigram
 
 PROTOBUF_IMPORT_ERROR = """
 {0} requires the protobuf library but it was not found in your environment. Checkout the instructions on the
@@ -101,47 +101,6 @@ class Converter:
 
     def converted(self) -> Tokenizer:
         raise NotImplementedError()
-
-
-class BertConverter(Converter):
-    """BertConverter"""
-    def converted(self) -> Tokenizer:
-        """BertConverter's converted"""
-        vocab = self.original_tokenizer.vocab
-        tokenizer = Tokenizer(WordPiece(vocab, unk_token=str(self.original_tokenizer.unk_token)))
-
-        tokenize_chinese_chars = False
-        strip_accents = False
-        do_lower_case = False
-        if hasattr(self.original_tokenizer, "basic_tokenizer"):
-            tokenize_chinese_chars = self.original_tokenizer.basic_tokenizer.tokenize_chinese_chars
-            strip_accents = self.original_tokenizer.basic_tokenizer.strip_accents
-            do_lower_case = self.original_tokenizer.basic_tokenizer.do_lower_case
-
-        tokenizer.normalizer = normalizers.BertNormalizer(
-            clean_text=True,
-            handle_chinese_chars=tokenize_chinese_chars,
-            strip_accents=strip_accents,
-            lowercase=do_lower_case,
-        )
-        tokenizer.pre_tokenizer = pre_tokenizers.BertPreTokenizer()
-
-        cls = str(self.original_tokenizer.cls_token)
-        sep = str(self.original_tokenizer.sep_token)
-        cls_token_id = self.original_tokenizer.cls_token_id
-        sep_token_id = self.original_tokenizer.sep_token_id
-
-        tokenizer.post_processor = processors.TemplateProcessing(
-            single=f"{cls}:0 $A:0 {sep}:0",
-            pair=f"{cls}:0 $A:0 {sep}:0 $B:1 {sep}:1",
-            special_tokens=[
-                (cls, cls_token_id),
-                (sep, sep_token_id),
-            ],
-        )
-        tokenizer.decoder = decoders.WordPiece(prefix="##")
-
-        return tokenizer
 
 
 class SpmConverter(Converter):
@@ -235,26 +194,6 @@ class SpmConverter(Converter):
             tokenizer.post_processor = post_processor
 
         return tokenizer
-
-
-class T5Converter(SpmConverter):
-    """T5Converter"""
-
-    # pylint: disable=W0212
-    def vocab(self, proto):
-        num_extra_ids = self.original_tokenizer._extra_ids
-        vocab = [(piece.piece, piece.score) for piece in proto.pieces]
-        vocab += [(f"<extra_id_{i}>", 0.0) for i in range(num_extra_ids - 1, -1, -1)]
-        return vocab
-
-    def post_processor(self):
-        return processors.TemplateProcessing(
-            single=["$A", "</s>"],
-            pair=["$A", "</s>", "$B", "</s>"],
-            special_tokens=[
-                ("</s>", self.original_tokenizer.convert_tokens_to_ids("</s>")),
-            ],
-        )
 
 
 class CLIPConverter(Converter):
@@ -378,9 +317,7 @@ class LlamaConverter(SpmConverter):
 
 
 SLOW_TO_FAST_CONVERTERS = {
-    "BertTokenizer": BertConverter,
     "CLIPTokenizer": CLIPConverter,
-    "T5Tokenizer": T5Converter,
     "LlamaTokenizer": LlamaConverter,
 }
 

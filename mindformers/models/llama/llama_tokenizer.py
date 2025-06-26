@@ -128,7 +128,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
     def unk_token_length(self):
         return len(self.sp_model.encode(str(self.unk_token)))
 
-    # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.get_spm_processor
     def get_spm_processor(self, from_slow=False):
         """get_spm_processor"""
         tokenizer = spm.SentencePieceProcessor(**self.sp_model_kwargs)
@@ -169,7 +168,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
         vocab.update(self.added_tokens_encoder)
         return vocab
 
-    # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.tokenize
     def tokenize(
             self, text: "TextInput", pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs
     ) -> List[str]:
@@ -186,7 +184,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
             tokens = tokens[1:]
         return tokens
 
-    # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer._tokenize
     def _tokenize(self, text, **kwargs):
         """
         Returns a tokenized string.

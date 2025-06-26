@@ -22,7 +22,6 @@ from .dataloader import (
     IndexedDataLoader,
     MultiSourceDataLoader,
     SFTDataLoader,
-    SQuADDataLoader,
     ToolAlpacaDataLoader,
     TrainingDataLoader,
     WMT16DataLoader

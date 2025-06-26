@@ -581,19 +581,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
 
         Returns:
             The number of tokens actually added to the vocabulary, type is `int`.
-
-        Examples:
-
-        ```python
-        # Let's see how to increase the vocabulary of Bert model and tokenizer
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-        model = BertModel.from_pretrained("bert-base-uncased")
-
-        num_added_toks = tokenizer.add_tokens(["new_tok1", "my_new-tok2"])
-        print("We have added", num_added_toks, "tokens")
-        # Note: resize_token_embeddings expects to receive the full size of the new vocabulary, i.e. the length of the tokenizer.
-        model.resize_token_embeddings(len(tokenizer))
-        ```"""
+        """
         added_tokens = 0
         if new_tokens is None:
             return added_tokens

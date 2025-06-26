@@ -20,13 +20,7 @@ from .auto import (
     AutoModel,
     AutoModelForCausalLM,
     AutoModelForMaskGeneration,
-    AutoModelForMultipleChoice,
     AutoModelForPreTraining,
-    AutoModelForQuestionAnswering,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTextEncoding,
-    AutoModelForTokenClassification,
     AutoModelWithLMHead,
     AutoProcessor,
     AutoTokenizer,
@@ -36,30 +30,9 @@ from .auto import (
     ImageProcessingMixin,
     TOKENIZER_MAPPING
 )
-from .bert import (
-    BasicTokenizer,
-    BertConfig,
-    BertForMultipleChoice,
-    BertForPreTraining,
-    BertForQuestionAnswering,
-    BertForTokenClassification,
-    BertModel,
-    BertProcessor,
-    BertTokenizer,
-    BertTokenizerFast
-)
 from .deepseek3 import (
     DeepseekV3Config,
     DeepseekV3ForCausalLM
-)
-from .t5 import (
-    MT5ForConditionalGeneration,
-    T5Config,
-    T5ForConditionalGeneration,
-    T5PegasusTokenizer,
-    T5Processor,
-    T5Tokenizer,
-    T5TokenizerFast
 )
 from .glm2 import (
     ChatGLM2Config,
