@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Qwen3 Config API."""
+"""Qwen3Moe Config API."""
 __all__ = ['Qwen3MoeConfig']
 
 from mindformers.models.configuration_utils import PretrainedConfig
@@ -137,7 +137,7 @@ class Qwen3MoeConfig(PretrainedConfig):
             If `mlp_only_layers` is empty, `decoder_sparse_step` is used to determine the sparsity.
     """
 
-    model_type = "Qwen3Moe"
+    model_type = "qwen3_moe"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     # Default tensor parallel plan for base model `Qwen3Moe`
@@ -160,7 +160,14 @@ class Qwen3MoeConfig(PretrainedConfig):
     }
 
     @register_mf_model_parameter(
-        mf_model_kwargs=MFModelConfig())
+        mf_model_kwargs=MFModelConfig(
+            pad_token_id=151643,
+            block_size=32,
+            num_blocks=1024,
+            normalization='RMSNorm',
+            add_bias_linear=False,
+            gated_linear_unit=True
+        ))
     @ignore_and_delete_parameter(extra_ignore_param=[
         ('decoder_sparse_step', NotSupportedInfo.useless),
         ('max_window_layers', NotSupportedInfo.useless),

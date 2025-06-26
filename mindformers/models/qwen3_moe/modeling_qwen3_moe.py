@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Qwen3 models' APIs."""
+"""Qwen3Moe models' APIs."""
 __all__ = [
     'Qwen3MoeForCausalLM',
 ]
@@ -27,9 +27,9 @@ from mindformers.models.qwen3_moe.modeling_qwen3_moe_infer import InferenceQwen3
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
 class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
     r"""
-    Provide Qwen3 Model for training and inference.
+    Provide Qwen3Moe Model for training and inference.
     Args:
-        config (Qwen3Config): The config of Qwen3 model.
+        config (Qwen3MoeConfig): The config of Qwen3Moe model.
 
     Returns:
         Tensor, the loss or logits of the network.
@@ -40,10 +40,10 @@ class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
         get run mode to init different model.
 
         Args:
-            config (Qwen3Config): The config of qwen3 model.
+            config (Qwen3MoeConfig): The config of Qwen3Moe model.
 
         Raises:
-            NotImplementedError: Train mode is not supported for Qwen3 model.
+            NotImplementedError: Train mode is not supported for Qwen3Moe model.
 
         Returns:
             Tensor, the loss or logits of the network
@@ -51,4 +51,4 @@ class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
         """
         if os.environ.get("RUN_MODE", "predict") == "predict":
             return InferenceQwen3MoeForCausalLM(config=config)
-        raise NotImplementedError("Train mode is not supported for Qwen3 model.")
+        raise NotImplementedError("Train mode is not supported for Qwen3Moe model.")

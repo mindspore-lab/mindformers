@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Qwen3 models' APIs."""
+"""Qwen3Moe models' APIs."""
 __all__ = ['InferenceQwen3MoeForCausalLM']
 
 from typing import Dict
@@ -45,13 +45,13 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
     r"""
-    Provide qwen3 model infer through network.
+    Provide qwen3_moe model infer through network.
 
     Args:
-        config (Qwen3Config): The config of qwen3 model.
+        config (Qwen3MoeConfig): The config of qwen3_moe model.
 
     Returns:
-        output: Tensor, the output of qwen3 decoder layer
+        output: Tensor, the output of qwen3_moe decoder layer
 
     """
 
@@ -107,7 +107,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
         self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
                         dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
-        logger.info("Set dynamic input for qwen3.")
+        logger.info("Set dynamic input for qwen3_moe.")
 
     def add_flags_custom_mcore(self, is_prefill):
         r"""
