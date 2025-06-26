@@ -5,6 +5,11 @@ auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in dist
 use_parallel: False
 run_mode: 'predict'
 use_legacy: False
+load_ckpt_format: 'safetensors'
+
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'qwen3'
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
