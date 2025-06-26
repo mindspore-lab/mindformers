@@ -1079,6 +1079,8 @@ class BaseTrainer:
                 default_args = {
                     "dataset_size": config.data_size
                 }
+            elif "type" in callback and callback["type"] == "SDCMonitor":
+                default_args = {"initial_step": config.runner_config.initial_step}
             default_callbacks.append(build_callback(callback, default_args=default_args))
 
         if check_tft_valid() or check_tre_valid() or check_tsp_valid():

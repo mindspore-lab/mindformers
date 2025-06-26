@@ -20,13 +20,13 @@ import glob
 import sys
 import time
 import tempfile
-import datetime
 import hashlib
 import subprocess
 import shlex
 
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
+from datetime import datetime, timedelta
 from typing import Callable, Optional, Union, Dict, Tuple, List
 import numpy as np
 
@@ -42,7 +42,10 @@ from mindspore import (
     save_checkpoint,
     Tensor,
     get_auto_parallel_context,
-    set_auto_parallel_context
+    set_auto_parallel_context,
+    sdc_detect_start,
+    sdc_detect_stop,
+    get_sdc_detect_result
 )
 from mindspore.train.callback import SummaryCollector
 from mindspore.train.callback._checkpoint import CheckpointManager
@@ -53,7 +56,7 @@ from mindspore.ops.operations.comm_ops import Broadcast
 from mindspore.common import jit
 from mindspore.train._utils import get_parameter_redundancy, remove_param_redundancy
 from mindspore.common.api import flops_collection
-from mindspore.communication.management import create_group, get_group_size, get_rank
+from mindspore.communication.management import create_group, get_group_size, get_rank, GlobalComm
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
@@ -64,9 +67,11 @@ from mindformers.tools.utils import (
     get_output_subpath,
     get_real_rank,
     get_real_group_size,
+    get_real_local_rank,
     get_pipeline_rank_ids,
     is_last_pipeline_stage,
-    barrier_world
+    barrier_world,
+    get_ascend_log_path
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
@@ -504,7 +509,7 @@ class MFLossMonitor(Callback):
                             int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
         show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
         logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
-                    datetime.timedelta(seconds=int(time_remain)))
+                    timedelta(seconds=int(time_remain)))
         if self.tensor_writer is not None:
             self.tensor_writer.add_scalar('batch-size', self.global_batch_size, global_step=global_step)
             self.tensor_writer.add_scalar('batch-size vs samples', self.global_batch_size,
@@ -2678,3 +2683,182 @@ class StressTestModelMonitor(Callback):
 
         # If no such line, training hasn't started
         return "Training has not started yet."
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class SDCMonitor(Callback):
+    """Monitor SDC (Silent Data Corruption) by SilentCheck and CheckSum.
+
+    Args:
+        initial_step (int, optional): The beginning step. Default: ``0``.
+        step_interval (int, optional): The interval of steps to monitor SilentCheck errors in device logs.
+            Default: ``10``.
+        strike_window_time (int, optional): The window time (minutes) to monitor SilentCheck error. Default: ``480``.
+        strike_num (int, optional): The number of SilentCheck error to strike out and start CheckSum. Default: ``3``.
+        checksum_time (int, optional): The duration (minutes) of CheckSum. Default: ``5``.
+        checksum_cooldown_time (int, optional): The cooldown time (minutes) of CheckSum after it stops.
+            Default: ``180``.
+    """
+    def __init__(self,
+                 initial_step: int = 0,
+                 step_interval: int = 10,
+                 strike_window_time: int = 480,
+                 strike_num: int = 3,
+                 checksum_time: int = 5,
+                 checksum_cooldown_time: int = 180):
+        super(SDCMonitor, self).__init__()
+        logger.warning('SDCMonitor serves as an experimental interface and its functionality is not yet stable.')
+
+        npu_asd_enable = int(os.getenv('NPU_ASD_ENABLE', '0'))
+        ms_sdc_detect_enable = int(os.getenv('MS_SDC_DETECT_ENABLE', '0'))
+        if npu_asd_enable != 1 or ms_sdc_detect_enable != 1:
+            raise ValueError("SDCMonitor only works when environment variable 'NPU_ASD_ENABLE' and "
+                             "'MS_SDC_DETECT_ENABLE' are set to 1.")
+
+        self.initial_step = initial_step
+        self.step_interval = step_interval
+        self.step_times = {datetime.now(): initial_step} # {timestamp: step}
+        self.silent_check_error_times = {} # {timestamp: step}
+        self.strike_window_time = timedelta(minutes=strike_window_time)
+        self.strike_num = strike_num
+        self.checksum_enable = False
+        self.prev_checksum_time = datetime.min # start/stop time
+        self.checksum_time = timedelta(minutes=checksum_time)
+        self.checksum_cooldown_time = timedelta(minutes=checksum_cooldown_time)
+
+        self.device_log_path = os.path.join(get_ascend_log_path(), 'debug', f'device-{get_real_local_rank()}')
+        # device log file: device-<pid>_<timestamp>.log, e.g. device-311523_20250225184632284.log
+        self.prev_log_file_time = "0"
+        pid = os.getpid()
+        self.log_file_pattern = re.compile(rf'device-{pid}_(\d{{17}})\.log$')
+        self.silent_check_error_pattern = re.compile(r'^\[ERROR\].*silent_check_v3\.cc:.*SilentCheckV3', re.MULTILINE)
+        # device log time: YYYY-MM-DD-HH:MM:SS.SSS.SSS
+        self.log_time_pattern = re.compile(r'(\d{4}-\d{2}-\d{2}-\d{2}:\d{2}:\d{2}\.\d{3}\.\d{3})')
+        logger.info(f"Device log path: {self.device_log_path}, pid: {pid}")
+
+        self.all_reduce_net = AllReduceNet(GlobalComm.WORLD_COMM_GROUP) # AllReduce status and result of CheckSum
+
+    def _get_log_files_to_check(self):
+        """Get device log filenames after last check and sort them by timestamp."""
+        log_files = []
+        if not os.path.exists(self.device_log_path):
+            return log_files
+        for f in os.listdir(self.device_log_path):
+            match = self.log_file_pattern.match(f)
+            if match and match.group(1) >= self.prev_log_file_time:
+                log_files.append(f)
+        log_files.sort()
+        return log_files
+
+    def _parse_silent_check_error_times(self, log_files):
+        """Parse SilentCheck error times of step from device logs"""
+        # parse error log times, log file size < 20MB
+        error_log_times = []
+        for file in log_files:
+            file_path = os.path.join(self.device_log_path, file)
+            if not os.path.exists(file_path):
+                continue
+            with open(file_path, 'r') as f:
+                logs = f.read()
+            error_logs = self.silent_check_error_pattern.findall(logs)
+            for log in error_logs:
+                match = self.log_time_pattern.search(log)
+                if match:
+                    log_time = match.group(1)
+                    # merge ms and us in str then convert to datetime
+                    log_time = re.sub(r'\.(\d{3})\.(\d{3})', lambda m: f".{m.group(1)}{m.group(2)}", log_time)
+                    log_time = datetime.strptime(log_time, "%Y-%m-%d-%H:%M:%S.%f")
+                    error_log_times.append(log_time)
+        if not error_log_times:
+            return {}
+        # process from latest to earliest, stop early if error num reaches strike num
+        error_times = {} # {timestamp: step}
+        step_time_list = list(self.step_times.keys())
+        index = len(step_time_list) - 1
+        for log_time in reversed(error_log_times):
+            while index > 0 and log_time <= step_time_list[index - 1]:
+                index -= 1
+            if index == 0 or len(error_times) == self.strike_num:
+                break
+            left, right = step_time_list[index - 1], step_time_list[index]
+            # all SilentCheck errors in a step is treated as one error
+            if left < log_time <= right:
+                step = self.step_times[right]
+                logger.warning(f"SilentCheck detect SDC at step: {step}")
+                error_times[log_time] = step
+                index -= 1
+        return dict(reversed(list(error_times.items()))) # order from earliest to latest
+
+    def _update_silent_check_error_times(self, new_silent_check_error_times, now):
+        """Add new SilentCheck error times and remove expired ones."""
+        self.silent_check_error_times.update(new_silent_check_error_times)
+        expired_error_times = []
+        for error_time, _ in self.silent_check_error_times.items():
+            if now - error_time > self.strike_window_time:
+                expired_error_times.append(error_time)
+        for error_time in expired_error_times:
+            self.silent_check_error_times.pop(error_time)
+
+    def _start_checksum(self, step):
+        """Sync CheckSum enable status on all ranks and start CheckSum."""
+        # set context to skip pp validation during global AllReduce
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.STAND_ALONE)
+        self.checksum_enable = bool(
+            self.all_reduce_net(ms.Tensor([self.checksum_enable], ms.int32)).asnumpy()[0])
+        ms.set_auto_parallel_context(parallel_mode=parallel_mode)
+        if self.checksum_enable:
+            logger.info(f"Start CheckSum at step: {step}")
+            self.prev_checksum_time = datetime.now()
+            sdc_detect_start()
+
+    def _stop_checksum(self, step):
+        """Stop CheckSum and aggregate SDC detection result."""
+        logger.warning(f"Stop CheckSum at step: {step}")
+        sdc_detect_stop()
+        self.checksum_enable = False
+        now = datetime.now()
+        self.prev_checksum_time = now
+        has_sdc = get_sdc_detect_result()
+        if has_sdc:
+            logger.warning(f"CheckSum detects SDC on rank {get_real_rank()}")
+        # set context to skip pp validation during global AllReduce
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.STAND_ALONE)
+        has_sdc = bool(self.all_reduce_net(ms.Tensor([has_sdc], ms.int32)).asnumpy()[0])
+        ms.set_auto_parallel_context(parallel_mode=parallel_mode)
+        if has_sdc:
+            logger.warning("Detect SDC by SilentCheck and CheckSum, which means training may be unstable. "
+                           "Check training logs and device logs of each rank for more details.")
+        self.silent_check_error_times.clear()
+        self.step_times = {now: step}
+
+    def on_train_step_end(self, run_context):
+        """Monitor SilentCheck errors and manage CheckSum if strike out."""
+        cb_params = run_context.original_args()
+        cur_step_num = cb_params.cur_step_num + self.initial_step
+
+        now = datetime.now()
+        # stop CheckSum and clear previous SilentCheck errors
+        if self.checksum_enable:
+            if now - self.prev_checksum_time >= self.checksum_time:
+                self._stop_checksum(cur_step_num)
+            return
+
+        self.step_times[now] = cur_step_num
+        # parse device logs and start CheckSum if strike out
+        if cb_params.cur_step_num % self.step_interval == 0:
+            logger.info(f"Checking device logs at step: {cur_step_num}...")
+            log_files = self._get_log_files_to_check()
+            new_silent_check_error_times = self._parse_silent_check_error_times(log_files)
+            self._update_silent_check_error_times(new_silent_check_error_times, now)
+            if now - self.prev_checksum_time >= self.checksum_cooldown_time:
+                if len(self.silent_check_error_times) >= self.strike_num:
+                    self.checksum_enable = True
+                    logger.warning(f"SDC {self.strike_num} strikes and out on rank: {get_real_rank()}, "
+                                   f"SilentCheck error steps: {list(self.silent_check_error_times.values())}")
+                # any rank stikes out will enable CheckSum in all ranks by AllReduce
+                self._start_checksum(cur_step_num)
+            self.step_times = {now: cur_step_num}
+            if log_files:
+                self.prev_log_file_time = re.search(r'_(\d{17})\.log$', log_files[-1]).group(1)
