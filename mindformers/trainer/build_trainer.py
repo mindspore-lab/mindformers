@@ -14,9 +14,7 @@
 # ============================================================================
 """Build Trainer API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from . import MaskedLanguageModelingTrainer, \
-    TranslationTrainer, TextClassificationTrainer, \
-    QuestionAnsweringTrainer, GeneralTaskTrainer
+from . import GeneralTaskTrainer
 
 
 def build_trainer(
@@ -55,22 +53,6 @@ def build_trainer(
 def register_mf_trainer():
     """ register MindFomrers builtin LR class. """
     # adapt huggingface
-    MindFormerRegister.register_cls(
-        MaskedLanguageModelingTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="fill_mask")
-
-    MindFormerRegister.register_cls(
-        TextClassificationTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="text_classification")
-
-    MindFormerRegister.register_cls(
-        TranslationTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="translation")
-
-    MindFormerRegister.register_cls(
-        QuestionAnsweringTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="question_answering")
-
     MindFormerRegister.register_cls(
         GeneralTaskTrainer, module_type=MindFormerModuleType.TRAINER, alias="general")
 

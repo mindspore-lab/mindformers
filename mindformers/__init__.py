@@ -28,13 +28,9 @@ from mindformers import (
     wrapper
 )
 from mindformers.pipeline import (
-    FillMaskPipeline,
     MultiModalToTextPipeline,
     Pipeline,
-    TextClassificationPipeline,
     TextGenerationPipeline,
-    TokenClassificationPipeline,
-    TranslationPipeline,
     pipeline
 )
 from mindformers.trainer import (
@@ -48,16 +44,12 @@ from mindformers.trainer import (
     DatasetConfig,
     GeneralTaskTrainer,
     LRConfig,
-    MaskedLanguageModelingTrainer,
     MultiModalToTextGenerationTrainer,
     OptimizerConfig,
     ParallelContextConfig,
-    QuestionAnsweringTrainer,
     RunnerConfig,
-    TextClassificationTrainer,
     Trainer,
     TrainingArguments,
-    TranslationTrainer,
     WrapperConfig,
 )
 from mindformers.core import (
