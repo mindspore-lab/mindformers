@@ -48,12 +48,10 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAttention
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel, \
     get_moe_expert_parallel_group
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_tp_world_size, get_moe_ep_world_size
-from mindformers.experimental.infer.core.norm import RMSNorm
-from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
+
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceScatterToSequenceParallelRegion, \
     GatherFromWorldParallelRegionV2, GatherFromSequenceParallelRegion, ScatterToModelParallelRegion, \
     ReduceScatterToWorldParallelRegion, ReduceFromWorldParallelRegion
@@ -63,6 +61,9 @@ from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
 from research.deepseek3.moe import RoutedParallelMLP, ParallelMoEV2, ExpertParallelMoE, \
     WorldRegionSharedParallelMLP, SharedMLP
+from research.deepseek3.infer.norm import RMSNorm
+from research.deepseek3.infer.transformer import ParallelMLP, VocabEmbedding
+from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 
 __all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
 

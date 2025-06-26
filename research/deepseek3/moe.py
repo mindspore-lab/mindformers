@@ -24,8 +24,6 @@ from mindspore.common.initializer import initializer
 from mindspore.communication import get_rank, get_group_size
 
 from mindformers.modules.layers import Linear
-from mindformers.experimental.infer.core.activation import get_act_func
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (ReduceFromModelParallelRegion,
                                                                           GatherFromMoeTensorParallelRegionV2,
                                                                           GatherFromMoeTensorParallelRegion,
@@ -44,6 +42,8 @@ from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe
 from mindformers.parallel_core.inference.parallel_state import get_moe_expert_parallel_group
 from mindformers.version_control import is_910b
 from mindformers.tools.utils import divide
+from research.deepseek3.infer.activation import SiLU
+from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
 
 try:
     from mindspore.ops.auto_generate import (MoeComputeExpertTokens,
@@ -284,7 +284,7 @@ class SharedMLP(nn.Cell):
             )
 
         self.act_type = self.config.hidden_act
-        self.act_func = get_act_func(self.act_type)
+        self.act_func = SiLU()
 
         self.w2 = Linear(
             self.ffn_hidden_size,
@@ -372,7 +372,7 @@ class SharedParallelMLP(nn.Cell):
             )
 
         self.act_type = self.config.hidden_act
-        self.act_func = get_act_func(self.act_type)
+        self.act_func = SiLU()
 
         self.w2 = RowParallelLinear(
             self.ffn_hidden_size,
@@ -851,7 +851,7 @@ class RoutedParallelMLP(nn.Cell):
         self.ffn_hidden_size = self.config.moe_config.moe_intermediate_size
         self.cast = P.Cast()
         self.act_type = self.config.hidden_act
-        self.act_func = get_act_func(self.act_type)
+        self.act_func = SiLU()
         self.ffn_concat = self.config.ffn_concat
         self.moe_tp_size = get_moe_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, self.moe_tp_size)
