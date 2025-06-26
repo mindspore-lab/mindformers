@@ -181,7 +181,7 @@ def train_input_sliced():
                 9.968597, 9.926680, 9.887671, 9.854958, 9.827715,
                 9.800526, 9.775367, 9.748009, 9.740524, 9.717923,
                 9.719361, 9.709933, 9.718268, 9.714646, 9.706030]
-    time_std = 625
+    time_std = 700
 
     runner.set_train(model, model_config, loss_std=loss_std, avg_time_std=time_std)
 
