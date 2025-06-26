@@ -37,13 +37,16 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 1. 模型具体实现：
 
     ```text
-    mindformers/models/glm2            # glm32k复用glm2的代码实现
+        mindformers/models/glm2        # glm32k复用glm2的代码实现
         ├── __init__.py
+        ├── convert_reversed.py        # ckpt权重转huggingface实现
+        ├── convert_weight.py          # huggingface权重转ckpt实现
         ├── glm2.py                    # 模型实现
         ├── glm2_config.py             # 模型配置项
         ├── glm2_modules.py            # 模组实现
         ├── glm3_tokenizer.py          # tokenizer
-        └── glm2_transformer.py        # transformer层实现
+        ├── glm2_transformer.py        # transformer层实现
+        └── glm_processor.py           # processor实现
     ```
 
 2. 模型配置：
@@ -65,7 +68,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ### 数据集及权重准备
 
@@ -93,9 +96,9 @@ python glm32k_preprocess.py \
  --prompt_config_file PROMPT_PATH
 
 # 参数说明
-INPUT_DATA_PATH: 下载后LongBench数据文件夹路径
-OUTPUT_PATH:     转换后的保存数据路径
-PROMPT_PATH:     LongBench中不同数据对应的prompt
+INPUT_DATA_PATH: 下载后LongBench数据文件夹路径，/path/to/LongBench/data
+OUTPUT_PATH:     转换后的保存数据文件夹路径
+PROMPT_PATH:     LongBench中不同数据对应的prompt file
 ```
 
 #### 模型权重下载
@@ -113,17 +116,18 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
 ```shell
-python convert_weight.py --model glm-n --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
+python convert_weight.py --model glm-n --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME  --config research/glm32k/finetune_glm32k.yaml
 
 # 参数说明
 model:       模型名称
 input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
+config:      模型配置文件路径
 ```
 
 ## 微调
 
-MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 全参微调
 
@@ -155,7 +159,7 @@ MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`�
 
 #### 多机训练
 
-`ChatGLM3-6B-32K`多机多卡训练可以参考[多机多卡启动方式](../../README.md#多机多卡)。
+`ChatGLM3-6B-32K`多机多卡训练可以参考[多机多卡启动方式](../../README_CN.md#多机多卡)。
 
 ### 分布式训练权重合并
 
@@ -182,7 +186,8 @@ TOKENIZER:   模型tokenizer文件路径
 ```shell
 bash scripts/examples/glm32k/run_glm32k_predict.sh \
  research/glm32k/predict_glm32k.yaml \
- path/to/glm32k_6b.ckpt
+ path/to/glm32k_6b.ckpt \
+ path/to/tokenizer.model
 
 # 推理结果
 # 晚上睡不着应该怎么办:
