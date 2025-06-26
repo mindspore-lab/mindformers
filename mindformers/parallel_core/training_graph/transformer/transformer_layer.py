@@ -148,7 +148,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
         # computational throughput changes (precision remains unaffected).
 
-        self.hidden_states_droupout = Dropout(drop_prob=self.hidden_dropout)
+        self.hidden_states_dropout = Dropout(drop_prob=self.hidden_dropout)
         self.add = aclnn_ops.AddExt()
         self.add_bias = aclnn_ops.AddExt()
 
@@ -224,7 +224,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # Cross attention is Identity(X) in GPTModel, future expansions will be implemented.
 
         # Dropout
-        dropout_output = self.hidden_states_droupout(attention_output)
+        dropout_output = self.hidden_states_dropout(attention_output)
 
         norm_input = self.add(residual, dropout_output)
 
@@ -246,7 +246,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             mlp_output = self.add_bias(mlp_output, mlp_output_bias)
 
         # Dropout
-        dropout_output = self.hidden_states_droupout(mlp_output)
+        dropout_output = self.hidden_states_dropout(mlp_output)
 
         output = self.add(residual, dropout_output)
         # 'return context' is useless, this param may be deprecated later.
@@ -259,7 +259,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
 
         self.add.shard(((cp, dp, 1), (cp, dp, 1)))
-        self.hidden_states_droupout.shard((cp, dp, 1))
+        self.hidden_states_dropout.shard((cp, dp, 1))
         self.add_bias.shard(((cp, dp, 1), (1,)))
         if cp > 1:
             self.input_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
@@ -270,13 +270,13 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
                 self.input_layernorm.shard(config, in_strategy=(dp * tp, 1))
                 self.pre_mlp_layernorm.shard(config, in_strategy=(dp * tp, 1))
                 self.add.shard(((dp * tp, 1), (dp * tp, 1)))
-                self.hidden_states_droupout.shard((dp * tp, 1))
+                self.hidden_states_dropout.shard((dp * tp, 1))
                 self.add_bias.shard(((dp, 1), (1,)))
             else:
                 self.input_layernorm.shard(config, in_strategy=(tp, dp, 1))
                 self.pre_mlp_layernorm.shard(config, in_strategy=(tp, dp, 1))
                 self.add.shard(((tp, dp, 1), (tp, dp, 1)))
-                self.hidden_states_droupout.shard((tp, dp, 1))
+                self.hidden_states_dropout.shard((tp, dp, 1))
                 self.add_bias.shard(((tp, dp, 1), (1,)))
 
     def sharding_propagation(self, config: TransformerConfig):

@@ -177,7 +177,7 @@ class FusedLayerNorm(nn.Cell):
 
         if strategy[-1] != 1:
             raise TypeError(
-                'The last dim in FusedlayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
+                'The last dim in FusedLayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
 
         self.layer_norm.shard((strategy, (strategy[-1],), (strategy[-1],)))
 
@@ -314,7 +314,7 @@ class FusedRMSNorm(nn.Cell):
 
         if strategy[-1] != 1 and ms.get_context('mode') == ms.GRAPH_MODE:
             raise TypeError(
-                'The last dim in FusedlayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
+                'The last dim in FusedRMSNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
 
         self.norm.shard((strategy, (strategy[-1],)))
 
