@@ -75,9 +75,9 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
 DeepSeek-V3所依赖的版本配套如下：
 
-| MindFormers | MindSpore | CANN | 固件与驱动 | 镜像链接 |
-|:-----------:|:---------:|:----:|:-----:|:----:|
-|    在研版本     |   在研版本    | 在研版本 | 在研版本  | 不涉及  |
+| MindFormers | MindSpore | CANN | 固件与驱动 |
+|:-----------:|:---------:|:----:|:-----:|
+|    在研版本     |   在研版本    | 在研版本 | 在研版本  |
 
 环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html)。
 
@@ -155,7 +155,7 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
 
 3. 构建Megatron BIN数据集模块
 
-   执行如下命令构建Megatron BIN数据集模块。如使用提供的镜像请跳过此操作。
+   执行如下命令构建Megatron BIN数据集模块。
 
    ```shell
    pip install pybind11
