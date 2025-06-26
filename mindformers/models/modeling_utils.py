@@ -201,17 +201,15 @@ class ModelMixin:
         """convert HuggingFace weight name to MindFormers weight name"""
         raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
 
-    def check_key_mapping(self):
+    def set_dynamic_inputs(self, **kwargs):
         """
-         check key of safetensors.
+        Compile static graphs into dynamic shapes
         """
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented check_key_mapping method.")
 
-    def convert_hf_weight_to_mf(self, weights_path):
-        """
-        Read HuggingFace weights and convert HuggingFace weights to MindFormer weights
-        """
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_hf_weight_to_mf method.")
+        raise RuntimeError(
+            "A model class needs to define a `set_dynamic_inputs`"
+            " method in order to use `model.set_inputs()`."
+        )
 
 
 class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
@@ -619,16 +617,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         raise RuntimeError(
             "A model class needs to define a `prepare_inputs_for_predict_layout`"
             " method in order to use parallel predict."
-        )
-
-    def set_dynamic_inputs(self, **kwargs):
-        """
-        Compile static graphs into dynamic shapes
-        """
-
-        raise RuntimeError(
-            "A model class needs to define a `set_dynamic_inputs`"
-            " method in order to use `model.set_inputs()`."
         )
 
     def _inverse_parse_config(self, config):

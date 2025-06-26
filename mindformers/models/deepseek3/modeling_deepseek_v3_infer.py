@@ -13,21 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 models' APIs."""
-import gc
-import os
 from typing import Dict
-from safetensors import safe_open
-from tqdm import tqdm
 
-import mindspore as ms
-from mindspore.communication.management import get_rank
-import mindspore.common.dtype as mstype
-from mindspore import Tensor, mutable
 from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
 
 from mindformers.models.utils import jit
-from mindformers.tools.logger import logger
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
@@ -36,11 +27,12 @@ from mindformers.parallel_core.inference.parallel_state import (
 )
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
+from mindformers.parallel_core.inference.model_utils import InferModelMixin
 
 from .configuration_deepseek_v3 import DeepseekV3Config
 
 
-class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
+class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin):
     r"""
     Provide Deepseek3 model infer through network.
 
@@ -83,31 +75,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             position_embedding_type=config.position_embedding_type,
             rotary_base=config.rotary_base
         )
-
-    def set_dynamic_inputs(self, **kwargs):
-        """ dynamic shape"""
-        dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_positions = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_context_lens_tensor = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=self.compute_dtype)
-
-        def get_input():
-            cache_list = []
-            for _ in range(self.config.num_hidden_layers):
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.compute_dtype))
-            return mutable(cache_list)
-
-        key_cache = get_input()
-        value_cache = get_input()
-
-        self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
-                        dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                        dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
-        logger.info("Set dynamic input for deepseek3.")
 
     def add_flags_custom_mcore(self, is_prefill):
         r"""
@@ -176,63 +143,3 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             value_cache=value_cache,
         )
         return logits
-
-    def load_weights(self, weights_path):
-        r"""
-        Load weights.
-
-        Args:
-            weights_path: The path of storing weights.
-
-        """
-        rank_id = get_rank()
-
-        source_qkv_concat = False
-
-        sf_files = [f for f in os.listdir(weights_path) if f.endswith(".safetensors")]
-        keys = []
-        if sf_files:
-            with safe_open(os.path.join(weights_path, sf_files[0]), framework="np") as f:
-                keys = f.keys()
-        for key in keys:
-            if key.split('.')[-2] not in self.check_key_mapping():
-                raise ValueError(f'Please enter the correct weights of safetensors')
-            if key.split('.')[-2] == 'linear_qkv':
-                source_qkv_concat = True
-                break
-
-        non_layer_weights, layer_weights = (self.convert_hf_weight_to_mf(weights_path))
-
-        mf_hf_map = {}
-        for weight_name in list(non_layer_weights.keys()):
-            value = non_layer_weights.pop(weight_name)
-            new_name = self.convert_name(weight_name)
-            non_layer_weights[new_name] = value
-            mf_hf_map[new_name] = weight_name
-        parameter_dict = self.model.load_weights(weights_path, non_layer_weights, mf_hf_map, source_qkv_concat)
-        ms.load_param_into_net(self, parameter_dict)
-        del parameter_dict
-        del mf_hf_map
-        gc.collect()
-        logger.info('................weights loading complete except the transformer layers weights................')
-
-        num_layers = self.config.num_hidden_layers
-        enable_tqdm = rank_id == 0
-        with tqdm(range(num_layers), desc="Weight loading", disable=not enable_tqdm) as pbar:
-            for layer_id in pbar:
-                layer_weight = {}
-                mf_hf_map = {}
-                prefix = f"model.layers.{layer_id}."
-                train_prefix = f"decoder.layers.{layer_id}."
-                for weight_name in list(layer_weights.keys()):
-                    if weight_name.startswith(prefix) or weight_name.startswith(train_prefix):
-                        value = layer_weights.pop(weight_name)
-                        new_name = self.convert_name(weight_name)
-                        layer_weight[new_name] = value
-                        mf_hf_map[new_name] = weight_name
-                parameter_dict = self.model.load_weights(
-                    weights_path, layer_weight, mf_hf_map, source_qkv_concat, layer_id)
-                ms.load_param_into_net(self.model.decoder.layers[layer_id], parameter_dict)
-                del parameter_dict
-                gc.collect()
-                pbar.set_postfix({"current_layer": layer_id})

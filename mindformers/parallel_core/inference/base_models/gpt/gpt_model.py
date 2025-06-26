@@ -14,8 +14,12 @@
 # ============================================================================
 """GPT Transformer language model"""
 from typing import Literal, Optional
+import gc
+from tqdm import tqdm
 
+import mindspore as ms
 from mindspore import nn, ops, mint
+from mindspore.communication.management import get_rank
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -27,9 +31,35 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.language_
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.inference.utils import get_tp_world_size, divide
-from mindformers.parallel_core.utils.weights_utils import (deal_non_layers_weights, deal_attention_weights,
-                                                           deal_moe_weights, deal_mlp_weights,
-                                                           deal_mla_weights, deal_layer_norm_weights)
+from mindformers.tools.logger import logger
+
+
+_convert_map = {
+    "embedding.word_embeddings.": "split_by_tp_rank_columns",
+    "self_attention.linear_qkv": "split_qkv_weight",
+    "linear_qkv.bias": "split_qkv_weight",
+    "self_attention.linear_proj": "split_by_tp_rank_rows",
+    "mlp.linear_fc1": "split_ffn_weight",
+    "mlp.linear_fc2": "split_by_tp_rank_rows",
+    "input_layernorm": "not_split",
+    "pre_mlp_layernorm": "not_split",
+    "decoder.final_layernorm": "not_split",
+    "output_layer": "split_by_tp_rank_columns",
+    "self_attention.q_layernorm": "not_split",
+    "self_attention.k_layernorm": "not_split",
+    "router.weight.weight": "not_split",
+    "experts.weight1": "split_router_expert_weight1",
+    "experts.weight2": "split_router_expert_weight2",
+    "self_attention.linear_qkv_down_proj": "split_linear_qkv_down_proj",
+    "self_attention.linear_q_proj": "split_by_tp_rank_columns",
+    "self_attention.linear_kv_down_proj": "split_linear_kv_down_proj",
+    "self_attention.kv_layernorm": "not_split",
+    "self_attention.linear_q_up_proj": "split_linear_q_up_proj",
+    "self_attention.linear_kv_up_proj": "split_linear_kv_up_proj",
+    "router.expert_bias": "not_split",
+    "shared_experts.linear_fc1": "split_shared_experts",
+    "shared_experts.linear_fc2": "split_by_tp_rank_rows"
+}
 
 
 class GPTModel(nn.Cell):
@@ -233,44 +263,77 @@ class GPTModel(nn.Cell):
         logits = self.cast(logits.squeeze(0), mstype.float32)
         return logits
 
-    def load_weights(self, weights_path, weights, mf_hf_map, source_qkv_concat, layer_id=None):
+    def load_weights(self, weights_path, weight_utils):
         r"""
         The weight is processed in modules, and the weight is cut online and loaded.
 
         Args:
            weights_path: The path of weights.
-           weights: A dict for storing weight keys and values.
-           mf_hf_map: A dict for storing keys of huggingface keys and Mindformers keys.
-           source_qkv_concat: Whether to conduct qkv integration.
+           weight_utils: An instance of WeightsUtils.
 
-        Returns:
-           parameter_dict: A dict that stores the divided weight.
         """
-        parameter_dict = {}
-        if layer_id is not None:
-            layer_obj = self.decoder.layers[layer_id]
-        # output_layer & word_embeddings & final_norm
-        if layer_id is None:
-            deal_non_layers_weights(parameter_dict, self.config, weights_path, weights, mf_hf_map)
-        else:
-            # attention
-            deal_attention_weights(layer_obj, parameter_dict, self.config, weights_path, weights, mf_hf_map,
-                                   layer_id,
-                                   source_qkv_concat)
+        global_rank_id = get_rank()
 
-            # mlp
-            deal_mlp_weights(layer_obj, parameter_dict, self.config, weights_path, weights, mf_hf_map, layer_id,
-                             source_qkv_concat)
+        weights_not_load = []
 
-            # moe
-            if self.config.num_moe_experts:
-                deal_moe_weights(layer_obj, parameter_dict, self.config, weights_path, weights, mf_hf_map, layer_id)
+        all_weights_keys = set(weight_utils.mapping_dict.keys())
 
-            # mla
-            deal_mla_weights(layer_obj, parameter_dict, self.config, weights_path, weights, mf_hf_map, layer_id)
+        # Weights of Transformer Layers
+        enable_tqdm = global_rank_id == 0
+        pbar = tqdm(range(self.config.num_layers), desc="Weight loading", disable=not enable_tqdm)
+        for layer_id in pbar:
+            weight_utils.parameter_dict = {}
+            layer_prefixes = (f'model.layers.{layer_id}.', f'decoder.layers.{layer_id}.')
+            layer_keys = []
+            for k in all_weights_keys:
+                for prefix in layer_prefixes:
+                    if k.startswith(prefix):
+                        layer_keys.append(k)
+                        break
+            self._deal_weight_dict(weight_utils, layer_keys, weights_path)
+            _, weight_not_load = ms.load_param_into_net(self.decoder.layers[layer_id], weight_utils.parameter_dict)
+            if weight_not_load is not None:
+                weights_not_load.extend(weight_not_load)
+            gc.collect()
+            pbar.set_postfix({"current_layer": layer_id})
 
-            # layer_norm
-            deal_layer_norm_weights(layer_obj, parameter_dict, self.config, weights_path, weights, mf_hf_map,
-                                    layer_id)
+        # # Weights of word_embaddings, output_layer, final_layernorm
+        out_layer_keys = all_weights_keys - weight_utils.processed_weights_keys
+        if out_layer_keys:
+            weight_utils.parameter_dict = {}
+            self._deal_weight_dict(weight_utils, out_layer_keys, weights_path)
+            _, weight_not_load = ms.load_param_into_net(self, weight_utils.parameter_dict)
+            if weight_not_load is not None:
+                weights_not_load.extend(weight_not_load)
+            gc.collect()
 
-        return parameter_dict
+        net_not_load = all_weights_keys - weight_utils.processed_weights_keys
+        if net_not_load is not None:
+            net_not_load = [weight_utils.mapping_dict[key] for key in net_not_load]
+            logger.warning(f'These parameters are not loaded in the network: {net_not_load}')
+        if weights_not_load is not None:
+            logger.warning(f'These parameters are not loaded in the weights: {weights_not_load}')
+
+    def _deal_weight_dict(self, weight_utils, keys, weights_path):
+        """Processes and converts weight dictionary from source format to target model format.
+        Args:
+            weight_utils: Helper class instance containing weight conversion methods.
+            keys: Source weight keys/names to be processed.
+            weights_path (str): Path to the source weights file.
+
+        """
+        for weight_name in keys:
+            if weight_name not in weight_utils.processed_weights_keys:
+                net_name = weight_utils.mapping_dict.get(weight_name)[0]
+                matched_keys = [k for k in _convert_map if k in net_name]
+                matched_key = max(matched_keys, key=len) if matched_keys else None
+                if matched_key:
+                    src_keys = [
+                        key
+                        for key in weight_utils.mapping_dict
+                        if weight_utils.mapping_dict[key][0] == net_name
+                    ]
+                    files = [weight_utils.mapping_dict[key][1] for key in src_keys]
+                    src_keys_dict = dict(zip(src_keys, files))
+                    getattr(weight_utils, _convert_map[matched_key])(src_keys_dict, net_name, weights_path, self.config)
+                    weight_utils.processed_weights_keys.update(src_keys)
