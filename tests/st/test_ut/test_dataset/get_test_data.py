@@ -224,35 +224,6 @@ def get_json_data(data_path, data_num: int = 1):
 
 
 # pylint: disable=W0703
-def get_agnews_data(data_path, data_num: int = 1):
-    """get agnews data"""
-    data = ["\"1\"", "\"华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。\"",
-            "\"An increasing sequence: one, two, three, five, six, seven, nine, 10, 11, 12, 13.\""]
-
-    data_path = os.path.join(data_path, "agnews")
-
-    retry = True
-    count = 0
-    success_sig = False
-    while retry:
-        try:
-            count += 1
-            with open(data_path, "w", encoding="utf-8") as w:
-                w.write("\n".join([",".join(data)] * data_num))
-            retry = False
-            success_sig = True
-        except BaseException as e:
-            if os.path.exists(data_path):
-                os.remove(data_path)
-            print(f"agnews data initialize failed, due to \"{e}\".")
-            if count >= 3:
-                retry = False
-
-    if not success_sig:
-        raise RuntimeError(f"agnews data initialize failed for {count} times.")
-
-
-# pylint: disable=W0703
 def get_alpaca_data(data_path, data_num: int = 1):
     """get alpaca data"""
     train_path = os.path.join(data_path, "train.json")

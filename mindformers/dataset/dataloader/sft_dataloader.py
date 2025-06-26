@@ -56,8 +56,8 @@ class SFTDataLoader:
             dataset_dir (str): The directory path to parquet text with hdfs.
             column_names(list): Column names contained in the created dataset.
             tokenizer(Union[str, dict, Callable]): Tokenizer configuration.
-            dataset_name (str): Dataset name. Currently, ["alpaca, "advertisegen", "cola", "imdb", "sst-2", "ag-news",
-                "tnews", "squad", "cmrc2018", "ag-news", "multi-round-chat"] is supported. If this parameter is set to
+            dataset_name (str): Dataset name. Currently, ["alpaca, "advertisegen",
+                "tnews", "cmrc2018", "multi-round-chat"] is supported. If this parameter is set to
                 "multi-round-chat", the data of multiple rounds of dialogs is processed.
             file_format (str): Retrieves the end character of the desired file name.
             max_length(int): Maximum length of a token.
@@ -111,8 +111,8 @@ class SFTDataSet:
         dataset_dir (str): The directory path to parquet text with hdfs.
         column_names(list): Column names contained in the created dataset.
         tokenizer(Union[str, dict, Callable]): Tokenizer configuration.
-        dataset_name (str): Dataset name. Currently, ["alpaca, "advertisegen", "cola", "imdb", "sst-2", "ag-news",
-            "tnews", "squad", "cmrc2018", "ag-news"] is supported.
+        dataset_name (str): Dataset name. Currently, ["alpaca, "advertisegen",
+            "tnews", "cmrc2018"] is supported.
         file_format (str): Retrieves the end character of the desired file name.
         max_length(int): Maximum length of a token.
         read_function (Callable): User-defined functions for reading data.
