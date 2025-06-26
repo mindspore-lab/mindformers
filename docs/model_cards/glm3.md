@@ -232,8 +232,6 @@ The result of multiplication calculation is correct, MindSpore has been installe
 
 并且没有报错，则说明成功安装了环境。
 
-我们已提供预配置的[Docker镜像](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)（筛选MIndSpore结果），可根据实际需求进行下载和使用。
-
 ### 微调报错：Sync stream Failed、exec graph xxx failed
 
 这类报错较为宽泛，可以打开昇腾host日志进一步定位。

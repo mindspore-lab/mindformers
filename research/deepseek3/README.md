@@ -75,9 +75,9 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
 DeepSeek-V3所依赖的版本配套如下：
 
-| MindSpore Transformers |                 MindSpore                 |                                                                           CANN                                                                           |                                                                           固件与驱动                                                                           | 镜像链接 |
-|:-----------:|:-----------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------:|:----:|
-|    1.5.0    | [2.6.0](https://www.mindspore.cn/install) | [8.1.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [25.0.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | 即将发布 |
+| MindSpore Transformers |                 MindSpore                 |                                                                           CANN                                                                           |                                                                           固件与驱动                                                                           |
+|:-----------:|:-----------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------:|
+|    1.5.0    | [2.6.0](https://www.mindspore.cn/install) | [8.1.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [25.0.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) |
 
 环境的详细安装指南参考[环境安装指南](../../README_CN.md#源码编译安装)。
 
@@ -155,7 +155,7 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
 
 3. 构建Megatron BIN数据集模块
 
-   执行如下命令构建Megatron BIN数据集模块。如使用提供的镜像请跳过此操作。
+   执行如下命令构建Megatron BIN数据集模块。
 
    ```shell
    pip install pybind11
