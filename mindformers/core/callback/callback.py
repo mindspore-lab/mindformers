@@ -2392,7 +2392,7 @@ class StressTestModelMonitor(Callback):
     Args:
         interval_steps (int, optional): Number of steps after which to check the model.
         stress_model_dir (str, optional): The directory where the model ymal file is stored.
-        stress_dataset_dir (str optional): The directory where the stress test dataset is stored.
+        stress_dataset_dir (str): The directory where the stress test dataset is stored.
         compare_interval_steps (int, optional): Number of interval steps where the stress test result is compared.
         stress_master_port (int, optional): The master port of stress test.
         stress_test_log_dir (str optional): The directory where the stress test training log is stored.
@@ -2418,23 +2418,31 @@ class StressTestModelMonitor(Callback):
             self.model_dir = "configs/llama2/pretrain_llama2_7b_stress_test.yaml"
         self.dataset_dir = stress_dataset_dir
         self.stress_master_port = stress_master_port
+        self.main_master_port = int(os.getenv("MS_SCHED_PORT"))
+        logger.info(f"The main model is using master port {self.main_master_port}")
         if not isinstance(self.stress_master_port, int) or self.stress_master_port < 1:
-            logger.warning(f"For StressTestMonitor, stress_master_port must be an integer greater than or equal \
-                           to 1, but got {self.stress_master_port}. Setting to default value 8338")
+            logger.warning(f"For StressTestMonitor, stress_master_port must be an integer greater than or equal "
+                           f"to 1, but got {self.stress_master_port}. Setting to default value 8338")
             self.stress_master_port = 8338
-        self.worker_num = int(os.getenv("MS_WORKER_NUM"))
+        if self.stress_master_port == self.main_master_port:
+            logger.warning(f"For StressTestMonitor, stress_master_port must be different from the main task "
+                           f"but both got {self.stress_master_port}. Setting to {self.stress_master_port+1}")
+            self.stress_master_port += 1
+            logger.warning(f"Make sure that the new port {self.stress_master_port} is unoccupied.")
+        self.worker_num = ms.communication.get_local_rank_size()
+        logger.info(f"Local worker number for each stress test is {self.worker_num}.")
         self.compare_interval_steps = compare_interval_steps
         if not isinstance(self.compare_interval_steps, int) or self.compare_interval_steps < 1:
-            logger.warning(f"For StressTestMonitor, compare_interval_steps must be an integer greater than or equal \
-                           to 1, but got {self.compare_interval_steps}.")
-            logger.warning(f"Skipping interval steps comparison, only the last step result will be compared. \
-                            compare_interval_steps is set to None")
+            logger.warning(f"For StressTestMonitor, compare_interval_steps must be an integer greater than or equal"
+                           f" to 1, but got {self.compare_interval_steps}.")
+            logger.warning(f"Skipping interval steps comparison, only the last step result will be compared."
+                           f" compare_interval_steps is set to None")
             self.compare_interval_steps = None
         self.stress_test_log_dir = stress_test_log_dir
         self.check_stresslog_interval_time = check_stresslog_interval_time
         if not isinstance(self.check_stresslog_interval_time, int) or self.check_stresslog_interval_time < 1:
-            logger.warning(f"For StressTestMonitor, check_stresslog_interval_time must be an integer greater than or \
-                           equal to 1, but got {self.check_stresslog_interval_time}. Setting to default value 60")
+            logger.warning(f"For StressTestMonitor, check_stresslog_interval_time must be an integer greater than or "
+                           f"equal to 1, but got {self.check_stresslog_interval_time}. Setting to default value 60")
             self.check_stresslog_interval_time = 60
 
     def on_train_step_end(self, run_context):
@@ -2453,8 +2461,8 @@ class StressTestModelMonitor(Callback):
         logger.info(f"Stress test model directory is: '{self.model_dir}'")
         logger.info(f"Check stress test logs at {self.stress_test_log_dir} for details.")
         if not self.dataset_dir or not os.path.exists(self.dataset_dir):
-            logger.error(f"dataset_dir: {self.dataset_dir} was not found for StressTestModelMonitor, \
-                           Exiting Stress test.")
+            logger.error(f"dataset_dir: {self.dataset_dir} was not found for StressTestModelMonitor, "
+                         f"Exiting Stress test.")
             return
         num_cores = os.cpu_count()
         cpu_cores = f"0-{num_cores - 1}"
@@ -2495,8 +2503,8 @@ class StressTestModelMonitor(Callback):
 
         # If compare_interval_steps is None, only compare the last step result, and check for its validity.
         if not self.compare_interval_steps:
-            logger.warning("For StressTestMonitor, compare_interval_steps is set to None, \
-                           so only the last step result is compared.")
+            logger.warning("For StressTestMonitor, compare_interval_steps is set to None, "
+                           "so only the last step result is compared.")
         else:
             interval_results = None
             logger.info(f"Test results are compared every {self.compare_interval_steps} steps")
@@ -2511,12 +2519,13 @@ class StressTestModelMonitor(Callback):
 
             # Check if the compare_interval_steps is larger than the total steps in the stress test task
             if interval_results is None:
-                logger.warning(f"compare_interval_steps {self.compare_interval_steps} is larger than the total number \
-                               of steps {subtask_global_step_num}, so only the last step result is compared.")
+                logger.warning(f"compare_interval_steps {self.compare_interval_steps} is larger than the total number"
+                               f" of steps {subtask_global_step_num}, so only the last step result is compared.")
             else:
                 gathered_interval_results, _ = all_gather_into_tensor(interval_results)
                 gathered_interval_results = gathered_interval_results.asnumpy()
                 logger.info("Stress tests interval results collected, now starting to compare interval results")
+                logger.debug(f"Collected interval results are {gathered_interval_results}")
                 _ = self.compare_gathered_results(gathered_interval_results)
 
         # Now compare the results from the last step, this is executed regardless of compare_interval_steps setting
@@ -2532,18 +2541,19 @@ class StressTestModelMonitor(Callback):
 
         gathered_results, _ = all_gather_into_tensor(last_step_results) # <class 'mindspore.common.tensor.Tensor'>
         gathered_results = gathered_results.asnumpy()   # <class 'numpy.ndarray'>
+        logger.debug(f"Collected last step results are gathered_results.")
         logger.info("Last step results are collected from each rank, now starting to compare last step results")
 
         rank0_result = gathered_results[0]
         comparison = np.all(gathered_results == rank0_result, axis=1)
         if np.all(comparison):
-            logger.info(f"STRESS TEST PASSED. ALL Results aligned at step {current_step}: \
-                        [loss, global_norm] = {rank0_result}")
+            logger.info(f"STRESS TEST PASSED. ALL Results aligned at step {current_step}: "
+                        f"[loss, global_norm] = {rank0_result}")
         else:
             unmatched_rank = np.where(~comparison)[0]  # Indices of rows that do not match
             discrepancies = gathered_results[unmatched_rank]  # Get the discrepancies
-            logger.warning(f"STRESS TEST FAILED at step {current_step}. Discrepancies found at rank: \
-                           {unmatched_rank}, values: {discrepancies}.")
+            logger.warning(f"STRESS TEST FAILED at step {current_step}. Discrepancies found at rank: "
+                           f"{unmatched_rank}, values: {discrepancies}.")
 
         logger.info(f"On Step {current_step}: Stress test ended! Resume training of the main model.")
         return
@@ -2618,8 +2628,8 @@ class StressTestModelMonitor(Callback):
             loss_global_pairs = [(val[0], val[1]) for val in values]
             # Check if all pairs are consistent
             if all(pair == loss_global_pairs[0] for pair in loss_global_pairs):
-                logger.info(f"Results consistent for epoch {epoch_step[0]}, step {epoch_step[1]}: \
-                            (loss, global_norm) = {loss_global_pairs[0]}")
+                logger.info(f"Results consistent for epoch {epoch_step[0]}, step {epoch_step[1]}: "
+                            f"(loss, global_norm) = {loss_global_pairs[0]}")
             else:
                 consistent = False
                 discrepancies[epoch_step] = []
@@ -2636,8 +2646,8 @@ class StressTestModelMonitor(Callback):
         for epoch_step, disc_values in discrepancies.items():
             indices = [val[0] for val in disc_values]
             value_pairs = [val[1] for val in disc_values]
-            logger.warning(f"STRESS TEST FAILED. DISCREPANCIES found in epoch {epoch_step[0]}, \
-                           step {epoch_step[1]}: ranks {indices}, (loss, global_norm) = {value_pairs}")
+            logger.warning(f"STRESS TEST FAILED. DISCREPANCIES found in epoch {epoch_step[0]}, "
+                           f"step {epoch_step[1]}: ranks {indices}, (loss, global_norm) = {value_pairs}")
         logger.warning(f"Check the workers log of the problematic rank for detailed results")
         return False
 
