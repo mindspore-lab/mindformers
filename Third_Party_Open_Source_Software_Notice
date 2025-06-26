@@ -4786,6 +4786,52 @@ Copyright (c) 2017 Laurent LAPORTE
 License: MIT License
 Please see above.
 
+Software: pybind11 2.13.6
+Copyright notice:
+Copyright (c) 2008, 2009 Gael Guennebaud, <g.gael@free.fr>
+Copyright (c) 2016 Trent Houliston <trent@houliston.me> and Wenzel Jakob <wenzel.jakob@epfl.ch> All rights reserved
+Copyright (c) 2017 Borja Zarco
+Copyright (c) 2018 Hudson River Trading LLC <opensource@hudson-trading.com>
+Copyright (c) 2016 Ivan Smirnov <i.s.smirnov@gmail.com>
+Copyright (c) 2024 The Pybind Development Team
+Copyright 2020 Jan Tojnar https://github.com/jtojnar/cmake-snips
+Copyright (c) 2009 Benoit Jacob <jacob.benoit.1@gmail.com>
+(c) William Swanson, Paul Fultz
+Copyright (c) 2016 Klemens D. Morgenstern
+Copyright (c) 2016 Sergey Lyskov
+Copyright (c) 2016 Jason Rhinelander <jason@imaginary.ca>
+Copyright (c) 2017 Jason Rhinelander <jason@imaginary.ca>
+Copyright (c) 2016 Pim Schellart <P.Schellart@princeton.edu>
+Copyright (c) 2016 Sergey Lyskov and Wenzel Jakob
+Copyright (c) 2024 The pybind Community
+Copyright (c) 2016 Ben North <ben@redfrontdoor.org>
+Copyright (c) Google LLC
+Copyright (c) 2019 Google Inc.
+Copyright 2001-2009 Kitware, Inc.
+Copyright (c) 2017 Henry F. Schreiner
+Copyright (c) 2021 The Pybind Development Team. All rights reserved
+Copyright (c) 2006, 2007 Montel Laurent, <montel@kde.org>
+Copyright (c) 2019 Google LLC
+Copyright (c) 2022 Google LLC
+Copyright (c) 2016-2024 The Pybind Development Team. All rights reserved
+Copyright (c) 2023 Dustin Spicuzza <dustin@virtualroadside.com>
+Copyright (c) 2016 Klemens Morgenstern <klemens.morgenstern@ed-chemnitz.de> and Wenzel Jakob <wenzel.jakob@epfl.ch> All rights reserved
+Copyright (c) 2017 Wenzel Jakob <wenzel.jakob@epfl.ch>
+Copyright (c) 2016 Ivan Smirnov
+Copyright (c) 2019 Roland Dreier <roland.dreier@gmail.com>
+Copyright (c) 2015 Wenzel Jakob <wenzel@inf.ethz.ch>
+Copyright (c) 2016 Wenzel Jakob <wenzel.jakob@epfl.ch> , All rights reserved
+Copyright (c) 2023 The pybind Community
+Copyright (c) 2021 The Pybind Development Team
+Copyright (c) 2016 Wenzel Jakob <wenzel.jakob@epfl.ch>
+Copyright (c) 2021 Laramie Leavitt
+Copyright 2012 Continuum Analytics, Inc.
+Copyright (c) 2020 Wenzel Jakob <wenzel.jakob@epfl.ch>
+Copyright (c) 2020 Wenzel Jakob <wenzel@inf.ethz.ch> and Henry Schreiner
+
+License: BSD 3-Clause License
+Please see above.
+
 Software: transformers 4.51.3
 Copyright notice:
 Copyright 2022 Microsoft Research and The HuggingFace Inc. team. All rights reserved
