@@ -771,7 +771,7 @@ class PretrainedConfig(PushToHubMixin):
     def _dict_from_json_file(cls, json_file: Union[str, os.PathLike]):
         if not os.path.exists(json_file):
             raise ValueError(
-                f"{json_file} should be a .json file."
+                f"{json_file} does not exist. Please check files in given path."
             )
         with open(json_file, "r", encoding="utf-8") as reader:
             text = reader.read()

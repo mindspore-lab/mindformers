@@ -126,7 +126,7 @@ class Qwen3Config(PretrainedConfig):
             The dropout ratio for the attention probabilities.
     """
 
-    model_type = "Qwen3"
+    model_type = "qwen3"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     # Default tensor parallel plan for base model `Qwen3`
@@ -146,7 +146,14 @@ class Qwen3Config(PretrainedConfig):
     }
 
     @register_mf_model_parameter(
-        mf_model_kwargs=MFModelConfig())
+        mf_model_kwargs=MFModelConfig(
+            pad_token_id=151643,
+            block_size=32,
+            num_blocks=1024,
+            normalization='RMSNorm',
+            add_bias_linear=False,
+            gated_linear_unit=True
+        ))
     @ignore_and_delete_parameter(extra_ignore_param=[
         ('max_window_layers', NotSupportedInfo.useless),
         ('sliding_window', NotSupportedInfo.useless),

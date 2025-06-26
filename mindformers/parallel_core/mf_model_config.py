@@ -130,6 +130,18 @@ class MFModelConfig:
     Note: This affects tensor memory layout but not mathematical equivalence.
     """
 
+    normalization: str = "LayerNorm"
+    """Which norm to use for normalization layers, valid options are `LayerNorm` and `RMSNorm`."""
+
+    add_bias_linear: bool = True
+    """
+    Include a bias term in all linear layers
+    (QKV projections, after core attention, and two in MLP layer).
+    """
+
+    gated_linear_unit: bool = False
+    """Use a gated linear unit for the first linear layer in the MLP."""
+
     ################################################################
     # Flash Attention Configuration Items for MindSpore Transformers
     ################################################################

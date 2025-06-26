@@ -78,17 +78,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     This improves numerical stability.
     """
 
-    add_bias_linear: bool = True
-    """
-    Include a bias term in all linear layers
-    (QKV projections, after core attention, and two in MLP layer).
-    """
-
     add_qkv_bias: bool = False
     """Add a bias term only for QKV projections."""
-
-    gated_linear_unit: bool = False
-    """Use a gated linear unit for the first linear layer in the MLP."""
 
     activation_func: str = "gelu"
     """Activation function to use for the non-linearity in the MLP."""
@@ -104,9 +95,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     True is rotate pairs of even and odd dimensions (RoFormer style),
     False is rotate pairs of first half and second half (LLaMa style). Default to False.
     """
-
-    normalization: str = "LayerNorm"
-    """Which norm to use for normalization layers, valid options are `LayerNorm` and `RMSNorm`."""
 
     qk_layernorm: bool = False
     """Whether to apply `normalization` type of normalization to the query and key embeddings."""

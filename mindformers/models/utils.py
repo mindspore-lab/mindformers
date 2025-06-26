@@ -143,7 +143,7 @@ def dict_from_json_file(json_file: Union[str, os.PathLike]):
     """method to read json."""
     if not os.path.exists(json_file):
         raise ValueError(
-            f"{json_file} should be a .json file."
+            f"{json_file} does not exist. Please check files in given path."
         )
     json_file = os.path.realpath(json_file)
     with open(json_file, "r", encoding="utf-8") as reader:
