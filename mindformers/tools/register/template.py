@@ -711,10 +711,9 @@ class ConfigTemplate:
         new_config = {}
         for sub_config in template:
             class_ = CONFIG_NAME_TO_CLASS[sub_config]
-            sub_config_content = config.pop(sub_config, {})
-            if sub_config == "moe_config":
-                sub_config_content['is_legacy'] = cls.use_legacy
-            new_config[sub_config] = class_.apply(sub_config_content)
+            if sub_config == "moe_config" and not cls.use_legacy:
+                continue
+            new_config[sub_config] = class_.apply(config.pop(sub_config, None))
 
         unused_config = [key for key in config.keys()]
         if unused_config:
