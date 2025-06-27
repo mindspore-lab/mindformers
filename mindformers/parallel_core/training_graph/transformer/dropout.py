@@ -18,7 +18,7 @@ __all__ = ['Dropout']
 import mindspore as ms
 from mindspore import nn
 import mindspore.common.dtype as mstype
-from mindspore.common.generator import default_generator
+from mindspore.common.generator import Generator
 from mindspore.common.tensor import Tensor
 
 
@@ -35,7 +35,7 @@ class Dropout(nn.Cell):
         self.p = drop_prob
         self.use_dropout = drop_prob != 0
         self.generator_step = Tensor(1, mstype.int64)
-        self.seed, self.offset = default_generator._step(self.generator_step)  # pylint: disable=protected-access
+        self.seed, self.offset = Generator()._step(self.generator_step)  # pylint: disable=protected-access
         self.dropout = ms.ops.auto_generate.DropoutExt().add_prim_attr("side_effect_hidden", True)
 
     def construct(self, x):
@@ -44,7 +44,6 @@ class Dropout(nn.Cell):
                x: a tensor
            Returns: a tensor
         """
-        # Currently, ms.ops.auto_generate.DropoutExt() does not support pipeline parallel. Set drop_prob = 0 to avoid.
         if not self.training or not self.use_dropout:
             return x
 
