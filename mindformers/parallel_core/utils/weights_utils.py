@@ -501,7 +501,7 @@ def get_safetensor_from_file(config, param_name, weights_path, weight, mf_hf_map
     np_dim = len(np_data.shape)
     if param_name.split('.')[-2] == 'linear_qkv':
         return deal_qkv(np_data, config)
-    if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] == 'mlp':
+    if param_name.split('.')[-2] == 'linear_fc1' and param_name.split('.')[-3] != 'experts':
         return deal_ffn(np_data)
     if np_dim == 1:
         return split_weight_by_rank(np_data, split_axis).reshape(-1)

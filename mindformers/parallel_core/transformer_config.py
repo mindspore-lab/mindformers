@@ -96,9 +96,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     False is rotate pairs of first half and second half (LLaMa style). Default to False.
     """
 
-    qk_layernorm: bool = False
-    """Whether to apply `normalization` type of normalization to the query and key embeddings."""
-
     calculate_per_token_loss: bool = False
     """
     Whether cross entropy loss is calculated over the actual number of non-padded tokens in the
@@ -306,13 +303,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     Data type for routing and expert output weighted averaging.
     Using fp32 or fp64 can improve stability especially when the number of experts is large (e.g. finegrained-moe).
     None means no changes for dtype.
-    """
-
-    moe_router_enable_expert_bias: bool = False
-    """
-    TopK routing with dynamic per-expert bias in the aux-loss-free load balancing strategy.
-    The routing decision is based on the sum of the routing scores and the expert bias.
-    See https://arxiv.org/abs/2408.15664 for details.
     """
 
     moe_router_bias_update_rate: float = 1e-3
@@ -596,7 +586,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if isinstance(self.rope_scaling, dict):
             self.position_embedding_type = self.rope_scaling.pop("type")
             self.rotary_scaling_factor = self.rope_scaling.pop("factor")
-            self.rope_scaling.pop("original_max_position_embeddings", None)
+            self.max_position_embeddings = self.rope_scaling.pop("original_max_position_embeddings",
+                                                                 None) or self.seq_length
             for k, v in self.rope_scaling.items():
                 setattr(self, k, v)
             del self.rope_scaling

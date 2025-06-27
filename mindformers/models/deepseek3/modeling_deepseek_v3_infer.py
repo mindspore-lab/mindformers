@@ -98,7 +98,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         def get_input():
             cache_list = []
             for _ in range(self.config.num_hidden_layers):
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.compute_dtype))
             return mutable(cache_list)
 
         key_cache = get_input()
