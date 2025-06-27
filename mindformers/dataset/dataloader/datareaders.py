@@ -37,24 +37,6 @@ def cmrc2018_reader(path):
     return dict(prompts=prompts, answers=answers)
 
 
-def agnews_reader(path):
-    """Reading the AG-News dataset."""
-    path = os.path.realpath(path)
-    sentences = []
-    labels = []
-    with open(path, "r") as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            label, title, description = line.strip().split("\",\"")
-            sentence = title + ". " + description
-            label = label.strip("\"")
-            sentences.append(sentence.strip("\""))
-            labels.append(int(label) - 1)
-    return dict(sentence=sentences, label=labels)
-
-
 def wikitext_reader(path):
     """Reading wikitext datasets. Returns a list of many sentences."""
     path = os.path.realpath(path)
@@ -128,6 +110,5 @@ def wikitext_reader(path):
 
 _DATA_READER_MAP = {
     "cmrc2018": cmrc2018_reader,
-    "ag-news": agnews_reader,
     "wikitext": wikitext_reader,
 }

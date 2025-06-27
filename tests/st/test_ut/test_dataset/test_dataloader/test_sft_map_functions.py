@@ -24,10 +24,6 @@ from mindformers.dataset.dataloader.sft_map_functions import \
         default_map_fn,
         alpaca_map_fn,
         advertisegen_map_fn,
-        cola_map_fn,
-        imdb_map_fn,
-        sst2_map_fn,
-        agnwes_map_fn,
         tnews_map_fn,
         multi_round_chat_map_fn,
         multi_instruct_dyn_map_fn,
@@ -135,68 +131,6 @@ def test_advertisegen_map_fn():
     res = advertisegen_map_fn(example, tokenizer=tokenizer, max_length=15)
     assert res["input_ids"] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150, 0, 0, 0, 0]
     assert res["attention_mask"] == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-
-
-@pytest.mark.level1
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_cola_map_fn():
-    """
-    Feature: sft_map_functions.cola_map_fn
-    Description: test cola_map_fn function
-    Expectation: success
-    """
-    tmp_example = copy.deepcopy(example)
-    tmp_example.string = ["", "100", "", string]
-    res = cola_map_fn(tmp_example, tokenizer=tokenizer, max_length=15)
-    assert res["input_ids"] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150, 0, 0, 0, 0]
-    assert res["attention_mask"] == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-    assert res["labels"] == "100"
-
-
-@pytest.mark.level1
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_imdb_map_fn():
-    """
-    Feature: sft_map_functions.imdb_map_fn
-    Description: test imdb_map_fn function
-    Expectation: success
-    """
-    res = imdb_map_fn(example, tokenizer=tokenizer, max_length=15)
-    assert res["input_ids"] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150, 0, 0, 0, 0]
-    assert res["attention_mask"] == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-    assert res["labels"] == 0
-
-
-@pytest.mark.level1
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_sst2_map_fn():
-    """
-    Feature: sft_map_functions.sst2_map_fn
-    Description: test sst2_map_fn function
-    Expectation: success
-    """
-    res = sst2_map_fn(example, tokenizer=tokenizer, max_length=15)
-    assert res["input_ids"] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150, 0, 0, 0, 0]
-    assert res["attention_mask"] == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-    assert res["labels"] == "100"
-
-
-@pytest.mark.level1
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_agnwes_map_fn():
-    """
-    Feature: sft_map_functions.agnwes_map_fn
-    Description: test agnwes_map_fn function
-    Expectation: success
-    """
-    res = agnwes_map_fn(example, tokenizer=tokenizer, max_length=15)
-    assert res["input_ids"] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150, 0, 0, 0, 0]
-    assert res["attention_mask"] == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-    assert res["labels"] == "100"
 
 
 @pytest.mark.level1

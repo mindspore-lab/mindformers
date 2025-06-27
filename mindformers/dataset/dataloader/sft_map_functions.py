@@ -67,36 +67,6 @@ def advertisegen_map_fn(example, **kwargs):
     return dict(input_ids=result["input_ids"], attention_mask=result["attention_mask"])
 
 
-def cola_map_fn(example, **kwargs):
-    """Parsing the COLA dataset."""
-    tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
-    values = list(example.values())
-    result = _prepare_for_model(tokenizer, max_length, values[3])
-    return dict(input_ids=result["input_ids"], attention_mask=result["attention_mask"], labels=values[1])
-
-
-def imdb_map_fn(example, **kwargs):
-    """Parsing the IMDB dataset."""
-    tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
-    label = 1 if example.get("sentiment") == 'positive' else 0
-    result = _prepare_for_model(tokenizer, max_length, example.get("review"))
-    return dict(input_ids=result["input_ids"], attention_mask=result["attention_mask"], labels=label)
-
-
-def sst2_map_fn(example, **kwargs):
-    """Parsing the SST-2 dataset."""
-    tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
-    result = _prepare_for_model(tokenizer, max_length, example.get("sentence"))
-    return dict(input_ids=result["input_ids"], attention_mask=result["attention_mask"], labels=example.get("label"))
-
-
-def agnwes_map_fn(example, **kwargs):
-    """Parsing the AG-News dataset."""
-    tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
-    result = _prepare_for_model(tokenizer, max_length, example.get("sentence"))
-    return dict(input_ids=result["input_ids"], attention_mask=result["attention_mask"], labels=example.get("label"))
-
-
 def tnews_map_fn(example, **kwargs):
     """Parsing the TNEWS dataset."""
     tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
@@ -281,10 +251,6 @@ _SFT_MAP_FUNCTIONS = {
     "default": default_map_fn,
     "alpaca": alpaca_map_fn,
     "advertisegen": advertisegen_map_fn,
-    "cola": cola_map_fn,
-    "imdb": imdb_map_fn,
-    "sst-2": sst2_map_fn,
-    "ag-news": agnwes_map_fn,
     "tnews": tnews_map_fn,
     "multi-round-chat": multi_round_chat_map_fn,
     "multi-round-chat-dyn": multi_round_chat_dyn_map_fn,

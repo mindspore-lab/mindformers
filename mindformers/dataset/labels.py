@@ -226,26 +226,6 @@ cluener_labels = ["O", "B-address", "B-book", "B-company", "B-game", "B-governme
                   "S-company", "S-game", "S-government", "S-movie", "S-name", "S-organization",
                   "S-position", "S-scene"]
 
-"""labels of mnli"""
-mnli_labels = ["contradiction", "entailment", "neutral"]
-
-"""labels of cola"""
-cola_labels = ["unacceptable", "acceptable"]
-
-"""labels of sst2"""
-sst2_labels = ["negative", "positive"]
-
-"""labels of imdb"""
-imdb_labels = ["negative", "positive"]
-
-"""labels of ag news"""
-ag_news_labels = ["world", "sports", "business", "sci/tech"]
-
 # labels dict
 labels = {"imagenet": imagenet_labels,
-          "cluener": cluener_labels,
-          "mnli": mnli_labels,
-          "cola": cola_labels,
-          "sst2": sst2_labels,
-          "imdb": imdb_labels,
-          "ag_news": ag_news_labels}
+          "cluener": cluener_labels}
