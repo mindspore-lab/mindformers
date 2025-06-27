@@ -132,7 +132,7 @@ class ColumnParallelLinearRunner:
 
 def main():
     parser = argparse.ArgumentParser(description="Run ColumnParallelLinear test")
-    parser.add_argument("--input_size", type=int, default=64)
+    parser.add_argument("--input_size", type=int, default=32)
     parser.add_argument("--output_size", type=int, default=32)
     parser.add_argument("--bias", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--skip_bias_add", type=lambda x: x.lower() == "true", default=False)
