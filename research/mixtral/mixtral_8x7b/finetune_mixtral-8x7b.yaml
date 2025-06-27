@@ -100,11 +100,11 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 8 910A
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
-  expert_parallel: 8
+  data_parallel: 2
+  model_parallel: 4
+  expert_parallel: 2
   pipeline_stage: 2
-  use_seq_parallel: False
+  use_seq_parallel: True
   micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -136,7 +136,7 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
-  max_device_memory: "55GB"
+  max_device_memory: "58GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -164,7 +164,7 @@ model:
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
-    param_init_type: "float16"
+    param_init_type: "float32"
     use_past: False
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True

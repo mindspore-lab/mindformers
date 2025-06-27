@@ -102,11 +102,11 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 8 910A
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
-  expert_parallel: 8
+  data_parallel: 2
+  model_parallel: 4
+  expert_parallel: 2
   pipeline_stage: 2
-  use_seq_parallel: False
+  use_seq_parallel: True
   micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
