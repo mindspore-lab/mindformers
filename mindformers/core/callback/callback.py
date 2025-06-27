@@ -58,6 +58,7 @@ from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 
+from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import (
@@ -768,9 +769,10 @@ class TrainingStateMonitor(Callback):
                 # Because json cannot use number as key, so we convert it to string
                 self.abnormal_global_norms[str(global_step)] = [global_norm.item()]
                 if get_rank() == 0:
-                    if self.global_norm_record_path is None:
-                        raise ValueError("You should set the value for global_norm_record_path.")
                     parent_dirs = os.path.dirname(self.global_norm_record_path)
+                    if not self.global_norm_record_path.endswith(".json") or not parent_dirs:
+                        raise ValueError(f"You should set the value like './output/abnormal_global_norm.json' "
+                                         f"for global_norm_record_path, but got '{self.global_norm_record_path}'.")
                     if not os.path.exists(parent_dirs):
                         os.makedirs(parent_dirs)
                     with open(self.global_norm_record_path, 'w') as file:
@@ -831,7 +833,8 @@ class TrainingStateMonitor(Callback):
         self.print_struct = config.get('print_struct')
 
         self.check_for_global_norm = config.get('check_for_global_norm')
-        self.global_norm_record_path = config.get('global_norm_record_path')
+        self.global_norm_record_path = config.get('global_norm_record_path',
+                                                  os.path.join(get_output_root_path(), "abnormal_global_norm.json"))
         self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
         self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold')
         self.abnormal_global_norms: dict[str, list[float]] = {}
