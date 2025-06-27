@@ -545,7 +545,6 @@ class MonitorConfig(Config):
     throughput_baseline = None
     print_struct = False
     check_for_global_norm = False
-    global_norm_record_path = ""
     global_norm_spike_threshold = 3.0
     global_norm_spike_count_threshold = 10
 
