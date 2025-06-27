@@ -98,6 +98,9 @@ class PetModel(PreTrainedModel):
     def convert_map_dict(self, source_dict, **kwargs):
         return self.pet_model.convert_map_dict(source_dict, **kwargs)
 
+    def obtain_name_map(self, load_checkpoint_files):
+        return self.pet_model.obtain_name_map(load_checkpoint_files)
+
     def construct(self, *inputs, **kwargs):
         return self.pet_model(*inputs, **kwargs)
 
