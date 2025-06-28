@@ -740,7 +740,8 @@ class DeepseekV3MoE(Cell):
             self.routed_experts = ParallelMoEV2(ffn, self.config.hidden_size, self.moe_config)
         else:
             self.routed_experts = ExpertParallelMoE(ffn, self.config.hidden_size,
-                                                    self.moe_config, self.config.parallel_config.use_alltoall)
+                                                    self.moe_config, self.config.parallel_config.use_alltoall,
+                                                    self.config.compute_dtype)
 
         self.attn_reduce_scatter = config.parallel_config.attn_reduce_scatter
         self.attn_allgather = config.parallel_config.attn_allgather
