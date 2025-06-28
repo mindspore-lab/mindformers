@@ -132,7 +132,7 @@ class DeepseekV3Config(PretrainedConfig):
             The dropout ratio for the attention probabilities.
     """
 
-    model_type = "deepseekv3"
+    model_type = "deepseek_v3"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     # Use the decorators provided in MF to intercept unsupported and register MF custom parameters
