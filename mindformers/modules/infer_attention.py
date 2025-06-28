@@ -52,6 +52,7 @@ class InferRotaryEmbedding(Cell):
     def construct(self, query: Tensor, key: Tensor, freqs_cis, batch_valid_length):
         """Forward of rotary position embedding."""
         freqs_cos, freqs_sin, _ = freqs_cis
+        key = key.contiguous()
         return self.rotary_embedding_op(query, key, freqs_cos, freqs_sin, batch_valid_length)
 
     def shard(self, parallel_config):
