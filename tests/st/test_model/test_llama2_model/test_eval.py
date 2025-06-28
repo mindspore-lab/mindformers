@@ -46,6 +46,7 @@ class TestLlama2Eval:
         # In generate evaluate mode, model.model_config.max_decode_length is 1024
         model_config.seq_length = 1024
         model_config.max_decode_length = 1024
+        model_config.vocab_size = 200   # the size of mocked vocab is 200
         model = get_model(model_config)
 
         runner.set_eval(model, model_config)

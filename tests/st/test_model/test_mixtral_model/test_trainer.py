@@ -17,7 +17,6 @@ Test module for testing the mixtral interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_mixtral_model/test_trainer.py
 """
-import os
 import numpy as np
 import pytest
 
@@ -30,9 +29,11 @@ from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers import Trainer, TrainingArguments
 from mindformers.modules.transformer.moe import MoEConfig
 
+from tests.utils.model_tester import create_tokenizer
+
 ms.set_context(mode=0)
 
-root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+_, tokenizer_model_path = create_tokenizer()
 
 
 def generator_train():
@@ -74,7 +75,8 @@ class TestMixtralTrainerMethod:
                                aux_loss_factor=0.05,
                                routing_policy="TopkRouterV2",
                                enable_sdrop=True)
-        model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512, moe_config=moe_config)
+        model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512, moe_config=moe_config,
+                                   vocab_size=200)
         model = LlamaForCausalLM(model_config)
 
         self.task_trainer = Trainer(task='text_generation',
@@ -83,7 +85,7 @@ class TestMixtralTrainerMethod:
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset,
                                     tokenizer=LlamaTokenizer(
-                                        vocab_file=f"{root_path}/utils/llama2_tokenizer/tokenizer.model")
+                                        vocab_file=tokenizer_model_path)
                                     )
 
     @pytest.mark.run(order=1)

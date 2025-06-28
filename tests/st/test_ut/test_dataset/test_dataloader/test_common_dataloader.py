@@ -27,12 +27,11 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.dataloader.common_dataloader import CommonDataLoader
 from mindformers.dataset.dataloader.ms_ds_convertor import MSDatasetAdaptor
 
-from tests.utils.path_utils import get_target_file_path
+from tests.utils.model_tester import create_tokenizer
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
-llama2_tokenizer = get_target_file_path(
-    os.path.abspath(__file__), 5, "utils/llama2_tokenizer/tokenizer.model")
+_, llama2_tokenizer = create_tokenizer()
 config_dict = dict(
     data_loader=dict(
         type='CommonDataLoader',
