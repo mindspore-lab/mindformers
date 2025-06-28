@@ -526,7 +526,7 @@ def _model_postprocess_hf_to_ms(hf_layer_weights, has_mtp_layers=False):
     hf_final_norm = hf_layer_weights.pop(hf_final_norm_key)
     hf_lm_head = hf_layer_weights.pop(hf_lm_head_key)
 
-    ms_final_norm_key = "decoder.final_norm.weight"
+    ms_final_norm_key = "decoder.final_layernorm.weight"
     ms_lm_head_key = "output_layer.weight"
 
     postprocess_weight_dict = defaultdict()
