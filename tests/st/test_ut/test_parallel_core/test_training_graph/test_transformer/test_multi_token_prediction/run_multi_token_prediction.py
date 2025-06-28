@@ -24,7 +24,7 @@ from mindspore.communication import init
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionLayer, \
     MultiTokenPredictionLayerSubmodules, MultiTokenPredictionBlock, MultiTokenPredictionBlockSubmodules
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionMegatron, \
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, \
     SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import TransformerLayer, \
     TransformerLayerSubmodules
@@ -84,7 +84,7 @@ class MTPRunner:
             submodules=TransformerLayerSubmodules(
                 input_layernorm=RMSNorm,
                 self_attention=ModuleSpec(
-                    module=SelfAttentionMegatron,
+                    module=SelfAttention,
                     submodules=SelfAttentionSubmodules(
                         linear_qkv=ColumnParallelLinear,
                         core_attention=FlashAttention,

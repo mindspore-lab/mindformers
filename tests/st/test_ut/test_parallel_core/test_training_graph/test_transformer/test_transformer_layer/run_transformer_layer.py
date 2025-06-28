@@ -26,7 +26,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import TransformerLayer, \
     TransformerLayerSubmodules
 from mindformers.parallel_core.training_graph.transformer.norm import Norm
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionMegatron, \
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, \
     SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
@@ -41,7 +41,7 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 MODULE_MAP = {
     "IdentityOp": IdentityOp,
     "Norm": Norm,
-    "SelfAttention": SelfAttentionMegatron,
+    "SelfAttention": SelfAttention,
     "MLP": MLP,
 }
 

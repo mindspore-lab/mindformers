@@ -18,8 +18,8 @@ from typing import Optional, Union
 from mindformers.parallel_core.training_graph.base_models.gpt.moe_module_specs import get_moe_module_spec
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear, \
     LinearNoTP
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, SelfAttentionSubmodules, \
-    SelfAttentionMegatron
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionContiguous, SelfAttentionSubmodules, \
+    SelfAttention
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
@@ -136,7 +136,7 @@ def get_gpt_layer_local_spec(
         submodules=TransformerLayerSubmodules(
             input_layernorm=FusedNorm,
             self_attention=ModuleSpec(
-                module=SelfAttention if use_contiguous_weight_layout else SelfAttentionMegatron,
+                module=SelfAttentionContiguous if use_contiguous_weight_layout else SelfAttention,
                 submodules=SelfAttentionSubmodules(
                     linear_qkv=ColumnParallelLinear,
                     core_attention=FlashAttention,

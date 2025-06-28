@@ -451,8 +451,9 @@ class Attention(nn.Cell):
             self.linear_proj.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
 
 
-class SelfAttention(Attention):
-    """Self-attention layer class
+class SelfAttentionContiguous(Attention):
+    """
+    Self-attention layer class, uses contiguous layout: [Q_weights, K_weights, V_weights] for linear_qkv.
 
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
@@ -535,7 +536,7 @@ class SelfAttention(Attention):
         self.split_qkv.shard(((cp, dp, tp),))
 
 
-class SelfAttentionMegatron(Attention):
+class SelfAttention(Attention):
     """Self-attention layer class
 
     Self-attention layer takes input with size [s, b, h]
@@ -543,7 +544,7 @@ class SelfAttentionMegatron(Attention):
 
     Args:
         config (TransformerConfig): The config of the transformer model.
-        submodules (SelfAttentionSubmodules): The submodules used to construct the SelfAttentionMegatron layer,
+        submodules (SelfAttentionSubmodules): The submodules used to construct the SelfAttention layer,
             such as ColumnParallelLinear and RowParallelLinear for query and key-value projections.
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
