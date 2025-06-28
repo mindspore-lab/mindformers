@@ -1058,6 +1058,7 @@ class ExpertParallelMoE(nn.Cell):
             ffn (Cell): The FeedForward Module.
             hidden_size (int): The hidden size of each token.
             moe_config (MoEConfig): The configuration of MoE (Mixture of Expert).
+            compute_dtype(dtype.Number): The computation type of the layer.
         Inputs:
             - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
 
@@ -1069,8 +1070,10 @@ class ExpertParallelMoE(nn.Cell):
                  ffn,
                  hidden_size,
                  moe_config,
-                 use_alltoall):
+                 use_alltoall,
+                 compute_dtype):
         super(ExpertParallelMoE, self).__init__()
+        self.compute_dtype = compute_dtype
         self.hidden_size = hidden_size
         self.moe_config = moe_config
         self.expert_num = moe_config.expert_num
@@ -1087,7 +1090,8 @@ class ExpertParallelMoE(nn.Cell):
         self.moe_token_unpermute = MoeTokenUnpermute()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.fused_add_topk_div = FusedAddTopKDiv()
-        self.dummy_token = mint.zeros((1, self.hidden_size), dtype=mstype.bfloat16)
+        self.dummy_token = mint.zeros((1, self.hidden_size), dtype=self.compute_dtype)
+        self.fill_value = Tensor(0, self.compute_dtype)
 
         self.moe_tp_size = get_moe_tp_world_size()
         self.moe_ep_size = get_moe_ep_world_size()
@@ -1104,6 +1108,7 @@ class ExpertParallelMoE(nn.Cell):
         self.local_ep_num = self.expert_num // self.moe_ep_size
         self.ep_rank_index = get_rank() // self.moe_tp_size
         self.in_start_expert_idx = self.ep_rank_index * self.local_ep_num
+        self.group_list_index = Tensor([0,], mstype.int32)
 
         if self.moe_ep_size > 1 and not self.use_alltoall:
             bias_idx = [idx for idx in range(self.expert_num)]
@@ -1114,7 +1119,7 @@ class ExpertParallelMoE(nn.Cell):
         """moe feed forward with allgather."""
         local_expert_index = self.cast(expert_index, mstype.int32)
         expert_weight_mask = expert_index >= self.local_ep_num
-        expert_weight = ops.masked_fill(expert_weight, expert_weight_mask, 0)
+        expert_weight = ops.masked_fill(expert_weight, expert_weight_mask, self.fill_value)
 
         sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
@@ -1127,7 +1132,11 @@ class ExpertParallelMoE(nn.Cell):
                 expert_tokens_count_or_cumsum_flag=2,
                 expert_tokens_before_capacity_flag=True)
 
-        group_list = mint.split(group_list, self.local_ep_num)[0]
+        #Avoid the problem of poor performance of the split(int32) operator
+        group_list = group_list.reshape(self.moe_ep_size, -1)
+        group_list = mint.index_select(group_list, 0, self.group_list_index)
+        group_list = group_list.reshape(-1)
+
         group_list = self.cast(group_list, mstype.int64)
         expert_output = self.ffn(sorted_input_tensor, group_list)
         expert_output = mint.nan_to_num(expert_output, 0, 0, 0)
@@ -1177,7 +1186,6 @@ class ExpertParallelMoE(nn.Cell):
         yout = ops.AlltoAllV(block_size=self.hidden_size)(y.reshape(-1), recv_list, send_list)
         expert_output = yout.reshape((-1, self.hidden_size))
 
-        expert_weight = expert_weight.astype(input_tensor.dtype) # float32 -> bfloat16
         moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
                                               sorted_indices=unsort_map,
                                               probs=expert_weight,
@@ -1238,6 +1246,7 @@ class ExpertParallelMoE(nn.Cell):
                 0,
                 True,
                 self.moe_config.routed_scaling_factor)
+        expert_weight = expert_weight.astype(input_tensor.dtype)
 
         # AllGather
         if not self.use_alltoall:
