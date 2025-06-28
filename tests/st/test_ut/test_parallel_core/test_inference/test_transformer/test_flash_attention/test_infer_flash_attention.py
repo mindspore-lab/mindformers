@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """mcore Flash_Attn UT of inference"""
+import os
 import subprocess
 from pathlib import Path
 import numpy as np
@@ -182,6 +183,7 @@ class TestFlashAttention:
     )
     def test_single_card_configurations(self, model_args, data_keys, expect_error, tmp_path):
         """Test single card with various configurations."""
+        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
         self.run_test(
             model_args=model_args, expect_error=expect_error,
             data_keys=data_keys,
