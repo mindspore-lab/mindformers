@@ -161,13 +161,13 @@ class TransformerBlock(nn.Cell):
             self.layers.append(layer)
 
         if self.post_layer_norm:
-            self.final_norm = build_module(self.submodules.layer_norm,
-                                           config=config,
-                                           dim=config.hidden_size,
-                                           eps=config.layernorm_epsilon,
-                                           param_init_type=config.layernorm_compute_dtype)
+            self.final_layernorm = build_module(self.submodules.layer_norm,
+                                                config=config,
+                                                dim=config.hidden_size,
+                                                eps=config.layernorm_epsilon,
+                                                param_init_type=config.layernorm_compute_dtype)
         else:
-            self.final_norm = None
+            self.final_layernorm = None
 
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
@@ -205,7 +205,7 @@ class TransformerBlock(nn.Cell):
 
         # final layernorm.
         if self.post_layer_norm:
-            hidden_states = self.final_norm(hidden_states)
+            hidden_states = self.final_layernorm(hidden_states)
 
         if self.compute_2d and not self.config.multi_latent_attention:
             hidden_states = self.reshape_back(hidden_states, (bs, seq_len, -1))
@@ -220,8 +220,8 @@ class TransformerBlock(nn.Cell):
         if self.post_layer_norm:
             if config.sequence_parallel and cp == 1:
                 if config.multi_latent_attention:
-                    self.final_norm.shard(config, in_strategy=(tp, dp, 1))
+                    self.final_layernorm.shard(config, in_strategy=(tp, dp, 1))
                 else:
-                    self.final_norm.shard(config, in_strategy=(dp * cp, 1))
+                    self.final_layernorm.shard(config, in_strategy=(dp * cp, 1))
             else:
-                self.final_norm.shard(config, in_strategy=(cp, dp, 1))
+                self.final_layernorm.shard(config, in_strategy=(cp, dp, 1))
