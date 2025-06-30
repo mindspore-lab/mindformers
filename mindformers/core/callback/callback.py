@@ -1497,6 +1497,22 @@ class CheckpointMonitor(ModelCheckpoint):
             self.meta_json = re.sub(r'rank_\d+', f'rank_{rank}', self.meta_json)
             self.record_last_ckpt_to_json(append_dict["epoch_num"], cur_step_in_epoch, os.path.basename(cur_file))
 
+    def _check_if_skip_trainable_params(self, value):
+        """
+        Checks if a trainable parameter should be skipped based on execution mode and parameter properties.
+        """
+        is_graph_mode = context.get_context('mode') == context.GRAPH_MODE
+        in_auto_parallel = ms.get_auto_parallel_context("parallel_mode") in [
+            ms.ParallelMode.SEMI_AUTO_PARALLEL,
+            ms.ParallelMode.AUTO_PARALLEL,
+        ]
+        skip_for_parallel = is_graph_mode and in_auto_parallel and ((not value.sliced) or value.has_init)
+
+        cur_param_info = value.param_info
+        is_pipeline_shared = getattr(cur_param_info, 'is_pipeline_shared_param', False)
+
+        return skip_for_parallel or is_pipeline_shared
+
     def remove_redundancy(self, network, cur_file, append_dict, train_network):
         """remove redundancy when saving checkpoint files."""
         if self._config.remove_redundancy:
@@ -1570,9 +1586,9 @@ class CheckpointMonitor(ModelCheckpoint):
                 param_dict[param.name] = param
             param_list = []
             for (key, value) in param_dict.items():
-                cur_param_info = value.param_info
-                if hasattr(cur_param_info, 'is_pipeline_shared_param') and cur_param_info.is_pipeline_shared_param:
+                if self._check_if_skip_trainable_params(value):
                     continue
+
                 each_param = {"name": key}
                 param_data = Tensor(value.data.asnumpy())
 
