@@ -17,10 +17,6 @@ from .pipeline import pipeline
 from .build_pipeline import build_pipeline
 from .base_pipeline import Pipeline
 from .multi_modal_to_text_generation_pipeline import MultiModalToTextPipeline
-from .translation_pipeline import TranslationPipeline
-from .fill_mask_pipeline import FillMaskPipeline
-from .text_classification_pipeline import TextClassificationPipeline
-from .token_classification_pipeline import TokenClassificationPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 
 __all__ = ['pipeline']

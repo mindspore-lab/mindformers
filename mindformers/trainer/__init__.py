@@ -27,12 +27,8 @@ from .config_args import (
     RunnerConfig,
     WrapperConfig
 )
-from .masked_language_modeling import MaskedLanguageModelingTrainer
 from .general_task_trainer import GeneralTaskTrainer
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
-from .translation import TranslationTrainer
-from .text_classfication import TextClassificationTrainer
-from .question_answering import QuestionAnsweringTrainer
 from .causal_language_modeling import CausalLanguageModelingTrainer
 from .trainer import Trainer
 from .training_args import TrainingArguments

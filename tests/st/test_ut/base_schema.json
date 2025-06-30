@@ -6746,21 +6746,6 @@
     "mindformers.pipeline.pipeline": {
         "signature": "(task: str = None, model: Union[NoneType, Tuple[str, str], mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model, str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, backend: Optional[str] = 'ms', **kwargs: Any)"
     },
-    "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline": {
-        "signature": "(model, tokenizer=None, **kwargs)"
-    },
-    "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline.preprocess": {
-        "signature": "(self, inputs, **preprocess_params)"
-    },
-    "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline._forward": {
-        "signature": "(self, model_inputs, **forward_params)"
-    },
-    "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
     "mindformers.pipeline.multi_modal_to_text_generation_pipeline.MultiModalToTextPipeline": {
         "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], processor: Optional[mindformers.models.multi_modal.base_multi_modal_processor.BaseXModalToTextProcessor] = None, **kwargs)"
     },
@@ -6774,27 +6759,6 @@
         "signature": "(self, model_inputs: dict, **forward_params)"
     },
     "mindformers.pipeline.multi_modal_to_text_generation_pipeline.MultiModalToTextPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline": {
-        "signature": "(model, tokenizer=None, **kwargs)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline.inputs_process": {
-        "signature": "(self, inputs_zero, inputs_one)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline.preprocess": {
-        "signature": "(self, inputs, **preprocess_params)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline._forward": {
-        "signature": "(self, model_inputs, **forward_params)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline.softmax": {
-        "signature": "(self, outputs)"
-    },
-    "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline.postprocess": {
         "signature": "(self, model_outputs, **postprocess_params)"
     },
     "mindformers.pipeline.text_generation_pipeline.TextGenerationPipeline": {
@@ -6813,39 +6777,6 @@
         "signature": "(self, model_inputs: dict, **forward_params)"
     },
     "mindformers.pipeline.text_generation_pipeline.TextGenerationPipeline.postprocess": {
-        "signature": "(self, model_outputs: dict, **postprocess_params)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline": {
-        "signature": "(model, id2label, tokenizer=None, **kwargs)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline.preprocess": {
-        "signature": "(self, inputs, **preprocess_params)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline._forward": {
-        "signature": "(self, model_inputs, **forward_params)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
-    "mindformers.pipeline.token_classification_pipeline.TokenClassificationPipeline.get_entities_bios": {
-        "signature": "(self, seq)"
-    },
-    "mindformers.pipeline.translation_pipeline.TranslationPipeline": {
-        "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], tokenizer: Optional[mindformers.models.tokenization_utils.PreTrainedTokenizer] = None, **kwargs)"
-    },
-    "mindformers.pipeline.translation_pipeline.TranslationPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.translation_pipeline.TranslationPipeline.preprocess": {
-        "signature": "(self, inputs: Union[dict, mindspore.common.tensor.Tensor, str], **preprocess_params)"
-    },
-    "mindformers.pipeline.translation_pipeline.TranslationPipeline._forward": {
-        "signature": "(self, model_inputs: dict, **forward_params)"
-    },
-    "mindformers.pipeline.translation_pipeline.TranslationPipeline.postprocess": {
         "signature": "(self, model_outputs: dict, **postprocess_params)"
     },
     "mindformers.tools.MindFormerConfig": {
@@ -7315,18 +7246,6 @@
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer.predict": {
         "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
-    },
-    "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer": {
-        "signature": "(model_name: str = None)"
-    },
-    "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.train": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, **kwargs)"
-    },
-    "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.evaluate": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
-    },
-    "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.predict": {
-        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, **kwargs)"
     },
     "mindformers.trainer.trainer.Trainer": {
         "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"

@@ -14,44 +14,20 @@
 # limitations under the License.
 
 """Constant Declaration of Pipeline Registry"""
-from mindformers.models.auto import AutoModel
-from mindformers.models.auto.modeling_auto import (
-    AutoModelForCausalLM,
-    AutoModelForSequenceClassification)
+from mindformers.models.auto.modeling_auto import AutoModelForCausalLM
 
-from .fill_mask_pipeline import FillMaskPipeline
 from .pipeline_registry import PipelineRegistry
-from .text_classification_pipeline import TextClassificationPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 
 TASK_ALIASES = {
-    "text_classification": "text-classification",
-    "sentiment_analysis": "text-classification",
-    "ner": "token-classification",
-    "fill_mask": "fill-mask",
     "image_classification": "image-classification",
     "masked_image_modeling": "masked-image-modeling",
-    "question_answering": "question-answering",
     "text_generation": "text-generation",
-    "token_classification": "token-classification",
     "zero_shot_image_classification": "zero-shot-image-classification",
 }
 
 # default model repo need to be filled.
 SUPPORTED_TASKS = {
-    # fill mask model
-    "fill-mask": {
-        "impl": FillMaskPipeline,
-        "ms": (AutoModel,),
-        "default": {"model": {"ms": ()}},
-        "type": "text",
-    },
-    "text-classification": {
-        "impl": TextClassificationPipeline,
-        "ms": (AutoModelForSequenceClassification,),
-        "default": {"model": {"ms": ()}},
-        "type": "text",
-    },
     "text-generation": {
         "impl": TextGenerationPipeline,
         "ms": (AutoModelForCausalLM,),
