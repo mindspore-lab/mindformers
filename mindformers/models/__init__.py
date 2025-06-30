@@ -102,9 +102,6 @@ from .utils import (
 
 __all__ = ['PreTrainedTokenizer', 'PreTrainedTokenizerFast']
 __all__.extend(auto.__all__)
-__all__.extend(deepseek3.__all__)
-__all__.extend(qwen3.__all__)
-__all__.extend(qwen3_moe.__all__)
 __all__.extend(glm2.__all__)
 __all__.extend(llama.__all__)
 __all__.extend(multi_modal.__all__)

@@ -42,10 +42,7 @@ from mindspore import (
     save_checkpoint,
     Tensor,
     get_auto_parallel_context,
-    set_auto_parallel_context,
-    sdc_detect_start,
-    sdc_detect_stop,
-    get_sdc_detect_result
+    set_auto_parallel_context
 )
 from mindspore.train.callback import SummaryCollector
 from mindspore.train.callback._checkpoint import CheckpointManager
@@ -2714,9 +2711,9 @@ class SDCMonitor(Callback):
 
         npu_asd_enable = int(os.getenv('NPU_ASD_ENABLE', '0'))
         ms_sdc_detect_enable = int(os.getenv('MS_SDC_DETECT_ENABLE', '0'))
-        if npu_asd_enable != 1 or ms_sdc_detect_enable != 1:
-            raise ValueError("SDCMonitor only works when environment variable 'NPU_ASD_ENABLE' and "
-                             "'MS_SDC_DETECT_ENABLE' are set to 1.")
+        if npu_asd_enable != 1 or ms_sdc_detect_enable != 1 or not is_version_ge(ms.__version__, '2.7.0'):
+            raise ValueError("SDCMonitor needs mindspore >= 2.7.0, and only works when environment variable "
+                             "'NPU_ASD_ENABLE' and 'MS_SDC_DETECT_ENABLE' are set to 1.")
 
         self.initial_step = initial_step
         self.step_interval = step_interval
@@ -2813,16 +2810,16 @@ class SDCMonitor(Callback):
         if self.checksum_enable:
             logger.info(f"Start CheckSum at step: {step}")
             self.prev_checksum_time = datetime.now()
-            sdc_detect_start()
+            ms.sdc_detect_start()
 
     def _stop_checksum(self, step):
         """Stop CheckSum and aggregate SDC detection result."""
         logger.warning(f"Stop CheckSum at step: {step}")
-        sdc_detect_stop()
+        ms.sdc_detect_stop()
         self.checksum_enable = False
         now = datetime.now()
         self.prev_checksum_time = now
-        has_sdc = get_sdc_detect_result()
+        has_sdc = ms.get_sdc_detect_result()
         if has_sdc:
             logger.warning(f"CheckSum detects SDC on rank {get_real_rank()}")
         # set context to skip pp validation during global AllReduce
