@@ -276,10 +276,10 @@ def tokenize_qa(tokenizer, file_path, seq_length):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_type', type=str, default='wiki')
-    parser.add_argument('--input_glob', type=str, default='/mnt/luolan/wikitext-2/wiki.train.tokens')
+    parser.add_argument('--input_glob', type=str, default='path/wikitext-2/wiki.train.tokens')
     parser.add_argument('--output_file', type=str, default='./dataset/wiki2048/wiki2048')
     parser.add_argument('--tokenizer', type=str, default='llama', choices=['llama'])
-    parser.add_argument('--model_file', type=str, default='/mnt/luolan/llama/tokenizer.model')
+    parser.add_argument('--model_file', type=str, default='path/tokenizer.model')
     parser.add_argument('--file_partition', type=int, default=1)
     parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--samples_num', type=int, default=10000)

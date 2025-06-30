@@ -27,9 +27,12 @@ from mindformers.trainer import build_trainer
 from mindformers.pipeline import build_pipeline
 from mindformers.wrapper import build_wrapper
 
+from tests.utils.model_tester import create_tokenizer
+
 
 path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+_, tokenizer_model_path = create_tokenizer()
 yaml_path = os.path.join(path, 'st', 'test_auto_register', 'test_auto_register.yaml')
 register_path = os.path.join(path, 'st', 'test_auto_register', 'register_path')
 os.environ["REGISTER_PATH"] = register_path
@@ -60,8 +63,7 @@ def test_build_from_config_for_auto_register():
     runner_wrapper = build_wrapper(test_config.runner_wrapper)
     assert isinstance(runner_wrapper, object), "instance runner_wrapper failed"
 
-    root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-    test_config.processor.tokenizer.vocab_file = f"{root_path}/utils/llama2_tokenizer/tokenizer.model"
+    test_config.processor.tokenizer.vocab_file = tokenizer_model_path
     processor = build_processor(test_config.processor)
     assert isinstance(processor, object), "instance processor failed"
 
