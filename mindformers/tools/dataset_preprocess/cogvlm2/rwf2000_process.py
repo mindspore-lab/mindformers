@@ -62,7 +62,7 @@ def convert_rwf2000_json(dataset_dir, output_file, video_pos_tag=None):
         target_file = line['videos'][0]
         question = line['query']
         answer = line['response']
-        if len(target_file) > 70:
+        if len(os.path.basename(target_file)) > 30:
             continue
         if 'val' in target_file:
             continue
@@ -80,6 +80,8 @@ def convert_rwf2000_json(dataset_dir, output_file, video_pos_tag=None):
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     with os.fdopen(os.open(output_file, flags_, 0o750), 'w', encoding='utf-8') as f:
         json.dump(generate_data, f, indent=2, ensure_ascii=False)
+    print(f"\rConvert RWF-2000 dataset finished, the json file is saved in '{output_file}'.",
+          flush=True)
 
 
 if __name__ == '__main__':

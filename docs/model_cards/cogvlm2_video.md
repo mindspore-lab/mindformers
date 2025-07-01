@@ -34,7 +34,8 @@ CogVLM2 是智谱开发的多模态理解系列大模型，该系列中包含了
        ├── cogvlm2_config.py         # 模型配置项
        ├── cogvlm2_llm.py            # cogvlm2 语言模型实现
        ├── cogvlm2_processor.py      # cogvlm2 数据预处理
-       └── cogvlm2_tokenizer.py      # cogvlm2 tokenizer
+       ├── cogvlm2_tokenizer.py      # cogvlm2 tokenizer
+       └── convert_weight.py         # 权重转换脚本
    ```
 
 2. 模型配置：
@@ -49,7 +50,7 @@ CogVLM2 是智谱开发的多模态理解系列大模型，该系列中包含了
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ### 数据及权重准备
 
