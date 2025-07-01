@@ -22,7 +22,7 @@ mindformers.core.LearningRateWiseLayer
     其中 :math:`T_{cur}` 是自学习率上次重置以来完成的epoch数量， :math:`T_{max}` 是下一次重置前的总epoch数。 :math:`\eta_{\text{end}}` 代表训练结束时的最小学习率。
 
     参数：
-        - **base_lr** (:class:`mindspore.nn.learning_rate_schedule.LearningRateSchedule`) - 基准学习率调度器。
+        - **base_lr** (:class:`mindspore.nn.LearningRateSchedule`) - 基准学习率调度器。
         - **lr_scale** (float) - 学习率缩放值。
 
     输入：

@@ -1155,7 +1155,7 @@ class CheckpointMonitor(ModelCheckpoint):
             by hidden_size * vocab_size. Default: ``4096``.
         use_checkpoint_health_monitor (bool, optional): Whether to use the checkpoint health
             monitor function by embedding norm. Default: ``False``.
-        embedding_local_norm_threshold (Float, optional): The threshold of the embedding norm. Default: ``1.0``.
+        embedding_local_norm_threshold (float, optional): The threshold of the embedding norm. Default: ``1.0``.
         health_ckpts_record_dir (str, optional): The path of the file which is used to record the health of checkpoint.
             Default: ``./output``.
 

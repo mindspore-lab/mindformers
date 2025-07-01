@@ -15,6 +15,7 @@
 """MindFormers Core."""
 from .lr import (
     ConstantWarmUpLR,
+    ConstantWithCoolDownLR,
     CosineAnnealingLR,
     CosineAnnealingWarmRestarts,
     CosineWithRestartsAndWarmUpLR,
@@ -22,6 +23,7 @@ from .lr import (
     LearningRateWiseLayer,
     LinearWithWarmUpLR,
     PolynomialWithWarmUpLR,
+    WarmUpStableDecayLR,
     build_lr
 )
 from .loss import (

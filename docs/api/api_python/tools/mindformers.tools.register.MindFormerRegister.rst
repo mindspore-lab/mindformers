@@ -69,7 +69,7 @@ mindformers.tools.register.MindFormerRegister
         返回：
             一个布尔值，表示是否存在。
 
-    .. py:method:: register(module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True)
+    .. py:method:: register(module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True, search_names=None)
         :classmethod:
 
         将类注册至注册字典中的装饰器。
@@ -78,11 +78,12 @@ mindformers.tools.register.MindFormerRegister
             - **module_type** (MindFormerModuleType, 可选) - MindFormers的模块类型名。默认值： ``MindFormerModuleType.TOOLS`` 。
             - **alias** (str, 可选) - 类的别名。默认值： ``None`` 。
             - **legacy** (bool, 可选) - 是否使用旧类。默认值： ``True`` 。
+            - **search_names** (Union[str, tuple, list, set], 可选) - 类名的搜索名。默认值： ``None`` 。
 
         返回：
             包装函数，对注册的类进行装饰。
 
-    .. py:method:: register_cls(register_class, module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True)
+    .. py:method:: register_cls(register_class, module_type=MindFormerModuleType.TOOLS, alias=None, legacy=True, search_names=None)
         :classmethod:
 
         将类注册至注册字典中的方法。
@@ -92,6 +93,7 @@ mindformers.tools.register.MindFormerRegister
             - **module_type** (MindFormerModuleType, 可选) - MindFormers的模块类型名。默认值： ``MindFormerModuleType.TOOLS`` 。
             - **alias** (str, 可选) - 类的别名。默认值： ``None`` 。
             - **legacy** (bool, 可选) - 是否使用旧类。默认值： ``True`` 。
+            - **search_names** (Union[str, tuple, list, set], 可选) - 类名的搜索名。默认值： ``None`` 。
 
         返回：
             类，被注册的类本身。
