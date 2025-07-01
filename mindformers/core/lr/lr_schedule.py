@@ -27,10 +27,9 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 
 __all__ = [
-    'LearningRateWiseLayer', 'ConstantWarmUpLR',
-    'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
-    'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR',
-    'CosineAnnealingLR', 'CosineAnnealingWarmRestarts', 'WarmUpStableDecayLR']
+    'LearningRateWiseLayer', 'ConstantWarmUpLR', 'ConstantWithCoolDownLR', 'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
+    'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR', 'CosineAnnealingLR', 'CosineAnnealingWarmRestarts',
+    'WarmUpStableDecayLR']
 
 
 def _get_lr_steps(steps: int, ratio: float, total_steps: int, phase_tag: str):

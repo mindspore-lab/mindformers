@@ -744,7 +744,7 @@ class GenerationMixin:
         e.g. `.generate(inputs, top_k=3, do_sample=True)`.
 
         Args:
-            input_ids (List(str), List(List(str))): The token id list or a batch of token id list.
+            input_ids (List[str], List[List[str]]): The token id list or a batch of token id list.
                 When input a batch of token id list, the length of each token id list should be same.
             generation_config (`GenerationConfig`, optional): The generation configuration to be used as
                 base parametrization for the generation call.

@@ -27,8 +27,8 @@ mindformers.core.CheckpointMonitor
         - **remove_redundancy** (bool, 可选) - checkpoint保存时是否去除冗余。默认值： ``False`` 。
         - **embedding_size** (int, 可选) - 通过hidden_size * vocab_size来计算embedding norm的size。默认值： ``4096`` 。
         - **use_checkpoint_health_monitor** (bool, 可选) - 是否开启通过embedding norm来进行权重健康监测的功能。默认值： ``False`` 。
-        - **embedding_local_norm_threshold** (bool, 可选) - embedding norm的阈值。默认值： ``1.0`` 。
-        - **health_ckpts_record_dir** (bool, 可选) - 记录权重健康状态文件的保存地址。默认值： ``./output`` 。
+        - **embedding_local_norm_threshold** (float, 可选) - embedding norm的阈值。默认值： ``1.0`` 。
+        - **health_ckpts_record_dir** (str, 可选) - 记录权重健康状态文件的保存地址。默认值： ``./output`` 。
 
 
     异常：
