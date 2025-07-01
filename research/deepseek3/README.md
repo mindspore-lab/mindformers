@@ -95,29 +95,22 @@ DeepSeek-V3所依赖的版本配套如下：
 
 ### 推理权重准备
 
-用户可以从[魔乐社区](https://modelers.cn/models/MindSpore-Lab/DeepSeek-V3)下载权重进行推理，无需自己转换。
+用户可以从HuggingFace官方下载推理权重，`tokenizer.json`文件也在链接中下载。
 
-执行以下命令为自定义下载路径`./model_path`添加白名单：
+| 模型名称                         |                                     下载链接                                         |                           备注                          |
+|:-----------------------------|:---------------------------------------------------------------------------------------:|:------------------------------------------------------:|
+| deepseek-ai/DeepSeek-R1-0528      |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528)                    |                   推理使用                          |
+|deepseek-ai/DeepSeek-v3-0324| [link](https://huggingface.co/deepseek-ai/DeepSeek-V3-0324)|推理使用|
+
+下载的权重的数据类型是`float8`，需要转换成`bfloat16`使用，转换命令参考如下：
 
 ```shell
-export HUB_WHITE_LIST_PATHS=./model_path
+python research/deepseek3/fp8_cast_bf16.py \
+--input-fp8-hf-path path/to/hf_model_fp8_dir/ \
+--output-bf16-hf-path path/to/hf_model_bf16_dir/
 ```
 
-执行以下 Python 脚本从魔乐社区下载昇思 MindSpore 版本的 DeepSeek-V3 文件至指定路径`./model_path`。下载的文件包含模型代码、权重、分词模型和示例代码，占用约 1.4TB 的磁盘空间：
-
-```python
-from openmind_hub import snapshot_download
-
-snapshot_download(
-    repo_id="MindSpore-Lab/DeepSeek-V3",
-    local_dir="./model_path",
-    local_dir_use_symlink=False
-)
-```
-
-> 注意事项：
-> - `./model_path` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
-> - 下载时间可能因网络环境而异，建议在稳定的网络环境下操作。
+>`path/to/hf_model_bf16_dir/` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
 
 ## 预训练
 
@@ -486,7 +479,7 @@ cd $MINDFORMERS_HOME
 
 ### 权重准备
 
-权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。如果用户从Hugging Face直接下载模型权重，需要将权重转换为MindSpore的权重，执行以下命令转换：
+权重下载参考[推理权重准备](#推理权重准备)，从Hugging Face直接下载模型权重，需要将权重转换为MindSpore的权重，执行以下命令转换：
 
 ```bash
 python research/deepseek3/convert_weight.py \
