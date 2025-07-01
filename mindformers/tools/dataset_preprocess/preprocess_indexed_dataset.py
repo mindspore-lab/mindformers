@@ -24,8 +24,6 @@ except ImportError:
 # pylint: disable=W0611
 from mindformers.dataset.dataloader import indexed_dataset
 from mindformers.models import build_tokenizer
-from research.internlm.internlm_tokenizer import InternLMTokenizer
-from research.llama3.llama3_tokenizer import Llama3Tokenizer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir)))
@@ -229,6 +227,9 @@ def get_tokenizer_config(args):
         'add_bos_token': args.add_bos_token,
         'add_eos_token': args.add_eos_token,
     }
+    if args.tokenizer_type == 'AutoRegister':
+        tokenizer_config['type'] = args.auto_register.split('.')[-1]
+        tokenizer_config['auto_register'] = args.auto_register
     return tokenizer_config
 
 
@@ -253,8 +254,7 @@ def get_args():
 
     group = parser.add_argument_group(title='tokenizer')
     group.add_argument('--tokenizer-type', type=str, required=True,
-                       choices=['LlamaTokenizer', 'Llama3Tokenizer',
-                                'InternLMTokenizer', 'LlamaTokenizerFast'],
+                       choices=['LlamaTokenizer', 'LlamaTokenizerFast', 'AutoRegister'],
                        help='The tokenizer of the corresponding model.')
     group.add_argument('--vocab-file', type=str, default=None,
                        help='Path to the vocab file or tokenizer.model')
@@ -270,6 +270,12 @@ def get_args():
                        help='Append an <eod> token to the end of a document.')
     group.add_argument('--lang', type=str, default='english',
                        help='Language to use for NLTK-powered sentence splitting.')
+    group.add_argument('--register_path', type=str, default=None,
+                       help='the register path of outer tokenizer.')
+    group.add_argument('--auto_register', type=str, default=None,
+                       help='the import order of tokenizer according to register_path. '
+                            'For example, auto_register="qwen2_tokenizer.Qwen2Tokenizer" '
+                            'with register_path="research/qwen2".')
 
     group = parser.add_argument_group(title='output data')
     group.add_argument('--output-prefix', type=str, required=True,
@@ -292,6 +298,13 @@ def get_args():
                        help='Ensure ordering of samples in .jsonl files is preserved when using partitions>1.')
     args = parser.parse_args()
     args.keep_empty = False
+    if args.tokenizer_type == 'AutoRegister':
+        assert args.register_path is not None and args.auto_register is not None, \
+            'When args.tokenizer_type = "AutoRegister", register_path and auto_register should be set.'
+        os.environ["REGISTER_PATH"] = args.register_path
+        if args.register_path not in sys.path:
+            sys.path.append(args.register_path)
+        print(f'The tokenizer {args.auto_register} in the path {args.register_path} will be applied.')
 
     # some default/dummy values for the tokenizer
     args.rank = 1
