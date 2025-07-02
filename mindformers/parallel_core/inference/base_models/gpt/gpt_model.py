@@ -236,10 +236,10 @@ class GPTModel(nn.Cell):
         # Generate cos and sin for RoPE.
         if self.is_prefill:
             rotary_pos_cos, rotary_pos_sin = \
-                self.rotary_pos_emb.get_cos_sin_for_prefill(self.max_position_embeddings)
+                self.rotary_pos_emb.get_cos_sin_for_prefill()
         else:
             rotary_pos_cos, rotary_pos_sin = \
-                self.rotary_pos_emb.get_cos_sin_for_decode(positions, self.max_position_embeddings)
+                self.rotary_pos_emb.get_cos_sin_for_decode(positions)
 
         # Decoder embedding.
         decoder_input = self.cast(self.embedding(input_ids), self.compute_dtype)
