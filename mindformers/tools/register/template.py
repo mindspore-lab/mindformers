@@ -551,34 +551,6 @@ class MonitorConfig(Config):
     _name = "monitor_config"
 
 
-class GenerationConfig(Config):
-    "generation config"
-     # max generate length
-    max_length = 20
-    max_new_tokens = None
-    min_length = 0
-    min_new_tokens = None
-    num_beams = 1
-    do_sample = False
-    use_past = False
-    temperature = 1.0
-    top_k = 50
-    top_p = 1.0
-    repetition_penalty = 1.0
-    encoder_repetition_penalty = 1.0
-    renormalize_logits = False
-    return_dict_in_generate = False
-    output_scores = False
-    output_logits = False
-    pad_token_id = None
-    bos_token_id = None
-    eos_token_id = []
-    parallel_decoding = False
-    window_size = 5
-    level = 5
-    guess_set_size = 3
-
-
 CONFIG_NAME_TO_CLASS = {
     "general_config": GeneralConfig,
     "parallel_config": ParallelConfig,
@@ -601,8 +573,7 @@ CONFIG_NAME_TO_CLASS = {
     "metric": MetricConfig,
     "callbacks": CallbackConfig,
     "monitor_config": MonitorConfig,
-    "eval_callbacks": EvalCallbackConfig,
-    "generation": GenerationConfig
+    "eval_callbacks": EvalCallbackConfig
 }
 
 
@@ -654,8 +625,7 @@ class ConfigTemplate:
     ]
 
     predict_configs = [
-        "processor",
-        "generation"
+        "processor"
     ]
 
     eval_configs = [
