@@ -53,7 +53,14 @@ from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resu
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
-from mindformers.core.callback.callback import EvalCallBack, MFLossMonitor, TrainingStateMonitor, CheckpointMonitor, ColdHotExpertMonitor
+from mindformers.core.callback.callback import (
+    EvalCallBack,
+    MFLossMonitor,
+    TrainingStateMonitor,
+    CheckpointMonitor,
+    ColdHotExpertMonitor,
+    TopkBiasBalanceCallback
+)
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
@@ -77,7 +84,9 @@ SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_l
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer"]
-CALLBACK_HAS_SORT = [MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, CheckpointMonitor]
+CALLBACK_HAS_SORT = [
+    MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, TopkBiasBalanceCallback, CheckpointMonitor
+]
 
 
 class BaseTrainer:
