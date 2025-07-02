@@ -58,6 +58,7 @@ class MLARunner:
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
             tensor_model_parallel_size=self.args.tensor_parallel,
             compute_dtype=self.compute_dtype,
+            mscale=self.args.mscale,
             num_attention_heads=2,
             num_layers=1,
             max_position_embeddings=2,
@@ -152,10 +153,11 @@ def main():
     parser.add_argument("--use_flash_attn", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--q_layernorm", type=str, default="RMSNorm")
     parser.add_argument("--k_layernorm", type=str, default="RMSNorm")
+    parser.add_argument("--mscale", type=float, default=1.0)
     # Output and parallelism
     parser.add_argument("--output_path", type=str, default="output_mla_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
-    parser.add_argument("--test_name", type=str, default="q16_flash_ql_kl")
+    parser.add_argument("--test_name", type=str, default="q8_flash_ql_kl")
     args = parser.parse_args()
     args.q_lora_rank = None if args.q_lora_rank == 0 else args.q_lora_rank
 

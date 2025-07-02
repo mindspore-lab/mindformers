@@ -35,6 +35,7 @@ SINGLE_CARD_TEST_CASES = [
         #       'use_flash_attn': True,  # Use flash attention optimization
         #       'q_layernorm': 'RMSNorm', # Use RMSNorm for query layer normalization
         #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
+        #       'mscale': 1.0  # Setting mscale as 1.0
         #     }
         #   - golden_data_key: 'q8_flash_ql_kl' (reference output key)
         # Expected Output: Model output should match reference data stored under 'q8_flash_ql_kl'
@@ -42,7 +43,8 @@ SINGLE_CARD_TEST_CASES = [
             'q_lora_rank': 8,
             'use_flash_attn': True,
             'q_layernorm': 'RMSNorm',
-            'k_layernorm': 'RMSNorm'
+            'k_layernorm': 'RMSNorm',
+            'mscale': 1.0
         },
         'q8_flash_ql_kl'
     ),
@@ -54,6 +56,7 @@ SINGLE_CARD_TEST_CASES = [
         #       'use_flash_attn': True,  # Use flash attention optimization
         #       'q_layernorm': 'RMSNorm', # Use RMSNorm for query layer normalization
         #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
+        #       'mscale': 1.0  # Setting mscale as 1.0
         #     }
         #   - golden_data_key: 'q0_flash_ql_kl' (reference output key)
         # Expected Output: Model output should match reference data stored under 'q0_flash_ql_kl'
@@ -61,7 +64,8 @@ SINGLE_CARD_TEST_CASES = [
             'q_lora_rank': 0,
             'use_flash_attn': True,
             'q_layernorm': 'RMSNorm',
-            'k_layernorm': 'RMSNorm'
+            'k_layernorm': 'RMSNorm',
+            'mscale': 1.0
         },
         'q0_flash_ql_kl'
     ),
@@ -73,6 +77,7 @@ SINGLE_CARD_TEST_CASES = [
         #       'use_flash_attn': True,  # Use flash attention optimization
         #       'q_layernorm': None,     # Disable query layer normalization
         #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
+        #       'mscale': 1.0  # Setting mscale as 1.0
         #     }
         #   - golden_data_key: 'q8_flash_kl' (reference output key)
         # Expected Output: Model output should match reference data stored under 'q8_flash_kl'
@@ -80,9 +85,31 @@ SINGLE_CARD_TEST_CASES = [
             'q_lora_rank': 8,
             'use_flash_attn': True,
             'q_layernorm': None,
-            'k_layernorm': 'RMSNorm'
+            'k_layernorm': 'RMSNorm',
+            'mscale': 1.0
         },
         'q8_flash_kl'
+    ),
+    (
+        # case 4
+        # Input:
+        #   - model_args: {
+        #       'q_lora_rank': 8,        # Enable q_lora_rank with rank 8 for query projection
+        #       'use_flash_attn': True,  # Use flash attention optimization
+        #       'q_layernorm': 'RMSNorm',     # Disable query layer normalization
+        #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
+        #       'mscale': 0.707  # Setting mscale as 0.707
+        #     }
+        #   - golden_data_key: 'q8_flash_kl' (reference output key)
+        # Expected Output: Model output should match reference data stored under 'q8_flash_kl'
+        {
+            'q_lora_rank': 8,
+            'use_flash_attn': True,
+            'q_layernorm': 'RMSNorm',
+            'k_layernorm': 'RMSNorm',
+            'mscale': 0.707
+        },
+        'q8_flash_ql_kl_mscale'
     )
 ]
 
@@ -119,6 +146,7 @@ def build_msrun_command_list(
         f"--use_flash_attn={model_args['use_flash_attn']}",
         f"--q_layernorm={model_args['q_layernorm']}",
         f"--k_layernorm={model_args['k_layernorm']}",
+        f"--mscale={model_args['mscale']}",
         f"--output_path={output_path_param}",
         f"--tensor_parallel={tensor_parallel}",
         f"--test_name={test_name}"
