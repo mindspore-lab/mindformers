@@ -28,7 +28,6 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
       ├── deepseek2_config.py                       # DeepSeek-V2配置代码
       ├── deepseek3.py                              # DeepSeek-V3模型代码
       ├── deepseek3_model_infer.py                  # DeepSeek-V3推理代码
-      ├── deepseek3_model_train.py                  # DeepSeek-V3训练代码
       └── deepseek3_config.py                       # DeepSeek-V3配置代码
     ```
 
@@ -38,8 +37,6 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
      deepseek3/
       ├── parallel_speed_up.json                     # 数据集并行通信配置
       ├── deepseek3_671b/
-      |     ├── pretrain_deepseek3_671b.yaml         # 预训练任务配置
-      |     ├── finetune_deepseek3_671b.yaml         # 微调任务配置
       |     ├── predict_deepseek3_671b.yaml          # 推理任务配置
       |     └── predict_deepseek3_671b_w8a8.yaml     # 量化推理任务配置
       └── deepseek3_r1_671b/
@@ -47,24 +44,14 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
             └── predict_deepseek_r1_671b_w8a8.yaml   # 量化推理任务配置
     ```
 
-3. 数据集处理脚本：
+3. 权重转换脚本：
 
     ```text
     deepseek3/
-      ├── wikitext_to_bin.py                         # Wikitext数据预处理
-      ├── deepseek3_conversation.py                  # 微调chat_template实现
-      └── deepseek3_preprocess.py                    # Alpaca数据预处理
-    ```
-
-4. 权重转换脚本：
-
-    ```text
-    deepseek3/
-      ├── convert_reversed.py                         # MindSpore Safetensors权重转换为HuggingFace Safetensors权重
       └── convert_weight.py                           # HuggingFace Safetensors权重转换为MindSpore Safetensors权重
     ```
 
-5. 推理任务脚本：
+4. 推理任务脚本：
 
     ```text
     deepseek3/
@@ -82,16 +69,6 @@ DeepSeek-V3所依赖的版本配套如下：
 环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html)。
 
 ## 模型权重下载
-
-### 微调权重准备
-
-用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`tokenizer.json`文件也在链接中下载。
-
-| 模型名称                         |                                     下载链接                                         |                           备注                          |
-|:-----------------------------|:---------------------------------------------------------------------------------------:|:------------------------------------------------------:|
-| deepseek-ai/DeepSeek-V3      |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3)                    |                   对话模型，建议推理使用                          |
-| deepseek-ai/DeepSeek-V3-Base |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base)               |                   基座模型，建议微调使用                          |
-| DeepSeek-V3-Base_4layer      | [Link](https://modelers.cn/models/mindformers-club/weights/tree/main/deepseekv3_4layer) |         经过裁剪的基座模型仅用于流程体验，不具备推理能力            |
 
 ### 推理权重准备
 
@@ -111,343 +88,6 @@ python research/deepseek3/fp8_cast_bf16.py \
 ```
 
 >`path/to/hf_model_bf16_dir/` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
-
-## 预训练
-
-MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了一份[预训练配置文件](#模型文件)供参考，该配置基于128台Atlas 800T A2（64G），使用Wikitext-2数据集进行预训练。为了方便体验，本章节基于此配置进行修改，缩小了DeepSeek-V3模型参数量，使其能够在单台Atlas 800T A2（64G）上拉起预训练流程。
-
-> ### 🚨 注意：
->
-> 示例模型经过裁剪，仅用于预训练流程体验。其在示例场景下训练Loss能够收敛，但并行配置以及功能配置调整后不保证模型训练Loss可以正常收敛，并且按照示例流程训练完成后也不具备推理能力。
-
-### 数据集准备
-
-以Wikitext-2数据集为例，参考如下步骤将数据集处理成Megatron BIN格式文件。
-
-1. 下载数据集和分词模型文件
-
-   - 数据集下载：[WikiText2数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/feature_related.html)
-
-   - 分词模型下载：分词模型[tokenizer.json](https://huggingface.co/deepseek-ai/DeepSeek-V3/resolve/main/tokenizer.json?download=true)
-
-2. 生成Megatron BIN格式文件
-
-   将数据集文件`wiki.train.tokens`和分词模型文件`tokenizer.json`放置在`../dataset`下
-
-   使用以下命令将数据集文件转换为BIN格式文件。
-
-   ```shell
-   cd $MINDFORMERS_HOME
-   python research/deepseek3/wikitext_to_bin.py \
-   --input ../dataset/wiki.train.tokens \
-   --output-prefix ../dataset/wiki_4096 \
-   --vocab-file ../dataset/tokenizer.json \
-   --seq-length 4096 \
-   --workers 1
-   ```
-
-3. 构建Megatron BIN数据集模块
-
-   执行如下命令构建Megatron BIN数据集模块。
-
-   ```shell
-   pip install pybind11
-   cd $MINDFORMERS_HOME/mindformers/dataset/blended_datasets
-   make
-   ```
-
-### 修改配置
-
-修改预训练配置文件[pretrain_deepseek3_671b.yaml](#模型文件)，使其能够在单台Atlas 800T A2（64G）上运行，保存为`pretrain_deepseek3_1b.yaml`。以下仅列出修改项，其余配置与原文件保持一致。
-
-1. 修改模型配置
-
-   按照如下方式修改以缩小模型规模：
-
-   ```yaml
-   # model config
-   model:
-     model_config:
-       hidden_size: 2048                                 # 修改为2048
-       num_layers: &num_layers 3                         # 修改为3
-       num_heads: 8                                      # 修改为8
-       intermediate_size: 6144                           # 修改为6144
-       offset: 0                                         # 修改为0
-   ```
-
-2. 修改MoE配置
-
-   按照如下方式修改以缩小专家混合结构的规模：
-
-   ```yaml
-   #moe
-   moe_config:
-     expert_num: &expert_num 16                          # 修改为16
-     first_k_dense_replace: 1                            # 修改为1
-   ```
-
-3. 修改并行配置
-
-   缩小每种并行方式的切分数目，以适合在单台Atlas 800T A2（64G）上并行训练：
-
-   ```yaml
-   # parallel config for devices num=8
-   parallel_config:
-     data_parallel: &dp 2                                # 修改为2
-     model_parallel: 2                                   # 修改为2
-     pipeline_stage: 2                                   # 修改为2
-     expert_parallel: 2                                  # 修改为2
-     micro_batch_num: &micro_batch_num 4                 # 修改为4
-   # recompute config
-   recompute_config:
-     recompute: False                                    # 修改为False
-   ```
-
-4. 修改数据集配置
-
-   配置数据集BIN文件路径：
-
-   ```yaml
-   # dataset
-   train_dataset: &train_dataset
-     data_loader:
-       config:
-         data_path:
-           - "1"
-           - "../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
-   ```
-
-   配置数据集并行通信配置路径：
-
-   ```yaml
-   # mindspore context init config
-   context:
-     ascend_config:
-       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径，需要固件与驱动版本不低于24.1.RC3
-   ```
-
-> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/advanced_development/performance_optimization.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
-
-### 拉起任务
-
-进入DeepSeek-V3代码目录并执行以下命令拉起单台Atlas 800T A2（64G）预训练任务：
-
-预训练默认设置use_gmm=True, 须添加如下环境变量, 设置缓存队列的上限值为100，以避免host内存OOM。具体取值需要根据实际情况调整, 当host内存增长过快时，需要适当减小缓存上限值, 可以通过多次尝试来确定一个合适的值。
-
-```shell
-export MS_DEV_RUNTIME_CONF="aclnn_cache_queue_length:100"
-export ACLNN_CACHE_LIMIT=100
-```
-
-```shell
-cd $MINDFORMERS_HOME
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---config research/deepseek3/deepseek3_671b/pretrain_deepseek3_1b.yaml"
-```
-
-上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一个stage的日志（worker_4.log ~ worker_7.log，建议使用最后一张卡的日志）中，其余卡显示`loss`为`0`）
-
-```shell
-tail -f ./output/msrun_log/worker_7.log
-```
-
-训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
-
-### 扩展：多机训练
-
-如果服务器资源充足，可以参考如下方式拉起多台Atlas 800T A2（64G）训练。
-
-在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`1023`。
-
-```shell
-master_ip=192.168.1.1
-node_rank=0
-
-cd $MINDFORMERS_HOME
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---config research/deepseek3/deepseek3_671b/pretrain_deepseek3_671b.yaml" \
-1024 8 $master_ip 8118 $node_rank output/msrun_log False 7200
-```
-
-> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
-
-如有关于DeepSeek-V3预训练的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
-
-## 全参微调
-
-MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供了一份[微调配置文件](#模型文件)供参考，该配置基于128台Atlas 800T A2（64G），使用alpaca数据集进行全参微调。为了方便体验，本章节基于此配置进行修改，缩小了DeepSeek-V3模型参数量，使其能够在4台Atlas 800T A2（64G）上拉起微调流程。
-
-> ### 🚨 注意：
->
-> 示例模型经过裁剪，仅用于微调流程体验，在示例场景下训练Loss能够收敛，但并行配置以及功能配置调整后不保证模型训练Loss可以正常收敛，并且按照示例流程微调完成后也不具备推理能力。
-
-### 环境准备
-
-参考[预训练-环境准备章节](#环境准备)
-
-### 数据集准备
-
-以[Alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)为例，参考如下步骤将数据集处理成MindRecord格式文件。
-
-  执行`research/deepseek3/deepseek3_preprocess.py`文件，进行数据预处理和MindRecord数据生成。
-
-  ```shell
-  python research/deepseek3/deepseek3_preprocess.py \
-   --dataset_type 'qa' \
-   --input_glob /path/alpaca_data.json \
-   --tokenizer_file /path/tokenizer.json \
-   --seq_length 4096 \
-   --output_file /path/alpaca-messages.mindrecord
-  ```
-
-参数说明
-
-- dataset_type:     预处理的数据类型，目前仅支持'wiki'和'qa', 微调选择'qa'
-- input_glob:       Alpaca数据集原始文件路径
-- tokenizer_file:   tokenizer.json文件路径
-- seq_length:       输出数据的序列长度
-- output_file:      输出文件的保存路径
-
-### 模型权重准备
-
-权重下载参考[模型权重下载](#模型权重下载)，体验demo可以下载DeepSeek-V3-Base_4layer，可以跳过[模型权重转换](#模型权重转换)步骤。
-
-#### 模型权重转换
-
-下载完成后，运行`research/deepseek3/convert_weight.py`转换脚本，将HuggingFace Safetensors权重转换为完整的MindSpore Safetensors权重。
-
-```shell
-python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --use_grouped_gemm False --dtype bf16
-```
-
-参数说明：
-
-- model:              模型名称
-- torch_ckpt_path:    下载HuggingFace权重的文件夹路径
-- output_path:        转换后的MindSpore权重文件保存路径
-- use_grouped_gemm:   是否转换为Grouped MatMul权重，默认为True
-- dtype:              权重的数值类型，有'fp32'、'fp16'和'bf16'
-
-#### 模型权重切分与合并
-
-从Hugging Face或官方GitHub仓库转换而来的权重通常是单卡权重，使用该权重进行多卡微调，评测，推理之前需要将其转换为分布式权重。Safetensors格式权重只支持自动切分，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分。
-
-通常训练采用分布式训练，使用训练得到的权重进行评测、推理等任务时，如涉及分布式策略更改，需要对权重进行切分或合并。
-
-以上涉及到Safetensors格式权重的单卡，多卡转换，详细教程请参考特性文档[Safetensors权重](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/safetensors.html)
-
-### 修改配置
-
-修改微调配置文件[finetune_deepseek3_671b.yaml](#模型文件)，使其能够在4台Atlas 800T A2（64G）上运行，保存为`finetune_deepseek3_4layer.yaml`。此修改保留了模型的三种transformer_block层，分别为dense层、Moe层、MTP层。以下仅列出修改项，其余配置与原文件保持一致。
-
-1. 修改模型配置
-
-   ```yaml
-   # model config
-   model:
-     model_config:
-       num_layers: &num_layers 3                         # 修改为3
-       offset: 0                                         # 修改为0
-   ```
-
-2. 修改MoE配置
-
-   ```yaml
-   #moe
-   moe_config:
-     first_k_dense_replace: 1                            # 修改为1
-     use_gating_sigmoid: True
-   ```
-
-3. 修改并行配置
-
-   ```yaml
-   # parallel config for devices num=32
-   parallel_config:
-     data_parallel: &dp 4                                # 修改为4
-     model_parallel: 4                                   # 修改为4
-     pipeline_stage: 2                                   # 修改为2
-     micro_batch_num: &micro_batch_num 8                 # 修改为8
-   # parallel context config
-   parallel:
-     parallel_optimizer_config:
-       optimizer_weight_shard_size: 4                    # 修改为4
-   recompute_config:
-     recompute: False                                    # 修改为False
-   ```
-
-4. 修改数据集配置
-
-   配置数据集文件路径：
-
-   ```yaml
-   # dataset
-   train_dataset: &train_dataset
-     data_loader:
-       dataset_dir: "./dataset"                # 修改此项为数据集mindrecord文件路径
-   ```
-
-### 拉起任务
-
-进入mindformers根目录并执行以下命令拉起4台Atlas 800T A2（64G）微调任务：
-
-在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`3`。
-
-```shell
-master_ip=192.168.1.1
-node_rank=0
-export MS_DEV_RUNTIME_CONF="multi_stream:true"
-
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---load_checkpoint /path/checkpoint_path \
---load_ckpt_format safetensors \
---output_dir ./output \
---auto_trans_ckpt True \
---config research/deepseek3/deepseek3_671b/finetune_deepseek3_4layer.yaml \
---run_mode finetune" \
-32 8 $master_ip 8118 $node_rank output/msrun_log False 7200
-```
-
-> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
-> load_checkpoint修改为原始权重路径，output_dir修改为用户想要保存训练后权重的路径。
-> 如开启自动权重切分auto_trans_ckpt，load_checkpoint路径与output_dir路径需要是多机共享路径。
-> 该配置在通信并发下有带宽抢占引发的性能劣化，通过配置`MS_DEV_RUNTIME_CONF="multi_stream:true"`控制通信单流来规避该劣化。
-
-上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，在node_rank最后的机器使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一个stage的日志（worker_16.log ~ worker_31.log，建议使用最后一张卡的日志）中，其余卡显示`loss`为`0`）：
-
-```shell
-tail -f ./output/msrun_log/worker_31.log
-```
-
-训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
-
-### 扩展：完整模型微调
-
-完整模型需要128台机器，在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`127`。
-
-```shell
-master_ip=192.168.1.1
-node_rank=0
-
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---load_checkpoint /path/checkpoint_path \
---load_ckpt_format safetensors \
---output_dir ./output \
---auto_trans_ckpt True \
---config research/deepseek3/deepseek3_671b/finetune_deepseek3_671b.yaml \
---run_mode finetune" \
-1024 8 $master_ip 8118 $node_rank output/msrun_log False 7200
-```
-
-> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
-> load_checkpoint修改为原始权重路径，output_dir修改为用户想要保存训练后权重的路径。
-> 如开启自动权重切分auto_trans_ckpt，load_checkpoint路径与output_dir路径需要是多机共享路径。
-
-如有关于DeepSeek-V3微调的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
 
 ## 推理
 
