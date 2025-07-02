@@ -300,6 +300,9 @@ class FlashAttention(Cell):
     def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None,
                   actual_seq_qlen=None, actual_seq_kvlen=None):
         """Forward process of the AttentionMaskMF"""
+        query = query.contiguous()
+        key = key.contiguous()
+        value = value.contiguous()
         if self.input_layout in ["TH", "TND"]:
             _, _, _, output = self.flash_attention(query,
                                                    key,

@@ -68,6 +68,8 @@ class ParallelPagedAttentionMgr(nn.Cell):
 
     def construct(self, key, value, slot_mapping, _, key_cache=None, value_cache=None):
         """The forward compute of KVCache for Paged Attention."""
+        key = key.contiguous()
+        value = value.contiguous()
         if self.npu_mem_size == -1:
             return self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
         return self.reshape_and_cache(key, value, self.key_cache, self.value_cache, slot_mapping)
