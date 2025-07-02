@@ -494,7 +494,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     f'but got {self.moe_shared_expert_intermediate_size}. '
                     f'moe_shared_expert_intermediate_size ({self.moe_shared_expert_intermediate_size}) will be applied.'
                 )
-        else:
+        elif self.shared_expert_num > 0:
             self.moe_shared_expert_intermediate_size = self.moe_ffn_hidden_size * self.shared_expert_num
 
         if self.moe_expert_capacity_factor is not None:

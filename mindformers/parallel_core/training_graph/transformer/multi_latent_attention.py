@@ -15,10 +15,12 @@
 """Multi-head Latent Attention (MLA) mechanism with low-rank compression."""
 from dataclasses import dataclass
 from typing import Union
-import mindspore as ms
+import math
+
 from mindspore import nn, Tensor
 from mindspore.mint import unsqueeze
-from mindspore.ops import functional as F, cast
+from mindspore.ops.auto_generate import Cast, Shape, Reshape, Transpose, Tile, Concat, StridedSlice, SplitWithSize
+from mindspore.ops import functional as F
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.parallel.shard import Layout
@@ -27,6 +29,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
+    _yarn_get_mscale)
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
 
 
@@ -66,6 +70,7 @@ class MLASelfAttentionSubmodules:
 
 class MultiLatentAttention(nn.Cell):
     """Multi-head Latent Attention (MLA) with KV compression and rotary position encoding."""
+
     def __init__(
             self,
             config: MLATransformerConfig,
@@ -126,10 +131,14 @@ class MultiLatentAttention(nn.Cell):
             self.pad_zeros = initializer('zeros', shape=(1, 1, self.num_attention_heads, zero_pad_length),
                                          dtype=self.compute_dtype)
 
+        mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
+        self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
+
         self.core_attention = build_module(
             submodules.core_attention,
             config=self.config,
-            layer_number=self.layer_index
+            layer_number=self.layer_index,
+            softmax_scale=self.softmax_scale,
         )
 
         # Output.
@@ -141,19 +150,21 @@ class MultiLatentAttention(nn.Cell):
             init_method=self.config.output_layer_init_method,
             bias=self.config.add_bias_linear,
             skip_bias_add=True,
+            compute_dtype=self.config.compute_dtype
         )
 
         if self.cp_ds > 1:
             self._ulysses_initial()
-        self.shape = ms.ops.auto_generate.Shape()
-        self.reshape = ms.ops.auto_generate.Reshape()
-        self.bs_transpose = ms.ops.auto_generate.Transpose()
-        self.merge_head_transpose = ms.ops.auto_generate.Transpose()
-        self.tile = ms.ops.auto_generate.Tile()
-        self.value_concat = ms.ops.auto_generate.Concat(-1)
-        self.value_tnd_concat = ms.ops.auto_generate.Concat(-1)
-        self.dim_slice = ms.ops.auto_generate.StridedSlice()
-        self.dim_tnd_slice = ms.ops.auto_generate.StridedSlice()
+        self.shape = Shape()
+        self.reshape = Reshape()
+        self.bs_transpose = Transpose()
+        self.merge_head_transpose = Transpose()
+        self.tile = Tile()
+        self.value_concat = Concat(-1)
+        self.value_tnd_concat = Concat(-1)
+        self.dim_slice = StridedSlice()
+        self.dim_tnd_slice = StridedSlice()
+        self.cast = Cast()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation()
@@ -162,11 +173,11 @@ class MultiLatentAttention(nn.Cell):
 
     def _ulysses_initial(self):
         """Initialize ulysses related operations."""
-        self.transpose_back = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses = ms.ops.auto_generate.Transpose()
-        self.transpose_a2a = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses_merger_a2a = ms.ops.auto_generate.Transpose()
-        self.transpose_ulysses_merger = ms.ops.auto_generate.Transpose()
+        self.transpose_back = Transpose()
+        self.transpose_ulysses = Transpose()
+        self.transpose_a2a = Transpose()
+        self.transpose_ulysses_merger_a2a = Transpose()
+        self.transpose_ulysses_merger = Transpose()
 
         dp = self.dp
         tp = self.tp
@@ -230,9 +241,9 @@ class MultiLatentAttention(nn.Cell):
                 key = self._merge_heads(key)
                 value = self._merge_heads(value)
 
-        query = cast(query, self.compute_dtype)
-        key = cast(key, self.compute_dtype)
-        value = cast(value, self.compute_dtype)
+        query = self.cast(query, self.compute_dtype)
+        key = self.cast(key, self.compute_dtype)
+        value = self.cast(value, self.compute_dtype)
         if self.use_flash_attention:
             if self.use_zero_pad:
                 if self.input_layout == "TND":
@@ -271,7 +282,7 @@ class MultiLatentAttention(nn.Cell):
             attn_out = self.core_attention(query, key, value, attention_mask)
 
         output = self.linear_proj(attn_out)[0]  # dp, mp -> dp, 1 / dp * mp, 1
-        output = cast(output, ori_dtype)
+        output = self.cast(output, ori_dtype)
         return output
 
     def _merge_heads(self, x):
@@ -348,6 +359,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
     """
+
     def __init__(
             self,
             config: MLATransformerConfig,
@@ -366,13 +378,13 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         )
         self.use_tnd = config.input_layout == "TND"
         self.use_seq_parallel = config.sequence_parallel
-        self.split = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
-        self.tile_kv = ms.ops.auto_generate.Tile()
-        self.pe_concat = ms.ops.auto_generate.Concat(axis=3)
-        self.pe_tnd_concat = ms.ops.auto_generate.Concat(axis=3)
+        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.tile_kv = Tile()
+        self.pe_concat = Concat(axis=3)
+        self.pe_tnd_concat = Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
-        self.reshape = ms.ops.auto_generate.Reshape()
-        self.tnd_transpose = ms.ops.auto_generate.Transpose()
+        self.reshape = Reshape()
+        self.tnd_transpose = Transpose()
 
         if self.config.q_lora_rank is None:
             self.q_rank = self.config.num_attention_heads * self.q_head_dim
@@ -385,6 +397,8 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                     dim=self.config.q_lora_rank,
                     config=self.config,
                     eps=self.config.layernorm_epsilon,
+                    param_init_type=self.config.params_dtype,
+                    layernorm_compute_dtype=self.config.layernorm_compute_dtype,
                 )
             else:
                 self.q_layernorm = None
@@ -397,6 +411,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                 init_method=self.config.init_method,
                 bias=self.config.add_bias_linear or self.config.add_qkv_bias,
                 skip_bias_add=False,
+                compute_dtype=self.config.compute_dtype
             )
 
         self.linear_qkv = build_module(
@@ -407,6 +422,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
             skip_bias_add=False,
+            compute_dtype=self.config.compute_dtype,
         )
 
         if submodules.k_layernorm is not None:
@@ -415,6 +431,8 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                 dim=self.kv_lora_rank,
                 config=self.config,
                 eps=self.config.layernorm_epsilon,
+                param_init_type=self.config.params_dtype,
+                layernorm_compute_dtype=self.config.layernorm_compute_dtype,
             )
         else:
             self.k_layernorm = None
@@ -427,6 +445,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
             skip_bias_add=False,
+            compute_dtype=self.config.compute_dtype,
         )
 
         self.linear_proj = build_module(
@@ -437,6 +456,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             init_method=self.config.output_layer_init_method,
             bias=self.config.add_bias_linear,
             skip_bias_add=True,
+            compute_dtype=self.config.compute_dtype,
         )
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -487,7 +507,6 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             query = self.sbnd2tnd(query)
             key = self.sbnd2tnd(key)
             value = self.sbnd2tnd(value)
-
 
         return query, key, value
 
@@ -603,14 +622,14 @@ class MLASelfAttention(MultiLatentAttention):
         )
 
         self.use_tnd = config.input_layout == "TND"
-        self.tnd_transpose = ms.ops.auto_generate.Transpose()
-        self.split = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
-        self.tile_kv = ms.ops.auto_generate.Tile()
-        self.pe_concat = ms.ops.auto_generate.Concat(axis=3)
-        self.pe_tnd_concat = ms.ops.auto_generate.Concat(axis=3)
+        self.tnd_transpose = Transpose()
+        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.tile_kv = Tile()
+        self.pe_concat = Concat(axis=3)
+        self.pe_tnd_concat = Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
-        self.reshape = ms.ops.auto_generate.Reshape()
-        self.tnd_transpose = ms.ops.auto_generate.Transpose()
+        self.reshape = Reshape()
+        self.tnd_transpose = Transpose()
 
         if self.config.q_lora_rank is None:
             # Not projecting query
@@ -624,6 +643,7 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 is_expert=False,
+                compute_dtype=self.config.compute_dtype
             )
 
         else:
@@ -636,6 +656,7 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 skip_weight_param_allocation=False,
+                compute_dtype=self.config.compute_dtype
             )
 
             self.linear_q_up_proj = build_module(
@@ -648,6 +669,7 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 skip_weight_param_allocation=False,
+                compute_dtype=self.config.compute_dtype
             )
 
         self.linear_kv_down_proj = build_module(
@@ -659,6 +681,7 @@ class MLASelfAttention(MultiLatentAttention):
             bias=False,
             skip_bias_add=False,
             skip_weight_param_allocation=False,
+            compute_dtype=self.config.compute_dtype
         )
 
         self.linear_kv_up_proj = build_module(
@@ -671,6 +694,7 @@ class MLASelfAttention(MultiLatentAttention):
             bias=False,
             skip_bias_add=False,
             is_expert=False,
+            compute_dtype=self.config.compute_dtype
         )
 
         if self.config.q_lora_rank is not None:
@@ -678,16 +702,18 @@ class MLASelfAttention(MultiLatentAttention):
                 submodules.q_layernorm,
                 dim=self.config.q_lora_rank,
                 config=self.config,
-                param_init_type=self.config.layernorm_compute_dtype,
                 eps=self.config.layernorm_epsilon,
+                param_init_type=self.config.params_dtype,
+                layernorm_compute_dtype=self.config.layernorm_compute_dtype,
             )
 
         self.kv_layernorm = build_module(
             submodules.kv_layernorm,
             dim=self.config.kv_lora_rank,
             config=self.config,
-            param_init_type=self.config.layernorm_compute_dtype,
             eps=self.config.layernorm_epsilon,
+            param_init_type=self.config.params_dtype,
+            layernorm_compute_dtype=self.config.layernorm_compute_dtype,
         )
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():

@@ -340,5 +340,5 @@ def unpermute(
     # (dp, N, k, h)bf16 <-- (dp, N, k, h)bf16, (dp, N, k, 1)bf16
     output_tokens = ops.mul(output_tokens, ops.cast(probs, output_tokens.dtype))
     # (dp, N, h)bf16    <-- (dp, N, k, h)bf16
-    output_tokens = ops.ReduceSum(keep_dims=True)(output_tokens, 2)
+    output_tokens = ops.ReduceSum(keep_dims=False)(output_tokens, 2)
     return output_tokens
