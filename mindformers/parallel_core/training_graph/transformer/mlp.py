@@ -143,10 +143,10 @@ class MLP(nn.Cell):
             if self.activation_type == 'swiglu':
                 intermediate_parallel = self.activation_func(intermediate_parallel)
             else:
-                _, _, hidden_size = intermediate_parallel.shape
-                gate, hidden = self.split(intermediate_parallel, (hidden_size // 2, hidden_size // 2), -1)
-                gate = self.activation_func(gate) if self.activation_func else gate
-                intermediate_parallel = self.mul(hidden, gate)
+                hidden_size = intermediate_parallel.shape[-1]
+                x0, x1 = self.split(intermediate_parallel, (hidden_size // 2, hidden_size // 2), -1)
+                act_out = self.activation_func(x0) if self.activation_func else x0
+                intermediate_parallel = self.mul(act_out, x1)
         else:
             intermediate_parallel = self.activation_func(
                 intermediate_parallel) if self.activation_type else intermediate_parallel

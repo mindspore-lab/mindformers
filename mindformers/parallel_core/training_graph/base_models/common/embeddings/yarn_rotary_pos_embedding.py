@@ -160,7 +160,7 @@ def _yarn_linear_ramp_mask(min_, max_, dim):
     return ramp_func
 
 
-def _yarn_get_mscale(scale=1, mscale=1):
+def _yarn_get_mscale(scale: float = 1, mscale: float = 1) -> float:
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0

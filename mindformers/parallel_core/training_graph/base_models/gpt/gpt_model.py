@@ -243,7 +243,7 @@ class GPTModel(nn.Cell):
                                                      skip_bias_add=False,
                                                      gather_output=not self.parallel_output,
                                                      skip_weight_param_allocation=skip_weight_param_allocation,
-                                                     )
+                                                     compute_dtype=config.compute_dtype)
             config.model_parallel = config.tensor_model_parallel_size
             self.loss = CrossEntropyLoss(parallel_config=config)
 
@@ -305,7 +305,7 @@ class GPTModel(nn.Cell):
         tokens, labels, attention_mask, loss_mask = self._preprocess_input_labels_and_masks(
             input_ids, labels, attention_mask, loss_mask
         )
-        hidden_states, extra_loss = self.language_model(
+        hidden_states, rotary_pos_emb, extra_loss = self.language_model(
             tokens,
             position_ids,
             attention_mask,
@@ -316,9 +316,6 @@ class GPTModel(nn.Cell):
 
         # multi token prediction
         if self.mtp_process:
-            rotary_pos_emb = None
-            if self.use_rotary_position_embeddings:
-                rotary_pos_emb = self.rotary_pos_emb(self.seq_length, position_ids=position_ids)
             mtp_loss, extra_loss = self.mtp(
                 tokens,
                 position_ids,
@@ -400,7 +397,7 @@ class GPTModel(nn.Cell):
             actual_seq_len
         )
 
-        return hidden_states, extra_loss
+        return hidden_states, rotary_pos_emb, extra_loss
 
     def shared_embedding_or_output_weight(self):
         """Gets the emedding weight or output logit weights when share embedding and output weights set to True.
