@@ -396,9 +396,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                     submodules.q_layernorm,
                     dim=self.config.q_lora_rank,
                     config=self.config,
-                    eps=self.config.layernorm_epsilon,
-                    param_init_type=self.config.params_dtype,
-                    layernorm_compute_dtype=self.config.layernorm_compute_dtype,
+                    eps=self.config.layernorm_epsilon
                 )
             else:
                 self.q_layernorm = None
@@ -430,9 +428,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                 submodules.k_layernorm,
                 dim=self.kv_lora_rank,
                 config=self.config,
-                eps=self.config.layernorm_epsilon,
-                param_init_type=self.config.params_dtype,
-                layernorm_compute_dtype=self.config.layernorm_compute_dtype,
+                eps=self.config.layernorm_epsilon
             )
         else:
             self.k_layernorm = None
@@ -702,18 +698,14 @@ class MLASelfAttention(MultiLatentAttention):
                 submodules.q_layernorm,
                 dim=self.config.q_lora_rank,
                 config=self.config,
-                eps=self.config.layernorm_epsilon,
-                param_init_type=self.config.params_dtype,
-                layernorm_compute_dtype=self.config.layernorm_compute_dtype,
+                eps=self.config.layernorm_epsilon
             )
 
         self.kv_layernorm = build_module(
             submodules.kv_layernorm,
             dim=self.config.kv_lora_rank,
             config=self.config,
-            eps=self.config.layernorm_epsilon,
-            param_init_type=self.config.params_dtype,
-            layernorm_compute_dtype=self.config.layernorm_compute_dtype,
+            eps=self.config.layernorm_epsilon
         )
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():

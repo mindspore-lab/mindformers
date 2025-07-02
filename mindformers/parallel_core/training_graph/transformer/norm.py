@@ -17,7 +17,6 @@ __all__ = ["get_norm", "Norm", "FusedNorm"]
 
 import mindspore as ms
 import mindspore.ops.operations as P
-import mindspore.common.dtype as mstype
 
 from mindspore import nn, Parameter
 from mindspore.context import ParallelMode
@@ -52,19 +51,14 @@ class LayerNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, config, dim, eps=1e-5, param_init_type=mstype.float32, layernorm_compute_dtype=mstype.float32):
+    def __init__(self, config, dim, eps=1e-5):
         super(LayerNorm, self).__init__()
-        if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
-                            "but got the type : {}.".format(type(param_init_type)))
-        if layernorm_compute_dtype not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError(
-                "The type of parameter 'layernorm_compute_dtype' should be in [float32, float16, bfloat16], "
-                "but got the type : {}.".format(type(layernorm_compute_dtype)))
+        self.params_dtype = config.params_dtype
+        self.compute_type = config.layernorm_compute_dtype
 
-        self.gamma = Parameter(initializer('ones', dim, param_init_type), name="gamma",
+        self.gamma = Parameter(initializer('ones', dim, self.params_dtype), name="gamma",
                                parallel_optimizer=False)
-        self.beta = Parameter(initializer('zeros', dim, param_init_type), name="beta",
+        self.beta = Parameter(initializer('zeros', dim, self.params_dtype), name="beta",
                               parallel_optimizer=False)
 
         self.mean = MeanExt()
@@ -77,7 +71,6 @@ class LayerNorm(nn.Cell):
         self.mul = Mul()
         self.add2 = AddExt()
         self.real_div = Div()
-        self.compute_type = layernorm_compute_dtype
         self.cast = P.Cast()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -135,24 +128,18 @@ class FusedLayerNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, config, dim, eps=1e-5, param_init_type=mstype.float32, layernorm_compute_dtype=mstype.float32):
+    def __init__(self, config, dim, eps=1e-5):
         super(FusedLayerNorm, self).__init__()
-        if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
-                            "but got the type : {}.".format(type(param_init_type)))
-        if layernorm_compute_dtype not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError(
-                "The type of parameter 'layernorm_compute_dtype' should be in [float32, float16, bfloat16], "
-                "but got the type : {}.".format(type(layernorm_compute_dtype)))
+        self.params_dtype = config.params_dtype
+        self.compute_type = config.layernorm_compute_dtype
 
         self.layer_norm = P.LayerNorm(begin_norm_axis=-1,
                                       begin_params_axis=-1,
                                       epsilon=eps)
-        self.gamma = Parameter(initializer('ones', dim, param_init_type), name="gamma",
+        self.gamma = Parameter(initializer('ones', dim, self.params_dtype), name="gamma",
                                parallel_optimizer=False)
-        self.beta = Parameter(initializer('zeros', dim, param_init_type), name="beta",
+        self.beta = Parameter(initializer('zeros', dim, self.params_dtype), name="beta",
                               parallel_optimizer=False)
-        self.compute_type = layernorm_compute_dtype
         self.cast = P.Cast()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -201,19 +188,13 @@ class RMSNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, config, dim, eps=1e-6, param_init_type=mstype.float32, layernorm_compute_dtype=mstype.float32):
+    def __init__(self, config, dim, eps=1e-6):
         super(RMSNorm, self).__init__()
-        if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
-                            "but got the type : {}.".format(type(param_init_type)))
-        if layernorm_compute_dtype not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError(
-                "The type of parameter 'layernorm_compute_dtype' should be in [float32, float16, bfloat16], "
-                "but got the type : {}.".format(type(layernorm_compute_dtype)))
+        self.params_dtype = config.params_dtype
+        self.compute_type = config.layernorm_compute_dtype
 
         self.eps = eps
-        self.weight = Parameter(initializer('ones', (dim), param_init_type))
-        self.compute_type = layernorm_compute_dtype
+        self.weight = Parameter(initializer('ones', (dim), self.params_dtype))
 
         self.square = P.Square()
         self.mean = MeanExt()
@@ -275,19 +256,13 @@ class FusedRMSNorm(nn.Cell):
         - Tensor with shape (batch, seq_length, hidden_size).
     """
 
-    def __init__(self, config, dim, eps=1e-6, param_init_type=mstype.float32, layernorm_compute_dtype=mstype.float32):
+    def __init__(self, config, dim, eps=1e-6):
         super(FusedRMSNorm, self).__init__()
-        if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should be in [float32, float16, bfloat16], "
-                            "but got the type : {}.".format(type(param_init_type)))
-        if layernorm_compute_dtype not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError(
-                "The type of parameter 'layernorm_compute_dtype' should be in [float32, float16, bfloat16], "
-                "but got the type : {}.".format(type(layernorm_compute_dtype)))
+        self.params_dtype = config.params_dtype
+        self.compute_type = config.layernorm_compute_dtype
 
         self.eps = eps
-        self.weight = Parameter(initializer('ones', (dim), param_init_type))
-        self.compute_type = layernorm_compute_dtype
+        self.weight = Parameter(initializer('ones', (dim), self.params_dtype))
 
         self.norm = P.RmsNorm(eps)
         self.cast = Cast()
@@ -338,9 +313,6 @@ class Norm:
                                      including the `normalization` type.
         dim (int): The dimension of the input tensor to normalize.
         eps (float, optional): A small value to avoid division by zero. Default: 1e-5.
-        param_init_type (dtype, optional): Data type for parameter initialization. Default: mstype.float32.
-        layernorm_compute_dtype (dtype, optional): Data type for layer normalization computation.
-                                                   Default: mstype.float32.
 
     Returns:
         A `LayerNorm` or `RMSNorm` instance.
@@ -350,22 +322,17 @@ class Norm:
     """
 
     @staticmethod
-    def __new__(cls, config: TransformerConfig, dim, eps=1e-5, param_init_type=mstype.float32,
-                layernorm_compute_dtype=mstype.float32):
+    def __new__(cls, config: TransformerConfig, dim, eps=1e-5):
         if config.normalization == "LayerNorm":
             return LayerNorm(
                 config,
                 dim=dim,
-                eps=eps,
-                param_init_type=param_init_type,
-                layernorm_compute_dtype=layernorm_compute_dtype)
+                eps=eps)
         if config.normalization == "RMSNorm":
             return RMSNorm(
                 config,
                 dim=dim,
-                eps=eps,
-                param_init_type=param_init_type,
-                layernorm_compute_dtype=layernorm_compute_dtype)
+                eps=eps)
         raise Exception('Only LayerNorm and RMSNorm are currently supported')
 
 
@@ -387,9 +354,6 @@ class FusedNorm:
                                      including the `normalization` type.
         dim (int): The dimension of the input tensor to normalize.
         eps (float, optional): A small value to avoid division by zero. Default: 1e-5.
-        param_init_type (dtype, optional): Data type for parameter initialization. Default: mstype.float32.
-        layernorm_compute_dtype (dtype, optional): Data type for layer normalization computation.
-                                                   Default: mstype.float32.
 
     Returns:
         A `FusedLayerNorm` or `FusedRMSNorm` instance.
@@ -399,22 +363,17 @@ class FusedNorm:
     """
 
     @staticmethod
-    def __new__(cls, config: TransformerConfig, dim, eps=1e-5, param_init_type=mstype.float32,
-                layernorm_compute_dtype=mstype.float32):
+    def __new__(cls, config: TransformerConfig, dim, eps=1e-5):
         if config.normalization == "LayerNorm":
             return FusedLayerNorm(
                 config,
                 dim=dim,
-                eps=eps,
-                param_init_type=param_init_type,
-                layernorm_compute_dtype=layernorm_compute_dtype)
+                eps=eps)
         if config.normalization == "RMSNorm":
             return FusedRMSNorm(
                 config,
                 dim=dim,
-                eps=eps,
-                param_init_type=param_init_type,
-                layernorm_compute_dtype=layernorm_compute_dtype)
+                eps=eps)
         raise Exception('Only LayerNorm and RMSNorm are currently supported')
 
 
@@ -432,29 +391,21 @@ def get_norm(config):
         return LayerNorm(
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
+            eps=config.layernorm_epsilon)
     if config.normalization == "FusedLayerNorm":
         return FusedLayerNorm(
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
+            eps=config.layernorm_epsilon)
     if config.normalization == "RMSNorm":
         return RMSNorm(
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
+            eps=config.layernorm_epsilon)
     if config.normalization == "FusedRMSNorm":
         return FusedRMSNorm(
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
+            eps=config.layernorm_epsilon)
 
     raise Exception(f"unsupported norm type '{config.normalization}'.")

@@ -6708,10 +6708,10 @@
         "signature": "(transformer_layer_spec: mindformers.parallel_core.utils.spec_utils.ModuleSpec) -> mindformers.parallel_core.utils.spec_utils.ModuleSpec"
     },
     "mindformers.parallel_core.training_graph.transformer.norm.FusedNorm": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, dim, eps=1e-05, param_init_type=mindspore.float32, layernorm_compute_dtype=mindspore.float32)"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, dim, eps=1e-05)"
     },
     "mindformers.parallel_core.training_graph.transformer.norm.Norm": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, dim, eps=1e-05, param_init_type=mindspore.float32, layernorm_compute_dtype=mindspore.float32)"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, dim, eps=1e-05)"
     },
     "mindformers.parallel_core.training_graph.transformer.norm.get_norm": {
         "signature": "(config)"
