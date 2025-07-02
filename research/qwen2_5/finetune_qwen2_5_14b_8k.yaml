@@ -139,7 +139,7 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "57.5GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
