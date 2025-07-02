@@ -17,7 +17,6 @@ from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.deepseek3_model_train import TrainingDeepseekV3ForCausalLM
 
 
-# modify from pretrain_deepseek3_671b.yaml
 MOE_CONFIG = {
     'expert_num': 4,  # origin 256
     'expert_group_size': 8,
@@ -46,7 +45,6 @@ MOE_CONFIG = {
 }
 
 
-# modify from pretrain_deepseek3_671b.yaml
 BASE_CONFIG = {
     'batch_size': 1,
     'hidden_size': 2048,  # origin 7168
