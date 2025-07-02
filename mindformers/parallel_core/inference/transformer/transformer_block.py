@@ -162,14 +162,14 @@ class TransformerBlock(nn.Cell):
         )
 
         if self.submodules.layer_norm and self.post_layer_norm:
-            self.final_norm = build_module(
+            self.final_layernorm = build_module(
                 self.submodules.layer_norm,
                 config=config,
                 hidden_size=config.hidden_size,
                 eps=config.layernorm_epsilon,
             )
         else:
-            self.final_norm = None
+            self.final_layernorm = None
 
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
@@ -217,6 +217,6 @@ class TransformerBlock(nn.Cell):
 
         # final layernorm.
         if self.post_layer_norm:
-            hidden_states = self.final_norm(hidden_states)
+            hidden_states = self.final_layernorm(hidden_states)
 
         return hidden_states

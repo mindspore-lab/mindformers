@@ -13,10 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3 models' utils."""
-import os
-import json
-from safetensors.numpy import load_file
-
 from mindformers.tools.logger import logger
 from mindformers.models.qwen3.configuration_qwen3 import Qwen3Config
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
@@ -44,7 +40,7 @@ class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
 
         """
         origin_name = weight_name
-        weight_name = weight_name.replace('embed_tokens.', 'embedding.word_embeddings.')
+        weight_name = weight_name.replace('model.embed_tokens.', 'embedding.word_embeddings.')
         weight_name = weight_name.replace('.self_attn.q_proj.', '.self_attention.linear_q.')
         weight_name = weight_name.replace('.self_attn.k_proj.', '.self_attention.linear_k.')
         weight_name = weight_name.replace('.self_attn.v_proj.', '.self_attention.linear_v.')
@@ -59,89 +55,10 @@ class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):
         weight_name = weight_name.replace('.down_proj.', '.linear_fc2.')
         weight_name = weight_name.replace('.up_proj.', '.linear_fc1.')
         weight_name = weight_name.replace('.post_attention_layernorm.', '.pre_mlp_layernorm.')
-        weight_name = weight_name.replace('.norm.', '.decoder.final_norm.')
+        weight_name = weight_name.replace('model.norm.', 'decoder.final_layernorm.')
         weight_name = weight_name.replace('lm_head.', 'output_layer.')
-        weight_name = weight_name.replace('.layers.', '.decoder.layers.')
-        weight_name = weight_name.replace('model.', '')
+        weight_name = weight_name.replace('model.layers.', 'decoder.layers.')
         if weight_name == origin_name:
             logger.warning(f"weight name '{weight_name}' does not change after conversion. "
                            f"Please check if it is as expected.")
         return weight_name
-
-    def check_key_mapping(self):
-        r"""
-        Store the weight keys of huggingface and mindformers.
-
-        Returns:
-            convert_key_map: store the weight keys of map.
-
-        """
-        convert_key_mapping = {
-            "embed_tokens",
-            "word_embeddings",
-            "q_proj",
-            "linear_q",
-            "k_proj",
-            "linear_k",
-            "v_proj",
-            "linear_v",
-            "o_proj",
-            "linear_proj",
-            "gate_proj",
-            "gating",
-            "down_proj",
-            "linear_fc2",
-            "up_proj",
-            "linear_fc1",
-            "post_attention_layernorm",
-            "pre_mlp_layernorm",
-            "norm",
-            "final_norm",
-            "lm_head",
-            "output_layer",
-            "input_layernorm",
-            "q_norm",
-            "q_layernorm",
-            "k_norm",
-            "k_layernorm",
-            "gate"
-        }
-        return convert_key_mapping
-
-    def convert_hf_weight_to_mf(self, weights_path):
-        r"""
-        Read and store weights.
-
-        Args:
-            weights_path: the path of weights.
-
-        Returns:
-            non_layer_weights: Weights other than Transformer Layer
-            layer_weights: Weights of Transformer Layer
-        """
-        sf_files = [f for f in os.listdir(weights_path) if f.endswith(".safetensors")]
-        non_layer_weights = {}
-        layer_weights = {}
-        if len(sf_files) > 1:
-            json_files = []
-            for f in os.listdir(weights_path):
-                if f.endswith('index.json'):
-                    json_files.append(f)
-                elif f.endswith('param_name_map.json'):
-                    json_files.append(f)
-            if not json_files:
-                raise ValueError(f"No index.json or param_name_map.json found in {weights_path}")
-            param_json_path = os.path.join(weights_path, json_files[0])
-            with open(param_json_path, "r") as fp:
-                data = json.load(fp)
-            weight_map = data.get("weight_map", data)
-        elif sf_files:
-            weight_map = load_file(os.path.join(weights_path, sf_files[0]))
-        else:
-            raise ValueError(f"No .safetensors files found in {weights_path}")
-        for key, value in weight_map.items():
-            if key.startswith("model.layers") or key.startswith("model.decoder.layers"):
-                layer_weights[key] = value
-            else:
-                non_layer_weights[key] = value
-        return non_layer_weights, layer_weights
