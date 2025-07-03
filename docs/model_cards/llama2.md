@@ -585,9 +585,9 @@ processor:
 
 ### 分布式评测
 
-对于较大模型比如`llama2_70b`，模型无法完全导入到单卡中进行评测，就需要进行分布式评测。
+对于较大模型，模型无法完全导入到单卡中进行评测，就需要进行分布式评测。
 
-以`llama2_70b`在**SQuAD 1.1**数据集上进行测评为例。
+以`llama2_7b`在**SQuAD 1.1**数据集上进行4卡分布式测评为例。
 
 1. 修改模型配置文件
 
@@ -597,22 +597,20 @@ processor:
    use_parallel: True
    parallel_config:
      data_parallel: 1
-     model_parallel: 8  # 修改为使用卡数， 70b推荐设置为8卡推理
+     model_parallel: 4  # 修改为使用卡数
      pipeline_stage: 1
 
-   context:
-     jit_config:
-       jit_level: "O0"
+   # eval dataset
+   eval_dataset:
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/{path}/squad2048.mindrecord"  # 处理后的评测数据集路径
+       shuffle: False
+     input_columns: ["input_ids", "labels"]
 
    # metric
    metric:
      type: EmF1Metric
-
-   eval_dataset:
-     data_loader:
-       type: MindDataset
-       dataset_dir: "{path}/squad2048.mindrecord"
-     input_columns: ["input_ids", "labels"]
 
    # model config
    model:
@@ -620,13 +618,15 @@ processor:
        type: LlamaConfig
        batch_size: 1
        seq_length: 2048
+       max_decode_length: 700
+       max_new_tokens: 20
    ```
 
 2. 执行评测命令
 
    ```shell
    bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/finetune_llama2_70b.yaml \
+     --config configs/llama2/finetune_llama2_7b.yaml \
      --run_mode eval \
-     --use_parallel True" 8
+     --use_parallel True" 4
    ```

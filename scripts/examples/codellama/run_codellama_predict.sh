@@ -15,7 +15,8 @@
 # ============================================================================
 CONFIG_PATH=$1
 CKPT_PATH=$2
-DEVICE_NUM=$3
+TOKENIZER_PATH=$3
+DEVICE_NUM=$4
 
 script_path="$(realpath "$(dirname "$0")")"
 
@@ -23,4 +24,5 @@ bash "$script_path"/../../msrun_launcher.sh \
  "$script_path/run_codellama_generate.py \
  --config_path $CONFIG_PATH \
  --load_checkpoint $CKPT_PATH \
+ --model_file $TOKENIZER_PATH \
  --use_parallel" "$DEVICE_NUM"
