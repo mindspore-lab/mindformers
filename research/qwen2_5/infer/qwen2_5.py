@@ -17,20 +17,21 @@ from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
 from safetensors import safe_open
 import numpy as np
+
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication._comm_helper import _is_initialized
 
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear
-from mindformers.experimental.infer.core.transformer import ParallelTransformer
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.llama.llama import LlamaPreTrainedModel
+from mindformers.models.utils import jit
 from mindformers.modules import Linear
+from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
-from mindformers.experimental.infer.models.llama.utils import convert_model_config
-from mindformers.models.utils import jit
+from research.qwen2_5.infer.layers import ColumnParallelLinear
+from research.qwen2_5.infer.transformer import ParallelTransformer
+from research.qwen2_5.infer.utils import convert_model_config
 
 
 __all__ = ["ParallelQwenForCausalLM"]
