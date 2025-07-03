@@ -34,6 +34,7 @@ MULTI_CARD_TEST_CASES = [
         #       'use_flash_attn': True,  # Use flash attention optimization
         #       'q_layernorm': 'RMSNorm', # Use RMSNorm for query layer normalization
         #       'k_layernorm': 'RMSNorm'  # Use RMSNorm for key layer normalization
+        #       'mscale': 1.0  # Setting mscale as 1.0
         #     }
         #   - golden_data_key: 'multi_q8_flash_ql_kl' (reference output key for multi-card scenario)
         #   - tensor_parallel: 2 (use 2 GPUs with tensor parallelism)
@@ -42,7 +43,8 @@ MULTI_CARD_TEST_CASES = [
             'q_lora_rank': 8,
             'use_flash_attn': True,
             'q_layernorm': 'RMSNorm',
-            'k_layernorm': 'RMSNorm'
+            'k_layernorm': 'RMSNorm',
+            'mscale': 1.0
         },
         'multi_q8_flash_ql_kl',
         2

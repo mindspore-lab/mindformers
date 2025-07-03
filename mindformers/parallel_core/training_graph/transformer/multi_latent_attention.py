@@ -333,7 +333,7 @@ class MultiLatentAttention(nn.Cell):
             context_layer (Tensor): context layer after attention, with shape of (B, S, H)
 
         Returns:
-            Tensor: context layer tensor after all to all commu.
+            Tensor: context layer tensor after all to all communication.
         """
         bs, seq_len, _ = F.shape(context_layer)
         new_shape = (bs, seq_len, self.cp_ds, self.tp, -1, self.q_head_dim)
