@@ -28,8 +28,10 @@ from mindspore import Tensor, ops
 from mindformers.tools.logger import logger
 from .utils import DataRecord
 from ...tools.image_tools import load_image
+from ...utils import deprecated
 
 
+@deprecated
 class ModalContentBuilder:
     """
     Base class of builder for modal content. Modal content builder processes the input into what the model expects in
@@ -160,6 +162,7 @@ class ModalContentBuilder:
         return padded_text, content
 
 
+@deprecated
 class BaseTextContentBuilder(ModalContentBuilder):
     """
     Base text modal builder. It returns the original input.
@@ -183,6 +186,7 @@ class BaseTextContentBuilder(ModalContentBuilder):
         return inputs
 
 
+@deprecated
 class BaseImageContentBuilder(ModalContentBuilder):
     """
     Base image modal builder, it returns the padded input in training task after calling
@@ -260,6 +264,7 @@ class BaseImageContentBuilder(ModalContentBuilder):
         return padded_images
 
 
+@deprecated
 class ModalContentTransformTemplate:
     """
     Base class of modal content transform template. It should be implemented by the specific model. The child class can
