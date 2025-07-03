@@ -17,7 +17,7 @@ import pytest
 
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec, \
     get_gpt_decoder_block_spec, get_gpt_mtp_block_spec
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, SelfAttentionMegatron
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionContiguous, SelfAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP
 from mindformers.parallel_core.training_graph.transformer.moe.moe_layer import MoELayer
@@ -44,19 +44,19 @@ class TestLayerSpec:
         assert spec.submodules.mlp.module == MLP
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
-        assert spec.submodules.self_attention.module == SelfAttention
+        assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True)
         assert spec.submodules.mlp.module == MLP
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
-        assert spec.submodules.self_attention.module == SelfAttention
+        assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, qk_layernorm=True)
         assert spec.submodules.mlp.module == MLP
         assert spec.submodules.self_attention.submodules.q_layernorm == FusedNorm
         assert spec.submodules.self_attention.submodules.k_layernorm == FusedNorm
-        assert spec.submodules.self_attention.module == SelfAttention
+        assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, multi_latent_attention=True)
         assert spec.submodules.mlp.module == MLP
@@ -68,7 +68,7 @@ class TestLayerSpec:
         assert spec.submodules.mlp.module == MLP
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
-        assert spec.submodules.self_attention.module == SelfAttentionMegatron
+        assert spec.submodules.self_attention.module == SelfAttention
 
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, multi_latent_attention=True,
                                         mla_qkv_concat=False)
@@ -114,7 +114,7 @@ class TestBlockSpec:
         assert len(spec.layer_specs) == 8
         for layer_spec in spec.layer_specs:
             assert layer_spec.submodules.mlp.module == MoELayer
-            assert layer_spec.submodules.self_attention.module == SelfAttention
+            assert layer_spec.submodules.self_attention.module == SelfAttentionContiguous
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
@@ -132,7 +132,7 @@ class TestBlockSpec:
         assert len(spec.layer_specs) == 8
         for layer_spec in spec.layer_specs:
             assert layer_spec.submodules.mlp.module == MoELayer
-            assert layer_spec.submodules.self_attention.module == SelfAttentionMegatron
+            assert layer_spec.submodules.self_attention.module == SelfAttention
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu

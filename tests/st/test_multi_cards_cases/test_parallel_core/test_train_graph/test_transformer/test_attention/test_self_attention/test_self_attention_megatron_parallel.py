@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Test SelfAttentionMegatron with various configurations"""
+"""Test SelfAttention with various configurations"""
 import os
 import random
 import pytest
@@ -47,7 +47,7 @@ TWO_CARD_TEST_CASES = [
 ]
 
 class TestSelfAttentionMegatronTwoCards(TestSelfAttentionMegatron):
-    """Test SelfAttentionMegatron with parallel configurations."""
+    """Test SelfAttention with parallel configurations."""
     @pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,

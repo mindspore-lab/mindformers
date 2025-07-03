@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Run SelfAttentionMegatron accuracy test with configurable parameters via args"""
+"""Run SelfAttention accuracy test with configurable parameters via args"""
 import argparse
 import os
 from pathlib import Path
@@ -22,7 +22,7 @@ from mindspore.communication import init
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.norm import LayerNorm
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionMegatron, \
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, \
     SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 
@@ -32,7 +32,7 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
 class SelfAttentionMegatronRunner:
-    """Class to manage SelfAttentionMegatron model and weights"""
+    """Class to manage SelfAttention model and weights"""
 
     def __init__(self, args_from_parser):
         self.args = args_from_parser
@@ -102,7 +102,7 @@ class SelfAttentionMegatronRunner:
         if self.args.k_layernorm == "Norm":
             submodules.k_layernorm = LayerNorm
 
-        net = SelfAttentionMegatron(
+        net = SelfAttention(
             config=self.config,
             submodules=submodules,
             layer_number=1,

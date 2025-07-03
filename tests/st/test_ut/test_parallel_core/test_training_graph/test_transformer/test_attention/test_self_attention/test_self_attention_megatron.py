@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Test SelfAttentionMegatron with various configurations"""
+"""Test SelfAttention with various configurations"""
 from pathlib import Path
 import subprocess
 import pytest
@@ -85,7 +85,7 @@ def build_msrun_command_list(
 
 
 class TestSelfAttentionMegatron:
-    """Test class for SelfAttentionMegatron with different configurations"""
+    """Test class for SelfAttention with different configurations"""
     OUTPUT_MS_FILENAME = "output_ms.npz"
     LOG_DIR_NAME = "msrun_log"
 
@@ -166,7 +166,7 @@ class TestSelfAttentionMegatron:
 
             self.check_acc(output_ms_dict, data_keys)
 class TestSelfAttentionMegatronSingleCard(TestSelfAttentionMegatron):
-    """Test SelfAttentionMegatron with single card configurations"""
+    """Test SelfAttention with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

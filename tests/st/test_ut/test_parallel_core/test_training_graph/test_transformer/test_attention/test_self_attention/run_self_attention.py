@@ -22,7 +22,7 @@ from mindspore.communication import init
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.norm import LayerNorm
-from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, SelfAttentionSubmodules
+from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionContiguous, SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 # from mindformers.parallel_core.training_graph.transformer.dot_product_attention import DotPruductAttention
 
@@ -176,7 +176,7 @@ class SelfAttentionRunner:
         if self.args.k_layernorm == "Norm":
             submodules.k_layernorm = LayerNorm
 
-        net = SelfAttention(
+        net = SelfAttentionContiguous(
             config=self.config,
             submodules=submodules,
             layer_number=1,
