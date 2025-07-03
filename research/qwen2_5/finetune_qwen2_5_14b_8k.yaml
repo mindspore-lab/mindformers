@@ -114,7 +114,7 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: [4, 1, 0, 0]
+  recompute: [3, 2, 0, 0]
   select_recompute:
     'feed_forward\.mul': [11, 13, 13, 11]
     'feed_forward\.w1\.activation\.silu': [11, 13, 13, 11]
