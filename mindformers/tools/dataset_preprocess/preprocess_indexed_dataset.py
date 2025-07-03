@@ -286,7 +286,7 @@ def get_args():
                        help='Decide whether to the longest or spliced to equal length')
 
     group = parser.add_argument_group(title='runtime')
-    group.add_argument('--workers', type=int, required=True,
+    group.add_argument('--workers', type=int, default=1,
                        help=('Number of worker processes to launch.'
                              'A good default for fast pre-processing '
                              'is: (workers * partitions) = available CPU cores.'))
