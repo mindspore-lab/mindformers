@@ -15,8 +15,8 @@
 """
 Test module for testing the MLP used for mindformers.
 How to run this:
-    pytest tests/st/test_experimental/test_graph/test_batched_linear/test_column_batched_parallel_linear/
-           test_row_parallel.py
+    pytest tests/st/test_multi_cards_cases/test_parallel_core/test_train_graph/test_tensor_parallel/
+    test_row_parallel_batched_linear/test_row_parallel_batched_linear_parallel.py
 """
 import os
 import random
