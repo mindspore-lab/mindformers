@@ -29,6 +29,11 @@ from mindformers.tools.utils import str2bool
 from mindformers.models.glm2.glm2_config import ChatGLM2Config
 from mindformers.utils.convert_utils import pt2ms
 
+DTYPE_MAPPING = {
+    "fp32": ms.float32,
+    "fp16": ms.float16,
+    "bf16": ms.bfloat16
+}
 
 def npy2ms(arr: np.array, dtype):
     """npy2ms"""
@@ -250,8 +255,43 @@ def concat_weight_and_bias(param_dict, config):
     return param_dict
 
 
+def convert_weight(para):
+    """convert weight entrance"""
+    if para.config is None:
+        raise RuntimeError("config must be specified")
+
+    if not hasattr(para, 'concat'):
+        para.concat = False
+    else:
+        para.concat = para.concat == "True"
+
+    if para.concat:
+        if not hasattr(para, 'ms_not_concat_ckpt_path'):
+            para.ms_not_concat_ckpt_path = para.input_path
+        if not hasattr(para, 'mindspore_ckpt_path'):
+            para.mindspore_ckpt_path = para.output_path
+
+        convert_to_concat_ckpt(
+            ms_not_concat_ckpt_path=para.ms_not_concat_ckpt_path,
+            ms_concat_ckpt_path=para.mindspore_ckpt_path,
+            config_path=para.config
+        )
+    else:
+        if not hasattr(para, 'torch_ckpt_path'):
+            para.torch_ckpt_path = para.input_path
+        if not hasattr(para, 'mindspore_ckpt_path'):
+            para.mindspore_ckpt_path = para.output_path
+
+        convert_pt_to_ms(
+            input_path=para.torch_ckpt_path,
+            output_path=para.mindspore_ckpt_path,
+            dtype=DTYPE_MAPPING.get(para.dtype, ms.float32),
+            config=para.config
+        )
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="GLM2/3 weight convert script")
+    parser = argparse.ArgumentParser(description="GLM4 weight convert script")
     parser.add_argument("--torch_ckpt_path",
                         type=str,
                         default="None",
@@ -269,23 +309,10 @@ if __name__ == '__main__':
     parser.add_argument("--config",
                         type=str,
                         required=True,
+                        default="None",
                         help="Path to model config yaml")
     parser.add_argument('--concat', default=False, type=str2bool, help="Whether to concat weight and bias")
     parser.add_argument('--ms_not_concat_ckpt_path', default=None)
-    mapping = {
-        "fp32": ms.float32,
-        "fp16": ms.float16,
-        "bf16": ms.bfloat16
-    }
 
     opt = parser.parse_args()
-    if opt.config is None:
-        raise RuntimeError("config must be specified")
-    if opt.concat:
-        convert_to_concat_ckpt(ms_not_concat_ckpt_path=opt.ms_not_concat_ckpt_path,
-                               ms_concat_ckpt_path=opt.mindspore_ckpt_path,
-                               config_path=opt.config)
-    else:
-        convert_pt_to_ms(input_path=opt.torch_ckpt_path, output_path=opt.mindspore_ckpt_path,
-                         dtype=mapping.get(opt.dtype, ms.bfloat16),
-                         config=opt.config)
+    convert_weight(opt)
