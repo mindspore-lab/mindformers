@@ -27,11 +27,9 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.dataloader.common_dataloader import CommonDataLoader
 from mindformers.dataset.dataloader.ms_ds_convertor import MSDatasetAdaptor
 
-from tests.utils.model_tester import create_tokenizer
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
-_, llama2_tokenizer = create_tokenizer()
 config_dict = dict(
     data_loader=dict(
         type='CommonDataLoader',
@@ -86,12 +84,8 @@ def get_packing_alpaca_config(config, packing):
             type='AlpacaInstructDataHandler',
             seq_length=256,
             tokenizer=dict(
-                unk_token='<unk>',
-                bos_token='<s>',
-                eos_token='</s>',
-                pad_token='<unk>',
-                type='LlamaTokenizer',
-                vocab_file=llama2_tokenizer
+                type='ChatGLM4Tokenizer',
+                vocab_file="/home/workspace/mindspore_vocab/GLM4/tokenizer.model"
             ),
             output_columns=["input_ids", "labels"]))
     ]
