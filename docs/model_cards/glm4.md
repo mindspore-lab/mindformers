@@ -129,7 +129,7 @@ MindSpore TransFormers 提供已经转换完成的预训练权重、词表文件
 
 #### 模型权重转换
 
-1. 如果使能高性能模式（`enable_high_performance=True`），需要按如下方式修改 yaml ：
+1. 如果使能高性能模式（`enable_high_performance=True`），需要按如下方式修改 yaml 文件配置：
 
    ```yaml
    model:
@@ -138,36 +138,37 @@ MindSpore TransFormers 提供已经转换完成的预训练权重、词表文件
        mlp_concat: False
    ```
 
-2. 执行 `convert_weight.py` 转换脚本，将 HuggingFace 的权重转换为完整的 ckpt 权重。
+2. 执行 mindforers 根目录下的 `convert_weight.py` [转换脚本](https://gitee.com/mindspore/mindformers/blob/dev/convert_weight.py)，将 HuggingFace 的权重转换为完整的 MindSpore ckpt 权重。
 
    ```shell
-   python convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME --dtype DTYPE --config YAML_PATH
+   python convert_weight.py --model glm4 --input_path HF_CKPT_PATH --output_path MS_NOT_CONCAT_CKPT_PATH --dtype DTYPE --config YAML_PATH
    ```
 
    参数说明如下表：
 
-    | 参数名                         | 含义                                                                                                                                  | 取值说明                                                    |
-    |-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-    | `--torch_ckpt_path`         | HuggingFace 权重文件路径。                                                                                                                 | (str, 可选) - 默认值： `None` 。                               |
-    | `--mindspore_ckpt_path`     | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。                                                                                         | (str, 必选) - 默认值： `None` 。                               |
-    | `--dtype`                   | 权重的数值类型，一般有 `float16` 、 `float32` 、 `bfloat16` 。                                                                                    | (str, 可选) - 配置为 [`fp32`, `fp16`, `bf16`] 其中之一，默认值： `fp32` 。 |
-    | `--config`                  | glm4 模型所用 yaml 文件的路径。                                                                                                               | (str, 必选) - 如 `research/glm32k/finetune_glm32k.yaml` 。  |
+    | 参数名             | 含义                                               | 取值说明                                                                |
+    |-----------------|--------------------------------------------------|---------------------------------------------------------------------|
+    | `--model`       | 需要进行权重转换的模型，此处使用 `glm4` 。                        | (str, 必选) - 默认值： `None` 。                                           |
+    | `--input_path`  | HuggingFace 权重文件路径。                              | (str, 必选) - 默认值： `None` 。                                           |
+    | `--output_path` | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。      | (str, 必选) - 默认值： `None` 。                                           |
+    | `--dtype`       | 权重的数值类型，一般有 `float16` 、 `float32` 、 `bfloat16` 。 | (str, 可选) - 配置为 [`fp32`, `fp16`, `bf16`] 其中之一，默认值： `fp32` 。         |
+    | `--config`      | glm4 模型所用 yaml 文件的路径。                            | (str, 必选) - 如 `configs/glm4/finetune_glm4_9b.yaml` ，默认值： `None` 。 |
 
-3. 如果使能高性能模式，除了将 HuggingFace 权重转换为 ckpt 权重后，还需要将转换后得到的 ckpt 权重作为 `--ms_not_concat_ckpt_path` 指定的路径，额外执行如下转换。
+3. 如果使能高性能模式（步骤1），除了将 HuggingFace 权重转换为 ckpt 权重后，还需要将转换后得到的 ckpt 权重作为 `--input_path` 指定的路径。在转换完 HuggingFace 权重后，需要将得到的 MindSpore 权重额外执行如下转换。
 
     ```shell
-    python convert_weight.py --ms_not_concat_ckpt_path PRE_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME --dtype DTYPE --config YAML_PATH --concat True
+    python convert_weight.py --model glm4 --input_path MS_NOT_CONCAT_CKPT_PATH --output_path MS_CONCATED_BIAS_CKPT_DIR --config YAML_PATH --concat True
     ```
 
     参数说明如下表：
 
-    | 参数名                         | 含义                                                                                                                                  | 取值说明                                                      |
-    |-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
-    | `--ms_not_concat_ckpt_path` | qkv 和 ffn 没有 concat 的 MindSpore 权重路径。<br>结合 `--concat` 进行配置后，将对此路径下的权重进行 qkv 和 ffn 的 concat，并生成新权重在 `--mindspore_ckpt_path` 指定的路径下。 | (str, 可选) - 默认值： `None` 。                                 |
-    | `--mindspore_ckpt_path`     | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。                                                                                         | (str, 必选) - 默认值： `None` 。                                 |
-    | `--dtype`                   | 权重的数值类型，一般有 `float16` 、 `float32` 、 `bfloat16` 。                                                                                    | (str, 可选) - 配置为 [`fp32`, `fp16`, `bf16`] 其中之一，默认值： `fp32` 。 |
-    | `--config`                  | glm4 模型所用 yaml 文件的路径。                                                                                                               | (str, 必选) - 如 `research/glm32k/finetune_glm32k.yaml` 。    |
-    | `--concat`                  | 指定开启 qkv、ffn concat。                                                                                                                | (bool, 可选) - 默认值： `False` 。                               |
+    | 参数名              | 含义                                                                                                                                                       | 取值说明                                                        |
+    |------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+    | `--model`       | 需要进行权重转换的模型，此处使用 `glm4` 。                                                                                                                                | (str, 必选) - 默认值： `None` 。                                           |
+    | `--input_path`   | qkv 和 ffn 没有 concat 的 MindSpore ckpt 权重路径。<br>结合 `--concat` 进行配置后，将对此路径下的 MindSpore 权重进行 qkv 和 ffn 的 concat，并生成新权重在 `--output_path` 指定的路径下。              | (str, 必选) - 默认值： `None` 。                                   |
+    | `--output_path`  | 转换后的 MindSpore 权重文件保存路径 （qkv 和 ffn concat）。                                                                                                              | (str, 必选) - 默认值： `None` 。                                   |
+    | `--config`       | glm4 模型所用 yaml 文件的路径。                                                                                                                                    | (str, 必选) - 如 `configs/glm4/finetune_glm4_9b.yaml` 。      |
+    | `--concat`       | 指定开启 qkv、ffn concat。<br>注意：使用 `--concat` 时，需要保证 `--input_path` 为 MindSpore 权重，而非 HuggingFace 权重。否则，会出现 `huggingface_hub.errors.HFValidationError` 的报错提示。 | (bool, 可选) - 默认值： `False` 。                                 |
 
 ## 全参微调
 
@@ -198,6 +199,8 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 MindSpore Transformers 提供了 `GLM-4-9B-Chat` 的快速推理脚本，脚本主要通过 `generate` 高阶接口实现，支持单卡、双卡多 batch 推理。
 
+配置文件可以参考 `configs/glm4/predict_glm4_9b_chat.yaml` 和 `configs/glm4/predict_glm4_9b_chat_800I_A2.yaml` 示例。
+
 ```shell
 bash scripts/examples/glm4/run_glm4_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER DEVICE_NUM
 ```
@@ -226,7 +229,7 @@ bash scripts/examples/glm4/run_glm4_predict.sh \
 # 双卡推理
 bash scripts/examples/glm4/run_glm4_predict.sh \
  parallel \
- /path/to/glm4/predict_glm4_9b_800I_A2.yaml \
+ /path/to/glm4/predict_glm4_9b_chat_800I_A2.yaml \
  /path/to/glm4_ckpt_dir \
  /path/to/tokenizer.model \
  2

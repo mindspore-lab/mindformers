@@ -36,7 +36,7 @@ reversed_dtype_map = {
 convert_map = {
     'llama': 'mindformers.models.llama.convert_weight.convert_pt_to_ms',
     'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
-    'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
+    'glm-n': 'mindformers.models.glm2.convert_weight.convert_weight',
     'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
     'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
     'deepseekv3': 'toolkit.weight_convert.deepseekv3.convert_deepseekv3_hf_weight.convert_weight'
@@ -60,6 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,
                         help="Only for telechat. Telechat version.")
     parser.add_argument('--is_lora', default=False, type=str2bool, required=False)
+
     args, extra_args = parser.parse_known_args()
     extra_args = [i
                   for item in extra_args
@@ -78,6 +79,9 @@ if __name__ == '__main__':
             raise ValueError("Custom config key need to start with --.")
         extra_kwargs[key[2:]] = value
 
+    if args.model in ["glm4"]:
+        args.model = "glm-n"
+
     if args.reversed:
         module_func = reversed_convert_map.get(args.model)
         dtype = reversed_dtype_map.get(args.dtype)
@@ -93,8 +97,5 @@ if __name__ == '__main__':
     model_name, func_name = module_func.rsplit('.', 1)
     convert_func = getattr(importlib.import_module(model_name), func_name)
 
-    if args.model in ["qwen2_5", "deepseekv3"]:
-        merged_args = argparse.Namespace(**{**vars(args), **extra_kwargs})
-        convert_func(merged_args)
-    else:
-        convert_func(input_path=args.input_path, output_path=args.output_path, dtype=dtype, **extra_kwargs)
+    merged_args = argparse.Namespace(**{**vars(args), **extra_kwargs})
+    convert_func(merged_args)
