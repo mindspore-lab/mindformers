@@ -21,9 +21,15 @@ import numpy as np
 class PrecisionChecker:
     """
     Check precision between golden data and input data.
+    Args:
+            cos_sim_thd: cos similarity threshold
+            l1_norm_thd: l1 normalization threshold
+            kl_dvg_thd: kl divergence threshold
     """
-    def __init__(self):
-        pass
+    def __init__(self, cos_sim_thd=0.999, l1_norm_thd=0.01, kl_dvg_thd=0.005):
+        self.cos_sim_thd = cos_sim_thd
+        self.l1_norm_thd = l1_norm_thd
+        self.kl_dvg_thd = kl_dvg_thd
 
     def check_precision(self, golden_np, input_np):
         """
@@ -51,10 +57,12 @@ class PrecisionChecker:
         l1_norm = (np.abs(input_flatten).sum() / np.abs(golden_flatten).sum()) - 1
 
         # Check the precision
-        if cos > 0.999 and l1_norm < 0.01 and kl < 0.005:
+        if cos > self.cos_sim_thd and l1_norm < self.l1_norm_thd and kl < self.kl_dvg_thd:
             return True
-        raise AssertionError(f"Precision check failed: cos similarity={cos} (required>0.999), "
-                             f"l1_norm={l1_norm} (required<0.01), kl={kl} (required<0.005).")
+        raise AssertionError(f"Precision check failed: "
+                             f"cos similarity={cos} (required>{self.cos_sim_thd}), "
+                             f"l1_norm={l1_norm} (required<{self.l1_norm_thd}), "
+                             f"kl={kl} (required<{self.l1_norm_thd}).")
 
     def _kl_divergence(self, golden_flatten, input_flatten):
         """
