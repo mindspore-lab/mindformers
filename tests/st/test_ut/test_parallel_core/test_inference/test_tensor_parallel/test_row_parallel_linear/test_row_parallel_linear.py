@@ -20,6 +20,7 @@ import numpy as np
 
 from mindformers.tools.logger import logger
 from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_row_parallel_linear.data_gen_utils import LEGACY_DATA
+from tests.utils.precision_utils import PrecisionChecker
 
 
 INPUT_SIZE = 32
@@ -90,13 +91,12 @@ class TestRowParallelLinear:
         """
         Compare output_ms with GOLDEN_DATA and GPU_DATA using DoubleBenchmarkComparator.
         """
+        checker = PrecisionChecker()
 
         for key, data_key in data_keys.items():
             npu_data = output_ms_dict.get(key).astype(np.float32)
             golden_data = LEGACY_DATA.get(data_key).astype(np.float32)
-
-            ret = np.allclose(npu_data, golden_data, atol=1e-4)
-            assert ret
+            checker.check_precision(golden_data, npu_data)
 
     def check_output_keys(self, output_ms_dict, expected_bias_key_present):
         """ Check if the 'bias' key is present or absent as expected in the output. """
