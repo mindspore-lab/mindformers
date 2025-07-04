@@ -844,8 +844,8 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             config_args.model.model_config.checkpoint_name_or_path = None
         if config_args.get("pretrained_model_dir", None):
             config_args.model.pretrained_model_dir = config_args.pretrained_model_dir
-        if config_args.get("generation", None):
-            config_args.model.generation = config_args.generation
+        if config_args.get("generation_config", None):
+            config_args.model.generation_config = config_args.generation_config
         model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
