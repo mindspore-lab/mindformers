@@ -20,7 +20,7 @@ import mindspore as ms
 import mindspore.ops as ops
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.auto_generate import AddExt
+from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -124,6 +124,9 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.pad_tokens = Tensor(np.zeros((1, self.expert_num, self.hidden_size)), dtype=ms.bfloat16)
         self.pad_routing_map = Tensor(np.tile(np.arange(self.expert_num), (1, 1)), dtype=ms.int32)
 
+        self.cumsum = CumsumExt()
+        self.sort = SortExt()
+
     def preprocess(self, num_local_tokens_per_expert):
         """
         Preprocess token routing map for AlltoAll communication and token permutation.
@@ -145,7 +148,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         output_splits = ops.cast(
             num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
         # [ep, E/ep]  --> (E/ep) int64
-        tokens_per_expert = ops.cast(ops.cumsum(
+        tokens_per_expert = ops.cast(self.cumsum(
             num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
 
         input_splits = ops.Depend()(input_splits, output_splits)
@@ -169,8 +172,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         num_tokens_per_expert = AddExt()(num_tokens_per_expert, 1)
         # sort [safe_tokens, x] together
         # (dp, E+kN)fp32 <-- (dp, E+kN)fp32
-        routing_map, sort_map = ops.sort(routing_map.astype(ms.float32), axis=1)
-        _, unsort_pad_map = ops.sort(sort_map.astype(ms.float32), axis=1)
+        routing_map, sort_map = self.sort(routing_map.astype(ms.float32), dim=1)
+        _, unsort_pad_map = self.sort(sort_map.astype(ms.float32), dim=1)
         tokens = ops.gather(tokens, sort_map, axis=1, batch_dims=1)
         return tokens, routing_map, num_tokens_per_expert, unsort_pad_map
 
@@ -221,8 +224,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             global_input_tokens = ops.reshape(ops.cast(
                 global_input_tokens, tokens_dtype), tokens_shape)
         else:
-            _, sort_map = ops.sort(routing_map)
-            _, unsort_map = ops.sort(sort_map.astype(ms.float32))
+            _, sort_map = self.sort(routing_map)
+            _, unsort_map = self.sort(sort_map.astype(ms.float32))
             global_input_tokens = ops.gather(global_input_tokens, sort_map, axis=1, batch_dims=1)
 
         return (global_input_tokens, tokens_per_expert, unsort_map, outer_unsort_map,
@@ -298,11 +301,11 @@ def permute(
     routing_map = ops.reshape(routing_map, (1, -1))
 
     # (dp, kN)fp32, (dp, kN)int32 <-- (dp, kN)fp32 <-- (dp, kN)int32
-    sorted_routing_map, sort_map = ops.sort(ops.cast(routing_map, ms.float32), axis=1)
+    sorted_routing_map, sort_map = SortExt()(ops.cast(routing_map, ms.float32), dim=1)
 
     # compute unsort_map for unpermutation
     # _, (dp, kN)int32 <--  (dp, kN)fp32 <-- (dp, kN)int32
-    _, unsort_map = ops.sort(ops.cast(sort_map, ms.float32), axis=1)
+    _, unsort_map = SortExt()(ops.cast(sort_map, ms.float32), dim=1)
     # (dp, k, N)int32  <--  (dp, kN)int32
     unsort_map = ops.reshape(unsort_map, (routing_shape[0], routing_shape[2], routing_shape[1]))
     # (dp, N, k)int32  <--  (dp, k, N)int32
@@ -310,7 +313,7 @@ def permute(
 
     # use the mapping to permute the tokens
     # (dp, kN)int32    <--  (dp, kN)int32, N int32
-    inter_map = ops.Mod()(sort_map, routing_shape[1])
+    inter_map = FmodScalar()(sort_map, routing_shape[1])
     # (dp, kN, h)bf16  <--  (dp, N, h)bf16, (dp, kN)int32
     permuted_input = ops.gather(tokens, inter_map, axis=1, batch_dims=1)
 
