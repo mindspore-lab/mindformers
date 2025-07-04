@@ -74,10 +74,9 @@ class Config:
         if not config and not cls._support_none_input:
             raise ValueError(f"The config '{cls._name}' is empty. Please check the yaml file.")
 
-        is_legacy = config.pop('is_legacy', True)
         if not config:
-            return cls._none_process() if is_legacy else {}
-        result = cls._initialize_result() if is_legacy else {}
+            return cls._none_process()
+        result = cls._initialize_result()
         return cls._update_value(result, config)
 
     @classmethod
