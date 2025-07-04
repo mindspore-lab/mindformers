@@ -121,16 +121,14 @@ class MultiTokenPredictionLayer(nn.Cell):
             self.submodules.enorm,
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=config.layernorm_epsilon
         )
 
         self.hnorm = build_module(
             self.submodules.hnorm,
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=config.layernorm_epsilon
         )
 
         self.eh_proj = build_module(
@@ -156,8 +154,7 @@ class MultiTokenPredictionLayer(nn.Cell):
             self.submodules.layer_norm,
             config=self.config,
             dim=self.config.hidden_size,
-            eps=self.config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=self.config.layernorm_epsilon
         )
 
         self.concat = Concat(axis=-1)

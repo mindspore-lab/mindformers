@@ -96,8 +96,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             submodules.input_layernorm,
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=config.layernorm_epsilon
         )
 
         attention_optional_kwargs = {}
@@ -117,8 +116,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             submodules.pre_cross_attn_layernorm,
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=config.layernorm_epsilon
         )
 
         # NOTE: cross_attention remains disabled here,
@@ -138,8 +136,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             submodules.pre_mlp_layernorm,
             config=config,
             dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.layernorm_compute_dtype
+            eps=config.layernorm_epsilon
         )
 
         self.mlp = build_module(submodules.mlp, config=self.config)
