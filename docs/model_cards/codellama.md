@@ -281,31 +281,24 @@ MindFormers提供`CodeLlama_34b`的快速推理脚本，脚本主要通过genera
 
 ```shell
 # 脚本使用
-bash scripts/examples/codellama/run_codellama_predict.sh CONFIG_PATH CKPT_PATH DEVICE_NUM
+bash scripts/examples/codellama/run_codellama_predict.sh CONFIG_PATH CKPT_PATH TOKENIZER_PATH DEVICE_NUM
 
 # 参数说明
 CONFIG_PATH: 模型配置文件路径
 CKPT_PATH:   模型权重文件路径
+TOKENIZER_PATH: tokenizer.model文件路径
 DEVICE_NUM:  使用卡数
 ```
 
 `CodeLlama_34b`仅支持多卡推理，以`CodeLlama_34b`4卡推理为例。
-
-需要去配置文件`predict_codellama_34b.yaml`中修改配置，指定`tokenizer.model`的实际路径：
-
-```yaml
-processor:
-  return_tensors: ms
-  tokenizer:
-    vocab_file: "{path}/tokenizer.model"
-```
 
 执行脚本如下：
 
 ```shell
 bash scripts/examples/codellama/run_codellama_predict.sh \
  configs/codellama/predict_codellama_34b.yaml \
- path/to/codellama_34b.ckpt 4
+ path/to/codellama_34b.ckpt \
+ path/to/tokenizer.model 4
 
 # 推理结果
 # <s>def bubble_sort(arr):
@@ -330,20 +323,23 @@ bash scripts/examples/codellama/run_codellama_predict.sh \
 
 评测使用`HumanEval`数据集可通过[数据集下载](#数据集下载)获得，使用`git`下载代码仓。
 
-1. 构建如下`preprocess.py`脚本放入数据集代码仓中的`human-eval`文件夹中，进行数据集预处理。
+1. 代码下载完成后，安装`HumanEval`依赖。
+
+   ```shell
+   pip install -e human-eval
+   ```
+
+2. 构建如下`preprocess.py`脚本放入数据集代码仓中的`human-eval`文件夹中，进行数据集预处理。
+
+   处理得到的data_list列表总共包含164组测试数据。
+
+   每组测试数据格式为`{"task_id": xx, "prompt": xx, "canonical_solution": xx, "test": xx, "entry_point": xx}`。
 
    ```python
    # preprocess.py
    import argparse
 
    from data import stream_jsonl
-
-
-   def process_data(tasks):
-       prompt_input = [task["prompt"] for task in tasks]
-       user_ids = [task["task_id"] for task in tasks]
-       entry_inputs = [task["entry_point"] for task in tasks]
-       return prompt_input, user_ids, entry_inputs
 
 
    if __name__ == "__main__":
@@ -354,42 +350,60 @@ bash scripts/examples/codellama/run_codellama_predict.sh \
        data_list = []
        for data in stream_jsonl(args.data_path):
            data_list.append(data)
-       prompt_input, task_ids, entry_inputs = process_data(data_list)
 
-       print(prompt_input)
-       print(task_ids)
-       print(entry_inputs)
-   # ['from typing import List\n\n\ndef has_close_e...
-   # ['HumanEval/0', 'HumanEval/1', 'HumanEval/2',...
-   # ['has_close_elements', 'separate_paren_groups',...
+      # 保存第一组数据的"task_id"和"prompt"值做评测
+      print(data_list[0])
+
    ```
 
-   执行`preprocess.py`脚本，提取出`data/HumanEval.jsonl.gz`中的输入`prompt_input`，任务id`task_ids`和执行函数`entry_inputs`字符串列表。
+   执行`preprocess.py`脚本。
 
    ```shell
     python preprocess.py --data_path path/to/HumanEval.jsonl.gz
     ```
 
-2. 使用`prompt_input`数据进行推理并将推理结果用`completion`字段保存，整理为`samples.jsonl`。
+   取出`task_id`和`prompt`值。
 
    ```text
-   # 例如`task_id`为`HumanEval/0`,对应`prompt_input`为`from typing import List\n\n\ndef has_close_e...`；
-   # 使用`prompt_input`进行推理，得到推理结果为`"from typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\nfor i in range(len(numbers)):\n...`；
-   # 将推理结果去除`prompt_input`数据后保存至对应任务的`completion`字段；
-   # 最后将`{'task_id': "HumanEval/0","completion": "for i in range(len(numbers)):\n..."}`保存至`samples.jsonl`文件。
-   {'task_id': "HumanEval/0","completion": "inference result"}
+   'task_id': 'HumanEval/0',
+   'prompt': 'from typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    """ Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    """\n',
    ```
 
-3. 安装`HumanEval`依赖
+3. 使用`prompt`数据进行推理并将推理结果用`completion`字段保存，整理为`samples.jsonl`。
+
+   在`run_codellama_generate.py`中修改`inputs`内容，改为`prompt`数据（注意字符串转义）。
+
+   ```python
+   inputs = ["from typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n"]
+   ```
+
+   执行命令得到推理结果。
 
    ```shell
-   pip install -e human-eval
+   bash scripts/examples/codellama/run_codellama_predict.sh \
+   configs/codellama/predict_codellama_34b.yaml \
+   path/to/codellama_34b.ckpt \
+   path/to/tokenizer.model 4
+
+   ```
+
+   将推理结果去除prompt数据后保存至completion字段，整理成`samples.jsonl`文件。
+
+   ```text
+   {"task_id": "HumanEval/0", "completion": "    for i in range(len(numbers) - 1):\n        for j in range(i + 1, len(numbers)):\n            if abs(numbers[i] - numbers[j]) < threshold:\n                return True\n    return False"}
    ```
 
 4. 生成测试分数
 
-   ```shell
-   evaluate_functional_correctness samples.jsonl
-    # {'pass@1': 测试分数}
+   在`evaluation.py`中将`assert len(completion_id) == len(problems), "Some problems are not attempted."`注释掉。
+
+   ```python
+   # assert len(completion_id) == len(problems), "Some problems are not attempted."
    ```
 
+   执行评测脚本。
+
+   ```shell
+    evaluate_functional_correctness /path/to/samples.jsonl
+    # {'pass@1': 测试分数}
+   ```
