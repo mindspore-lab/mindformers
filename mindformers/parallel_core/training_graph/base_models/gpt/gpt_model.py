@@ -258,6 +258,7 @@ class GPTModel(nn.Cell):
         self.mul = aclnn_ops.Mul()
         self.add = aclnn_ops.AddExt()
         self.transpose = aclnn_ops.Transpose()
+        self.assign = aclnn_ops.InplaceCopy()
 
         # update topk-bias
         if config.moe_router_enable_expert_bias:
@@ -491,8 +492,8 @@ class GPTModel(nn.Cell):
                     router.expert_bias.value(),
                     F.mul(F.sign(err), self.moe_router_bias_update_rate)
                 )
-                F.assign(router.expert_bias, expert_bias_new)
-                F.assign(router.expert_load, self.zeros_tensor)
+                self.assign(router.expert_bias, expert_bias_new)
+                self.assign(router.expert_load, self.zeros_tensor)
             return expert_load_data
 
         num_layers = config.num_layers
