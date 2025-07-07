@@ -73,8 +73,7 @@ if __name__ == "__main__":
     config = get_config()
     state_dict, input_ = get_data(config)
     net = RowParallelBatchedLinear(input_size=config.hidden_size, output_size=config.ffn_hidden_size,
-                                   config=config, init_method=config.init_method,
-                                   compute_dtype=config.compute_dtype)
+                                   config=config, init_method=config.init_method)
     ms.load_param_into_net(net, state_dict)
     output, bias = net(input_)
     gpu_output, golden_output = get_output()

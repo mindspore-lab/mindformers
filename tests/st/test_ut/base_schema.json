@@ -6525,7 +6525,7 @@
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = True, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None)"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = True, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
@@ -6537,7 +6537,7 @@
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = True, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None)"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = True, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
@@ -6549,46 +6549,46 @@
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None)"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.shard": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.sharding_propagation": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.LinearNoTP": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None)"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None)"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.shard": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.sharding_propagation": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.VocabParallelEmbedding": {
-        "signature": "(num_embeddings, embedding_dim, init_method: Callable, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, reduce_scatter_embeddings: bool = False)"
+        "signature": "(num_embeddings, embedding_dim, init_method: Callable, config: mindformers.parallel_core.transformer_config.TransformerConfig, reduce_scatter_embeddings: bool = False)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.VocabParallelEmbedding.construct": {
         "signature": "(self, input_)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.VocabParallelEmbedding.shard": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig)"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.VocabParallelEmbedding.sharding_propagation": {
-        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig)"
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
@@ -6597,7 +6597,7 @@
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA": {
-        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.float16, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
@@ -6633,7 +6633,7 @@
         "signature": "(self, config: mindformers.parallel_core.transformer_config.MLATransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.transformer.fused_softmax.FusedScaleMaskSoftmax": {
-        "signature": "(input_in_fp16: bool = False, input_in_bf16: bool = False, attn_mask_type: mindformers.parallel_core.training_graph.transformer.enums.AttnMaskType = <AttnMaskType.causal: 2>, scaled_masked_softmax_fusion: bool = False, mask_func: Callable = None, softmax_in_fp32: bool = True, scale: float = None, config: mindformers.parallel_core.transformer_config.TransformerConfig = None, softmax_compute_dtype: mindspore.common.dtype = None)"
+        "signature": "(input_in_fp16: bool = False, input_in_bf16: bool = False, attn_mask_type: mindformers.parallel_core.training_graph.transformer.enums.AttnMaskType = <AttnMaskType.causal: 2>, scaled_masked_softmax_fusion: bool = False, mask_func: Callable = None, softmax_in_fp32: bool = True, scale: float = None, config: mindformers.parallel_core.transformer_config.TransformerConfig = None)"
     },
     "mindformers.parallel_core.training_graph.transformer.fused_softmax.FusedScaleMaskSoftmax.construct": {
         "signature": "(self, input_: mindspore.common.tensor.Tensor, mask: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"

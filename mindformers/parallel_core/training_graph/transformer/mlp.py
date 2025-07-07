@@ -94,7 +94,6 @@ class MLP(nn.Cell):
             map_ffn_hidden_size,
             config=self.config,
             bias=self.mlp_has_bias,
-            compute_dtype=self.compute_dtype,
             is_expert=is_expert,
             skip_bias_add=True,
             init_method=self.init_method
@@ -111,7 +110,6 @@ class MLP(nn.Cell):
             self.config.hidden_size,
             config=self.config,
             bias=self.mlp_has_bias,
-            compute_dtype=self.compute_dtype,
             is_expert=is_expert,
             skip_bias_add=True,
             init_method=self.output_layer_init_method
