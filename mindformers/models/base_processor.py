@@ -26,10 +26,8 @@ from .build_processor import build_processor
 from .tokenization_utils_base import PreTrainedTokenizerBase
 from ..tools.logger import logger
 from ..tools.register import MindFormerConfig
-from ..utils import deprecated
 
 
-@deprecated
 class BaseAudioProcessor:
     """
     BaseAudioProcessor for all audio preprocess.

@@ -31,7 +31,6 @@ from mindformers.models.auto.auto_factory import _LazyAutoMapping
 from mindformers.tools.generic import experimental_mode_func_checker
 
 from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
-from ...utils import deprecated
 
 EXP_ERROR_MSG = "AutoImageProcessor is in experimental, AutoProcessor is recommended."
 
@@ -159,7 +158,6 @@ def get_image_processor_config(
         return json.load(reader)
 
 
-@deprecated
 class AutoImageProcessor:
     r"""
     This is a generic image processor class that will be instantiated as one of the image processor classes of the
