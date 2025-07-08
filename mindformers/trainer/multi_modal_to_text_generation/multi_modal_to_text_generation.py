@@ -30,10 +30,8 @@ from ..base_trainer import BaseTrainer
 
 __all__ = ['MultiModalToTextGenerationTrainer']
 
-from ...utils import deprecated
 
 
-@deprecated
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class MultiModalToTextGenerationTrainer(BaseTrainer):
     """

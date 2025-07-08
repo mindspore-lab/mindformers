@@ -18,7 +18,6 @@ from multiprocessing import shared_memory
 from multiprocessing.shared_memory import _SHM_NAME_PREFIX
 import numpy as np
 
-from mindformers.utils import deprecated
 
 if _SHM_NAME_PREFIX.startswith("/"):
     SHM_NAME_PREFIX = _SHM_NAME_PREFIX[1:]
@@ -30,7 +29,6 @@ MAX_SHM_SIZE = int(os.environ.get('MAX_SHM_SIZE', 10 ** 9))
 CHARSET = "0123456789abcdefpsmnwABCDEF"
 
 
-@deprecated
 def create_shm(size, shm_name_save_path):
     """create shared memory according to size, and write its name to shm_name_save_path."""
     if not isinstance(size, int) or size <= 0:
@@ -48,7 +46,6 @@ def create_shm(size, shm_name_save_path):
     return shm
 
 
-@deprecated
 def release_shared_memory(file_path):
     """release shared memory from file"""
     if not os.path.exists(file_path):
@@ -64,7 +61,6 @@ def release_shared_memory(file_path):
         raise RuntimeError(f"release share memory error: {e}") from e
 
 
-@deprecated
 def encode_shm_name_to_int64(name):
     """
     Encodes a shared memory name into a 64-bit integer.
@@ -107,7 +103,6 @@ def encode_shm_name_to_int64(name):
     return final_value
 
 
-@deprecated
 def encode_shape_to_int64(shape):
     """
     Encodes a shape into a 64-bit integer.
@@ -151,7 +146,6 @@ def encode_shape_to_int64(shape):
     return final_value
 
 
-@deprecated
 def decode_shm_name_from_int64(encoded_value):
     """
     Decodes a 64-bit integer back into a shared memory name.
@@ -189,7 +183,6 @@ def decode_shm_name_from_int64(encoded_value):
     return decode_name
 
 
-@deprecated
 def decode_shape_from_int64(encoded_value):
     """
     Decodes a 64-bit integer back into a shape tuple.
@@ -236,7 +229,6 @@ def decode_shape_from_int64(encoded_value):
     return shape
 
 
-@deprecated
 def get_data_from_shm(shm_name_value, shape_value, dtype=np.float32):
     """
     Get the numpy data which stored in sharememory.

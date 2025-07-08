@@ -26,10 +26,8 @@ from mindspore.ops import operations as P
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
-from mindformers.utils import deprecated
 
 
-@deprecated
 class BaseXModalToTextModel(PreTrainedModel):
     """Base modal of multi-modal to text """
     def __init__(self, config: PretrainedConfig, **kwargs):

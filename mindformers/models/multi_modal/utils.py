@@ -16,10 +16,8 @@
 """
 utils for multi modal model
 """
-from mindformers.utils import deprecated
 
 
-@deprecated
 class DataRecord:
     """Record data"""
     def __init__(self):
