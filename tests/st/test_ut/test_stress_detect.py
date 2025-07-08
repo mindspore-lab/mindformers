@@ -17,8 +17,9 @@ import logging
 import unittest
 from unittest.mock import patch
 import pytest
-from mindformers.core.callback import StressDetectCallBack
 import mindspore as ms
+from mindformers.core.callback import StressDetectCallBack
+from mindformers.tools.utils import get_log_path
 
 ms.set_context(device_target='CPU')
 
@@ -26,7 +27,8 @@ PASS_CODE = 0
 VOLTAGE_ERROR_CODE = 574007
 OTHER_ERROR_CODE = 174003
 
-logger = logging.getLogger('mindformers')
+logger_name = f"mindformers{get_log_path()}"
+logger = logging.getLogger(logger_name)
 
 class TestStressDetectCallBack(unittest.TestCase):
     """A test class for testing StressDetectCallBack."""
@@ -53,10 +55,10 @@ class TestStressDetectCallBack(unittest.TestCase):
             dataset_size=self.dataset_size
         )
 
-        with self.assertLogs('mindformers', level='INFO') as log:
+        with self.assertLogs(logger_name, level='INFO') as log:
             callback.log_stress_detect_result(detect_ret_list)
 
-        self.assertIn("INFO:mindformers:Stress detection passed", log.output)
+        self.assertIn(f"INFO:{logger_name}:Stress detection passed", log.output)
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
@@ -99,7 +101,7 @@ class TestStressDetectCallBack(unittest.TestCase):
             dataset_size=self.dataset_size
         )
 
-        with self.assertLogs('mindformers', level='WARNING') as log:
+        with self.assertLogs(logger_name, level='WARNING') as log:
             callback.log_stress_detect_result(detect_ret_list)
 
-        self.assertIn("WARNING:mindformers:Stress detection failed with error code: 174003", log.output)
+        self.assertIn(f"WARNING:{logger_name}:Stress detection failed with error code: 174003", log.output)
