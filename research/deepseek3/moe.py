@@ -1246,10 +1246,10 @@ class ExpertParallelMoE(nn.Cell):
                 0,
                 True,
                 self.moe_config.routed_scaling_factor)
-        expert_weight = expert_weight.astype(input_tensor.dtype)
 
         # AllGather
         if not self.use_alltoall:
+            expert_weight = expert_weight.astype(input_tensor.dtype)
             return self.moe_with_allgather(input_tensor, expert_weight, expert_index)
 
         return self.moe_with_dispatch_combine(input_tensor, expert_weight, expert_index)
