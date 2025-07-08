@@ -63,10 +63,7 @@ class BaseMoELayer(nn.Cell):
         if self.config.expert_model_parallel_size > 1:
             raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
 
-        if config.moe_shared_expert_intermediate_size != 0:
-            self.use_shared_expert = True
-        else:
-            self.use_shared_expert = False
+        self.use_shared_expert = self.config.moe_shared_expert_intermediate_size is not None
 
         self.num_experts = config.num_moe_experts
 
