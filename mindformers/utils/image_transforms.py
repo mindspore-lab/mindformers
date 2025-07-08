@@ -19,6 +19,8 @@ from packaging import version
 import numpy as np
 import mindspore as ms
 import PIL
+
+from mindformers.utils import deprecated
 from mindformers.utils.image_utils import PaddingMode, ChannelDimension, infer_channel_dimension_format, get_image_size
 if version.parse(version.parse(PIL.__version__).base_version) >= version.parse("9.1.0"):
     PILIMAGERESAMPLING = PIL.Image.Resampling
@@ -26,6 +28,7 @@ else:
     PILIMAGERESAMPLING = PIL.Image
 
 
+@deprecated
 def _rescale_for_pil_conversion(image):
     """
     Detects whether or not the image needs to be rescaled before being converted to a PIL image.
@@ -53,6 +56,7 @@ def _rescale_for_pil_conversion(image):
     return do_rescale
 
 
+@deprecated
 def to_pil_image(
         image: Union[np.ndarray, "PIL.Image.Image", "torch.Tensor", "tf.Tensor", "jnp.ndarray"],
         do_rescale: Optional[bool] = None,
@@ -100,6 +104,7 @@ def to_pil_image(
     return PIL.Image.fromarray(image)
 
 
+@deprecated
 def to_channel_dimension_format(
         image: np.ndarray,
         channel_dim: Union[ChannelDimension, str],
@@ -139,6 +144,7 @@ def to_channel_dimension_format(
     return image
 
 
+@deprecated
 def get_channel_dimension_axis(
         image: np.ndarray, input_data_format: Optional[Union[ChannelDimension, str]] = None
 ) -> int:
@@ -163,6 +169,7 @@ def get_channel_dimension_axis(
     raise ValueError(f"Unsupported data format: {input_data_format}")
 
 
+@deprecated
 def rescale(
         image: np.ndarray,
         scale: float,
@@ -201,6 +208,7 @@ def rescale(
     return rescaled_image
 
 
+@deprecated
 def center_crop(
         image: np.ndarray,
         size: Tuple[int, int],
@@ -300,6 +308,7 @@ def center_crop(
     return new_image
 
 
+@deprecated
 def normalize(
         image: np.ndarray,
         mean: Union[float, Iterable[float]],
@@ -360,6 +369,7 @@ def normalize(
     return image
 
 
+@deprecated
 def resize(
         image: np.ndarray,
         size: Tuple[int, int],
@@ -427,6 +437,7 @@ def resize(
 
 # Logic adapted from torchvision resizing logic:
 # https://github.com/pytorch/vision/blob/511924c1ced4ce0461197e5caa64ce5b9e558aab/torchvision/transforms/functional.py#L366
+@deprecated
 def get_resize_output_image_size(
         input_image: np.ndarray,
         size: Union[int, Tuple[int, int], List[int], Tuple[int]],
@@ -493,6 +504,7 @@ def get_resize_output_image_size(
     return (new_long, new_short) if width <= height else (new_short, new_long)
 
 
+@deprecated
 def pad(
         image: np.ndarray,
         padding: Union[int, Tuple[int, int], Iterable[Tuple[int, int]]],

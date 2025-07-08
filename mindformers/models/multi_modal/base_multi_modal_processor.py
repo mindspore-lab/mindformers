@@ -33,11 +33,12 @@ from mindformers.models.multi_modal.modal_content import ModalContentTransformTe
 from mindformers.tools import MindFormerModuleType, MindFormerRegister
 from .utils import DataRecord
 from .shm_utils import create_shm, encode_shm_name_to_int64, encode_shape_to_int64, get_data_from_shm
-
+from ...utils import deprecated
 
 MODALS = ["image", "video", "audio"]
 
 
+@deprecated
 class BatchResizeV2(BatchResize):
     """
     Resize a batch of image to the given shape.
@@ -52,6 +53,7 @@ class BatchResizeV2(BatchResize):
         self.resize = vision.Resize(image_resolution, self.interpolation)
 
 
+@deprecated
 class BaseImageToTextImageProcessor(BaseImageProcessor):
     """
     BaseImageToTextImageProcessor.
@@ -113,6 +115,7 @@ class BaseImageToTextImageProcessor(BaseImageProcessor):
         return False
 
 
+@deprecated
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class BaseXModalToTextTransform:
     """
@@ -248,6 +251,7 @@ class BaseXModalToTextTransform:
         return conversation_data
 
 
+@deprecated
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class BaseXModalToTextProcessor(BaseProcessor):
     r"""BaseXModalToTextProcessor,

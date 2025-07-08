@@ -25,11 +25,13 @@ import mindspore as ms
 from mindformers.tools.logger import logger
 from mindformers.tools.generic import add_model_info_to_auto_map
 from mindformers.tools import PushToHubMixin, cached_file, is_offline_mode, custom_object_save
+from mindformers.utils import deprecated
 from mindformers.utils.image_transforms import center_crop, normalize, rescale
 from mindformers.utils.image_utils import ChannelDimension
 from mindformers.models.utils import IMAGE_PROCESSOR_NAME, is_json_serializable
 
 
+@deprecated
 class ImageProcessingMixin(PushToHubMixin):
     """
     This is an image processor mixin used to provide saving/loading functionality for sequential and image feature
@@ -448,6 +450,7 @@ class ImageProcessingMixin(PushToHubMixin):
         cls._auto_class = auto_class
 
 
+@deprecated
 class BaseImageProcessor(ImageProcessingMixin):
     """
     This is an base image processor used to provide basic image processing functions for sequential and image feature
@@ -582,6 +585,7 @@ class BaseImageProcessor(ImageProcessingMixin):
 VALID_SIZE_DICT_KEYS = ({"height", "width"}, {"shortest_edge"}, {"shortest_edge", "longest_edge"}, {"longest_edge"})
 
 
+@deprecated
 def is_valid_size_dict(size_dict):
     if not isinstance(size_dict, dict):
         return False
@@ -593,6 +597,7 @@ def is_valid_size_dict(size_dict):
     return False
 
 
+@deprecated
 def convert_to_size_dict(
         size, max_size: Optional[int] = None, default_to_square: bool = True, height_width_order: bool = True
 ):
@@ -624,6 +629,7 @@ def convert_to_size_dict(
     raise ValueError(f"Could not convert size input to size dict: {size}")
 
 
+@deprecated
 def get_size_dict(
         size: Union[int, Iterable[int], Dict[str, int]] = None,
         max_size: Optional[int] = None,

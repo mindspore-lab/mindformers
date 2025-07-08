@@ -19,7 +19,10 @@ from typing import Optional, Tuple, Union, List
 
 import numpy as np
 
+from mindformers.utils import deprecated
 
+
+@deprecated
 class ExplicitEnum(str, Enum):
     """
     Enum with more explicit error message for missing values.
@@ -32,6 +35,7 @@ class ExplicitEnum(str, Enum):
         )
 
 
+@deprecated
 class ChannelDimension(ExplicitEnum):
     """
     Enum for channel dimensions.
@@ -40,6 +44,7 @@ class ChannelDimension(ExplicitEnum):
     LAST = "channels_last"
 
 
+@deprecated
 class PaddingMode(ExplicitEnum):
     """
     Enum class for the different padding modes to use when padding images.
@@ -50,6 +55,7 @@ class PaddingMode(ExplicitEnum):
     SYMMETRIC = "symmetric"
 
 
+@deprecated
 def infer_channel_dimension_format(
         image: np.ndarray, num_channels: Optional[Union[int, Tuple[int, ...]]] = None
 ) -> ChannelDimension:
@@ -82,6 +88,7 @@ def infer_channel_dimension_format(
     raise ValueError("Unable to infer channel dimension format")
 
 
+@deprecated
 def get_image_size(image: np.ndarray, channel_dim: ChannelDimension = None) -> Tuple[int, int]:
     """
     Returns the (height, width) dimensions of the image.
@@ -105,6 +112,7 @@ def get_image_size(image: np.ndarray, channel_dim: ChannelDimension = None) -> T
     raise ValueError(f"Unsupported data format: {channel_dim}")
 
 
+@deprecated
 def select_best_resolution(original_size: tuple, possible_resolutions: list) -> tuple:
     """
     Selects the best resolution from a list of possible resolutions based on the original size.
@@ -142,6 +150,7 @@ def select_best_resolution(original_size: tuple, possible_resolutions: list) -> 
     return best_fit
 
 
+@deprecated
 def divide_to_patches(image: np.array, patch_size: int, input_data_format) -> List[np.array]:
     """
     Divides an image into patches of a specified size.

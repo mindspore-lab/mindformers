@@ -32,8 +32,7 @@ from mindformers.core import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer
 from mindformers.models import build_model, build_processor, build_network
 from mindformers.models import PretrainedConfig, PreTrainedModel
-from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
-    build_dataset_loader, build_mask, build_transforms, BaseDataset
+from mindformers.dataset import build_dataset, check_dataset_config
 from mindformers.pipeline import build_pipeline
 from mindformers.wrapper import build_wrapper
 
@@ -83,34 +82,6 @@ class TestAttentionModule:
     """Test Module API For Register."""
     def __init__(self):
         pass
-
-
-@MindFormerRegister.register(MindFormerModuleType.DATASET)
-class TestDataset(BaseDataset):
-    """Test Dataset API For Register."""
-    def __init__(self, dataset_config: dict = None):
-        super(TestDataset, self).__init__(dataset_config)
-        self.config = dataset_config
-
-    def __new__(cls, dataset_config: dict = None):
-        if dataset_config is not None:
-            build_dataset_loader(dataset_config.data_loader)
-            logger.info("Test Build DataLoader Success")
-            build_sampler(dataset_config.sampler)
-            logger.info("Test Build Sampler Success")
-            build_transforms(dataset_config.transforms)
-            logger.info("Test Build Transforms Success")
-            build_mask(dataset_config.mask_policy)
-            logger.info("Test Build Mask Policy Success")
-        else:
-            build_dataset_loader(class_name='TestDataLoader')
-            logger.info("Test Build DataLoader Success")
-            build_sampler(class_name='TestSampler')
-            logger.info("Test Build Sampler Success")
-            build_transforms(class_name='TestTransforms1')
-            logger.info("Test Build Transforms Success")
-            build_mask(class_name='TestModelMask')
-            logger.info("Test Build Mask Policy Success")
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
