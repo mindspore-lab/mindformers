@@ -32,7 +32,7 @@ from mindspore.common.parameter import Parameter
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
 
-from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
+from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
 
 
@@ -46,7 +46,7 @@ class VocabParallelEmbedding(nn.Cell):
         num_embeddings (int): vocabulary size.
         embedding_dim (int): size of hidden state.
         init_method (str, Callable): The initialization method.
-        config (ModelParallelConfig): The model parallel configuration.
+        config (TransformerConfig): The model parallel configuration.
         reduce_scatter_embeddings: Decides whether to perform ReduceScatter after embedding lookup
     """
     def __init__(
@@ -54,7 +54,7 @@ class VocabParallelEmbedding(nn.Cell):
             num_embeddings,
             embedding_dim,
             init_method: Callable,
-            config: ModelParallelConfig,
+            config: TransformerConfig,
             reduce_scatter_embeddings: bool = False,
     ):
         super().__init__()
@@ -64,10 +64,7 @@ class VocabParallelEmbedding(nn.Cell):
         self.embedding_dim = embedding_dim
 
         # use_cpu_initialization or perform_initialization configuration is not supported for now.
-        self.weight = Parameter(
-            init_method([self.num_embeddings, self.embedding_dim]).astype(config.params_dtype),
-            name="weight"
-        )
+        self.weight = Parameter(init_method([self.num_embeddings, self.embedding_dim]), name="weight")
         self.gather = IndexSelect()
         self.reshape = Reshape()
         self.config = config
@@ -89,7 +86,7 @@ class VocabParallelEmbedding(nn.Cell):
 
         return output
 
-    def shard(self, config: ModelParallelConfig):
+    def shard(self, config: TransformerConfig):
         """sharding for embedding"""
         dp = 1 if config.data_parallel_size is None else config.data_parallel_size
         tp = 1 if config.tensor_model_parallel_size is None else config.tensor_model_parallel_size
@@ -102,7 +99,7 @@ class VocabParallelEmbedding(nn.Cell):
             else:
                 self.gather.shard(((tp, 1), (1,)))
 
-    def sharding_propagation(self, config: ModelParallelConfig):
+    def sharding_propagation(self, config: TransformerConfig):
         pass
 
 
@@ -115,7 +112,7 @@ class ColumnParallelLinear(nn.Cell):
     Args:
         input_size (int): The number of input units.
         output_size (int): The number of output units.
-        config (ModelParallelConfig): The config of the transformer model.
+        config (TransformerConfig): The config of the transformer model.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         gather_output (bool): Whether to gather the output. Default: False.
@@ -136,7 +133,7 @@ class ColumnParallelLinear(nn.Cell):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 config: ModelParallelConfig,
+                 config: TransformerConfig,
                  init_method: Callable = None,
                  bias: bool = True,
                  gather_output: bool = False,
@@ -150,7 +147,6 @@ class ColumnParallelLinear(nn.Cell):
                  tp_comm_buffer_name: str = None,
                  disable_grad_reduce: bool = False,
                  transpose_b: bool = True,
-                 compute_dtype: dtype = dtype.float16,
                  bias_init: Callable = None
                  ):
         super(ColumnParallelLinear, self).__init__()
@@ -178,11 +174,11 @@ class ColumnParallelLinear(nn.Cell):
         self.config = config
         self.init_method = init_method
         self.skip_bias_add = skip_bias_add
-        self.compute_dtype = compute_dtype
         self.transpose_b = transpose_b
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.has_bias = bias
         self.params_dtype = config.params_dtype
+        self.compute_dtype = config.compute_dtype
 
         # use_cpu_initialization configuration is not supported for now.
         if skip_weight_param_allocation:
@@ -249,7 +245,7 @@ class ColumnParallelLinear(nn.Cell):
         output = self.reshape(input_, output_shape)
         return output, bias
 
-    def shard(self, config: ModelParallelConfig) -> None:
+    def shard(self, config: TransformerConfig) -> None:
         """Shard the operators in ColumnParallelLinear.
 
         Args:
@@ -266,7 +262,7 @@ class ColumnParallelLinear(nn.Cell):
             add_in_strategy = ((dp * cp, tp), (tp,))
             self.add.shard(in_strategy=add_in_strategy)
 
-    def sharding_propagation(self, config: ModelParallelConfig) -> None:
+    def sharding_propagation(self, config: TransformerConfig) -> None:
         """Shard the operators in ColumnParallelLinear in sharding propagation mode.
 
         Args:
@@ -293,7 +289,7 @@ class RowParallelLinear(nn.Cell):
     Args:
         input_size (int): The number of input units.
         output_size (int): The number of output units.
-        config (ModelParallelConfig): The config of the transformer model.
+        config (TransformerConfig): The config of the transformer model.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         input_is_parallel (bool): Whether the input is already parallelized. Default: False.
@@ -310,7 +306,7 @@ class RowParallelLinear(nn.Cell):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 config: ModelParallelConfig,
+                 config: TransformerConfig,
                  init_method: Callable = None,
                  bias: bool = True,
                  input_is_parallel: bool = False,
@@ -320,7 +316,6 @@ class RowParallelLinear(nn.Cell):
                  is_expert: bool = False,
                  tp_comm_buffer_name: str = None,
                  transpose_b: bool = True,
-                 compute_dtype: dtype = dtype.float16,
                  bias_init: Callable = None
                  ):
         super(RowParallelLinear, self).__init__()
@@ -341,7 +336,7 @@ class RowParallelLinear(nn.Cell):
         self.init_method = init_method
         self.transpose_b = transpose_b
         self.skip_bias_add = skip_bias_add
-        self.compute_dtype = compute_dtype
+        self.compute_dtype = config.compute_dtype
         self.params_dtype = config.params_dtype
         self.has_bias = bias
         self.sequence_parallel = config.sequence_parallel
@@ -404,7 +399,7 @@ class RowParallelLinear(nn.Cell):
         output = self.reshape(input_, output_shape)
         return output, bias
 
-    def shard(self, config: ModelParallelConfig) -> None:
+    def shard(self, config: TransformerConfig) -> None:
         """Shard the operators in RowParallelLinear.
 
         Args:
@@ -423,7 +418,7 @@ class RowParallelLinear(nn.Cell):
             add_in_strategy = ((dp * cp, 1), (1,))
             self.add.shard(in_strategy=add_in_strategy)
 
-    def sharding_propagation(self, config: ModelParallelConfig) -> None:
+    def sharding_propagation(self, config: TransformerConfig) -> None:
         """Shard the operators in RowParallelLinear in sharding propagation mode.
 
         Args:
@@ -449,7 +444,7 @@ class LinearNoTP(ColumnParallelLinear):
     Args:
         input_size (int): The number of input units.
         output_size (int): The number of output units.
-        config (ModelParallelConfig): The config of the transformer model.
+        config (TransformerConfig): The config of the transformer model.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         gather_output (bool): Whether to gather the output. Default: False.
@@ -470,7 +465,7 @@ class LinearNoTP(ColumnParallelLinear):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 config: ModelParallelConfig,
+                 config: TransformerConfig,
                  init_method: Callable = None,
                  bias: bool = True,
                  gather_output: bool = False,
@@ -484,7 +479,6 @@ class LinearNoTP(ColumnParallelLinear):
                  tp_comm_buffer_name: str = None,
                  disable_grad_reduce: bool = False,
                  transpose_b: bool = True,
-                 compute_dtype: dtype = dtype.float16,
                  bias_init: Callable = None
                  ):
         config = copy.deepcopy(config)
@@ -506,6 +500,5 @@ class LinearNoTP(ColumnParallelLinear):
             tp_comm_buffer_name,
             disable_grad_reduce,
             transpose_b,
-            compute_dtype,
             bias_init
         )

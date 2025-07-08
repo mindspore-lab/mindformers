@@ -242,8 +242,7 @@ class GPTModel(nn.Cell):
                                                      bias=False,
                                                      skip_bias_add=False,
                                                      gather_output=not self.parallel_output,
-                                                     skip_weight_param_allocation=skip_weight_param_allocation,
-                                                     compute_dtype=config.compute_dtype)
+                                                     skip_weight_param_allocation=skip_weight_param_allocation)
             config.model_parallel = config.tensor_model_parallel_size
             self.loss = CrossEntropyLoss(parallel_config=config)
 

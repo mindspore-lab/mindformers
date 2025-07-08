@@ -46,8 +46,7 @@ class FusedScaleMaskSoftmax(nn.Cell):
                  mask_func: Callable = None,
                  softmax_in_fp32: bool = True,
                  scale: float = None,
-                 config: TransformerConfig = None,
-                 softmax_compute_dtype: dtype = None
+                 config: TransformerConfig = None
                  ):
         super(FusedScaleMaskSoftmax, self).__init__()
         if scaled_masked_softmax_fusion:
@@ -62,7 +61,7 @@ class FusedScaleMaskSoftmax(nn.Cell):
         self.mask_func = mask_func
         self.scale = scale
         self.softmax_in_fp32 = softmax_in_fp32
-        self.softmax_compute_dtype = softmax_compute_dtype
+        self.softmax_compute_dtype = config.softmax_compute_dtype
         if (self.softmax_in_fp32
                 and (self.softmax_compute_dtype is not None and self.softmax_compute_dtype != dtype.float32)):
             raise ValueError("softmax_compute_dtype should be float32 when softmax_in_fp32 is True")

@@ -32,7 +32,6 @@ except ImportError:
 
     INC_LEFT = Validator.INC_LEFT
 
-from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.dropout import Dropout
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import (
@@ -75,7 +74,6 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
         tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
         disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
         transpose_b (bool): Whether to transpose the weight matrix. Default: True.
-        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         lora_rank (int): The value of rank. Default: 8.
         lora_alpha (int):  The alpha value for lora. Default: 32.
@@ -118,7 +116,6 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
             tp_comm_buffer_name: str = None,
             disable_grad_reduce: bool = False,
             transpose_b: bool = True,
-            compute_dtype: dtype = dtype.float16,
             bias_init: Callable = None,
             lora_rank: int = 8,
             lora_alpha: int = 32,
@@ -143,7 +140,6 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
             tp_comm_buffer_name=tp_comm_buffer_name,
             disable_grad_reduce=disable_grad_reduce,
             transpose_b=transpose_b,
-            compute_dtype=compute_dtype,
             bias_init=bias_init,
         )
         # LoRA parameters
@@ -160,7 +156,6 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
             init_method=init_lora_method(lora_a_init, config.params_dtype),
             skip_bias_add=True,
             bias=False,
-            compute_dtype=self.compute_dtype,
         )
         self.lora_B = ColumnParallelLinear(
             input_size=lora_rank,
@@ -169,7 +164,6 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
             init_method=init_lora_method(lora_b_init, config.params_dtype),
             skip_bias_add=True,
             bias=False,
-            compute_dtype=self.compute_dtype,
         )
 
         # Operations
@@ -258,7 +252,6 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
         tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
         disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
         transpose_b (bool): Whether to transpose the weight matrix. Default: True.
-        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         lora_rank (int): The value of rank. Default: 8.
         lora_alpha (int):  The alpha value for lora. Default: 32.
@@ -287,7 +280,7 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             self,
             input_size: int,
             output_size: int,
-            config: ModelParallelConfig,
+            config: TransformerConfig,
             init_method: Callable = None,
             bias: bool = True,
             input_is_parallel: bool = False,
@@ -297,7 +290,6 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: dtype = dtype.float16,
             bias_init: Callable = None,
             lora_rank: int = 8,
             lora_alpha: int = 32,
@@ -318,7 +310,6 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             is_expert=is_expert,
             tp_comm_buffer_name=tp_comm_buffer_name,
             transpose_b=transpose_b,
-            compute_dtype=compute_dtype,
             bias_init=bias_init,
         )
 
@@ -338,7 +329,6 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             init_method=init_lora_method(lora_a_init, config.params_dtype),
             skip_bias_add=True,
             bias=False,
-            compute_dtype=self.compute_dtype,
         )
         self.lora_B = LinearNoTP(
             input_size=lora_rank,
@@ -347,7 +337,6 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             init_method=init_lora_method(lora_b_init, config.params_dtype),
             skip_bias_add=True,
             bias=False,
-            compute_dtype=self.compute_dtype,
         )
 
         # Operations

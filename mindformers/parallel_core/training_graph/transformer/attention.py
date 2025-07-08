@@ -493,7 +493,6 @@ class SelfAttentionContiguous(Attention):
             self.q_hidden_size + 2 * self.kv_hidden_size,
             config=self.config,
             init_method=self.init_method,
-            compute_dtype=self.compute_dtype,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
             # The gather_output/is_expert/tp_comm_buffer_name parameter is unnecessary.
             # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
@@ -577,7 +576,6 @@ class SelfAttention(Attention):
             self.q_hidden_size + 2 * self.kv_hidden_size,
             config=self.config,
             init_method=self.init_method,
-            compute_dtype=self.compute_dtype,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
             # The gather_output/is_expert/tp_comm_buffer_name parameter is unnecessary.
             # tp/ep partitioning and communication of module parameters is implemented by MindSpore's shard mechanism,
@@ -659,7 +657,6 @@ class CrossAttention(Attention):
             self.hidden_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            compute_dtype=self.config.compute_dtype,
             init_method=self.init_method,
             skip_bias_add=False,
             # The gather_output/is_expert parameter is unnecessary.
@@ -674,7 +671,6 @@ class CrossAttention(Attention):
             2 * self.kv_hidden_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            compute_dtype=self.config.compute_dtype,
             init_method=self.init_method,
             skip_bias_add=False,
             # The gather_output/is_expert parameter is unnecessary.

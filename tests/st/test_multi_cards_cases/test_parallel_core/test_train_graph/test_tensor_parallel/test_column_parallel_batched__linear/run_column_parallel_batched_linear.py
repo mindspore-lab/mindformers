@@ -86,8 +86,7 @@ if __name__ == "__main__":
     state_dict, input_ = get_data(config)
     net = ColumnParallelBatchedLinear(input_size=config.hidden_size, output_size=config.ffn_hidden_size,
                                       config=config, init_method=config.init_method,
-                                      skip_weight_param_allocation=args.skip_weight_param_allocation,
-                                      compute_dtype=config.compute_dtype)
+                                      skip_weight_param_allocation=args.skip_weight_param_allocation)
     if not args.skip_weight_param_allocation and not args.weight:
         ms.load_param_into_net(net, state_dict)
     if args.weight:

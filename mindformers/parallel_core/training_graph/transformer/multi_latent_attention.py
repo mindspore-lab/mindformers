@@ -149,8 +149,7 @@ class MultiLatentAttention(nn.Cell):
             config=self.config,
             init_method=self.config.output_layer_init_method,
             bias=self.config.add_bias_linear,
-            skip_bias_add=True,
-            compute_dtype=self.config.compute_dtype
+            skip_bias_add=True
         )
 
         if self.cp_ds > 1:
@@ -408,8 +407,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                 config=self.config,
                 init_method=self.config.init_method,
                 bias=self.config.add_bias_linear or self.config.add_qkv_bias,
-                skip_bias_add=False,
-                compute_dtype=self.config.compute_dtype
+                skip_bias_add=False
             )
 
         self.linear_qkv = build_module(
@@ -419,8 +417,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             config=self.config,
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
-            skip_bias_add=False,
-            compute_dtype=self.config.compute_dtype,
+            skip_bias_add=False
         )
 
         if submodules.k_layernorm is not None:
@@ -440,8 +437,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             config=self.config,
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
-            skip_bias_add=False,
-            compute_dtype=self.config.compute_dtype,
+            skip_bias_add=False
         )
 
         self.linear_proj = build_module(
@@ -451,8 +447,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             config=self.config,
             init_method=self.config.output_layer_init_method,
             bias=self.config.add_bias_linear,
-            skip_bias_add=True,
-            compute_dtype=self.config.compute_dtype,
+            skip_bias_add=True
         )
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -639,7 +634,6 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 is_expert=False,
-                compute_dtype=self.config.compute_dtype
             )
 
         else:
@@ -652,7 +646,6 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 skip_weight_param_allocation=False,
-                compute_dtype=self.config.compute_dtype
             )
 
             self.linear_q_up_proj = build_module(
@@ -665,7 +658,6 @@ class MLASelfAttention(MultiLatentAttention):
                 bias=False,
                 skip_bias_add=False,
                 skip_weight_param_allocation=False,
-                compute_dtype=self.config.compute_dtype
             )
 
         self.linear_kv_down_proj = build_module(
@@ -677,7 +669,6 @@ class MLASelfAttention(MultiLatentAttention):
             bias=False,
             skip_bias_add=False,
             skip_weight_param_allocation=False,
-            compute_dtype=self.config.compute_dtype
         )
 
         self.linear_kv_up_proj = build_module(
@@ -690,7 +681,6 @@ class MLASelfAttention(MultiLatentAttention):
             bias=False,
             skip_bias_add=False,
             is_expert=False,
-            compute_dtype=self.config.compute_dtype
         )
 
         if self.config.q_lora_rank is not None:

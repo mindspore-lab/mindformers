@@ -19,7 +19,6 @@ from typing import List, Optional, Callable
 
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
-from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import Cast, BatchMatMulExt, Reshape, Transpose
@@ -71,7 +70,6 @@ class ColumnParallelBatchedLinear(nn.Cell):
                  tp_comm_buffer_name: str = None,
                  disable_grad_reduce: bool = False,
                  transpose_b: bool = True,
-                 compute_dtype: dtype = dtype.float16,
                  bias_init: Callable = None
                  ):
         super(ColumnParallelBatchedLinear, self).__init__()
@@ -101,7 +99,7 @@ class ColumnParallelBatchedLinear(nn.Cell):
         self.output_size = output_size
         self.config = config
         self.init_method = init_method
-        self.compute_dtype = compute_dtype
+        self.compute_dtype = config.compute_dtype
         self.transpose_b = transpose_b
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.params_dtype = config.params_dtype
@@ -263,7 +261,6 @@ class RowParallelBatchedLinear(nn.Cell):
                  is_expert: bool = True,
                  tp_comm_buffer_name: str = None,
                  transpose_b: bool = True,
-                 compute_dtype: dtype = dtype.float16,
                  bias_init: Callable = None
                  ):
         super(RowParallelBatchedLinear, self).__init__()
@@ -287,7 +284,7 @@ class RowParallelBatchedLinear(nn.Cell):
         self.config = config
         self.init_method = init_method
         self.transpose_b = transpose_b
-        self.compute_dtype = compute_dtype
+        self.compute_dtype = config.compute_dtype
         self.params_dtype = config.params_dtype
         self.bias = None
         # expert config
