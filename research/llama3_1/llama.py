@@ -25,10 +25,11 @@ from safetensors import safe_open
 import numpy as np
 
 import mindspore.common.dtype as mstype
+from mindspore.communication._comm_helper import _is_initialized
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication import get_group_size
-from mindspore.communication._comm_helper import _is_initialized
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.utils import deprecated
@@ -57,8 +58,10 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
-        if get_group_info('tp').group is None and _is_initialized():
+        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+        if not is_initialized() and _is_initialized():
             initialize_model_parallel(get_group_size(), order='tp')
+            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
         self.config = convert_model_config(config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
@@ -76,7 +79,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.ones = ops.Ones()
         self.gather = ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
-        self.model = ParallelTransformer(config=config)
+        self.model = ParallelTransformer(config=config, model_comm_pgs=model_comm_pgs)
         if config.parallel_config.vocab_emb_dp:
             self.lm_head = Linear(
                 in_channels=config.hidden_size,
@@ -95,6 +98,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
                 gather_output=True,
                 param_init_type=config.param_init_dtype,
                 compute_dtype=config.compute_dtype,
+                tp_group=model_comm_pgs.tp,
             )
 
         self.load_checkpoint(config)

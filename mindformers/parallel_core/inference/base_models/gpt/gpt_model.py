@@ -30,7 +30,8 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.language_
     LanguageModelEmbedding
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
-from mindformers.parallel_core.inference.utils import get_tp_world_size, divide
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.tools.logger import logger
 
 
@@ -87,6 +88,8 @@ class GPTModel(nn.Cell):
         seq_len_interpolation_factor (float, optional): Sequence length interpolation factor. Default: None.
         mtp_block_spec (ModuleSpec, optional): Specification for MTP blocks,
             does not support to set currently. Default: None.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Inputs:
         - **input_ids** (Tensor) - Input token ids
@@ -127,6 +130,7 @@ class GPTModel(nn.Cell):
             rope_scaling: bool = False,
             seq_len_interpolation_factor: Optional[float] = None,
             mtp_block_spec: Optional[ModuleSpec] = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super(GPTModel, self).__init__()
         if not pre_process:
@@ -155,7 +159,9 @@ class GPTModel(nn.Cell):
             self.hidden_dim = config.qk_pos_emb_head_dim
         self.rotary_percent = rotary_percent
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
-        self.tp_group_size = get_tp_world_size()
+        self.tp = model_comm_pgs.tp
+        self.tp_group_size = self.tp.size
+        self.tp_rank = self.tp.rank
         self.is_prefill = True
 
         if hasattr(self.config, 'position_embedding_type'):
@@ -172,7 +178,8 @@ class GPTModel(nn.Cell):
             self.embedding = LanguageModelEmbedding(
                 config=config,
                 vocab_size=self.vocab_size,
-                max_sequence_length=self.max_sequence_length
+                max_sequence_length=self.max_sequence_length,
+                model_comm_pgs=model_comm_pgs,
             )
 
         # Note: Declare the attn mask class for vLLM-MS startup
@@ -196,7 +203,8 @@ class GPTModel(nn.Cell):
         # Transformer
         self.decoder = TransformerBlock(
             config=self.config,
-            spec=transformer_layer_spec
+            spec=transformer_layer_spec,
+            model_comm_pgs=model_comm_pgs,
         )
 
         # Output
@@ -207,6 +215,7 @@ class GPTModel(nn.Cell):
             bias=False,
             gather_output=self.parallel_output,
             compute_dtype=self.config.compute_dtype,
+            tp_group=model_comm_pgs.tp,
         )
         if share_embeddings_and_output_weights:
             self.output_layer.weight = self.embedding.word_embeddings.weight

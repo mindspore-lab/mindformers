@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """moe layer for infer"""
-from typing import Union
+from typing import Optional, Union
 
 from mindspore import Tensor, nn, mint, ops
 import mindspore.common.dtype as mstype
@@ -23,7 +23,8 @@ from mindspore.ops.auto_generate import (MoeInitRoutingV2,
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
-from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
+from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 __all__ = [
     'MoESubmodules',
@@ -84,13 +85,19 @@ class MoELayer(BaseMoELayer):
         config (TransformerConfig): Configuration object for the transformer model.
         submodules (MoESubmodules): Submodules.
         layer_number (int): Number which indicates the index of this moe layer.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Supported Platforms:
         ``Ascend``
     """
 
     def __init__(
-            self, config: TransformerConfig, submodules: MoESubmodules = None, layer_number: int = None
+            self,
+            config: TransformerConfig,
+            submodules: MoESubmodules = None,
+            layer_number: int = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         self.submodules = submodules
         super().__init__(config=config, layer_number=layer_number)
@@ -115,7 +122,7 @@ class MoELayer(BaseMoELayer):
 
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.moe_token_unpermute = MoeTokenUnpermute()
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.tp_group = model_comm_pgs.tp
 
     def construct(self, hidden_states: Tensor):
         """Construct MoELayer."""
@@ -148,7 +155,7 @@ class MoELayer(BaseMoELayer):
                                               padded_mode=False,
                                               restore_shape=None)
 
-        output = self.reduce_from_mp_region(moe_output)
+        output = reduce_from_model_parallel_region(moe_output, self.tp_group)
 
         if self.use_shared_expert:
             output = mint.add(output, self.shared_experts(hidden_states))

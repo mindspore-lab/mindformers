@@ -19,16 +19,14 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.parallel_core.inference.tensor_parallel.mappings import (GatherFromModelParallelRegion,
-                                                                          GatherFromSequenceParallelRegion,
-                                                                          ReduceFromModelParallelRegion,
-                                                                          ReduceScatterToSequenceParallelRegion,
-                                                                          ScatterToModelParallelRegion)
-from mindformers.parallel_core.inference.utils import get_tp_world_size
-from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_rank
+from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
+                                                                          reduce_from_model_parallel_region,
+                                                                          reduce_scatter_to_model_parallel_region,
+                                                                          scatter_to_model_parallel_region)
 from mindformers.parallel_core.inference.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
                                                                         get_rng_tracer)
 from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.inference.parallel_state import default_pgs
 from mindformers.version_control import check_valid_gmm_op
 from mindformers.models.utils import jit
 
@@ -63,6 +61,7 @@ class ColumnParallelLinear(nn.Cell):
         param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
         compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
         expert_num (int): The number of expert. Default: 1.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -100,6 +99,7 @@ class ColumnParallelLinear(nn.Cell):
             param_init_type=mstype.float32,
             compute_dtype=mstype.float16,
             expert_num=1,
+            tp_group=default_pgs,
     ):
         super(ColumnParallelLinear, self).__init__()
         if stride > 1:
@@ -124,7 +124,8 @@ class ColumnParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.gather_output = gather_output
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
 
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
         self.is_expert = is_expert
@@ -168,9 +169,6 @@ class ColumnParallelLinear(nn.Cell):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        self.gather_from_mp_region = GatherFromModelParallelRegion()
-        if self.sequence_parallel:
-            self.gather_from_sp_region = GatherFromSequenceParallelRegion()
 
     @jit
     def construct(self, input_parallel, weight=None, group_list=None):
@@ -192,7 +190,7 @@ class ColumnParallelLinear(nn.Cell):
 
         if self.sequence_parallel:
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
-            input_parallel = self.gather_from_sp_region(input_parallel)
+            input_parallel = gather_from_model_parallel_region(input_parallel, self.tp_group)
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
 
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size_per_partition,)
@@ -218,7 +216,7 @@ class ColumnParallelLinear(nn.Cell):
         output_parallel = self.reshape(output_parallel, output_shape)
 
         if self.gather_output:
-            output = self.gather_from_mp_region(output_parallel)
+            output = gather_from_model_parallel_region(output_parallel, self.tp_group)
         else:
             output = output_parallel
         return output
@@ -268,6 +266,7 @@ class RowParallelLinear(nn.Cell):
         param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
         compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
         expert_num (int): The number of expert. Default: 1.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -299,6 +298,7 @@ class RowParallelLinear(nn.Cell):
             compute_dtype=mstype.float16,
             expert_num=1,
             delay_allreduce=False,
+            tp_group=default_pgs,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -315,7 +315,8 @@ class RowParallelLinear(nn.Cell):
         self.has_bias = bias
         self.skip_bias_add = skip_bias_add
         self.input_is_parallel = input_is_parallel
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
         self.parallel_config = config
         self.compute_dtype = compute_dtype
@@ -367,12 +368,6 @@ class RowParallelLinear(nn.Cell):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        self.cast = P.Cast()
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
-        if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToModelParallelRegion()
-        if self.sequence_parallel:
-            self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
 
     def construct(self, input_, group_list=None):
         """
@@ -383,7 +378,7 @@ class RowParallelLinear(nn.Cell):
         if self.input_is_parallel:
             input_parallel = input_
         else:
-            input_parallel = self.scatter_to_mp_region(input_)
+            input_parallel = scatter_to_model_parallel_region(input_, self.tp_group)
 
         origin_dtype = F.dtype(input_parallel)
         weight = self.cast(self.weight, self.compute_dtype)
@@ -405,13 +400,13 @@ class RowParallelLinear(nn.Cell):
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
-            output = self.reduce_scatter_to_sp_region(output_parallel)
+            output = reduce_scatter_to_model_parallel_region(output_parallel, self.tp_group)
             output = output.swapaxes(0, 1).contiguous()
         else:
             if self.delay_allreduce or self.skip_bias_add:
                 output = output_parallel
             else:
-                output = self.reduce_from_mp_region(output_parallel)
+                output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
 
         if self.has_bias and not self.skip_bias_add:
             output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
@@ -448,6 +443,7 @@ class VocabParallelEmbedding(nn.Cell):
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`. Default: 'normal'.
         init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
     """
 
     def __init__(
@@ -457,19 +453,19 @@ class VocabParallelEmbedding(nn.Cell):
             parallel_config,
             init_method="normal",
             init_type=mstype.float32,
+            tp_group=default_pgs,
     ):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.sequence_parallel = parallel_config.use_sequence_parallel
 
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
+        rank = self.tp_group.rank
 
-        (
-            self.vocab_start_index,
-            self.vocab_end_index,
-        ) = self._vocab_range_from_global_vocab_size(
-            self.num_embeddings, get_tensor_model_parallel_rank(), self.tensor_parallel_group_size
+        self.vocab_start_index, self.vocab_end_index = self._vocab_range_from_global_vocab_size(
+            self.num_embeddings, rank, self.tensor_parallel_group_size
         )
         self.num_embeddings_per_partition = (
             self.vocab_end_index - self.vocab_start_index
@@ -484,8 +480,6 @@ class VocabParallelEmbedding(nn.Cell):
                 ),
                 name="embedding_weight",
             )
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
-        self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
         self.max_index_per_partition = Tensor(self.num_embeddings_per_partition - 1, dtype=mstype.int32)
         self.expand_dims = ops.ExpandDims()
         self.gather = ops.Gather()
@@ -514,11 +508,11 @@ class VocabParallelEmbedding(nn.Cell):
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
-            output = self.reduce_scatter_to_sp_region(output_parallel)
+            output = reduce_scatter_to_model_parallel_region(output_parallel, self.tp_group)
             output = output.swapaxes(0, 1).contiguous()
         else:
             # Reduce across all the model parallel devices.
-            output = self.reduce_from_mp_region(output_parallel)
+            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
 
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):

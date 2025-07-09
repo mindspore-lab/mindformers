@@ -22,7 +22,7 @@ __all__ = [
     "ReplicatedLinear"
 ]
 
-from typing import Callable, Optional, List
+from typing import Callable, List, Optional
 
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
@@ -30,12 +30,13 @@ from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.inference.tensor_parallel.mappings import (GatherFromModelParallelRegion,
-                                                                          ReduceFromModelParallelRegion,
-                                                                          ReduceScatterToSequenceParallelRegion,
-                                                                          ScatterToModelParallelRegion)
-from mindformers.parallel_core.inference.utils import get_tp_world_size, divide
-from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_rank
+from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
+                                                                          reduce_from_model_parallel_region,
+                                                                          reduce_scatter_to_model_parallel_region,
+                                                                          scatter_to_model_parallel_region)
+from mindformers.parallel_core.inference.utils import divide
+
+from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
 from mindformers.parallel_core.inference.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
                                                                         get_rng_tracer)
 
@@ -66,6 +67,7 @@ class ColumnParallelLinear(nn.Cell):
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -98,7 +100,8 @@ class ColumnParallelLinear(nn.Cell):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: mstype = mstype.bfloat16
+            compute_dtype: mstype = mstype.bfloat16,
+            tp_group: ProcessGroup = default_pgs,
     ):
         super(ColumnParallelLinear, self).__init__()
         if stride > 1:
@@ -131,9 +134,9 @@ class ColumnParallelLinear(nn.Cell):
         self.cast = P.Cast()
         self.matmul = P.MatMul(transpose_b=self.transpose_b)
 
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
-        self.gather_from_mp_region = GatherFromModelParallelRegion()
 
         weight_shape = (self.output_size_per_partition, self.input_size) if self.transpose_b else (
             self.input_size, self.output_size_per_partition)
@@ -190,7 +193,7 @@ class ColumnParallelLinear(nn.Cell):
         output_parallel = self.cast(output_parallel, origin_dtype)
 
         if self.gather_output:
-            output = self.gather_from_mp_region(output_parallel)
+            output = gather_from_model_parallel_region(output_parallel, self.tp_group)
         else:
             output = output_parallel
         return output
@@ -230,6 +233,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
     """
 
     def __init__(
@@ -243,7 +247,8 @@ class QKVParallelLinear(ColumnParallelLinear):
             bias: bool = True,
             gather_output: bool = False,
             transpose_b: bool = True,
-            compute_dtype: mstype = None
+            compute_dtype: mstype = None,
+            tp_group: ProcessGroup = default_pgs,
     ):
         self.head_size = head_size
         self.total_num_heads = total_num_heads
@@ -251,7 +256,8 @@ class QKVParallelLinear(ColumnParallelLinear):
         self.params_dtype = config.params_dtype
 
         # Divide the weight matrix along the last dimension.
-        tp_size = get_tp_world_size()
+        self.tp = tp_group
+        tp_size = self.tp.size
         self.num_heads = divide(self.total_num_heads, tp_size)
         if tp_size >= self.total_num_kv_heads:
             self.num_kv_heads = 1
@@ -275,7 +281,8 @@ class QKVParallelLinear(ColumnParallelLinear):
             bias=bias,
             gather_output=gather_output,
             transpose_b=transpose_b,
-            compute_dtype=compute_dtype
+            compute_dtype=compute_dtype,
+            tp_group=tp_group,
         )
 
 
@@ -304,6 +311,7 @@ class RowParallelLinear(nn.Cell):
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -332,6 +340,7 @@ class RowParallelLinear(nn.Cell):
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
             compute_dtype: mstype = mstype.bfloat16,
+            tp_group: ProcessGroup = default_pgs,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -354,17 +363,14 @@ class RowParallelLinear(nn.Cell):
         self.has_bias = bias
         self.skip_bias_add = skip_bias_add
 
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
         self.compute_dtype = compute_dtype
         self.transpose_b = transpose_b
         self.params_dtype = config.params_dtype
         self.cast = P.Cast()
         self.matmul = P.MatMul(transpose_b=self.transpose_b)
-
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
-        if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToModelParallelRegion()
 
         weight_shape = (self.output_size, self.input_size_per_partition) if self.transpose_b else (
             self.input_size_per_partition, self.output_size)
@@ -389,7 +395,7 @@ class RowParallelLinear(nn.Cell):
         if self.input_is_parallel:
             input_parallel = input_
         else:
-            input_parallel = self.scatter_to_mp_region(input_)
+            input_parallel = scatter_to_model_parallel_region(input_, self.tp_group)
 
         origin_dtype = input_parallel.dtype
         output_shape = input_parallel.shape[:-1] + (self.output_size,)
@@ -398,7 +404,7 @@ class RowParallelLinear(nn.Cell):
         input_parallel = self.cast(input_parallel, self.compute_dtype)
         weight = self.cast(self.weight, self.compute_dtype)
         output_parallel = self.matmul(input_parallel, weight)
-        output = self.reduce_from_mp_region(output_parallel)
+        output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
 
         if self.has_bias and not self.skip_bias_add:
             bias = self.cast(self.bias, self.compute_dtype)
@@ -560,6 +566,7 @@ class VocabParallelEmbedding(nn.Cell):
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable init_method parameter. The values
             of str refer to the function `initializer`. Default: 'normal'.
         reduce_scatter_embeddings (bool): Decides whether to perform ReduceScatter after embedding lookup.
+        tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
     """
 
     def __init__(
@@ -570,6 +577,7 @@ class VocabParallelEmbedding(nn.Cell):
             init_method: Callable,
             config: TransformerConfig,
             reduce_scatter_embeddings: bool = False,
+            tp_group: ProcessGroup = default_pgs,
     ):
         super().__init__()
         if reduce_scatter_embeddings:
@@ -578,8 +586,9 @@ class VocabParallelEmbedding(nn.Cell):
         self.embedding_dim = embedding_dim
         self.sequence_parallel = config.sequence_parallel
 
-        self.tensor_parallel_group_size = get_tp_world_size()
-        rank_id = get_tensor_model_parallel_rank() if self.tensor_parallel_group_size > 1 else 0
+        self.tp_group = tp_group
+        self.tensor_parallel_group_size = self.tp_group.size
+        rank_id = self.tp_group.rank
 
         (
             self.vocab_start_index,
@@ -596,8 +605,6 @@ class VocabParallelEmbedding(nn.Cell):
                 init_method([self.num_embeddings_per_partition, self.embedding_dim]).astype(config.params_dtype),
                 name="weight",
             )
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
-        self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
         self.max_index_per_partition = Tensor(self.num_embeddings_per_partition - 1, dtype=mstype.int32)
         self.expand_dims = ops.ExpandDims()
         self.gather = ops.Gather()
@@ -626,11 +633,11 @@ class VocabParallelEmbedding(nn.Cell):
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
-            output = self.reduce_scatter_to_sp_region(output_parallel)
+            output = reduce_scatter_to_model_parallel_region(output_parallel, self.tp_group)
             output = output.swapaxes(0, 1).contiguous()
         else:
             # Reduce across all the model parallel devices.
-            output = self.reduce_from_mp_region(output_parallel)
+            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
 
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):

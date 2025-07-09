@@ -24,6 +24,7 @@ from mindspore.communication import init
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 
@@ -78,9 +79,11 @@ class TransformerBlockRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
             initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
 
         # Transformer config
         self.config = TransformerConfig(
@@ -110,9 +113,10 @@ class TransformerBlockRunner:
             multi_latent_attention=self.multi_latent_attention,
             normalization=self.config.normalization,
             qk_l2_norm=self.qk_l2_norm,
-            sandwich_norm=self.sandwich_norm
+            sandwich_norm=self.sandwich_norm,
         )
-        net = TransformerBlock(self.config, layer_spec)
+        net = TransformerBlock(self.config, layer_spec,
+                               model_comm_pgs=self.model_comm_pgs,)
         return net
 
     def run(self):

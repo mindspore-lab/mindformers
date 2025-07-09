@@ -26,6 +26,7 @@ from mindspore.communication import init, get_rank
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 
@@ -72,9 +73,11 @@ class MLPRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
             initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
 
         # Transformer config
         self.config = TransformerConfig(
@@ -106,7 +109,8 @@ class MLPRunner:
         net = build_module(
             self._get_mlp_spec(),
             config=self.config,
-            input_size=self.input_size
+            input_size=self.input_size,
+            model_comm_pgs=self.model_comm_pgs,
         )
         param_dict = {
             "linear_fc1.weight": self.fc1_weight,

@@ -24,8 +24,10 @@ from mindspore.communication import init, get_rank
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_column_parallel_linear.data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
+
 
 class ColumnParallelLinearRunner:
     """Class to manage ColumnParallelLinear model and weights"""
@@ -57,9 +59,11 @@ class ColumnParallelLinearRunner:
 
 
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
             initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
 
         # Transformer config
         self.config = TransformerConfig(
@@ -81,6 +85,7 @@ class ColumnParallelLinearRunner:
             gather_output=True,
             transpose_b=True,
             bias=self.has_bias,
+            tp_group=self.model_comm_pgs.tp,
         )
 
         param_dict = {

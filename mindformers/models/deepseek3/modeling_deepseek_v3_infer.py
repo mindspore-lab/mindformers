@@ -16,18 +16,19 @@
 from typing import Dict
 
 from mindspore.communication import get_group_size
-from mindspore.communication._comm_helper import _is_initialized
+from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
-    get_group_info,
+    is_initialized,
     initialize_model_parallel
 )
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 
 from .configuration_deepseek_v3 import DeepseekV3Config
 
@@ -46,8 +47,10 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
-        if get_group_info('tp').group is None and _is_initialized():
+        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+        if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(get_group_size(), order='tp')
+            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
         self.config = config
         config = convert_to_transformer_config(
             self.config,
@@ -73,7 +76,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             vocab_size=self.vocab_size,
             max_sequence_length=self.max_position_embeddings,
             position_embedding_type=config.position_embedding_type,
-            rotary_base=config.rotary_base
+            rotary_base=config.rotary_base,
+            model_comm_pgs=model_comm_pgs,
         )
 
     def add_flags_custom_mcore(self, is_prefill):

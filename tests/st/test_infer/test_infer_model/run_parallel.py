@@ -31,7 +31,7 @@ from mindformers import build_context, MindFormerConfig, build_parallel_config, 
     LlamaForCausalLM, Trainer
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, get_tensor_model_parallel_group
 from research.deepseek3.moe import SharedParallelMLP
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 from research.deepseek3.deepseek3_config import DeepseekV3Config
@@ -417,7 +417,7 @@ def parallel_shared_expert_predict_mp2():
     initialize_model_parallel(tensor_model_parallel_size=2)
 
     base_config = get_config()
-    net = SharedParallelMLP(base_config, base_config.intermediate_size)
+    net = SharedParallelMLP(base_config, base_config.intermediate_size, tp_group=get_tensor_model_parallel_group())
 
     bs = 2
     seq_len = base_config.seq_length

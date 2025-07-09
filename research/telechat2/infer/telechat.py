@@ -18,14 +18,14 @@ import numpy as np
 import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
-from mindspore.communication._comm_helper import _is_initialized
+from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
 from mindformers.models.utils import jit
 
 from research.telechat2.infer.utils import convert_model_config
@@ -64,10 +64,7 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         super().__init__(config, auto_prefix=True)
         self.config = convert_model_config(config)
         self.config.out_proj_has_bias = True
-        tp_group = get_group_info('tp').group is None
-        dp_group = get_group_info('dp').group is None
-        all_groups_initialized = tp_group and dp_group
-        if all_groups_initialized and _is_initialized():
+        if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
                                       order='tp-dp')
         self.ignore_token_id = config.ignore_token_id

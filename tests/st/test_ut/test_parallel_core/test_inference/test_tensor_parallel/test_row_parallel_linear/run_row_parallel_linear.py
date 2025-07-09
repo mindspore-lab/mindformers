@@ -25,6 +25,7 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import RowParall
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_normal
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_row_parallel_linear.data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
@@ -55,11 +56,12 @@ class RowParallelLinearRunner:
 
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
-
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
             initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
 
         # Transformer config
         self.config = TransformerConfig(
@@ -80,6 +82,7 @@ class RowParallelLinearRunner:
             input_is_parallel=self.input_is_parallel,
             compute_dtype=self.compute_dtype,
             bias=self.has_bias,
+            tp_group=self.model_comm_pgs.tp,
         )
 
         state_dict = {

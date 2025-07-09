@@ -19,8 +19,9 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import nn, ops, mint, Tensor
 
-from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
-from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
 from research.telechat2.infer.moe import ParallelMoE, RoutedParallelMLP
@@ -56,8 +57,8 @@ class TelechatParallelMoE(ParallelMoE):
             moe_config=moe_config,
             use_fused_op=use_fused_op
         )
-        self.tp_size = get_tp_world_size()
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.tp_group = get_tensor_model_parallel_group()
+        self.tp_size = self.tp_group.size
 
     def construct(self, input_tensor):
         """forward process"""
@@ -89,7 +90,7 @@ class TelechatParallelMoE(ParallelMoE):
         expert_index = self.cast(expert_index, mstype.int32)
         w2_bias = self.cast(mint.div(self.ffn.w2.bias, self.tp_size), input_dtype)
         moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map, w2_bias)  # -> (N, h)
-        moe_output = self.reduce_from_mp_region(moe_output)
+        moe_output = reduce_from_model_parallel_region(moe_output, self.tp_group)
         output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
         return output_tensor
 
