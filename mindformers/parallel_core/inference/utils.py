@@ -23,6 +23,7 @@ from mindformers.parallel_core.inference.parallel_state import (get_tensor_model
                                                                 get_data_parallel_world_size,
                                                                 get_moe_expert_parallel_world_size,
                                                                 get_moe_tensor_parallel_world_size)
+from mindformers.tools import logger
 
 
 def attn_mask_fill(attention_scores: Tensor, attention_mask, fill_value=-10000.0):
@@ -151,3 +152,93 @@ def divide(numerator, denominator):
     """Ensure that numerator is divisible by the denominator and return the division value."""
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
+
+
+def save_strategy_file(state_dict, strategy_file_name):
+    r"""
+    Save the strategy file according to the state_dict and strategy_file_name
+
+    Args:
+        state_dict (Dict): dict with sharding metainfo
+        strategy_file_name (String): the name of the target saving file
+
+    Supported Platforms:
+        ``Ascend``
+    """
+    import os
+    import stat
+    from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
+
+    stra = ckpt_strategy()
+
+    stage_rank_size = state_dict["stage_rank_size"]
+    stage = state_dict["stage"]
+    model_param = state_dict["model"]
+    optimizer_param = state_dict["optimizer"]
+    stra.current_stage = 0
+    model_param.update(optimizer_param)
+    for name, item in model_param.items():
+        if "shard" not in item or "shape" not in item:
+            continue
+        opt_weight_shard_step = item["opt_weight_shard_step"] if "opt_weight_shard_step" in item.keys() else 0
+        opt_weight_shard_size = item["opt_weight_shard_size"] if "opt_weight_shard_size" in item.keys() else 0
+        strategy_item = stra.parallel_strategy_item.add()
+        strategy_item.node_name = name
+        parallel_strategys = strategy_item.parallel_strategys
+        parallel_strategys.stage = stage
+        shard = item["shard"]
+        shape = item["shape"]
+        parallel_strategy = parallel_strategys.parallel_strategy.add()
+        shard_mul = 1
+        for ele in shard:
+            parallel_strategy.dim.append(ele)
+            shard_mul = shard_mul * ele
+        layout_item = stra.parallel_layout_item.add()
+        layout_item.param_name = name
+        parallel_layouts = layout_item.parallel_layouts
+        parallel_layouts.field = 0
+        parallel_layouts.opt_weight_shard_step = opt_weight_shard_step
+        parallel_layouts.opt_weight_shard_size = opt_weight_shard_size
+        dev_matrix = parallel_layouts.dev_matrix.add()
+        if stage_rank_size == shard_mul:
+            repeat_calc_num = 1
+        elif stage_rank_size % shard_mul == 0:
+            repeat_calc_num = stage_rank_size // shard_mul
+        else:
+            raise ValueError(
+                f"For {name}, the shard{shard} requires {shard_mul} devices, "
+                f"but the device number of this stage is {stage_rank_size}, "
+                f"it can not be divisible by {shard_mul}"
+            )
+        if repeat_calc_num != 1:
+            dev_matrix.dim.append(repeat_calc_num)
+        for ele in shard:
+            dev_matrix.dim.append(ele)
+        tensor_map = parallel_layouts.tensor_map.add()
+        shape_len = len(shape)
+        index = shape_len - 1
+        for _ in range(shape_len):
+            tensor_map.dim.append(index)
+            index = index - 1
+        param_split_shape = parallel_layouts.param_split_shape.add()
+        for ele in shape:
+            param_split_shape.dim.append(ele)
+
+    try:
+        if os.path.exists(strategy_file_name):
+            os.chmod(strategy_file_name, stat.S_IWUSR)
+        if "/" in strategy_file_name:
+            real_path = os.path.abspath(strategy_file_name[: strategy_file_name.rfind("/")])
+            os.makedirs(real_path, exist_ok=True)
+        flags = os.O_WRONLY | os.O_CREAT
+        modes = stat.S_IWUSR | stat.S_IRUSR
+        with os.fdopen(os.open(strategy_file_name, flags, modes), 'wb') as f:
+            f.write(stra.SerializeToString())
+            os.chmod(strategy_file_name, stat.S_IRUSR)
+
+    except BaseException as e:
+        logger.critical(
+            f"Failed to save the checkpoint file {strategy_file_name}. Maybe don't have "
+            f"the permission to write files, or the disk space is insufficient and so on."
+        )
+        raise e
