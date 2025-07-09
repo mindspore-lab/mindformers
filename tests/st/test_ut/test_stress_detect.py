@@ -13,13 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """test stress detect."""
-import logging
 import unittest
 from unittest.mock import patch
 import pytest
 import mindspore as ms
 from mindformers.core.callback import StressDetectCallBack
-from mindformers.tools.utils import get_log_path
+from mindformers.tools.logger import get_logger
 
 ms.set_context(device_target='CPU')
 
@@ -27,8 +26,7 @@ PASS_CODE = 0
 VOLTAGE_ERROR_CODE = 574007
 OTHER_ERROR_CODE = 174003
 
-logger_name = f"mindformers{get_log_path()}"
-logger = logging.getLogger(logger_name)
+logger = get_logger()
 
 class TestStressDetectCallBack(unittest.TestCase):
     """A test class for testing StressDetectCallBack."""
@@ -55,10 +53,14 @@ class TestStressDetectCallBack(unittest.TestCase):
             dataset_size=self.dataset_size
         )
 
-        with self.assertLogs(logger_name, level='INFO') as log:
+        with self.assertLogs(logger, level='INFO') as log:
             callback.log_stress_detect_result(detect_ret_list)
 
-        self.assertIn(f"INFO:{logger_name}:Stress detection passed", log.output)
+        target = "Stress detection passed"
+        self.assertTrue(
+            any(target in message for message in log.output),
+            msg=f"Log should contain '{target}' but was: {log.output}"
+        )
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
@@ -101,7 +103,11 @@ class TestStressDetectCallBack(unittest.TestCase):
             dataset_size=self.dataset_size
         )
 
-        with self.assertLogs(logger_name, level='WARNING') as log:
+        with self.assertLogs(logger, level='WARNING') as log:
             callback.log_stress_detect_result(detect_ret_list)
 
-        self.assertIn(f"WARNING:{logger_name}:Stress detection failed with error code: 174003", log.output)
+        target = f"Stress detection failed with error code: {OTHER_ERROR_CODE}"
+        self.assertTrue(
+            any(target in message for message in log.output),
+            msg=f"Log should contain '{target}' but was: {log.output}"
+        )
