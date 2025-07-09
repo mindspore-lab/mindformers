@@ -164,8 +164,9 @@ class TestHfTokenizer(unittest.TestCase):
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_get_vocab(self):
-        res = self.tokenizer.get_vocab()
-        assert len(res) == 206
+        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.path)
+        res = tokenizer.get_vocab()
+        assert len(res) == 203
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
