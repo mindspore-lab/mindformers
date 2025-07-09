@@ -24,7 +24,6 @@ from mindspore import Tensor, nn, mint, ops, Parameter, mutable
 from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
-from mindspore.communication._comm_helper import _is_initialized
 from mindspore.communication import get_group_size, get_rank
 try:
     from mindspore.ops.auto_generate import (FusedAddTopKDiv,
@@ -48,19 +47,21 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAttention
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel, \
-    get_moe_expert_parallel_group
+from mindformers.parallel_core.inference.parallel_state import (get_moe_expert_parallel_group,
+                                                                get_tensor_model_parallel_group, get_world_group,
+                                                                initialize_model_parallel, is_initialized)
+
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_tp_world_size, get_moe_ep_world_size
 
-from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceScatterToSequenceParallelRegion, \
-    GatherFromWorldParallelRegionV2, GatherFromSequenceParallelRegion, ScatterToModelParallelRegion, \
-    ReduceScatterToWorldParallelRegion, ReduceFromWorldParallelRegion
+from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
+                                                                          reduce_from_model_parallel_region,
+                                                                          reduce_scatter_to_model_parallel_region,
+                                                                          scatter_to_model_parallel_region)
 from mindformers.version_control import is_910b
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
+from research.deepseek3.moe import ExpertParallelMoE, ParallelMoEV2, RoutedParallelMLP, SharedMLP, SharedParallelMLP
 from research.deepseek3.utils import convert_model_config
-from research.deepseek3.moe import RoutedParallelMLP, ParallelMoEV2, ExpertParallelMoE, \
-    WorldRegionSharedParallelMLP, SharedMLP
 from research.deepseek3.infer.norm import RMSNorm
 from research.deepseek3.infer.transformer import ParallelMLP, VocabEmbedding
 from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
@@ -690,6 +691,8 @@ class DeepseekV3MoE(Cell):
         self.moe_config = config.moe_config
         self.moe_config.router_dense_type = config.router_dense_type
         intermediate_size = self.moe_config.moe_intermediate_size
+        self.tp_group = get_tensor_model_parallel_group()
+        self.world_group = get_world_group()
 
         ffn = RoutedParallelMLP(config)
         if self.parallel_config.expert_parallel == 1:
@@ -706,19 +709,10 @@ class DeepseekV3MoE(Cell):
         self.ffn_reduce_scatter = config.parallel_config.ffn_reduce_scatter
         self.use_alltoall = config.parallel_config.use_alltoall
 
-        if self.attn_allgather:
-            self.allgather_to_world_region = GatherFromWorldParallelRegionV2()
-        if self.ffn_allgather:
-            self.allgther_from_tp_redion = GatherFromSequenceParallelRegion()
-        if self.ffn_allreduce:
-            self.reduce_from_world_region = ReduceFromWorldParallelRegion()
-        if self.ffn_reduce_scatter:
-            self.reducescatter_from_world_region = ReduceScatterToWorldParallelRegion()
-
         if self.moe_config.shared_expert_num is not None:
             intermediate_size = intermediate_size * self.moe_config.shared_expert_num
             self.shared_experts = SharedMLP(config, intermediate_size) if self.use_alltoall else \
-                WorldRegionSharedParallelMLP(config, intermediate_size)
+                SharedParallelMLP(config, intermediate_size, tp_group=self.world_group)
 
         self.add = P.Add()
 
@@ -727,7 +721,7 @@ class DeepseekV3MoE(Cell):
         # allgather ep: x world size, h single rank size, output dp region
         # alltoall ep: x single rank size, h single rank size, output dp region
         if self.attn_allgather:
-            x = self.allgather_to_world_region(x)
+            x = gather_from_model_parallel_region(x, self.world_group, dim=0)
             x = ops.gather(x, attn_unpadding_idx, 0)
 
         output = self.routed_experts(x)
@@ -737,15 +731,15 @@ class DeepseekV3MoE(Cell):
             output = self.add(output, shared_res)
 
         if self.ffn_allreduce:
-            output = self.reduce_from_world_region(output)
+            output = reduce_from_model_parallel_region(output, self.world_group)
         elif self.ffn_reduce_scatter:
             output = ops.gather(output, ffn_padding_idx, 0)
-            output = self.reducescatter_from_world_region(output)
+            output = reduce_scatter_to_model_parallel_region(output, self.world_group)
 
         output = self.add(h, output)
 
         if self.ffn_allgather:
-            output = self.allgther_from_tp_redion(output)
+            output = gather_from_model_parallel_region(output, self.tp_group)
 
         return output
 
@@ -851,8 +845,7 @@ class AttentionReduceScatter(Cell):
         self.model_parallel = config.parallel_config.model_parallel
         self.moe_config = config.moe_config
         self.is_first_iteration = True
-        self.reduce_scatter_to_tp_region = ReduceScatterToSequenceParallelRegion()
-        self.scatter_to_tp_region = ScatterToModelParallelRegion(axis=0)
+        self.tp_group = get_tensor_model_parallel_group()
         self.reshape = P.Reshape()
 
     def padding_with_idx(self, hidden_state, x, attn_padding_idx):
@@ -861,8 +854,8 @@ class AttentionReduceScatter(Cell):
         return hidden_state, x
 
     def construct(self, hidden_state, x):
-        hidden_state = self.reduce_scatter_to_tp_region(hidden_state)
-        x = self.scatter_to_tp_region(x)
+        hidden_state = reduce_from_model_parallel_region(hidden_state, self.tp_group)
+        x = scatter_to_model_parallel_region(x, self.tp_group)
         return hidden_state, x
 
 
@@ -1443,15 +1436,11 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.parallel_config = self.config.parallel_config
         self.npu_mem_size = config.npu_mem_size if hasattr(config, 'npu_mem_size') else 2
 
-        tp_group = get_group_info('tp').group is None
-        ep_group = get_group_info('ep').group is None
-        pp_group = get_group_info('pp').group is None
-        all_groups_initialized = tp_group and ep_group and pp_group
-
-        if all_groups_initialized and _is_initialized():
+        if not is_initialized():
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
+                                      data_parallel_size=self.config.data_parallel,
                                       order='tp-ep-dp-pp',)
 
         config = self.update_comm_config(config)
@@ -1924,15 +1913,11 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
         self.parallel_config = self.config.parallel_config
         self.npu_mem_size = config.npu_mem_size
 
-        tp_group = get_group_info('tp').group is None
-        ep_group = get_group_info('ep').group is None
-        pp_group = get_group_info('pp').group is None
-        all_groups_initialized = tp_group and ep_group and pp_group
-
-        if all_groups_initialized and _is_initialized():
+        if not is_initialized():
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
+                                      data_parallel_size=self.config.data_parallel,
                                       order='tp-ep-dp-pp',)
 
         config = self.update_comm_config(config)

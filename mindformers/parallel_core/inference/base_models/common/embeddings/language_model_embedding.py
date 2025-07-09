@@ -19,12 +19,13 @@ __all__ = [
     "LanguageModelEmbedding",
 ]
 
-from typing import Literal
+from typing import Literal, Optional
 
 from mindspore import nn, Tensor
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.layers import VocabParallelEmbedding
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 class LanguageModelEmbedding(nn.Cell):
@@ -38,6 +39,8 @@ class LanguageModelEmbedding(nn.Cell):
         num_tokentypes (int): Set to 0 without binary head, and 2 with a binary head, currently not supported
         scatter_to_sequence_parallel (bool): Set False to disable scatter of embedding
             across sequence parallel region, which is not currently supported
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
 
     Inputs:
@@ -58,6 +61,7 @@ class LanguageModelEmbedding(nn.Cell):
             position_embedding_type: Literal['learned_absolute', 'rope', 'none'] = 'learned_absolute',
             num_tokentypes: int = None,
             scatter_to_sequence_parallel: bool = False,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super(LanguageModelEmbedding, self).__init__()
         if num_tokentypes is not None:
@@ -76,7 +80,8 @@ class LanguageModelEmbedding(nn.Cell):
             num_embeddings=self.vocab_size,
             embedding_dim=self.config.hidden_size,
             config=config,
-            init_method=self.config.init_method
+            init_method=self.config.init_method,
+            tp_group=model_comm_pgs.tp
         )
 
         # Note: There is no need to use position embedding in mcore inference

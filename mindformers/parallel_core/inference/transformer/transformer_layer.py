@@ -20,13 +20,14 @@ __all__ = [
 ]
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
 
 from mindspore import nn, mint
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 @dataclass
@@ -90,6 +91,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         submodules (TransformerLayerSubmodules): Submodule specifications.
         layer_number (int): Number of the transformer layer.
         hidden_dropout (float): The value of hidden dropout, do not need in inference. Default: None.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
 
     Inputs:
@@ -124,6 +127,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
                  submodules: TransformerLayerSubmodules,
                  layer_number: int = 1,
                  hidden_dropout: float = None,
+                 model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
                  ):
         super().__init__()
         if hidden_dropout and hidden_dropout != 0:
@@ -151,6 +155,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             submodules.self_attention,
             config=self.config,
             layer_number=layer_number,
+            model_comm_pgs=model_comm_pgs,
             **attention_optional_kwargs,
         )
 
@@ -186,7 +191,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             eps=config.layernorm_epsilon
         )
 
-        self.mlp = build_module(submodules.mlp, config=self.config)
+        self.mlp = build_module(submodules.mlp, config=self.config, model_comm_pgs=model_comm_pgs)
 
         self.post_mlp_layernorm = build_module(
             submodules.pre_cross_attn_layernorm,

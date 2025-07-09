@@ -36,6 +36,7 @@ from mindformers.parallel_core.inference.transformer.dot_product_attention impor
 from mindformers.parallel_core.inference.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_attention.data_gen_utils import (
     get_init_params,
     BLOCK_SIZE, NUM_BLOCKS)
@@ -88,9 +89,11 @@ class SelfAttnRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
-            initialize_model_parallel(tensor_model_parallel_size=self.tensor_parallel)
+            initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
 
         self.config = self.get_self_attention_config()
 
@@ -160,7 +163,8 @@ class SelfAttnRunner:
             self._get_self_attn_spec(self.use_flash_attention),
             config=self.config,
             attn_mask_type=None,
-            layer_number=1
+            layer_number=1,
+            model_comm_pgs=self.model_comm_pgs,
         )
         self._load_weight(net)
         return net

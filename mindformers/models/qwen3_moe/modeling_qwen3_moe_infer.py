@@ -18,19 +18,17 @@ __all__ = ['InferenceQwen3MoeForCausalLM']
 from typing import Dict
 
 from mindspore.communication import get_group_size
-from mindspore.communication._comm_helper import _is_initialized
+from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.utils import jit
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
-from mindformers.parallel_core.inference.parallel_state import (
-    get_group_info,
-    initialize_model_parallel
-)
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 
 
@@ -49,8 +47,10 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=False)
-        if get_group_info('tp').group is None and _is_initialized():
+        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+        if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(get_group_size(), order='tp')
+            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
         self.pad_token_id = self.config.pad_token_id
@@ -74,7 +74,8 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
                               position_embedding_type=config.position_embedding_type,
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
-                              post_process=self.config.post_process)
+                              post_process=self.config.post_process,
+                              model_comm_pgs=model_comm_pgs)
 
     @jit
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,

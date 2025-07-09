@@ -22,7 +22,7 @@ __all__ = [
 from abc import abstractmethod
 from dataclasses import dataclass
 import math
-from typing import Union
+from typing import Union, Optional
 
 from mindspore import mint, nn, ops
 
@@ -30,10 +30,8 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.enums import AttnMaskType
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
-from mindformers.parallel_core.inference.utils import (
-    get_tp_world_size,
-    divide,
-)
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 @dataclass
@@ -59,6 +57,8 @@ class Attention(nn.Cell):
         attn_mask_type (AttnMaskType): Type of attention mask used in the self-attention module, of type AttnMaskType.
         attention_type (str): Type of attention used in the self-attention module, default value is None.
         cp_comm_type (str): Type of communication used in the self-attention module, default value is None.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
 
     Inputs:
@@ -95,7 +95,8 @@ class Attention(nn.Cell):
             layer_number: int,
             attn_mask_type: AttnMaskType = None,
             attention_type: str = None,
-            cp_comm_type: str = None
+            cp_comm_type: str = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(config)
 
@@ -134,7 +135,8 @@ class Attention(nn.Cell):
         self.use_flash_attention = self.config.use_flash_attention
         self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
 
-        self.tp_group_size = get_tp_world_size()
+        self.tp = model_comm_pgs.tp
+        self.tp_group_size = self.tp.size
 
         self.cast = ops.Cast()
 
@@ -186,6 +188,7 @@ class Attention(nn.Cell):
             bias=self.config.add_bias_linear,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
+            tp_group=self.tp
         )
 
     def _check_gqa_valid(self):
@@ -280,6 +283,8 @@ class SelfAttention(Attention):
         layer_number (int): Number which indicates the index of this transformer layer in the whole transformer block.
         attn_mask_type (AttnMaskType): Type of attention mask used in the self-attention module, of type AttnMaskType.
         cp_comm_type (str): Type of communication used in the self-attention module, default value is None.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     """
 
@@ -288,14 +293,16 @@ class SelfAttention(Attention):
                  submodules: SelfAttentionSubmodules,
                  layer_number: int,
                  attn_mask_type: AttnMaskType = None,
-                 cp_comm_type: str = None):
+                 cp_comm_type: str = None,
+                 model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
         super().__init__(
             config=config,
             submodules=submodules,
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
             attention_type=None,
-            cp_comm_type=cp_comm_type
+            cp_comm_type=cp_comm_type,
+            model_comm_pgs=model_comm_pgs,
         )
 
         self.linear_qkv = build_module(
@@ -309,6 +316,7 @@ class SelfAttention(Attention):
             gather_output=False,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
+            tp_group=self.tp,
         )
 
         if submodules.q_layernorm is not None:

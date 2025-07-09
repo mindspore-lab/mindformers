@@ -20,12 +20,13 @@ import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
-from mindspore.communication._comm_helper import _is_initialized
+from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.models.utils import jit
 from mindformers.modules import Linear
-from mindformers.parallel_core.inference.parallel_state import get_group_info, initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
@@ -53,13 +54,12 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
         self.config = convert_model_config(config)
-
-        tp_group = get_group_info('tp').group is None
-        dp_group = get_group_info('dp').group is None
-        all_groups_initialized = tp_group and dp_group
-        if all_groups_initialized and _is_initialized():
+        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+        if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
+                                      data_parallel_size=self.config.parallel_config.data_parallel,
                                       order='tp-dp')
+            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp', 'dp'])
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
@@ -76,7 +76,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.ones = ops.Ones()
         self.gather = ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
-        self.model = ParallelTransformer(config=config)
+        self.model = ParallelTransformer(config=config, model_comm_pgs=model_comm_pgs)
         if config.parallel_config.vocab_emb_dp:
             self.lm_head = Linear(
                 in_channels=config.hidden_size,
@@ -95,6 +95,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
                 gather_output=True,
                 param_init_type=config.param_init_dtype,
                 compute_dtype=config.compute_dtype,
+                tp_group=model_comm_pgs.tp,
             )
 
         self.load_checkpoint(config)

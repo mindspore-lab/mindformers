@@ -26,7 +26,8 @@ from mindspore import nn, mint
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
-from mindformers.parallel_core.inference.utils import get_tp_world_size, divide
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 @dataclass
@@ -54,6 +55,8 @@ class MLP(nn.Cell):
         submodules (MLPSubmodules): The submodules used to construct the MLP, such as activation and linear layers.
         is_expert (bool, optional): Whether this block is used as an expert in MoE. Default: False.
         input_size (int, optional): Input hidden size. If None, will use config.hidden_size. Default: None.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
 
     Inputs:
@@ -72,18 +75,21 @@ class MLP(nn.Cell):
             submodules: MLPSubmodules,
             is_expert: bool = False,
             input_size: Optional[int] = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(config)
 
         self.config: TransformerConfig = config
 
         self.input_size = input_size if input_size is not None else self.config.hidden_size
+        self.tp = model_comm_pgs.tp
+        self.tp_group_size = self.tp.size
 
         if is_expert and self.config.moe_ffn_hidden_size is not None:
             ffn_hidden_size = self.config.moe_ffn_hidden_size
         else:
             ffn_hidden_size = self.config.ffn_hidden_size
-        self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, get_tp_world_size())
+        self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
 
         if self.config.gated_linear_unit:
             ffn_hidden_size *= 2
@@ -100,6 +106,7 @@ class MLP(nn.Cell):
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp,
         )
 
         if self.activation_type is not None:
@@ -117,6 +124,7 @@ class MLP(nn.Cell):
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp,
         )
 
     def construct(self, hidden_states):

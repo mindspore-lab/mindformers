@@ -26,6 +26,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.transformer_layer import BaseTransformerLayer
 from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 @dataclass
@@ -90,6 +91,8 @@ class TransformerBlock(nn.Cell):
         post_layer_norm (bool): Whether to apply layer norm at the end of transformer block. Default: True.
         pre_process (bool): Default: False.
         post_process (bool): Default: False.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
 
     Inputs:
@@ -126,6 +129,7 @@ class TransformerBlock(nn.Cell):
             post_layer_norm: bool = True,
             pre_process=False,
             post_process=False,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super(TransformerBlock, self).__init__()
 
@@ -143,6 +147,7 @@ class TransformerBlock(nn.Cell):
 
         self.config = config
         self.submodules = _get_block_submodules(config, spec)
+        self.model_comm_pgs = model_comm_pgs
         self.post_layer_norm = post_layer_norm
         self.num_layers = config.num_layers
 
@@ -152,7 +157,8 @@ class TransformerBlock(nn.Cell):
         '''The method to construct transformer layers'''
         # Transformer layers.
         def build_layer(layer_spec, layer_number):
-            return build_module(layer_spec, config=self.config, layer_number=layer_number)
+            return build_module(layer_spec, config=self.config, layer_number=layer_number,
+                                model_comm_pgs=self.model_comm_pgs)
 
         self.layers = nn.CellList(
             [

@@ -13,18 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """Expert GrouedMLP."""
+from typing import Optional
+
 import mindspore.ops.functional as F
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
                                                                         get_rng_tracer)
-from mindformers.parallel_core.inference.tensor_parallel.mappings import (ReduceFromModelParallelRegion,
-                                                                          GatherFromModelParallelRegion)
+from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 
 __all__ = [
     "GroupedMLP",
@@ -37,7 +38,12 @@ class GroupedMLP(nn.Cell):
     Executes multiple experts in parallel to maximize computational efficiency.
     """
 
-    def __init__(self, num_experts: int, config: TransformerConfig):
+    def __init__(
+            self,
+            num_experts: int,
+            config: TransformerConfig,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+    ):
         super().__init__()
         self.config = config
         self.num_experts = num_experts
@@ -49,9 +55,9 @@ class GroupedMLP(nn.Cell):
         self.moe_delay_allreduce = True
         self.skip_bias_add = True
 
-
         ffn_hidden_size = self.config.moe_ffn_hidden_size
-        self.tp_group_size = get_tp_world_size()
+        self.tp_group = model_comm_pgs.tp
+        self.tp_group_size = self.tp_group.size
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
         if self.gated_linear_unit:
             mapping_ffn_hidden_size = ffn_hidden_size * 2
@@ -78,8 +84,6 @@ class GroupedMLP(nn.Cell):
 
         self.cast = ops.Cast()
         self.matmul = ops.auto_generate.GroupedMatmulV4()
-        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
-        self.gather_from_mp_region = GatherFromModelParallelRegion()
 
         with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
             self.weight1 = Parameter(initializer("normal", linear_fc1_weight_shape, self.params_dtype), name="weight")
@@ -116,7 +120,8 @@ class GroupedMLP(nn.Cell):
                 output_parallel, self.cast(bias, self.compute_dtype)
             )
         output_parallel = self.cast(output_parallel, origin_dtype)
-        output_parallel = output_parallel.reshape(output_shape)
+        output_parallel = mint.reshape(output_parallel, output_shape)
+        output_parallel = self.gather_from_mp_region(output_parallel)
 
         return output_parallel
 
@@ -134,7 +139,7 @@ class GroupedMLP(nn.Cell):
         if self.moe_delay_allreduce:
             output = output_parallel
         else:
-            output = self.reduce_from_mp_region(output_parallel)
+            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
 
         if self.has_bias and not self.skip_bias_add:
             output = mint.add(output, self.cast(bias, self.compute_dtype))
@@ -167,7 +172,7 @@ class GroupedMLP(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        w_shard = (1, self.tensor_parallel_group_size, 1)
+        w_shard = (1, self.tp_group_size, 1)
 
         state_dict = {}
         state_dict[self.weight.name] = {'shape': self.weight.shape,
