@@ -225,13 +225,17 @@ class MSDatasetAdaptor:
 
         # position ids and attention mask
         position_ids = []
-        attention_mask = np.expand_dims(np.tril(np.ones((seq_length, seq_length))), axis=0)
+        if self.compress_mask:
+            attention_mask = None
+        else:
+            attention_mask = np.expand_dims(np.tril(np.ones((seq_length, seq_length))), axis=0)
         pre_seq = 0
         for seq in actual_seq_len:
             sub_pos = np.arange(seq - pre_seq, dtype=np.float32)
             position_ids.append(sub_pos)
             pre_seq = seq
-            attention_mask[0, seq:, : seq] = 0
+            if attention_mask is not None:
+                attention_mask[0, seq:, : seq] = 0
 
         position_ids.append(np.arange(seq_length - actual_seq_len[-1], dtype=np.float32))
         position_ids = np.concatenate(position_ids)

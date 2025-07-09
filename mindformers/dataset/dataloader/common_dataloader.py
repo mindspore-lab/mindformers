@@ -14,11 +14,12 @@
 # ============================================================================
 """Common DataLoader"""
 import types
-
 from typing import Optional
+
 from mindformers.dataset.handler import build_data_handler
 from mindformers.tools.logger import logger
-from ...tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+
 from .base_dataloader import BaseDataLoader
 from .ms_ds_convertor import to_ms_dataset
 
