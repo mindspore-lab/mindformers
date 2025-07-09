@@ -22,7 +22,7 @@ __all__ = [
 
 import math
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
 
 from mindspore import mint
 from mindspore.ops import operations as P
@@ -30,13 +30,14 @@ from mindspore.ops import operations as P
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
-from mindformers.parallel_core.inference.tensor_parallel.mappings import GatherFromModelParallelRegion
+from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
 from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import (
     YaRNScalingRotaryEmbedding,
     _yarn_get_mscale
 )
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 @dataclass
@@ -69,7 +70,8 @@ class MultiLatentAttention(Attention):
             layer_number: int,
             attn_mask_type: str = None,
             attention_type: str = None,
-            cp_comm_type: str = None
+            cp_comm_type: str = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(
             config=config,
@@ -77,7 +79,8 @@ class MultiLatentAttention(Attention):
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
             attention_type=attention_type,
-            cp_comm_type=cp_comm_type
+            cp_comm_type=cp_comm_type,
+            model_comm_pgs=model_comm_pgs,
         )
         if attn_mask_type:
             raise NotImplementedError(
@@ -105,8 +108,6 @@ class MultiLatentAttention(Attention):
         self.cast = P.Cast()
         self.depend = P.Depend()
         self.dim_slice_3d = P.Slice()
-
-        self.gather_from_mp_region = GatherFromModelParallelRegion()
 
         mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
@@ -169,7 +170,8 @@ class MultiLatentAttention(Attention):
             skip_bias_add=False,
             is_expert=False,
             transpose_b=True,
-            compute_dtype=self.compute_dtype
+            compute_dtype=self.compute_dtype,
+            tp_group=self.tp
         )
 
     def construct(
@@ -248,14 +250,15 @@ class MLASelfAttention(MultiLatentAttention):
             submodules: MLASelfAttentionSubmodules,
             layer_number: int,
             attn_mask_type=None,
-            cp_comm_type: str = None
-    ):
+            cp_comm_type: str = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
         super().__init__(
             config=config,
             submodules=submodules,
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
-            cp_comm_type=cp_comm_type
+            cp_comm_type=cp_comm_type,
+            model_comm_pgs=model_comm_pgs,
         )
 
         if self.config.q_lora_rank is None:
@@ -269,7 +272,8 @@ class MLASelfAttention(MultiLatentAttention):
                 skip_bias_add=False,
                 is_expert=False,
                 transpose_b=True,
-                compute_dtype=self.config.compute_dtype
+                compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
 
             self.linear_kv_down_proj = build_module(
@@ -306,7 +310,8 @@ class MLASelfAttention(MultiLatentAttention):
                 skip_bias_add=False,
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
-                is_expert=False
+                is_expert=False,
+                tp_group=self.tp,
             )
 
         self.linear_kv_up_proj = build_module(
@@ -317,7 +322,8 @@ class MLASelfAttention(MultiLatentAttention):
             bias=False,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
-            is_expert=False
+            is_expert=False,
+            tp_group=self.tp,
         )
 
         if self.config.q_lora_rank is not None:
@@ -358,7 +364,7 @@ class MLASelfAttention(MultiLatentAttention):
                                                                 dim=-1)
 
             if q_compressed.shape[-1] != self.config.q_lora_rank:
-                q_compressed = self.gather_from_mp_region(q_compressed)
+                q_compressed = gather_from_model_parallel_region(q_compressed, self.tp)
 
             # q_compressed: [num_tokens, q_lora_rank]
             q_compressed = self.q_layernorm(q_compressed)
@@ -370,7 +376,7 @@ class MLASelfAttention(MultiLatentAttention):
             kv_combined = self.linear_kv_down_proj(hidden_states)
             if kv_combined.shape[-1] != self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim:
                 # kv_combined: [s, b, (kv_lora_rank + qk_pos_emb_head_dim)]
-                kv_combined = self.gather_from_mp_region(kv_combined)
+                kv_combined = gather_from_model_parallel_region(q_compressed, self.tp)
             kv_compressed, k_pos_emb = mint.split(
                 kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
             )

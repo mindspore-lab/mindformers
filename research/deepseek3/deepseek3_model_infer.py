@@ -407,6 +407,7 @@ class DeepseekV3Attention(nn.Cell):
                  ):
         super().__init__()
         self.hidden_size = dim
+        self.tp_group = get_tensor_model_parallel_group()
         self.tensor_parallel_group_size = get_tp_world_size()
         self.n_head = n_heads
         self.n_local_heads = n_heads // self.tensor_parallel_group_size
@@ -453,7 +454,8 @@ class DeepseekV3Attention(nn.Cell):
                 config=parallel_config,
                 bias=qkv_has_bias,
                 param_init_type=param_init_type,
-                compute_dtype=compute_dtype
+                compute_dtype=compute_dtype,
+                tp_group=self.tp_group,
             )
             # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
             self.kv2l = Linear(
@@ -495,7 +497,8 @@ class DeepseekV3Attention(nn.Cell):
                 config=parallel_config,
                 bias=qkv_has_bias,
                 param_init_type=param_init_type,
-                compute_dtype=compute_dtype
+                compute_dtype=compute_dtype,
+                tp_group=self.tp_group,
             )
 
         self.lkv_norm = RMSNorm(self.kv_lora_rank, norm_eps, compute_type=layernorm_compute_dtype)
@@ -505,7 +508,8 @@ class DeepseekV3Attention(nn.Cell):
             config=parallel_config,
             bias=qkv_has_bias,
             param_init_type=param_init_type,
-            compute_dtype=compute_dtype
+            compute_dtype=compute_dtype,
+            tp_group=self.tp_group,
         )
 
         self.lkv2kv_v = ColumnParallelLinear(
@@ -514,7 +518,8 @@ class DeepseekV3Attention(nn.Cell):
             config=parallel_config,
             bias=qkv_has_bias,
             param_init_type=param_init_type,
-            compute_dtype=compute_dtype
+            compute_dtype=compute_dtype,
+            tp_group=self.tp_group,
         )
 
         self.wo = RowParallelLinear(
@@ -526,6 +531,7 @@ class DeepseekV3Attention(nn.Cell):
             compute_dtype=compute_dtype,
             param_init_type=param_init_type,
             delay_allreduce=delay_allreduce,
+            tp_group=self.tp_group,
         )
 
         self.scale_fa = 1. / math.sqrt(self.q_head_dim)
@@ -739,7 +745,7 @@ class DeepseekV3MoE(Cell):
         output = self.add(h, output)
 
         if self.ffn_allgather:
-            output = gather_from_model_parallel_region(output, self.tp_group)
+            output = gather_from_model_parallel_region(output, self.tp_group, dim=0)
 
         return output
 
@@ -854,8 +860,8 @@ class AttentionReduceScatter(Cell):
         return hidden_state, x
 
     def construct(self, hidden_state, x):
-        hidden_state = reduce_from_model_parallel_region(hidden_state, self.tp_group)
-        x = scatter_to_model_parallel_region(x, self.tp_group)
+        hidden_state = reduce_scatter_to_model_parallel_region(hidden_state, self.tp_group)
+        x = scatter_to_model_parallel_region(x, self.tp_group, dim=0)
         return hidden_state, x
 
 
@@ -1240,11 +1246,13 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
                                                           use_past=config.use_past)
 
         if config.parallel_config.vocab_emb_dp:
+            self.tp_group = get_tensor_model_parallel_group()
             self.tok_embeddings = VocabParallelEmbedding(num_embeddings=config.vocab_size,
                                                          embedding_dim=config.hidden_size,
                                                          parallel_config=config.parallel_config,
                                                          init_method="normal",
-                                                         init_type=config.param_init_type)
+                                                         init_type=config.param_init_type,
+                                                         tp_group=self.tp_group)
         else:
             self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
                                                  embedding_dim=config.hidden_size,
@@ -1440,8 +1448,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
-                                      data_parallel_size=self.config.data_parallel,
+                                      data_parallel_size=self.parallel_config.data_parallel,
                                       order='tp-ep-dp-pp',)
+        self.tp_group = get_tensor_model_parallel_group()
 
         config = self.update_comm_config(config)
 
@@ -1481,7 +1490,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 param_init_type=config.param_init_type,
                 compute_dtype=config.compute_dtype,
                 weight_init="normal",
-                gather_output=True
+                gather_output=True,
+                tp_group=self.tp_group,
             )
         self.prefill_gather_flatten = P.Gather()
 
@@ -1744,6 +1754,8 @@ class DeepseekV3MTPLayer(nn.Cell):
                              compute_type=config.layernorm_compute_type)
         self.concat = P.Concat(axis=-1)
 
+        self.tp_group = get_tensor_model_parallel_group()
+
         self.eh_proj = ColumnParallelLinear(config.hidden_size * 2,
                                             config.hidden_size,
                                             config=config.parallel_config,
@@ -1751,7 +1763,8 @@ class DeepseekV3MTPLayer(nn.Cell):
                                             gather_output=True,
                                             param_init_type=config.param_init_type,
                                             weight_init="normal",
-                                            compute_dtype=config.compute_dtype)
+                                            compute_dtype=config.compute_dtype,
+                                            tp_group=self.tp_group)
         self.decode_layer = DeepseekV3DecodeLayer(config.num_layers,
                                                   dim=config.hidden_size,
                                                   n_heads=config.num_heads,
@@ -1847,6 +1860,8 @@ class DeepseekV3MTPModel(DeepseekV3PreTrainedModel):
 
         self.norm = RMSNorm(config.hidden_size, config.rms_norm_eps,
                             compute_type=config.layernorm_compute_type)
+
+        self.tp_group = get_tensor_model_parallel_group()
         self.head = ColumnParallelLinear(config.hidden_size,
                                          config.vocab_size,
                                          config=config.parallel_config,
@@ -1854,7 +1869,8 @@ class DeepseekV3MTPModel(DeepseekV3PreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          compute_dtype=config.compute_dtype,
                                          weight_init="normal",
-                                         gather_output=True)
+                                         gather_output=True,
+                                         tp_group=self.tp_group)
 
     def construct(self, input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping,
                   position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None):
@@ -1917,7 +1933,7 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
             initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
                                       expert_model_parallel_size=self.parallel_config.expert_parallel,
                                       tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
-                                      data_parallel_size=self.config.data_parallel,
+                                      data_parallel_size=self.parallel_config.data_parallel,
                                       order='tp-ep-dp-pp',)
 
         config = self.update_comm_config(config)

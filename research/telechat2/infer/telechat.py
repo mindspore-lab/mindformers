@@ -26,6 +26,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.models.utils import jit
 
 from research.telechat2.infer.utils import convert_model_config
@@ -64,9 +65,11 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         super().__init__(config, auto_prefix=True)
         self.config = convert_model_config(config)
         self.config.out_proj_has_bias = True
+        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
                                       order='tp-dp')
+            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp', 'dp'])
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
@@ -84,7 +87,7 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
         self.ones = ops.Ones()
         self.gather = ops.Gather(1) if self.is_pynative else ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
-        self.model = TelechatParallelTransformer(config=config)
+        self.model = TelechatParallelTransformer(config=config, model_comm_pgs=model_comm_pgs)
         if config.parallel_config.vocab_emb_dp:
             self.lm_head = Linear(
                 in_channels=config.hidden_size,
@@ -103,6 +106,7 @@ class ParallelTelechatForCausalLM(TelechatPreTrainedModel):
                 gather_output=True,
                 param_init_type=config.param_init_dtype,
                 compute_dtype=config.compute_dtype,
+                tp_group=model_comm_pgs.tp,
             )
 
         self.load_checkpoint(config)

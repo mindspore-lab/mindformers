@@ -22,6 +22,7 @@ from mindspore import nn, ops, mint, Tensor
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group
+from mindformers.parallel_core.process_group_config import default_model_comm_pgs
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
 from research.telechat2.infer.moe import ParallelMoE, RoutedParallelMLP
@@ -122,6 +123,7 @@ class TelechatRoutedParallelMLP(RoutedParallelMLP):
             compute_dtype=self.config.compute_dtype,
             is_expert=True,
             expert_num=self.config.moe_config.expert_num,
+            tp_group=self.tp_group,
         )
 
 
@@ -143,8 +145,8 @@ class TelechatParallelMLP(ParallelMLP):
         ``Ascend``
     """
 
-    def __init__(self, config, is_expert=False):
-        super().__init__(config, is_expert)
+    def __init__(self, config, is_expert=False, model_comm_pgs=default_model_comm_pgs):
+        super().__init__(config, is_expert, model_comm_pgs=model_comm_pgs)
         # Project back to h.
         self.w2 = RowParallelLinear(
             self.ffn_hidden_size,
@@ -156,6 +158,7 @@ class TelechatParallelMLP(ParallelMLP):
             is_expert=is_expert,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp
         )
 
     def construct(self, x):
@@ -320,6 +323,7 @@ class TelechatParallelAttention(ParallelAttention):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
             self.hidden_size_per_partition = divide(self.hidden_size, self.tp_group_size)
             self.kv_hidden_size_per_partition = divide(self.kv_hidden_size, self.tp_group_size)
@@ -333,6 +337,7 @@ class TelechatParallelAttention(ParallelAttention):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
 
             self.wk_v = ColumnParallelLinear(
@@ -344,6 +349,7 @@ class TelechatParallelAttention(ParallelAttention):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
             self.kv_hidden_size_per_partition = divide(self.kv_hidden_size, self.tp_group_size)
 
@@ -376,13 +382,15 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
             layer_type=None,
             self_attn_mask_type=None,
             drop_path_rate: float = 0.0,
+            model_comm_pgs=default_model_comm_pgs,
     ):
         super().__init__(
             config,
             layer_number,
             layer_type,
             self_attn_mask_type,
-            drop_path_rate
+            drop_path_rate,
+            model_comm_pgs
         )
         # Attention.
         self.attention = TelechatParallelAttention(config, layer_number)
@@ -394,10 +402,10 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
             self.feed_forward = TelechatParallelMoE(
                 ffn=TelechatRoutedParallelMLP(config),
                 hidden_size=config.hidden_size,
-                moe_config=config.moe_config
+                moe_config=config.moe_config,
             )
         else:
-            self.feed_forward = TelechatParallelMLP(config)
+            self.feed_forward = TelechatParallelMLP(config, model_comm_pgs=model_comm_pgs)
 
 
 class TelechatParallelTransformer(ParallelTransformer):
@@ -419,7 +427,8 @@ class TelechatParallelTransformer(ParallelTransformer):
             post_norm: bool = True,
             pre_process=False,
             post_process=False,
-            drop_path_rate: float = 0.0
+            drop_path_rate: float = 0.0,
+            model_comm_pgs=default_model_comm_pgs,
     ):
         super().__init__(
             config,
@@ -429,7 +438,8 @@ class TelechatParallelTransformer(ParallelTransformer):
             post_norm,
             pre_process,
             post_process,
-            drop_path_rate
+            drop_path_rate,
+            model_comm_pgs,
         )
 
         self.enable_dynamic_ntk = False
@@ -448,7 +458,11 @@ class TelechatParallelTransformer(ParallelTransformer):
 
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = TelechatParallelTransformerLayer(config=self.config, layer_number=layer_id + 1)
+            layer = TelechatParallelTransformerLayer(
+                config=self.config,
+                layer_number=layer_id + 1,
+                model_comm_pgs=model_comm_pgs
+                )
             self.layers.append(layer)
 
     # pylint: disable=W0613
