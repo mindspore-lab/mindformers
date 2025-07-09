@@ -41,18 +41,20 @@ class TestMLP:
             f"{result.returncode}.\nStdout:\n{result.stdout}\nStderr:\n{result.stderr}"
         )
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
-    def test_all_false_case(self):
+    def test_backward_case(self):
         """
         Feature: MLP
-        Description: Test All False Case: input_size: None, add_bias_linear: False, gated_linear_unit: False
+        Description: Test All False Case: input_size: None, add_bias_linear: False, gated_linear_unit: False,
+                                          enable_backward: True
         Exception: AssertionError
         """
-        self.run_test()
+        args = "--enable_backward"
+        self.run_test(args)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_gated_linear_unit_case(self):
@@ -64,7 +66,7 @@ class TestMLP:
         args = "--gated_linear_unit"
         self.run_test(args)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_add_bias_linear_case(self):
@@ -76,7 +78,7 @@ class TestMLP:
         args = "--add_bias_linear --gated_linear_unit"
         self.run_test(args)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_input_size_case(self):
