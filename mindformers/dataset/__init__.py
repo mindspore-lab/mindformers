@@ -45,7 +45,6 @@ from .handler import (
 )
 from .build_dataset import build_dataset
 from .dataloader.build_dataloader import build_dataset_loader
-from .mask.build_mask import build_mask
 from .sampler.build_sampler import build_sampler
 from .transforms.build_transforms import build_transforms
 from .base_dataset import BaseDataset
