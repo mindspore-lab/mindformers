@@ -45,7 +45,10 @@ class ProcessGroup:
         self._global_ranks = global_ranks
         self._size = size
         self._rank = rank
-        self._is_group_created = False
+        # is_group_created indicates whether the group is created by create_group.
+        # If the group is world group, it is created by the MindSpore framework,
+        # so we set is_group_created to True.
+        self._is_group_created = group == GlobalComm.WORLD_COMM_GROUP
 
     def reset(self) -> None:
         if self._group is not None and self._is_group_created:

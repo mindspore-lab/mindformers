@@ -368,6 +368,7 @@ class RowParallelLinear(nn.Cell):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
+        self.cast = P.Cast()
 
     def construct(self, input_, group_list=None):
         """

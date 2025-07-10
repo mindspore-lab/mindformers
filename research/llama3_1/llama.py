@@ -25,8 +25,9 @@ from safetensors import safe_open
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore.communication._comm_helper import _is_initialized
 from mindspore import Tensor, ops, mint, mutable
+from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
+
 from mindspore.communication import get_group_size
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
@@ -58,11 +59,11 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
+        self.config = convert_model_config(config)
         model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
-        if not is_initialized() and _is_initialized():
+        if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(get_group_size(), order='tp')
             model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
-        self.config = convert_model_config(config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past

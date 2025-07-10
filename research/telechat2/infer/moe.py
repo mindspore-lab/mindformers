@@ -21,11 +21,7 @@ from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
-from mindformers.parallel_core.inference.tensor_parallel.mappings import (GatherFromMoeTensorParallelRegionV2,
-                                                                          GatherFromMoeTensorParallelRegion,
-                                                                          ReduceFromMoeTensorParallelRegion,
-                                                                          ReduceScatterToMoeTensorParallelRegion,
-                                                                          ScatterToMoeTensorParallelRegion)
+from mindformers.parallel_core.inference.parallel_state import default_pgs, get_moe_tensor_parallel_group
 # pylint: disable=C0412
 from mindformers.parallel_core.inference.utils import get_moe_ep_world_size, get_moe_tp_world_size
 from mindformers.tools.utils import divide
@@ -273,6 +269,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             expert_num=1,
             weight_init="normal",
             bias_init="zeros",
+            tp_group=default_pgs,
             **kwargs
     ):
         super(ColumnParallelGroupLinear, self).__init__(
@@ -286,6 +283,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             compute_dtype=compute_dtype,
             weight_init=weight_init,
             bias_init=bias_init,
+            tp_group=tp_group,
             **kwargs
         )
         # moe tp ep
@@ -301,9 +299,6 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             bias_shape = (self.ep_size_per_partition, self.output_size_per_partition)
             self.bias = Parameter(initializer(bias_init, bias_shape, param_init_type), name="bias")
             self.bias_add = P.Add()
-        self.gather_from_mp_region = GatherFromMoeTensorParallelRegion()
-        if self.sequence_parallel:
-            self.gather_from_sp_region = GatherFromMoeTensorParallelRegionV2()
 
 
 class RowParallelGroupLinear(RowParallelLinear):
@@ -359,6 +354,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             weight_init="normal",
             bias_init="zeros",
             delay_allreduce=False,
+            tp_group=default_pgs,
             **kwargs
     ):
         super(RowParallelGroupLinear, self).__init__(
@@ -375,6 +371,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             compute_dtype=compute_dtype,
             weight_init=weight_init,
             bias_init=bias_init,
+            tp_group=tp_group,
             **kwargs
         )
         # tp ep
@@ -392,14 +389,6 @@ class RowParallelGroupLinear(RowParallelLinear):
             bias_shape = (self.ep_size_per_partition, self.output_size)
             self.bias = Parameter(initializer(super().bias_init, bias_shape, super().param_init_type), name="bias")
             self.bias_add = P.Add()
-
-        # moe_tp
-        self.reduce_from_moe_tp_region = ReduceFromMoeTensorParallelRegion()
-        self.reduce_from_mp_region = self.reduce_from_moe_tp_region
-        if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToMoeTensorParallelRegion()
-        if self.sequence_parallel:
-            self.reduce_scatter_to_sp_region = ReduceScatterToMoeTensorParallelRegion()
 
 
 class RoutedParallelMLP(nn.Cell):
@@ -424,6 +413,7 @@ class RoutedParallelMLP(nn.Cell):
         self.act_type = self.config.hidden_act
         self.act_func = get_act_func(self.act_type)
         self.ffn_concat = self.config.ffn_concat
+        self.tp_group = get_moe_tensor_parallel_group()
         self.moe_tp_size = get_moe_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, self.moe_tp_size)
         if self.ffn_concat:
@@ -437,6 +427,7 @@ class RoutedParallelMLP(nn.Cell):
                 expert_num=self.config.moe_config.expert_num,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp_group,
             )
         else:
             self.w1 = ColumnParallelGroupLinear(
@@ -450,6 +441,7 @@ class RoutedParallelMLP(nn.Cell):
                 compute_dtype=self.config.compute_dtype,
                 is_expert=True,
                 expert_num=self.config.moe_config.expert_num,
+                tp_group=self.tp_group,
             )
             self.w3 = ColumnParallelGroupLinear(
                 self.hidden_size,
@@ -462,6 +454,7 @@ class RoutedParallelMLP(nn.Cell):
                 compute_dtype=self.config.compute_dtype,
                 is_expert=True,
                 expert_num=self.config.moe_config.expert_num,
+                tp_group=self.tp_group,
             )
         self.w2 = RowParallelGroupLinear(
             self.ffn_hidden_size,
@@ -476,6 +469,7 @@ class RoutedParallelMLP(nn.Cell):
             is_expert=True,
             expert_num=self.config.moe_config.expert_num,
             delay_allreduce=True,
+            tp_group=self.tp_group,
         )
 
     def construct(self, x, group_list=None):

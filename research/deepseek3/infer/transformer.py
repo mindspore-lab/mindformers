@@ -18,6 +18,7 @@ from mindspore import Parameter, mint, nn, ops
 from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.inference.utils import get_tp_world_size
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group
 from mindformers.tools.utils import divide
 from research.deepseek3.infer.activation import SiLU
 from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
@@ -88,6 +89,7 @@ class ParallelMLP(nn.Cell):
         self.mlp_has_gate = self.config.mlp_has_gate
         self.ffn_concat = self.config.ffn_concat
 
+        self.tp_group = get_tensor_model_parallel_group()
         tp_group_size = get_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
 
@@ -103,6 +105,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp_group,
                 )
             else:
                 self.w1 = ColumnParallelLinear(
@@ -115,6 +118,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp_group,
                 )
                 self.w3 = ColumnParallelLinear(
                     self.hidden_size,
@@ -126,6 +130,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp_group,
                 )
         else:
             self.w1 = ColumnParallelLinear(
@@ -138,6 +143,7 @@ class ParallelMLP(nn.Cell):
                 is_expert=is_expert,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp_group,
             )
 
         self.act_type = self.config.hidden_act
@@ -154,6 +160,7 @@ class ParallelMLP(nn.Cell):
             is_expert=is_expert,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp_group,
         )
         self.mul = ops.Mul()
         self.reshape = ops.Reshape()

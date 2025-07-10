@@ -22,8 +22,9 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.parallel_core.inference.utils import divide, get_attn_mask_func, get_tp_world_size
+from mindformers.parallel_core.inference.utils import divide, get_attn_mask_func
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
+from mindformers.parallel_core.process_group_config import default_model_comm_pgs
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
@@ -87,6 +88,8 @@ class ParallelMLP(nn.Cell):
     Args:
         config (dict): Configuration.
         is_expert (book): This block is an expert block. Default: False.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
@@ -98,7 +101,7 @@ class ParallelMLP(nn.Cell):
         ``Ascend``
     """
 
-    def __init__(self, config, is_expert=False):
+    def __init__(self, config, is_expert=False, model_comm_pgs=default_model_comm_pgs):
         super().__init__(config)
         if is_expert:
             raise NotImplementedError("For ParallelMLP, `is_expert` is not supported for now.")
@@ -109,7 +112,8 @@ class ParallelMLP(nn.Cell):
         self.mlp_has_gate = self.config.mlp_has_gate
         self.ffn_concat = self.config.ffn_concat
 
-        tp_group_size = get_tp_world_size()
+        self.tp = model_comm_pgs.tp
+        tp_group_size = self.tp.size
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
 
         if self.mlp_has_gate:
@@ -124,6 +128,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp,
                 )
             else:
                 self.w1 = ColumnParallelLinear(
@@ -136,6 +141,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp,
                 )
                 self.w3 = ColumnParallelLinear(
                     self.hidden_size,
@@ -147,6 +153,7 @@ class ParallelMLP(nn.Cell):
                     is_expert=is_expert,
                     param_init_type=self.config.param_init_dtype,
                     compute_dtype=self.config.compute_dtype,
+                    tp_group=self.tp,
                 )
         else:
             self.w1 = ColumnParallelLinear(
@@ -159,6 +166,7 @@ class ParallelMLP(nn.Cell):
                 is_expert=is_expert,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
 
         self.act_type = self.config.hidden_act
@@ -175,6 +183,7 @@ class ParallelMLP(nn.Cell):
             is_expert=is_expert,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp,
         )
         self.mul = ops.Mul()
         self.reshape = ops.Reshape()
@@ -301,6 +310,8 @@ class ParallelAttention(nn.Cell):
             whole transformer block.
         config (dict): Configuration.
         attn_type (str): Attention type. Support ['self_attn', 'cross_attn']. Default: 'self_attn'.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
@@ -315,7 +326,8 @@ class ParallelAttention(nn.Cell):
         ``Ascend``
     """
 
-    def __init__(self, config, layer_number, attention_type="self_attn", attn_mask_type=None):
+    def __init__(self, config, layer_number, attention_type="self_attn", attn_mask_type=None,
+                 model_comm_pgs=default_model_comm_pgs):
         super().__init__(config)
         if attn_mask_type:
             raise NotImplementedError("For ParallelAttention, `attn_mask_type` is not supported for now.")
@@ -339,7 +351,8 @@ class ParallelAttention(nn.Cell):
         self.use_flash_attention = self.config.use_flash_attention
         self.norm_factor = math.sqrt(self.head_dim)
 
-        self.tp_group_size = get_tp_world_size()
+        self.tp = model_comm_pgs.tp
+        self.tp_group_size = self.tp.size
         self.num_heads_per_partition = divide(self.num_heads, self.tp_group_size)
 
         self.use_gqa = (self.num_heads != self.kv_num_heads)
@@ -369,6 +382,7 @@ class ParallelAttention(nn.Cell):
             transpose_b=True,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp,
         )
 
         if self.use_flash_attention:
@@ -552,6 +566,7 @@ class ParallelAttention(nn.Cell):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
         else:
             self.wq = ColumnParallelLinear(
@@ -563,6 +578,7 @@ class ParallelAttention(nn.Cell):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
             self.wk = ColumnParallelLinear(
                 self.hidden_size,
@@ -573,6 +589,7 @@ class ParallelAttention(nn.Cell):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
             self.wv = ColumnParallelLinear(
                 self.hidden_size,
@@ -583,6 +600,7 @@ class ParallelAttention(nn.Cell):
                 transpose_b=True,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                tp_group=self.tp,
             )
 
     def _init_cross_attn(self):
@@ -641,6 +659,8 @@ class ParallelTransformerLayer(nn.Cell):
         config (dict): Configuration.
         layer_index (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(B, S, H)`.
@@ -661,6 +681,7 @@ class ParallelTransformerLayer(nn.Cell):
             layer_type=None,
             self_attn_mask_type=None,
             drop_path_rate: float = 0.0,
+            model_comm_pgs=default_model_comm_pgs,
     ):
         super().__init__(config)
         if layer_type:
@@ -679,13 +700,13 @@ class ParallelTransformerLayer(nn.Cell):
                                       eps=config.layernorm_epsilon,
                                       compute_type=config.layernorm_compute_dtype)
         # Attention.
-        self.attention = ParallelAttention(config, layer_number)
+        self.attention = ParallelAttention(config, layer_number, model_comm_pgs=model_comm_pgs)
         # Normalize the attention output
         self.ffn_norm = RMSNorm(dim=config.hidden_size,
                                 eps=config.layernorm_epsilon,
                                 compute_type=config.layernorm_compute_dtype)
         # MLP
-        self.feed_forward = ParallelMLP(config)
+        self.feed_forward = ParallelMLP(config, model_comm_pgs=model_comm_pgs)
 
     def construct(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None):
@@ -721,6 +742,8 @@ class ParallelTransformer(nn.Cell):
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`ParallelTransformerLayer`]
     Args:
         config: the config of transformer
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
 
     Returns:
             output: Tensor, the output of transformerlayer
@@ -735,7 +758,8 @@ class ParallelTransformer(nn.Cell):
             post_norm: bool = True,
             pre_process=False,
             post_process=False,
-            drop_path_rate: float = 0.0
+            drop_path_rate: float = 0.0,
+            model_comm_pgs=default_model_comm_pgs,
     ):
         super().__init__(config)
         if model_type:
@@ -779,7 +803,8 @@ class ParallelTransformer(nn.Cell):
                                                           use_attn_mask_compression=config.use_attn_mask_compression,
                                                           use_past=config.use_past)
 
-        self.tp_group_size = get_tp_world_size()
+        self.tp = model_comm_pgs.tp
+        self.tp_group_size = self.tp.size
         if config.parallel_config.vocab_emb_dp or self.tp_group_size == 1:
             self.tok_embeddings = VocabEmbedding(
                 num_embeddings=config.vocab_size,
@@ -792,11 +817,16 @@ class ParallelTransformer(nn.Cell):
                                                          embedding_dim=config.hidden_size,
                                                          parallel_config=config.parallel_config,
                                                          init_method="normal",
-                                                         init_type=config.param_init_dtype)
+                                                         init_type=config.param_init_dtype,
+                                                         tp_group=self.tp)
 
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = ParallelTransformerLayer(config=self.config, layer_number=layer_id + 1)
+            layer = ParallelTransformerLayer(
+                config=self.config,
+                layer_number=layer_id + 1,
+                model_comm_pgs=model_comm_pgs
+            )
             self.layers.append(layer)
 
         if self.post_norm:
