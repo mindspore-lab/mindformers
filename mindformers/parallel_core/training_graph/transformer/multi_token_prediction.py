@@ -318,7 +318,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             config=self.config,
             init_method=self.config.init_method,
             bias=False,
-            skip_weight_param_allocation=False,
+            skip_weight_param_allocation=True,
         )
 
         self.cast = Cast()
