@@ -279,8 +279,7 @@ def process_for_stand_alone_mode(config, network, strategy_path):
     """process for stand alone mode"""
     enable_stand_alone = (config.parallel.parallel_mode == 'STAND_ALONE')
     if config.use_parallel and enable_stand_alone:
-        from mindformers.parallel_core.inference.utils import generate_state_dict
-        from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
+        from mindformers.parallel_core.inference.utils import generate_state_dict, save_strategy_file
         strategy_ckpt_save_dir = os.path.dirname(strategy_path)
         if is_main_rank():
             if os.path.exists(strategy_ckpt_save_dir):
