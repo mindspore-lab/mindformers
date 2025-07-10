@@ -1204,7 +1204,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.global_batch_size = global_batch_size
         # this list records parameters which will be ignored when saving ckpt.
         self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache',
-                            '_device_local_norm', '_device_local_loss']
+                            '_device_local_norm', '_device_local_loss', 'expert_load']
 
         self.save_info_list = defaultdict(
             lambda: {
