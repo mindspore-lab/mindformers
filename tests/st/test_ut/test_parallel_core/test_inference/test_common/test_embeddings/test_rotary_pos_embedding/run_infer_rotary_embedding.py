@@ -87,7 +87,8 @@ class RotaryEmbeddingRunner:
             seq_len_interpolation_factor=self.seq_len_interpolation_factor,
             rotary_base=self.rotary_base,
             rotary_cos_format=self.rotary_cos_format,
-            rotary_dtype=self.rotary_dtype
+            rotary_dtype=self.rotary_dtype,
+            max_position_embeddings=self.max_position_embedding,
         )
         return net
 
@@ -95,10 +96,9 @@ class RotaryEmbeddingRunner:
         """Run the model with given inputs"""
         net = self.build_model()
         if self.is_prefill:
-            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_prefill(self.max_position_embedding)
+            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_prefill()
         else:
-            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_decode(
-                self.batch_valid_length, self.max_position_embedding)
+            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_decode(self.batch_valid_length)
 
         query, key = net(self.query, self.key, rotary_pos_cos, rotary_pos_sin, self.batch_valid_length)
         output_ms = {"query": query, "key": key}
@@ -130,6 +130,7 @@ class Llama3RotaryEmbeddingRunner(RotaryEmbeddingRunner):
             rotary_base=self.rotary_base,
             rotary_cos_format=self.rotary_cos_format,
             rotary_dtype=self.rotary_dtype,
+            max_position_embeddings=self.max_position_embedding,
             scaling_factor=self.scaling_factor,
             low_freq_factor=self.low_freq_factor,
             high_freq_factor=self.high_freq_factor,
@@ -174,10 +175,9 @@ class YarnScalingRotaryEmbeddingRunner(RotaryEmbeddingRunner):
         """Run the model with given inputs"""
         net = self.build_model()
         if self.is_prefill:
-            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_prefill(self.original_max_position_embeddings)
+            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_prefill()
         else:
-            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_decode(
-                self.batch_valid_length, self.original_max_position_embeddings)
+            rotary_pos_cos, rotary_pos_sin = net.get_cos_sin_for_decode(self.batch_valid_length)
 
         query, key = net(self.query, self.key, rotary_pos_cos, rotary_pos_sin, self.batch_valid_length)
         output_ms = {"query": query, "key": key}
