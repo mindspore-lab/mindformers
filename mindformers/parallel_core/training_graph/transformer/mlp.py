@@ -167,11 +167,6 @@ class MLP(nn.Cell):
                 mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
                 self.mul.shard(in_strategy=mul_in_strategy)
                 self.add.shard(((cp, dp, tp), (tp,)))
-                if self.activation_type == 'swiglu' or self.activation_type == 'silu':
-                    self.activation_func.silu.shard(((cp, dp, 1),))
-                if self.activation_type == 'swiglu':
-                    self.activation_func.slice.shard(((cp, dp, 1),))
-                    self.activation_func.mul.shard(((cp, dp, 1), (cp, dp, 1)))
 
             if self.gated_linear_unit and self.activation_type != 'swiglu':
                 if self.compute_2d and not config.multi_latent_attention:

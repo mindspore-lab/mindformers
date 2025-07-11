@@ -115,7 +115,8 @@ class SharedExpertMLP(MLP):
                 self.add.shard(((cp, dp, tp), (tp,)))
                 self.linear_fc1.matmul.shard(((dp * cp, 1), (1, tp)))
                 self.linear_fc2.matmul.shard(((dp * cp, tp), (tp, 1)))
-                self.activation_func.silu.shard(((cp, dp, 1),))
+                if self.activation_type == 'swiglu' or self.activation_type == 'silu':
+                    self.activation_func.silu.shard(((cp, dp, 1),))
                 if self.activation_type == 'swiglu':
                     self.activation_func.slice.shard(((cp, dp, 1),))
                     self.activation_func.mul.shard(((cp, dp, 1), (cp, dp, 1)))

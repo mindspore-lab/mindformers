@@ -29,7 +29,7 @@ from mindspore import log as logger
 from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
 from mindformers.tools.logger import _LogActionOnce
-from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
+from mindformers.parallel_core.model_parallel_config import default_dpmp_config
 
 
 class _LogSoftmax(nn.Cell):
@@ -55,17 +55,18 @@ class _LogSoftmax(nn.Cell):
         super(_LogSoftmax, self).__init__()
         dp = parallel_config.data_parallel_size
         mp = parallel_config.tensor_model_parallel_size
+        cp = parallel_config.context_parallel_size
         # on/off value for onehot, for smooth labeling, modify the off_value
         self.on_value = Tensor(1.0, mstype.int32)
         self.off_value = Tensor(0.0, mstype.int32)
 
-        self.sum = SumExt().shard(((dp, mp),))
+        self.sum = SumExt().shard(((dp * cp, mp),))
         self.max = ArgMaxWithValue(axis=1, keep_dims=True).shard(
-            ((dp, mp),))
-        self.sub = SubExt().shard(((dp, mp), (dp, 1)))
-        self.exp = Exp().shard(((dp, mp),))
-        self.log = Log().shard(((dp, 1),))
-        self.onehot = OneHotExt(axis=-1).shard(((dp, mp), (), ()))
+            ((dp * cp, mp),))
+        self.sub = SubExt().shard(((dp * cp, mp), (dp * cp, 1)))
+        self.exp = Exp().shard(((dp * cp, mp),))
+        self.log = Log().shard(((dp * cp, 1),))
+        self.onehot = OneHotExt(axis=-1).shard(((dp * cp, mp), (), ()))
         self.cast = Cast()
         self.zeros_like = ZerosLikeExt()
         self.transpose = Transpose()
@@ -109,6 +110,7 @@ class _NLLLoss(nn.Cell):
         super(_NLLLoss, self).__init__()
         dp = parallel_config.data_parallel_size
         mp = parallel_config.tensor_model_parallel_size
+        cp = parallel_config.context_parallel_size
         self.repeat_loss = 1
         self.gather_d = GatherD()
         self.expand_dims = ExpandDims()
@@ -116,9 +118,9 @@ class _NLLLoss(nn.Cell):
         # we need to eliminate this virtual div by adding a factor "mp".
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.repeat_loss = mp
-        self.sum = SumExt().shard(((dp, mp),))
-        self.mul = Mul().shard(((dp, mp), (dp, mp)))
-        self.neg = Neg().shard(((dp, mp),))
+        self.sum = SumExt().shard(((dp * cp, mp),))
+        self.mul = Mul().shard(((dp * cp, mp), (dp * cp, mp)))
+        self.neg = Neg().shard(((dp * cp, mp),))
         self.zeros_like = ZerosLikeExt()
 
     def construct(self, log_softmax_result, one_hot_label):
@@ -226,14 +228,15 @@ class CrossEntropyLoss(nn.Cell):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel_size
         mp = parallel_config.tensor_model_parallel_size
+        cp = parallel_config.context_parallel_size
         self.seq_pipe = seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.enable_force_redistribute = True
-            self.add = AddExt().shard(((dp, mp), ())).add_prim_attr("keep_alive", True)
-            self.add_label = AddExt().shard(((dp,), ())).add_prim_attr("keep_alive", True)
-            self._check_and_modify_sharding_context(dp)
+            self.add = AddExt().shard(((dp * cp, mp), ())).add_prim_attr("keep_alive", True)
+            self.add_label = AddExt().shard(((dp * cp,), ())).add_prim_attr("keep_alive", True)
+            self._check_and_modify_sharding_context(dp * cp)
         self.sum2 = SumExt().shard(((1,),))
         self.mul2 = Mul().shard(((1,), (1,)))
         self.add2 = AddExt()

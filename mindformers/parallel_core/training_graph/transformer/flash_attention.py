@@ -154,6 +154,7 @@ class FlashAttention(Cell):
             self.drop_gen_mask = ops.DropoutGenMask()
 
         self.bnsd_transpose = aclnn_ops.Transpose()
+        self.bsh_transpose = aclnn_ops.Transpose()
         self.merge_head_transpose = aclnn_ops.Transpose()
         self.shape = aclnn_ops.Shape()
         self.reshape = aclnn_ops.Reshape()
@@ -262,15 +263,20 @@ class FlashAttention(Cell):
                                                    actual_seq_kvlen)
             return output
 
+        q_seq_len, bsz = query.shape[:2]
+        kv_seq_len = key.shape[0]
         if self.input_layout == "BNSD":
             query = self.bnsd_transpose(query, (1, 2, 0, 3))
             key = self.bnsd_transpose(key, (1, 2, 0, 3))
             value = self.bnsd_transpose(value, (1, 2, 0, 3))
-            bsz, _, q_seq_len, _ = query.shape
-            _, _, kv_seq_len, _ = key.shape
+        elif self.input_layout == "BSH":
+            query = self.bsh_transpose(query, (1, 0, 2))
+            key = self.bsh_transpose(key, (1, 0, 2))
+            value = self.bsh_transpose(value, (1, 0, 2))
         else:
-            bsz, q_seq_len, _ = query.shape
-            _, kv_seq_len, _ = key.shape
+            query = self.reshape(query, (q_seq_len, bsz, -1))
+            key = self.reshape(key, (kv_seq_len, bsz, -1))
+            value = self.reshape(key, (kv_seq_len, bsz, -1))
         if self.enable_dropout:
             drop_mask_bits = self.reshape(
                 self.drop_gen_mask((bsz, self.head_num, q_seq_len, kv_seq_len), self.keep_prob_tensor),
@@ -289,7 +295,8 @@ class FlashAttention(Cell):
                                                prefix)
         if self.input_layout == "BNSD":
             output = self._merge_heads(output)
-
+        elif self.input_layout == "BSH":
+            output = self.fa_out_transpose(output, (1, 0, 2))
         return output
 
     def _merge_heads(self, x):
@@ -319,7 +326,8 @@ class FlashAttention(Cell):
         cp = 1 if config is None else config.context_parallel_size
 
         self.bnsd_transpose.shard(((cp, dp, tp, 1),))
-        self.merge_head_transpose.shard(((dp, tp, 1, 1),))
+        self.bsh_transpose.shard(((cp, dp, tp),))
+        self.merge_head_transpose.shard(((dp, tp, cp, 1),))
         self.fa_out_transpose.shard(((dp, cp, tp),))
 
         fa_strategies = self._generate_flash_attention_strategy(dp, tp, cp)
