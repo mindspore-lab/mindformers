@@ -109,11 +109,13 @@ class MoELayer(BaseMoELayer):
         # Note: It is not supported to initialize token dispatch currently.
 
         # Initialize experts
-        self.experts = build_module(self.submodules.experts, self.num_experts, self.config)
+        self.experts = build_module(self.submodules.experts, self.num_experts,
+                                    self.config, model_comm_pgs=model_comm_pgs)
 
         # Initialize shared experts
         if self.use_shared_expert:
-            self.shared_experts = build_module(self.submodules.shared_experts, config=self.config)
+            self.shared_experts = build_module(self.submodules.shared_experts, config=self.config,
+                                               model_comm_pgs=model_comm_pgs)
 
         self.cast = ops.Cast()
 

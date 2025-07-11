@@ -112,7 +112,7 @@ class GroupedMLP(nn.Cell):
         input_parallel = self.cast(input_parallel, self.compute_dtype)
         output_size_per_partition = divide(output_size, self.tp_group_size)
         output_shape = input_parallel.shape[:-1] + (output_size_per_partition,)
-        input_parallel.reshape((-1, input_size))
+        input_parallel = input_parallel.reshape((-1, input_size))
         output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
                                       group_list, split_item=3, group_type=0, group_list_type=1)[0]
         if self.has_bias:
@@ -121,7 +121,6 @@ class GroupedMLP(nn.Cell):
             )
         output_parallel = self.cast(output_parallel, origin_dtype)
         output_parallel = mint.reshape(output_parallel, output_shape)
-        output_parallel = self.gather_from_mp_region(output_parallel)
 
         return output_parallel
 
