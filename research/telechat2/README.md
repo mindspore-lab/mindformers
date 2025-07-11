@@ -169,7 +169,7 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 
 1.torch模型权重及词模型下载链接：
 
-- [TeleChat2-7b](https://modelscope.cn/models/TeleAI/TeleChat2-7B)
+- [TeleChat2-7b](https://modelscope.cn/models/TeleAI/TeleChat2-7B-32K)
 - [TeleChat2-39B-A12B](https://modelscope.cn/models/TeleAI/TeleChat2-39B-A12B)
 - [TeleChat2-35b](https://modelscope.cn/models/TeleAI/TeleChat2-35B)
 - [TeleChat2-115b](https://modelscope.cn/models/TeleAI/TeleChat2-115B)
