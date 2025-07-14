@@ -194,7 +194,7 @@ class BaseTrainer:
         ds_stra = ms.get_auto_parallel_context("dataset_strategy")
         pp = self.get_pipeline_stages()
 
-        if parallel_mode in ["semi_auto_parallel", "auto_parallel", "STAND_ALONE"]:
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel", "STAND_ALONE", "stand_alone"]:
             if pp == 1 and micro_batch_num > 1:
                 logger.warning(f"When pipeline parallel is not enabled, "
                                f"config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")

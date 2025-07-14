@@ -23,7 +23,7 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, mint, ops, Parameter, mutable
 from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
-from mindspore.common.initializer import Zero
+from mindspore.common.initializer import Zero, initializer
 from mindspore.communication._comm_helper import _is_initialized
 from mindspore.communication import get_group_size, get_rank
 try:
@@ -55,7 +55,7 @@ from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceScatterToSequenceParallelRegion, \
     GatherFromWorldParallelRegionV2, GatherFromSequenceParallelRegion, ScatterToModelParallelRegion, \
     ReduceScatterToWorldParallelRegion, ReduceFromWorldParallelRegion
-from mindformers.version_control import is_910b
+from mindformers.version_control import is_910b, need_nz
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
@@ -66,7 +66,6 @@ from research.deepseek3.infer.transformer import ParallelMLP, VocabEmbedding
 from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 
 __all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
-
 
 class CacheConfig(Enum):
     KEY_VALUE_CACHE = 0
@@ -280,6 +279,10 @@ class MLAInferAttention(nn.Cell):
 
         kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         npu_mem_size = config.npu_mem_size if hasattr(config, 'npu_mem_size') else 2
+        if need_nz():
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head * self.head_dim)
+        else:
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         self.paged_attention_mgr = MLAPagedAttentionMgr(self.pa_n_head_split,
                                                         self.head_dim,
                                                         self.pa_n_kv_head_split,
@@ -313,6 +316,32 @@ class MLAInferAttention(nn.Cell):
                                            batch_valid_length)
         return self._incre_attention(query, batch_valid_length, block_tables,
                                      attn_mask, q_seq_lens, key_cache=key_cache)
+
+class ParallelBatchMatMul(nn.Cell):
+    def __init__(
+            self,
+            transpose_a=False,
+            transpose_b=False,
+            weight_shape=None,
+            param_init_type=mstype.float16):
+        super(ParallelBatchMatMul, self).__init__()
+        self.tensor_parallel_group_size = get_tp_world_size()
+        self.bmm = P.BatchMatMul(transpose_a=transpose_a, transpose_b=transpose_b)
+        self.weight = Parameter(initializer("normal", weight_shape, param_init_type), name="weight")
+
+    def construct(self, input_parallel):
+        output = self.bmm(input_parallel, self.weight)
+        return output
+
+    def sharded_state_dict(self):
+        """provide the sharded state dict based on the config"""
+        w_shard = (self.tensor_parallel_group_size, 1, 1)
+
+        state_dict = {}
+        state_dict[self.weight.name] = \
+            {'shape': self.weight.shape,
+             'shard': w_shard}
+        return state_dict
 
 
 class DeepseekV3Attention(nn.Cell):
@@ -564,6 +593,12 @@ class DeepseekV3Attention(nn.Cell):
                                         requires_grad=False)
             self.qnope_scale = Parameter(Tensor(shape=(1,), dtype=mstype.bfloat16, init=Zero()), name="qnope_scale",
                                          requires_grad=False)
+        self.need_nz = need_nz()
+        if self.need_nz:
+            lkv2kv_k_nope_shape = (self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+            lkv2kv_v_shape = (self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
+            self.qabsorb_matmul = ParallelBatchMatMul(weight_shape=lkv2kv_k_nope_shape)
+            self.outabsorb_matmul = ParallelBatchMatMul(transpose_b=True, weight_shape=lkv2kv_v_shape)
 
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
@@ -624,36 +659,46 @@ class DeepseekV3Attention(nn.Cell):
             context_layer = context_layer.view(-1, self.n_local_heads, self.q_head_dim)
             context_layer = self.dim_slice_4d(context_layer, (0, 0, 0), (-1, self.n_local_heads, self.v_head_dim))
         else:
-            q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
-            out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
-            if not self.use_mla_pre:
-                q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
+            if self.need_nz:
+                q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2)).transpose(1,0,2)
                 query_states = self.pe_concat((q_nope, q_pe))
+                query_states = query_states.view(-1, self.n_local_heads * (self.kv_lora_rank + self.qk_rope_head_dim))
+                key_states = key_states_cache
+                context_layer = self.infer_attention(query_states, key_states, key_states, batch_valid_length,
+                                                     block_tables, attn_mask=mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
+                context_layer = context_layer.view(-1, self.n_local_heads, self.kv_lora_rank).transpose(1, 0, 2)
+                context_layer = self.outabsorb_matmul(context_layer).transpose(1, 0, 2)
             else:
-                mla_key_cache = key_cache if key_cache is not None else \
-                                self.infer_attention.paged_attention_mgr.key_cache
-                freqs_cos, freqs_sin, _ = freqs_cis
-                # pylint: disable=protected-access
-                states = self.mla_preprocess(x, self.attention_norm.weight, self.qkv2l.quant_op.beta,
-                                             self.qkv2l.quant_op.input_scale, self.qkv2l.quant_op.input_zp,
-                                             self.qkv2l._layer.weight, self.qkv2l._layer.matmul.quant_bias,
-                                             self.lq_norm.weight, self.l2q_proj.quant_op.beta,
-                                             self.l2q_proj.quant_op.input_scale, self.l2q_proj.quant_op.input_zp,
-                                             self.lkv_norm.weight, freqs_sin, freqs_cos, freqs_sin, freqs_cos,
-                                             mla_key_cache, slot_mapping, self.l2q_proj._layer.weight,
-                                             self.l2q_proj._layer.matmul.quant_bias, q_absorb,
-                                             self.qkv2l._layer.matmul.dequant_scale,
-                                             self.l2q_proj._layer.matmul.dequant_scale, self.ctkv_scale,
-                                             self.qnope_scale, mla_key_cache, 0)
-                query_states = states[0]
+                q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+                out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
+                if not self.use_mla_pre:
+                        q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
+                        query_states = self.pe_concat((q_nope, q_pe))
+                else:
+                    mla_key_cache = key_cache if key_cache is not None else \
+                                    self.infer_attention.paged_attention_mgr.key_cache
+                    freqs_cos, freqs_sin, _ = freqs_cis
+                    # pylint: disable=protected-access
+                    states = self.mla_preprocess(x, self.attention_norm.weight, self.qkv2l.quant_op.beta,
+                                                self.qkv2l.quant_op.input_scale, self.qkv2l.quant_op.input_zp,
+                                                self.qkv2l._layer.weight, self.qkv2l._layer.matmul.quant_bias,
+                                                self.lq_norm.weight, self.l2q_proj.quant_op.beta,
+                                                self.l2q_proj.quant_op.input_scale, self.l2q_proj.quant_op.input_zp,
+                                                self.lkv_norm.weight, freqs_sin, freqs_cos, freqs_sin, freqs_cos,
+                                                mla_key_cache, slot_mapping, self.l2q_proj._layer.weight,
+                                                self.l2q_proj._layer.matmul.quant_bias, q_absorb,
+                                                self.qkv2l._layer.matmul.dequant_scale,
+                                                self.l2q_proj._layer.matmul.dequant_scale, self.ctkv_scale,
+                                                self.qnope_scale, mla_key_cache, 0)
+                    query_states = states[0]
 
-            query_states = self.reshape(query_states, (-1, self.n_local_heads *
-                                                       (self.kv_lora_rank + self.qk_rope_head_dim)))
-            context_layer = self.infer_attention(query_states, None, None, batch_valid_length,
-                                                 block_tables, attn_mask=mask, q_seq_lens=q_seq_lens,
-                                                 key_cache=key_cache)
-            context_layer = context_layer.view(-1, self.n_local_heads, self.kv_lora_rank)
-            context_layer = self.outabsorb_matmul(context_layer.transpose(1, 0, 2), out_absorb).transpose(1, 0, 2)
+                query_states = self.reshape(query_states, (-1, self.n_local_heads *
+                                                        (self.kv_lora_rank + self.qk_rope_head_dim)))
+                context_layer = self.infer_attention(query_states, None, None, batch_valid_length,
+                                                     block_tables, attn_mask=mask, q_seq_lens=q_seq_lens,
+                                                     key_cache=key_cache)
+                context_layer = context_layer.view(-1, self.n_local_heads, self.kv_lora_rank)
+                context_layer = self.outabsorb_matmul(context_layer.transpose(1, 0, 2), out_absorb).transpose(1, 0, 2)
 
         attn_out = context_layer.view(-1, self.n_local_heads * self.v_head_dim)
         output = self.wo(attn_out)
@@ -1560,6 +1605,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         world_size = get_group_size()
         self.tp_size = self.parallel_config.tensor_model_parallel_size
         self.dp_size = world_size // self.tp_size
+        # TODO: support dp
+        self.dp_size = 1
         self.moe_ep_size = self.parallel_config.expert_parallel
         self.moe_tp_size = world_size // self.moe_ep_size
 
@@ -1683,7 +1730,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.float16 if need_nz() else mstype.bfloat16)
 
         dynamic_attn_padding_idx = None
         dynamic_attn_unpadding_idx = None
@@ -1700,7 +1747,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 return None
             cache_list = []
             for _ in self.model.layers:
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+                cache_list.append(Tensor(shape=[None, None, None] if need_nz() else [None, None, None, None], dtype=self.config.compute_dtype))
             return mutable(cache_list)
 
         key_cache = get_input()

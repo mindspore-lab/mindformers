@@ -40,7 +40,7 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (Reduce
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_ep_world_size, get_moe_tp_world_size
 
 from mindformers.parallel_core.inference.parallel_state import get_moe_expert_parallel_group
-from mindformers.version_control import is_910b
+from mindformers.version_control import is_910b, need_nz
 from mindformers.tools.utils import divide
 from research.deepseek3.infer.activation import SiLU
 from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
@@ -702,6 +702,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             expert_num=1,
             weight_init="normal",
             bias_init="zeros",
+            transpose_b=True,
             **kwargs
     ):
         super(ColumnParallelGroupLinear, self).__init__(
@@ -710,6 +711,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             config=config,
             bias=bias,
             is_expert=is_expert,
+            transpose_b=transpose_b,
             expert_num=expert_num,
             param_init_type=param_init_type,
             compute_dtype=compute_dtype,
@@ -723,8 +725,10 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
         self.moe_ep_size = get_moe_ep_world_size()
         self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
         self.use_alltoall = config.use_alltoall
+        self.transpose_b = transpose_b if need_nz() else False
 
-        weight_shape = (self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
+        weight_shape = (self.ep_size_per_partition, self.output_size_per_partition, self.input_size) if self.transpose_b else (
+            self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
         weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
         self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
@@ -790,6 +794,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             weight_init="normal",
             bias_init="zeros",
             delay_allreduce=False,
+            transpose_b=True,
             **kwargs
     ):
         super(RowParallelGroupLinear, self).__init__(
@@ -806,6 +811,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             compute_dtype=compute_dtype,
             weight_init=weight_init,
             bias_init=bias_init,
+            transpose_b=transpose_b,
             **kwargs
         )
         # tp ep
@@ -814,8 +820,11 @@ class RowParallelGroupLinear(RowParallelLinear):
         self.moe_ep_size = get_moe_ep_world_size()
         self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
         self.use_alltoall = config.use_alltoall
+        self.transpose_b = transpose_b if need_nz() else False
+
         # weight
-        weight_shape = (self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
+        weight_shape = (self.ep_size_per_partition, self.output_size, self.input_size_per_partition) if self.transpose_b else (
+            self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
         weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
         self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
@@ -1002,9 +1011,16 @@ class ParallelMoEV2(nn.Cell):
         self.mul = P.Mul()
         self.gather = P.Gather()
 
+        self.transpose_2d = P.Transpose()
+        self.onehot = P.OneHot()
+
+        self.on_value = Tensor(1.0, dtype=mstype.float32)
+        self.off_value = Tensor(0.0, dtype=mstype.float32)
+
         self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
         self.group_topk_inner = 2
         self.group_topk = GroupTopkCell()
+        self.need_nz = need_nz()
 
         self.moe_token_unpermute = MoeTokenUnpermute()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
@@ -1013,10 +1029,67 @@ class ParallelMoEV2(nn.Cell):
         if self.fused_valid:
             self.fused_add_topk_div = FusedAddTopKDiv()
 
+    def tensor_moe_token_unpermute(self, permute_token, sorted_idx, probs):
+        '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
+        input_shape = permute_token.shape  # (kN, h)
+        token_num = input_shape[0] // self.num_experts_chosen
+        top_k = self.shape(sorted_idx)[0] // token_num  # topk k
+
+        probs_reshape_fp32 = self.cast(probs.flatten().reshape(-1, 1), mstype.float32)
+
+        row_gather_fp32 = self.cast(self.gather(permute_token, sorted_idx, 0), mstype.float32)
+
+        out1_fp32 = probs_reshape_fp32 * row_gather_fp32
+        out1_fp32 = out1_fp32.reshape(token_num, top_k, -1)
+        out1_sum_fp32 = mint.sum(out1_fp32, 1)
+
+        output_tensor = self.cast(out1_sum_fp32, permute_token.dtype)
+        return output_tensor
+
+    def tensor_sort(self, input_tensor, expert_ids):
+        '''dispatch and get unsort map for routing'''
+        expert_shape = expert_ids.shape
+        transposed_index = self.transpose_2d(expert_ids, (1, 0)) # (N, k) -> (k, N)
+        reshaped_index = self.reshape(transposed_index, (-1,)) # (k, N) -> (kN)
+        _, sort_map = mint.sort(reshaped_index)
+
+        inter_map = mint.remainder(sort_map, expert_shape[0])
+        output_tensor = self.gather(input_tensor, inter_map, 0)
+        expert_mask = self.onehot(reshaped_index, self.expert_num, self.on_value, self.off_value)
+        expert_cnt = mint.sum(expert_mask, 0)
+        group_list = self.cast(mint.cumsum(expert_cnt, 0), mstype.int32)
+
+        _, unsort_map = mint.sort(sort_map)
+        unsort_map = self.cast(unsort_map, mstype.int32)
+        unsort_map = unsort_map.reshape(self.num_experts_chosen, -1)
+        unsort_map = unsort_map.transpose(1, 0)
+        unsort_map = unsort_map.flatten()
+        return output_tensor, group_list, unsort_map
+
     def construct(self, input_tensor):
         """forward process"""
         gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
-        if self.fused_valid:
+        if self.need_nz:
+            score = mint.sigmoid(gating_logits)
+            origin_score = score
+
+            # bias
+            score = score + self.router.e_score_correction_bias
+            # n_group
+            score = self.reshape(score, (self.shape(input_tensor)[0], self.n_group, -1))
+            group_score = mint.topk(score, 2, dim=-1)[0].sum(axis=-1)        # 每个组选2两个，求和作为代表，代表整个组
+            group_idx = mint.topk(group_score, self.topk_group, dim=-1)[1]  # 从8个组，调出4个组
+
+            mask = mint.zeros_like(score[:,:,0]).scatter(1, group_idx, True)
+            score = (score * mask.unsqueeze(-1)).flatten(start_dim=1)           # 这里的mask是指把之前不入选的后4个组的score都置0
+
+            # topk
+            expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1] # 从选出来的前4组，取要的topk
+            expert_index = self.cast(expert_index, mstype.int32)
+            weight = origin_score.gather(expert_index, 1, 1)
+            expert_weight = self.div(weight, self.add(mint.sum(weight, -1, True), 1e-9))     # sigmoid再归一化
+            expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_tensor.dtype)
+        elif self.fused_valid:
             gating_logits = self.cast(gating_logits, mstype.float32)
             expert_weight, expert_index = \
                 self.fused_add_topk_div(
@@ -1047,16 +1120,32 @@ class ParallelMoEV2(nn.Cell):
             expert_weight = self.div(weight, mint.sum(weight, -1, True))
             expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_tensor.dtype)
 
-        sorted_input_tensor, unsort_map, group_list, _ = \
-            self.moe_init_routing_v2(
-                input_tensor,
-                expert_index,
-                active_num=0,
-                expert_capacity=0,
-                expert_num=self.expert_num,
-                drop_pad_mode=0,
-                expert_tokens_count_or_cumsum_flag=2,
-                expert_tokens_before_capacity_flag=True)
+        # TODO: moe_init_routing_v2 in 310P do not support long sequence
+        if self.need_nz:
+            if self.is_first_iteration:
+                sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)  # 全局sorted_in
+            else:
+                sorted_input_tensor, unsort_map, group_list, _ = \
+                self.moe_init_routing_v2(
+                    input_tensor,
+                    expert_index,
+                    active_num=0,
+                    expert_capacity=0,
+                    expert_num=self.expert_num,
+                    drop_pad_mode=0,
+                    expert_tokens_count_or_cumsum_flag=1,
+                    expert_tokens_before_capacity_flag=False)
+        else:
+            sorted_input_tensor, unsort_map, group_list, _ = \
+                self.moe_init_routing_v2(
+                    input_tensor,
+                    expert_index,
+                    active_num=0,
+                    expert_capacity=0,
+                    expert_num=self.expert_num,
+                    drop_pad_mode=0,
+                    expert_tokens_count_or_cumsum_flag=2,
+                    expert_tokens_before_capacity_flag=True)
         group_list = self.cast(group_list, mstype.int64)
 
         expert_output = self.ffn(sorted_input_tensor, group_list)
