@@ -145,9 +145,12 @@ MindSpore Transformers已发布版本维护策略：
 
 ## 五、免责声明
 
-1. `scripts/examples`目录下的内容是作为参考示例提供的，并不构成商业发布产品的一部分，仅供用户参考。如需使用，需要用户自行负责将其转化为适合商业用途的产品，并确保进行安全防护，对于由此产生的安全问题，MindSpore不承担安全责任。
-2. 关于数据集， MindSpore Transformers 仅提示性地建议可用于训练的数据集， MindSpore Transformers 不提供任何数据集。如用户使用这些数据集进行训练，请特别注意应遵守对应数据集的License，如因使用数据集而产生侵权纠纷， MindSpore Transformers 不承担任何责任。
+1. `scripts/examples`目录下的内容是作为参考示例提供的，并不构成商业发布产品的一部分，仅供用户参考。如需使用，需要用户自行负责将其转化为适合商业用途的产品，并确保进行安全防护，对于由此产生的安全问题，MindSpore Transformers 不承担安全责任。
+2. 关于数据集， MindSpore Transformers 仅提示性地建议可用于训练的数据集， MindSpore Transformers 不提供任何数据集。用户使用任何数据集进行训练，都需确保训练数据的合法性与安全性，并自行承担以下风险：
+   1. 数据投毒（Data Poisoning）：恶意篡改的训练数据可能导致模型产生偏见、安全漏洞或错误输出。
+   2. 数据合规性：用户应确保数据采集、处理过程符合相关法律法规及隐私保护要求。
 3. 如果您不希望您的数据集在 MindSpore Transformers 中被提及，或希望更新 MindSpore Transformers 中关于您的数据集的描述，请在Gitee提交issue，我们将根据您的issue要求删除或更新您的数据集描述。衷心感谢您对 MindSpore Transformers 的理解和贡献。
+4. 关于模型权重，用户下载、分发的模型权重需经可信来源验证，MindSpore Transformers 无法保证第三方权重的安全性。权重文件在传输、加载过程中可能被篡改，导致模型产生预期外的输出或安全漏洞。用户应自行承担使用第三方权重的风险，并确保在使用前对权重文件进行安全验证。
 
 ## 六、贡献
 
