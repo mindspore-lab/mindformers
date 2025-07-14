@@ -52,6 +52,11 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
+from .qwen2 import (
+    Qwen2Config,
+    Qwen2PreTrainedModel,
+    Qwen2ForCausalLM,
+)
 from .qwen3 import (
     Qwen3Config,
     Qwen3PreTrainedModel,
