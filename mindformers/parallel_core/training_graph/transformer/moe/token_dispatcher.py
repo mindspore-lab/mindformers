@@ -18,9 +18,10 @@ from abc import abstractmethod
 import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
+import mindspore.mint as mint
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt
+from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt, IndexSelect
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -174,7 +175,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         # (dp, E+kN)fp32 <-- (dp, E+kN)fp32
         routing_map, sort_map = self.sort(routing_map.astype(ms.float32), dim=1)
         _, unsort_pad_map = self.sort(sort_map.astype(ms.float32), dim=1)
-        tokens = ops.gather(tokens, sort_map, axis=1, batch_dims=1)
+        index = mint.reshape(sort_map, (sort_map.shape[0]*sort_map.shape[1],))
+        tokens = IndexSelect()(tokens, 1, index)
         return tokens, routing_map, num_tokens_per_expert, unsort_pad_map
 
     def token_permutation(
@@ -226,7 +228,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         else:
             _, sort_map = self.sort(routing_map)
             _, unsort_map = self.sort(sort_map.astype(ms.float32))
-            global_input_tokens = ops.gather(global_input_tokens, sort_map, axis=1, batch_dims=1)
+            index = mint.reshape(sort_map, (sort_map.shape[0]*sort_map.shape[1],))
+            global_input_tokens = IndexSelect()(global_input_tokens, 1, index)
 
         return (global_input_tokens, tokens_per_expert, unsort_map, outer_unsort_map,
                 input_splits, output_splits, original_shape, unsort_pad_map)
@@ -253,7 +256,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             tokens = ops.moe_token_unpermute(tokens, unsort_map)
             tokens = ops.reshape(ops.cast(tokens, tokens_dtype), tokens_shape)
         else:
-            tokens = ops.gather(tokens, unsort_map, axis=1, batch_dims=1)
+            index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1],))
+            tokens = IndexSelect()(tokens, 1, index)
 
         # Perform expert parallel AlltoAll communication
         permutated_local_input_tokens = ops.AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
@@ -262,8 +266,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         if self.use_pad_tokens:
             tokens_shape = permutated_local_input_tokens.shape
-            permutated_local_input_tokens = ops.gather(
-                permutated_local_input_tokens, unsort_pad_map, axis=1, batch_dims=1)
+            index = mint.reshape(unsort_pad_map, (unsort_pad_map.shape[0]*unsort_pad_map.shape[1],))
+            permutated_local_input_tokens = IndexSelect()(permutated_local_input_tokens, 1, index)
             permutated_local_input_tokens = ops.strided_slice(
                 permutated_local_input_tokens,
                 (0, self.pad_routing_map.shape[1], 0),
@@ -315,7 +319,8 @@ def permute(
     # (dp, kN)int32    <--  (dp, kN)int32, N int32
     inter_map = FmodScalar()(sort_map, routing_shape[1])
     # (dp, kN, h)bf16  <--  (dp, N, h)bf16, (dp, kN)int32
-    permuted_input = ops.gather(tokens, inter_map, axis=1, batch_dims=1)
+    index = mint.reshape(inter_map, (inter_map.shape[0]*inter_map.shape[1],))
+    permuted_input = IndexSelect()(tokens, 1, index)
 
     return permuted_input, sorted_routing_map, routing_map, unsort_map
 
@@ -337,7 +342,9 @@ def unpermute(
     Returns:
         Tensor: The tokens restored to their original order.
     """
-    output_tokens = ops.gather(permuted_tokens, unsort_map, axis=1, batch_dims=1)
+    index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1]*unsort_map.shape[2],))
+    output_tokens = IndexSelect()(permuted_tokens, 1, index)
+    output_tokens = mint.reshape(output_tokens, (unsort_map.shape[0], unsort_map.shape[1], unsort_map.shape[2], -1))
     # (dp, N, k, 1)fp32 <-- (dp, N, k)fp32
     probs = ops.reshape(probs, (probs.shape[0], probs.shape[1], probs.shape[2], 1))
     # (dp, N, k, h)bf16 <-- (dp, N, k, h)bf16, (dp, N, k, 1)bf16
