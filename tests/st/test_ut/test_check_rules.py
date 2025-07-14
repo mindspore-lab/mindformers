@@ -53,15 +53,15 @@ class TestCheckYamlDepthBeforeLoading(unittest.TestCase):
             assert check_yaml_depth_before_loading(self.yaml_str)
         with open(self.yaml_path, encoding='utf-8') as fp:
             node = yaml.compose(fp)
-            assert get_yaml_ast_depth(node) == 3
+            assert get_yaml_ast_depth(node) == 4
             fp.seek(0)
             check_yaml_depth_before_loading(fp)
             fp.seek(0)
             cfg_dict = yaml.safe_load(fp)
-            assert cfg_dict["model"]["model_config"]["num_layers"] == 32
+            assert cfg_dict["model"]["model_config"]["num_layers"] == 40
             fp.seek(0)
             cfg_dict = yaml.load(fp, Loader=yaml.SafeLoader)
-            assert cfg_dict["model"]["model_config"]["num_layers"] == 32
+            assert cfg_dict["model"]["model_config"]["num_layers"] == 40
             fp.seek(0)
             cfg_dict = yaml.safe_load(fp.read())
-            assert cfg_dict["model"]["model_config"]["num_layers"] == 32
+            assert cfg_dict["model"]["model_config"]["num_layers"] == 40
