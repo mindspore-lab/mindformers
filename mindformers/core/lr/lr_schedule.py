@@ -105,7 +105,7 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
         warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
-        keep_steps (int): The number of steps keeping at the max learning rate after warmup. Default: ``0``.
+        keep_steps (int, optional): The number of steps keeping at the max learning rate after warmup. Default: ``0``.
         decay_steps (int, optional): The number of decay steps. Default: ``None``.
         decay_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
         total_steps (int, optional): The number of total steps. Default: ``None``.
@@ -751,7 +751,7 @@ class LearningRateWiseLayer(LearningRateSchedule):
     the minimum learning rate at the end of the training.
 
     Args:
-        base_lr (mindspore.nn.learning_rate_schedule.LearningRateSchedule): The base learning rate schedule.
+        base_lr (mindspore.nn.LearningRateSchedule): The base learning rate schedule.
         lr_scale (float): The value for learning rate scaling.
 
     Inputs:
@@ -804,6 +804,10 @@ class WarmUpStableDecayLR(LearningRateSchedule):
         total_steps (int, optional): The number of total steps. Default: ``None``.
         decay_start_steps (int, optional): The start step of decay. Default: ``None``.
         decay_start_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
+
+    Raises:
+        - **ValueError** - If `lr_end` is greater than or equal to initial `learning_rate`.
+
     Inputs:
         - **global_step** (int) - The global step.
 
