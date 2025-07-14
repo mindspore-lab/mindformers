@@ -24,7 +24,7 @@ from mindformers.models.qwen2.utils import Qwen2PreTrainedModel
 from mindformers.models.qwen2.modeling_qwen2_infer import InferenceQwen2ForCausalLM
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
+@MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
 class Qwen2ForCausalLM(Qwen2PreTrainedModel):
     r"""
     Provide Qwen2 Model for training and inference.

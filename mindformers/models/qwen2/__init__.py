@@ -13,3 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """qwen2 model"""
+from .utils import Qwen2PreTrainedModel
+from .configuration_qwen2 import Qwen2Config
+from .modeling_qwen2 import Qwen2ForCausalLM
+from .modeling_qwen2_infer import InferenceQwen2ForCausalLM
+
+__all__ = ['Qwen2Config', 'Qwen2ForCausalLM', 'InferenceQwen2ForCausalLM', 'Qwen2PreTrainedModel']
