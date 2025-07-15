@@ -162,9 +162,10 @@ class BaseTrainer:
             self.setup_task_config()
             self.config = self.default_task_config
         build_parallel_config(self.config)
-        self._check_grad_accumulation_steps()
-        self._check_global_batch_size_for_auto_parallel()
-        self._reset_wrapper()
+        if os.environ.get("RUN_MODE") != "predict":
+            self._check_grad_accumulation_steps()
+            self._check_global_batch_size_for_auto_parallel()
+            self._reset_wrapper()
 
         return self.config
 
