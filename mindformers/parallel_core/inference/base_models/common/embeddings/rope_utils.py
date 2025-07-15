@@ -34,7 +34,8 @@ def _get_default(**kwargs):
         rotary_base=kwargs["rotary_base"],
         rotary_dtype=kwargs["rotary_dtype"],
         seq_len_interpolation_factor=kwargs["seq_len_interpolation_factor"],
-        rotary_cos_format=kwargs["rotary_cos_format"]
+        rotary_cos_format=kwargs["rotary_cos_format"],
+        max_position_embeddings=kwargs["original_max_position_embeddings"],
     )
 
 
@@ -49,6 +50,7 @@ def _get_llama3(**kwargs):
         seq_len_interpolation_factor=kwargs["seq_len_interpolation_factor"],
         rotary_cos_format=kwargs["rotary_cos_format"],
         scaling_factor=config.rotary_scaling_factor,
+        max_position_embeddings=kwargs["max_position_embeddings"],
         low_freq_factor=getattr(config, "low_freq_factor", 1),
         high_freq_factor=getattr(config, "low_freq_factor", 8),
         orig_max_position=kwargs["original_max_position_embeddings"],

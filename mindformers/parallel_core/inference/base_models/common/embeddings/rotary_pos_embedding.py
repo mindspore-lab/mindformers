@@ -20,7 +20,7 @@ __all__ = [
     'Llama3RotaryEmbedding'
 ]
 
-from typing import Union
+from typing import Union, Tuple
 import math
 
 from mindspore import ops
@@ -41,16 +41,20 @@ class RotaryEmbedding(Cell):
         rotary_base (int): The base for rotary embedding.
         rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
+        max_position_embeddings (int): Maximum position embeddings.
     """
 
-    def __init__(self,
-                 kv_channels: int,
-                 rotary_percent: float = 1.0,
-                 rotary_interleaved: bool = False,
-                 seq_len_interpolation_factor: float = None,
-                 rotary_base: int = 10000,
-                 rotary_cos_format: int = 0,
-                 rotary_dtype: mstype = mstype.float16):
+    def __init__(
+            self,
+            kv_channels: int,
+            rotary_percent: float = 1.0,
+            rotary_interleaved: bool = False,
+            seq_len_interpolation_factor: float = None,
+            rotary_base: int = 10000,
+            rotary_cos_format: int = 0,
+            rotary_dtype: mstype = mstype.float16,
+            max_position_embeddings: int = 4096,
+    ) -> None:
         super(RotaryEmbedding, self).__init__()
         if rotary_interleaved:
             raise NotImplementedError("For RotaryEmbedding, `rotary_interleaved` is not supported.")
@@ -68,10 +72,13 @@ class RotaryEmbedding(Cell):
         self.cos = P.Cos()
         self.sin = P.Sin()
         self.gather = P.Gather()
+        self.rotary_embedding_op = ops.ApplyRotaryPosEmb(rotary_cos_format)
 
         self.rotary_dtype = rotary_dtype
-        self.rotary_cos_format = rotary_cos_format
-        self.rotary_embedding_op = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
+        self.max_position_embeddings = max_position_embeddings
+
+        self.cos_cache, self.sin_cache = self._compute_cos_sin_cache()
+
 
     def _compute_inv_freq(self, base: Union[int, float]) -> Tensor:
         """Compute the inverse frequency."""
@@ -80,47 +87,49 @@ class RotaryEmbedding(Cell):
         )
         return inv_freq
 
-    def get_freqs_non_repeated(self, max_seq_len: int, offset: int = 0) -> Tensor:
+    def get_freqs_non_repeated(self, offset: int = 0) -> Tensor:
         """
         Generates matrix of frequencies based on positions in the sequence,
         used to create positional encodings
         """
         inv_freq = self._compute_inv_freq(self.rotary_base)
-        seq = ops.arange(0, max_seq_len, 1, dtype=inv_freq.dtype) + offset
+        seq = ops.arange(0, self.max_position_embeddings, 1, dtype=inv_freq.dtype) + offset
 
         freqs = ops.outer(seq, inv_freq)
 
         return freqs
 
-    def get_cos_sin_for_prefill(self, max_seq_len: int, offset: int = 0) -> (Tensor, Tensor):
-        """Compute the cos and sin for prefill"""
-        freqs = self.get_freqs_non_repeated(max_seq_len, offset)
-        emb = self.cat((freqs, freqs))
-
-        rotary_pos_cos = self.cast(self.cos(emb), self.rotary_dtype)
-        rotary_pos_sin = self.cast(self.sin(emb), self.rotary_dtype)
-
-        return rotary_pos_cos, rotary_pos_sin
-
-    def get_cos_sin_for_decode(self, positions: Tensor, max_seq_len: int, offset: int = 0) -> (Tensor, Tensor):
-        """Compute the cos and sin for decode"""
-        freqs = self.get_freqs_non_repeated(max_seq_len, offset)
+    def _compute_cos_sin_cache(self) -> Tuple[Tensor, Tensor]:
+        freqs = self.get_freqs_non_repeated()
         emb = self.cat((freqs, freqs))
 
         cos = self.cast(self.cos(emb), self.rotary_dtype)
         sin = self.cast(self.sin(emb), self.rotary_dtype)
 
-        rotary_pos_cos = self.gather(cos, positions, 0)
-        rotary_pos_sin = self.gather(sin, positions, 0)
+        return cos, sin
+
+    def get_cos_sin_for_prefill(self) -> Tuple[Tensor, Tensor]:
+        """Compute the cos and sin for prefill"""
+        rotary_pos_cos = self.cos_cache
+        rotary_pos_sin = self.sin_cache
 
         return rotary_pos_cos, rotary_pos_sin
 
-    def construct(self,
-                  query: Tensor,
-                  key: Tensor,
-                  rotary_pos_cos: Tensor,
-                  rotary_pos_sin: Tensor,
-                  seq_lens_tensor: Tensor) -> Tensor:
+    def get_cos_sin_for_decode(self, positions: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute the cos and sin for decode"""
+        rotary_pos_cos = self.gather(self.cos_cache, positions, 0)
+        rotary_pos_sin = self.gather(self.sin_cache, positions, 0)
+
+        return rotary_pos_cos, rotary_pos_sin
+
+    def construct(
+            self,
+            query: Tensor,
+            key: Tensor,
+            rotary_pos_cos: Tensor,
+            rotary_pos_sin: Tensor,
+            seq_lens_tensor: Tensor
+    ) -> Tensor:
         """Generate rotary position embedding.
 
         Args:
@@ -148,30 +157,34 @@ class Llama3RotaryEmbedding(RotaryEmbedding):
         rotary_base (int): The base for rotary embedding.
         rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
+        max_position_embeddings (int): Maximum position embeddings.
         scaling_factor (float): The scaling factor for sequence length.
         low_freq_factor (float): The low frequency factor for sequence length.
         high_freq_factor (float): The high frequency factor for sequence length.
-        orig_max_position (float): The max position for original position embedding.
+        orig_max_position (int): The max position for original position embedding.
 
     """
-    def __init__(self,
-                 kv_channels: int,
-                 rotary_percent: float = 1.0,
-                 rotary_interleaved: bool = False,
-                 seq_len_interpolation_factor: float = None,
-                 rotary_base: int = 10000,
-                 rotary_cos_format: int = 0,
-                 rotary_dtype: mstype = mstype.float16,
-                 scaling_factor: float = 1.0,
-                 low_freq_factor: float = 1.0,
-                 high_freq_factor: float = 4.0,
-                 orig_max_position: int = 4096):
+    def __init__(
+            self,
+            kv_channels: int,
+            rotary_percent: float = 1.0,
+            rotary_interleaved: bool = False,
+            seq_len_interpolation_factor: float = None,
+            rotary_base: int = 10000,
+            rotary_cos_format: int = 0,
+            rotary_dtype: mstype = mstype.float16,
+            max_position_embeddings: int = 8192,
+            scaling_factor: float = 1.0,
+            low_freq_factor: float = 1.0,
+            high_freq_factor: float = 4.0,
+            orig_max_position: int = 4096
+    ) -> None:
         self.scaling_factor = scaling_factor
         self.low_freq_factor = low_freq_factor
         self.high_freq_factor = high_freq_factor
         self.orig_max_position = orig_max_position
         super().__init__(kv_channels, rotary_percent, rotary_interleaved, seq_len_interpolation_factor,
-                         rotary_base, rotary_cos_format, rotary_dtype)
+                         rotary_base, rotary_cos_format, rotary_dtype, max_position_embeddings)
 
     def _compute_inv_freq(self, base: Union[int, float]) -> Tensor:
         """Compute the inverse frequency."""
