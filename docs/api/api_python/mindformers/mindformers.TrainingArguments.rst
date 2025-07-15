@@ -68,7 +68,7 @@ mindformers.TrainingArguments
         - **parallel_optimizer_comm_recompute** (bool, 可选) - 在优化器并行下，是否重计算AllGather通信。默认值： ``False`` 。
         - **mp_comm_recompute** (bool, 可选) - 在模型并行下，是否重计算通信算子。默认值： ``True`` 。
         - **recompute_slice_activation** (bool, 可选) - 是否对保存在内存中的输出结果进行切片。默认值： ``False`` 。
-        - **optim** (Union[OptimizerType, str], 可选) - 优化器类型。默认值： ``"fp32_adamw"`` 。
+        - **optim** (Union[OptimizerType, str], 可选) - 优化器类型。默认值： ``"AdamW"`` 。
         - **adam_beta1** (float, 可选) - AdamW优化器的Beta1参数。默认值： ``0.9`` 。
         - **adam_beta2** (float, 可选) - AdamW优化器的Beta2参数。默认值： ``0.999`` 。
         - **adam_epsilon** (float, 可选) - AdamW优化器的Epsilon参数。默认值： ``1.e-8`` 。
@@ -227,12 +227,12 @@ mindformers.TrainingArguments
             - **total_steps** (int, 可选) - 总步数。默认值： ``-1`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_optimizer(name: Union[str, OptimizerType] = 'adamw', learning_rate: float = 5e-5, lr_end: float = 1e-6, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-8, **kwargs)
+    .. py:method:: set_optimizer(name: Union[str, OptimizerType] = 'AdamW', learning_rate: float = 5e-5, lr_end: float = 1e-6, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-8, **kwargs)
 
         设置与优化器相关的参数。
 
         参数：
-            - **name** (Union[str, OptimizerType], 可选) - 使用的优化器种类。默认值： ``"adamw"`` 。
+            - **name** (Union[str, OptimizerType], 可选) - 使用的优化器种类。默认值： ``"AdamW"`` 。
             - **learning_rate** (float, 可选) - 初始的学习率。默认值： ``5e-5`` 。
             - **lr_end** (float, 可选) - 最终的学习率。默认值： ``1e-6`` 。
             - **weight_decay** (float, 可选) - 不为0时，用户神经网络所有层（bias和LayerNorm权重除外）的权重衰减。默认值： ``0`` 。

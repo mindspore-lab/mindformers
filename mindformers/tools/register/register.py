@@ -182,7 +182,7 @@ class MindFormerRegister:
                 Default: ``MindFormerModuleType.TOOLS``.
             alias (str, optional): Alias for the class. Default: ``None``.
             legacy (bool, optional): Legacy Class or not. Default: ``True``.
-            search_names (str, tuple, set, optional): mapping search_names to a class_name.
+            search_names (Union[str, tuple, list, set], optional): mapping search_names to a class_name.
                 Default: ``None``.
         Returns:
             Wrapper, decorates the registered class.
@@ -231,7 +231,7 @@ class MindFormerRegister:
                 Default: ``MindFormerModuleType.TOOLS``.
             alias (str, optional): Alias for the class. Default: ``None``.
             legacy (bool, optional): Legacy Class or not. Default: ``True``.
-            search_names (str, tuple, set, optional): mapping search_names to a class_name.
+            search_names (Union[str, tuple, list, set], optional): mapping search_names to a class_name.
                 Default: ``None``.
 
         Returns:
