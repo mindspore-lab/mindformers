@@ -69,7 +69,8 @@ from mindformers.tools.utils import (
     get_pipeline_rank_ids,
     is_last_pipeline_stage,
     barrier_world,
-    get_ascend_log_path
+    get_ascend_log_path,
+    set_safe_mode_for_file_or_dir
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
@@ -1641,6 +1642,7 @@ class CheckpointMonitor(ModelCheckpoint):
             json.dump(meta_data, temp_file)
             temp_file_path = temp_file.name
         os.replace(temp_file_path, self.meta_json)
+        set_safe_mode_for_file_or_dir(self.meta_json)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

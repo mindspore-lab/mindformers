@@ -17,10 +17,12 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 from importlib import import_module
+from pathlib import Path
 import numpy as np
 import psutil
 
@@ -167,6 +169,7 @@ def set_strategy_save_path(config):
     rank_id = get_real_rank()
     strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
     os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
+    set_safe_mode_for_file_or_dir(strategy_ckpt_save_dir)
 
     strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
     if not strategy_ckpt_save_file.endswith(f"_rank_{rank_id}.ckpt"):
@@ -544,13 +547,14 @@ def create_file(file_path, info=None):
                 f.write("Hugging ModelArts.")
     else:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(file_path, flags_, 0o750), 'w') as f:
+        with os.fdopen(os.open(file_path, flags_), 'w') as f:
             if info:
                 if isinstance(info, list):
                     for sub_info in info:
                         f.write(str(sub_info) + "\n")
                 else:
                     f.write(info)
+        set_safe_mode_for_file_or_dir(file_path)
 
 
 def delete_file(file_path):
@@ -609,6 +613,13 @@ def remove_folder(folder_path, rank_id=None):
             shutil.rmtree(folder_path)
             logger.info("Folder %s is removed.", folder_path)
 
+
+def set_safe_mode_for_file_or_dir(path):
+    path = Path(path)
+    if path.is_dir():
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP)
+    if path.is_file():
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP)
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):
     """Get epoch and step from ckpt name."""

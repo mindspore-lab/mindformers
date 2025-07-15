@@ -29,8 +29,7 @@ from typing import Dict, List, Tuple, Union
 from mindformers.tools.utils import get_num_nodes_devices, get_rank_info, \
     convert_nodes_devices_input, generate_rank_list, \
     check_list, LOCAL_DEFAULT_PATH, \
-    get_log_path
-
+    get_log_path, set_safe_mode_for_file_or_dir
 
 logger_list = []
 LEVEL = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
@@ -201,6 +200,11 @@ class LimitedRepeatFileHandler(logging.handlers.RotatingFileHandler):
     def _emit(self, record):
         super().emit(record)
 
+    def _open(self):
+        """Override _open to set file permission after opening"""
+        stream = super()._open()
+        set_safe_mode_for_file_or_dir(self.baseFilename)
+        return stream
 
 class StreamRedirector:
     """Stream Re-director for Log."""
@@ -312,6 +316,8 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
             self.target_stream.flush()
             if not os.path.exists(self.file_save_dir):
                 os.makedirs(self.file_save_dir, exist_ok=True)
+            set_safe_mode_for_file_or_dir(self.file_save_dir)
+            set_safe_mode_for_file_or_dir(os.path.dirname(self.file_save_dir))
             self.target_stream.seek(0, 0)
             flags = os.O_WRONLY | os.O_CREAT
             modes = stat.S_IWUSR | stat.S_IRUSR
@@ -547,6 +553,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         base_dir = os.path.dirname(path)
         if not os.path.exists(base_dir):
             os.makedirs(base_dir, exist_ok=True)
+        set_safe_mode_for_file_or_dir(base_dir)
+        set_safe_mode_for_file_or_dir(os.path.dirname(base_dir))
         file_path.append(path)
 
     max_file_size = max_file_size * 1024 * 1024
