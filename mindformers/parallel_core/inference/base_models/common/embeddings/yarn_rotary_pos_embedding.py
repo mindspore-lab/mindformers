@@ -35,35 +35,38 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
         rotary_percent (float): The percentage of the rotary embedding.
         rotary_interleaved (bool): Whether to use interleaved rotary position embedding.
         seq_len_interpolation_factor (float): The interpolation factor for sequence length.
-        rotary_base (int): The base for rotary embedding.
+        rotary_base (float): The base for rotary embedding.
         rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
         scaling_factor (float): Base scaling factor for sequence length adjustment.
-        extrapolation_factor (float): Weighting factor for extrapolated frequency ranges.
-        attn_factor (float): Global attention stability coefficient.
+        original_max_position_embeddings (int): Original maximum position embeddings.
         beta_fast (int): High-frequency adjustment cutoff parameter. Larger values
                          extend high-frequency preservation. Default: 32.
         beta_slow (int): Low-frequency adjustment cutoff parameter. Default: 1.
         mscale (float): Primary magnitude scaling coefficient.
         mscale_all_dim (float): Full-dimensional magnitude scaling coefficient.
+        extrapolation_factor (float): Weighting factor for extrapolated frequency ranges.
+        attn_factor (float): Global attention stability coefficient.
 
     """
-    def __init__(self,
-                 kv_channels: int,
-                 rotary_percent: float = 1.0,
-                 rotary_interleaved: bool = False,
-                 seq_len_interpolation_factor: float = None,
-                 rotary_base: float = 10000.0,
-                 rotary_cos_format: int = 0,
-                 rotary_dtype: mstype = mstype.float16,
-                 scaling_factor: float = 1.0,
-                 original_max_position_embeddings: int = 4096,
-                 beta_fast: float = 32.0,
-                 beta_slow: float = 1.0,
-                 mscale: float = 1.0,
-                 mscale_all_dim: float = 0.0,
-                 extrapolation_factor: float = 1.0,
-                 attn_factor: float = 1.0):
+    def __init__(
+            self,
+            kv_channels: int,
+            rotary_percent: float = 1.0,
+            rotary_interleaved: bool = False,
+            seq_len_interpolation_factor: float = None,
+            rotary_base: float = 10000.0,
+            rotary_cos_format: int = 0,
+            rotary_dtype: mstype = mstype.float16,
+            scaling_factor: float = 1.0,
+            original_max_position_embeddings: int = 4096,
+            beta_fast: float = 32.0,
+            beta_slow: float = 1.0,
+            mscale: float = 1.0,
+            mscale_all_dim: float = 0.0,
+            extrapolation_factor: float = 1.0,
+            attn_factor: float = 1.0
+    ) -> None:
         self.scaling_factor = scaling_factor
         self.original_max_position_embeddings = original_max_position_embeddings
         self.beta_fast = beta_fast
@@ -76,7 +79,7 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
             _yarn_get_mscale(self.scaling_factor, float(mscale_all_dim)) *
             attn_factor)
         super().__init__(kv_channels, rotary_percent, rotary_interleaved, seq_len_interpolation_factor,
-                         rotary_base, rotary_cos_format, rotary_dtype)
+                         rotary_base, rotary_cos_format, rotary_dtype, original_max_position_embeddings)
 
     def _compute_inv_freq(self, base: Union[int, float]) -> Tensor:
         """Compute the inverse frequency."""
@@ -96,40 +99,26 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
             1 - inv_freq_mask) + inv_freq_extrapolation * inv_freq_mask
         return inv_freq
 
-    def get_freqs_non_repeated(self, max_seq_len: int, offset: int = 0) -> Tensor:
+    def get_freqs_non_repeated(self, offset: int = 0) -> Tensor:
         """
         Generates matrix of frequencies based on positions in the sequence,
         used to create positional encodings
         """
         inv_freq = self._compute_inv_freq(self.rotary_base)
-        seq = ops.arange(0, max_seq_len * self.scaling_factor, 1, dtype=inv_freq.dtype) + offset
+        seq = ops.arange(0, self.max_position_embeddings * self.scaling_factor, 1, dtype=inv_freq.dtype) + offset
 
         freqs = ops.outer(seq, inv_freq)
 
         return freqs
 
-    def get_cos_sin_for_prefill(self, max_seq_len: int, offset: int = 0) -> (Tensor, Tensor):
-        """Compute the cos and sin for prefill"""
-        freqs = self.get_freqs_non_repeated(max_seq_len, offset)
-        emb = self.cat((freqs, freqs))
-
-        rotary_pos_cos = self.cast(self.cos(emb) * self.mscale, self.rotary_dtype)
-        rotary_pos_sin = self.cast(self.sin(emb) * self.mscale, self.rotary_dtype)
-
-        return rotary_pos_cos, rotary_pos_sin
-
-    def get_cos_sin_for_decode(self, positions: Tensor, max_seq_len: int, offset: int = 0) -> (Tensor, Tensor):
-        """Compute the cos and sin for decode"""
-        freqs = self.get_freqs_non_repeated(max_seq_len, offset)
+    def _compute_cos_sin_cache(self) -> Tuple[Tensor, Tensor]:
+        freqs = self.get_freqs_non_repeated()
         emb = self.cat((freqs, freqs))
 
         cos = self.cast(self.cos(emb) * self.mscale, self.rotary_dtype)
         sin = self.cast(self.sin(emb) * self.mscale, self.rotary_dtype)
 
-        rotary_pos_cos = self.gather(cos, positions, 0)
-        rotary_pos_sin = self.gather(sin, positions, 0)
-
-        return rotary_pos_cos, rotary_pos_sin
+        return cos, sin
 
 
 def _yarn_get_mscale(scale: float = 1, mscale: float = 1) -> float:

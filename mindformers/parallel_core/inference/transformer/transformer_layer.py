@@ -22,7 +22,7 @@ __all__ = [
 from dataclasses import dataclass
 from typing import Union, Optional
 
-from mindspore import nn, mint
+from mindspore import nn, ops
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
@@ -200,6 +200,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             eps=config.layernorm_epsilon
         )
 
+        self.add = ops.Add()
+
     def construct(
             self,
             hidden_states,
@@ -319,7 +321,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         else:
             residual = hidden_states
 
-        residual = mint.add(residual, attention_output)
+        residual = self.add(residual, attention_output)
 
         # Layer norm before MLP
         pre_mlp_layernorm_output = self.pre_mlp_layernorm(residual)
@@ -349,5 +351,5 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         else:
             residual = residual
 
-        output = mint.add(residual, mlp_output)
+        output = self.add(residual, mlp_output)
         return output
