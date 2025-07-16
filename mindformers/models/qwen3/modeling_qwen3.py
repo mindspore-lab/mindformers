@@ -20,8 +20,9 @@ __all__ = [
 import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
-from mindformers.models.qwen3.modeling_qwen3_infer import InferenceQwen3ForCausalLM
+from .utils import Qwen3PreTrainedModel
+from .modeling_qwen3_infer import InferenceQwen3ForCausalLM
+from .modeling_qwen3_train import TrainingQwen3ForCausalLM
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
@@ -49,6 +50,6 @@ class Qwen3ForCausalLM(Qwen3PreTrainedModel):
             Tensor, the loss or logits of the network
 
         """
-        if os.environ.get("RUN_MODE", "predict") == "predict":
+        if os.environ.get("RUN_MODE") == "predict":
             return InferenceQwen3ForCausalLM(config=config)
-        raise NotImplementedError("Train mode is not supported for Qwen3 model.")
+        return TrainingQwen3ForCausalLM(config=config)

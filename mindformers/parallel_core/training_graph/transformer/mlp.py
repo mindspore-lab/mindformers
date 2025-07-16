@@ -177,7 +177,7 @@ class MLP(nn.Cell):
                 if self.compute_2d and not config.multi_latent_attention:
                     self.split.shard(((dp, 1),))
                 else:
-                    self.split.shard(((cp, dp, tp),)).add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((cp, dp, 1),)).add_prim_attr("skip_redistribution", True)
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

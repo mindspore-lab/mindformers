@@ -319,7 +319,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
         pp = config.parallel_config.pipeline_stage
         if parallel_mode in ["semi_auto_parallel"] and pp > 1:
-            num_layers = getattr(config, "num_layers", None)
+            num_layers = getattr(config, "num_layers", getattr(config, "num_hidden_layers", None))
             if num_layers is None:
                 raise ValueError("`config.model.model_config.num_layers` is not found when pipeline_stage > 1, "
                                  "so the default pipeline_stage check is unavailable. "
