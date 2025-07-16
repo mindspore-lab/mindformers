@@ -500,6 +500,26 @@ class SelfAttentionContiguous(Attention):
             # Other similar invocations should follow this same interpretation.
         )
 
+        if submodules.q_layernorm is not None:
+            self.q_layernorm = build_module(
+                submodules.q_layernorm,
+                config=config,
+                dim=self.head_dim,
+                eps=self.config.layernorm_epsilon
+            )
+        else:
+            self.q_layernorm = None
+
+        if submodules.k_layernorm is not None:
+            self.k_layernorm = build_module(
+                submodules.k_layernorm,
+                config=config,
+                dim=self.head_dim,
+                eps=self.config.layernorm_epsilon
+            )
+        else:
+            self.k_layernorm = None
+
         self.reshape_concat = aclnn_ops.Reshape()
         self.shard_self_attention(self.config)
 
@@ -525,6 +545,19 @@ class SelfAttentionContiguous(Attention):
         key = self.reshape_concat(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
         value = self.reshape_concat(value, (seq_len, bs, self.kv_num_heads, self.head_dim))
 
+
+        if self.q_layernorm is not None:
+            orig_query_shape = query.shape
+            query = self.q_layernorm(query.reshape(hidden_states.shape[:-1] +
+                                                   (-1, self.head_dim,)))
+            query = query.reshape(orig_query_shape)
+
+        if self.k_layernorm is not None:
+            orig_query_shape = key.shape
+            key = self.k_layernorm(key.reshape(hidden_states.shape[:-1] +
+                                               (-1, self.head_dim,)))
+            key = key.reshape(orig_query_shape)
+
         return query, key, value
 
     def shard_self_attention(self, config: TransformerConfig):
@@ -533,6 +566,10 @@ class SelfAttentionContiguous(Attention):
         tp = 1 if config is None else config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
         self.split_qkv.shard(((cp, dp, tp),))
+        if self.q_layernorm is not None:
+            self.q_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+        if self.k_layernorm is not None:
+            self.k_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
 
 
 class SelfAttention(Attention):
@@ -582,6 +619,27 @@ class SelfAttention(Attention):
             # requiring no awareness from upper layers.
             # Other similar invocations should follow this same interpretation.
         )
+
+        if submodules.q_layernorm is not None:
+            self.q_layernorm = build_module(
+                submodules.q_layernorm,
+                config=config,
+                dim=self.head_dim,
+                eps=self.config.layernorm_epsilon
+            )
+        else:
+            self.q_layernorm = None
+
+        if submodules.k_layernorm is not None:
+            self.k_layernorm = build_module(
+                submodules.k_layernorm,
+                config=config,
+                dim=self.head_dim,
+                eps=self.config.layernorm_epsilon
+            )
+        else:
+            self.k_layernorm = None
+
         self.reshape_concat = aclnn_ops.Reshape()
         self.shard_self_attention(self.config)
 
@@ -602,6 +660,19 @@ class SelfAttention(Attention):
         mixed_x_layer = self.reshape_concat(qkv, new_tensor_shape)
         query, key, value = self.split_qkv(mixed_x_layer,
                                            (self.head_dim * self.n_rep, self.head_dim, self.head_dim), 3)
+
+        if self.q_layernorm is not None:
+            orig_query_shape = query.shape
+            query = self.q_layernorm(query.reshape(hidden_states.shape[:-1] +
+                                                   (-1, self.head_dim,)))
+            query = query.reshape(orig_query_shape)
+
+        if self.k_layernorm is not None:
+            orig_query_shape = key.shape
+            key = self.k_layernorm(key.reshape(hidden_states.shape[:-1] +
+                                               (-1, self.head_dim,)))
+            key = key.reshape(orig_query_shape)
+
         return query, key, value
 
     def shard_self_attention(self, config: TransformerConfig):
@@ -610,6 +681,10 @@ class SelfAttention(Attention):
         tp = 1 if config is None else config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
         self.split_qkv.shard(((cp, dp, tp, 1),))
+        if self.q_layernorm is not None:
+            self.q_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+        if self.k_layernorm is not None:
+            self.k_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
 
 
 class CrossAttention(Attention):
