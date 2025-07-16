@@ -262,6 +262,12 @@ def cached_file(
     model_weights_file = cached_file("bert-base-uncased", "pytorch_model.bin")
     ```
     """
+    if token is not None:
+        raise ValueError("Please check whether token is needed. "
+                         "If not needed, please set token to None. "
+                         "For cases that need use token to download data, "
+                         "please download data offline and then use them.")
+
     if is_offline_mode() and not local_files_only:
         logger.info("Offline mode: forcing local_files_only=True")
         local_files_only = True
@@ -513,6 +519,12 @@ def has_file(
 
     </Tip>
     """
+    if token is not None:
+        raise ValueError("Please check whether token is needed. "
+                         "If not needed, please set token to None. "
+                         "For cases that need use token to download data, "
+                         "please download data offline and then use them.")
+
     from openmind_hub.utils import (
         RepositoryNotFoundError,
         RevisionNotFoundError,
@@ -644,13 +656,19 @@ class PushToHubMixin:
 
         logger.info(f"Uploading the following files to {repo_id}: {','.join(modified_files)}")
 
-        return create_commit(
+        res = create_commit(
             repo_id=repo_id,
             operations=operations,
             commit_message=commit_message,
             commit_description=commit_description,
             token=token,
         )
+
+        if token is not None:
+            import ctypes
+            ctypes.memset(id(token), 0, 64)
+
+        return res
 
     def push_to_hub(
             self,
