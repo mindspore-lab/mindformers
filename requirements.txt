@@ -22,3 +22,4 @@ tensorboardX
 deprecated>=1.2.0
 pybind11 # for megatron dataset
 transformers==4.51.3
+mindspore~=2.7.0rc1
