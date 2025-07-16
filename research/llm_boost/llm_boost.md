@@ -161,7 +161,7 @@ dtype:       转换权重的精度
   设置`mindformers`使用动态图模式环境变量（llm_boost需要用动态图模式执行）
 
   ```shell
-  export FORCE_EAGER=True
+  export ENFORCE_EAGER=True
   ```
 
 ### 单卡推理
