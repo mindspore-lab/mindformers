@@ -49,7 +49,7 @@ class MoETokenDispatcher:
         rank_list = [i for i in range(rank_start, rand_end)]
 
         rank_list_str = "-".join([str(i) for i in range(rank_start, rand_end)])
-        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
         ep_group_name = str(hashed)
         create_group(ep_group_name, rank_list)
         return ep_group_name

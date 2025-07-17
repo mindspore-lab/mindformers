@@ -1113,7 +1113,7 @@ class FFN(nn.Cell):
         if rank_list_str in _EP_GROUP_NAME:
             return _EP_GROUP_NAME[rank_list_str]
 
-        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
         ep_group_name = str(hashed)
         create_group(ep_group_name, rank_list)
         _EP_GROUP_NAME[rank_list_str] = ep_group_name
@@ -1135,7 +1135,7 @@ class FFN(nn.Cell):
         if rank_list_str in _IEP_GROUP_NAME:
             return _IEP_GROUP_NAME[rank_list_str]
 
-        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
         iep_group_name = str(hashed)
         create_group(iep_group_name, rank_list)
         _IEP_GROUP_NAME[rank_list_str] = iep_group_name
@@ -1158,7 +1158,7 @@ class FFN(nn.Cell):
         if rank_list_str in _OEP_GROUP_NAME:
             return _OEP_GROUP_NAME[rank_list_str]
 
-        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
         oep_group_name = str(hashed)
         create_group(oep_group_name, rank_list)
         _OEP_GROUP_NAME[rank_list_str] = oep_group_name
@@ -1187,7 +1187,7 @@ class FFN(nn.Cell):
             if rank_list_str in _TP_GROUP_NAME:
                 tp_group_name = _TP_GROUP_NAME[rank_list_str]
             else:
-                hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+                hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
                 tp_group_name = str(hashed)
                 create_group(tp_group_name, rank_list)
                 _TP_GROUP_NAME[rank_list_str] = tp_group_name

@@ -397,7 +397,7 @@ class MFLossMonitor(Callback):
         self.mf_calculated = True
         if auto_parallel_context().get_pipeline_stages() > 1:
             pipeline_group_list, pipeline_group_name = self._get_pipeline_group()
-            hashed = hashlib.md5(
+            hashed = hashlib.sha256(
                 pipeline_group_name.encode()).hexdigest()[:48]
             pipeline_group_name = str(hashed)
             create_group(pipeline_group_name, pipeline_group_list)
@@ -1342,7 +1342,7 @@ class CheckpointMonitor(ModelCheckpoint):
         rank_str_list = [str(r) for r in rank_list]
         rank_list_str = "-".join(rank_str_list)
         # To make the name of group unique.
-        hashed = hashlib.md5(
+        hashed = hashlib.sha256(
             rank_list_str.encode()).hexdigest()[:48]
         pipeline_group_name = str(hashed)
         create_group(pipeline_group_name, rank_list)
