@@ -18,14 +18,10 @@ How to run this:
 pytest tests/st/test_grace_exit_save_ckpt/test_parallel_grace_exit_save_ckpt.py
 """
 import os
-import pytest
 
 class TestSaveTtpCkpt:
     """A test class for testing save_ttp_ckpt."""
 
-    @pytest.mark.level1
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     def test_train(self):
         """
         Feature: Trainer.train()

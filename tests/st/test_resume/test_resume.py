@@ -21,7 +21,6 @@ import os
 from functools import partial
 from glob import glob
 import numpy as np
-import pytest
 
 import mindspore as ms
 from mindspore import set_seed
@@ -47,10 +46,6 @@ def generate_data(seq_len, vocab_size, batch_size=8, step_num=4):
     for input_data in input_ids:
         yield input_data
 
-
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
 def test_resume_train_from_instance():
     """
     Feature: Trainer.train(resume_training=True)

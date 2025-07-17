@@ -38,9 +38,6 @@ class TestTokenizerBase(unittest.TestCase):
         create_yaml("llama2_7b", cls.path)
         cls.tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
 
-    @pytest.mark.level1
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
     def test_from_origin_pretrained(self):
         """test from origin pretrained."""
         real_tokenizer_model_path = os.path.join(self.path, "tokenizer.model")

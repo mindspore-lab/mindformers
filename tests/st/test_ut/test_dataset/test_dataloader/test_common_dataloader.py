@@ -160,9 +160,6 @@ class TestCommonDataLoader:
         assert dataset[0]['input_ids'][-1] == 0
         assert dataset[0]['labels'][-1] == -100
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
     def test_alpaca_truncate(self):
         """test pack alpaca with CommonDataLoader"""
         # set config
