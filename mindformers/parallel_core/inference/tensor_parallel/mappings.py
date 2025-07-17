@@ -14,14 +14,18 @@
 # ======================
 """mapping"""
 
-from mindspore import nn, ops
+from mindspore import nn, ops, Tensor
 from mindspore.communication import get_group_size, GlobalComm, get_rank
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_dp_world_size, get_moe_tp_world_size
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_group,
                                                                 get_tensor_model_parallel_rank,
                                                                 get_moe_tensor_parallel_group,
                                                                 get_moe_tensor_parallel_rank,
-                                                                get_data_parallel_rank)
+                                                                get_data_parallel_rank,
+                                                                get_tensor_and_data_parallel_group,
+                                                                get_tensor_and_data_parallel_world_size,
+                                                                get_tensor_and_data_parallel_rank)
+
 
 
 class GatherFromWorldParallelRegionV1(nn.Cell):
@@ -72,6 +76,20 @@ class GatherFromMoeTensorParallelRegion(GatherFromWorldParallelRegionV1):
             self.all_gather_into_tensor = ops.AllGather(group=self.moe_tp_group)
 
 
+class GatherFromTensorAndDataParallelRegionV1(GatherFromWorldParallelRegionV1):
+    """
+    Gather the input from tensor and data parallel region and concatinate, simultaneously perform
+    transpose operation on input.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_tensor_and_data_parallel_world_size()
+        if self.world_size > 1:
+            self.tp_dp_group = get_tensor_and_data_parallel_group()
+            self.all_gather_into_tensor = ops.AllGather(group=self.tp_dp_group)
+
+
 class GatherFromWorldParallelRegionV2(nn.Cell):
     "Gather the input from world parallel region and concatinate."
 
@@ -117,6 +135,22 @@ class GatherFromMoeTensorParallelRegionV2(GatherFromWorldParallelRegionV2):
             self.all_gather_into_tensor = ops.AllGather(group=self.moe_tp_group)
 
 
+class GatherFromTensorAndDataParallelRegionV2(GatherFromWorldParallelRegionV2):
+    """
+    Class for gathering sequences in a parallel region across multiple devices.
+
+    If the world size is greater than 1, it gathers input from all devices; otherwise,
+    it returns the input as is.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_tensor_and_data_parallel_world_size()
+        if self.world_size > 1:
+            self.tp_dp_group = get_tensor_and_data_parallel_group()
+            self.all_gather_into_tensor = ops.AllGather(group=self.tp_dp_group)
+
+
 class ReduceFromWorldParallelRegion(nn.Cell):
     "All reduce the input from the world parallel region."
 
@@ -156,6 +190,17 @@ class ReduceFromMoeTensorParallelRegion(ReduceFromWorldParallelRegion):
             self.all_reduce = ops.AllReduce(group=self.moe_tp_group)
 
 
+class ReduceFromTensorAndDataParallelRegion(ReduceFromWorldParallelRegion):
+    "All reduce the input from the tensor and data parallel region."
+
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_tensor_and_data_parallel_world_size()
+        if self.world_size > 1:
+            self.tp_dp_group = get_tensor_and_data_parallel_group()
+            self.all_reduce = ops.AllReduce(group=self.tp_dp_group)
+
+
 class ReduceScatterToWorldParallelRegion(nn.Cell):
     "Reduce scatter the input from the world parallel region."
 
@@ -192,6 +237,16 @@ class ReduceScatterToMoeTensorParallelRegion(ReduceScatterToWorldParallelRegion)
         if self.world_size > 1:
             self.moe_tp_group = get_moe_tensor_parallel_group()
             self.reduce_scatter_tensor = ops.ReduceScatter(group=self.moe_tp_group)
+
+
+class ReduceScatterToTensorAndDataParallelRegion(ReduceScatterToWorldParallelRegion):
+    "Reduce scatter the input from the tensor and data parallel region."
+    def __init__(self):
+        super().__init__()
+        self.world_size = get_tensor_and_data_parallel_world_size()
+        if self.world_size > 1:
+            self.tp_dp_group = get_tensor_and_data_parallel_group()
+            self.reduce_scatter_tensor = ops.ReduceScatter(group=self.tp_dp_group)
 
 
 class ScatterToWorldParallelRegion(nn.Cell):
@@ -242,4 +297,15 @@ class ScatterToDataParallelRegion(ScatterToWorldParallelRegion):
         self.world_size = get_dp_world_size()
         if self.world_size > 1:
             self.rank = get_data_parallel_rank()
+            self.split = ops.Split(axis=axis, output_num=self.world_size)
+
+
+class ScatterToTensorAndDataParallelRegion(ScatterToWorldParallelRegion):
+    "Split the input and keep only the corresponding chuck to the rank in tensor and data parallel region."
+
+    def __init__(self, axis=-1):
+        super().__init__(axis)
+        self.world_size = get_tensor_and_data_parallel_group()
+        if self.world_size > 1:
+            self.rank = get_tensor_and_data_parallel_rank()
             self.split = ops.Split(axis=axis, output_num=self.world_size)

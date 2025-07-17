@@ -191,12 +191,15 @@ class CreateCommGroups():
                 position_embedding_group.group = group
                 position_embedding_group.global_ranks = position_embedding_ranks
 
-    def init_moe_group(self, moe_tensor_parallel_size, moe_expert_parallel_size):
+    def init_moe_group(self, moe_tensor_parallel_size, moe_expert_parallel_size,
+                       pipeline_model_parallel_size):
         """Init special group for MOE."""
-        if moe_tensor_parallel_size * moe_expert_parallel_size != self.world_size:
-            raise ValueError(f'moe_tensor_parallel_size * moe_expert_parallel_size must be equal to world_size, '
+        if moe_tensor_parallel_size * moe_expert_parallel_size * pipeline_model_parallel_size != self.world_size:
+            raise ValueError(f'moe_tensor_parallel_size * moe_expert_parallel_size * pipeline_model_parallel_size'
+                             'must be equal to world_size, '
                              f'but got moe_tensor_parallel_size: {moe_tensor_parallel_size}, '
                              f'moe_expert_parallel_size: {moe_expert_parallel_size}, '
+                             f'pipeline_model_parallel_size: {pipeline_model_parallel_size} '
                              f'and world_size: {self.world_size}.')
 
         moe_tp_group = get_group_info("moe_tp")
@@ -207,8 +210,8 @@ class CreateCommGroups():
             raise RuntimeError('moe tensor expert group is already initialized.')
 
         def set_group_info(token, group_info, group_prefix):
-            mask = self.get_mask('tp-ep', token)
-            parallel_size = [moe_tensor_parallel_size, moe_expert_parallel_size]
+            mask = self.get_mask('tp-ep-pp', token)
+            parallel_size = [moe_tensor_parallel_size, moe_expert_parallel_size, pipeline_model_parallel_size]
             group_ranks = self._dispatch_comm_ranks(self.world_size, parallel_size, mask)
             for ranks_of_this_group in group_ranks:
                 if self.rank in ranks_of_this_group:
@@ -352,12 +355,14 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
     if get_predict_run_mode():
         moe_tensor_parallel_size = 1
-        if infer_ep_size != world_size:
-            moe_tensor_parallel_size = world_size // infer_ep_size
-            logger.info(f"expert_model_parallel_size({infer_ep_size}) "
+        if infer_ep_size * pipeline_model_parallel_size != world_size:
+            moe_tensor_parallel_size = world_size // infer_ep_size // pipeline_model_parallel_size
+            logger.info(f"expert_model_parallel_size({infer_ep_size}) * pipeline_model_parallel_size"
+                        f"({pipeline_model_parallel_size}) "
                         f"is not equal to world_size({world_size}), "
                         f"so we will use {moe_tensor_parallel_size} as the MOE_tensor_parallel_size.")
-        rank_generator.init_moe_group(moe_tensor_parallel_size, infer_ep_size)
+        rank_generator.init_moe_group(moe_tensor_parallel_size, infer_ep_size,
+                                      pipeline_model_parallel_size)
 
     global _PIPELINE_GLOBAL_RANKS
     all_pp_ranks = rank_generator.get_ranks('pp')
@@ -566,6 +571,11 @@ def get_moe_expert_parallel_world_size():
     return _get_world_size_helper('moe_ep')
 
 
+def get_tensor_and_data_parallel_world_size():
+    """Return world size for the tensor and data parallel group."""
+    return _get_world_size_helper('tp-dp')
+
+
 ### get rank
 def _get_rank_helper(mode):
     comm_group = get_group_info(mode)
@@ -606,9 +616,14 @@ def get_moe_tensor_parallel_rank():
     return _get_rank_helper('moe_tp')
 
 
-def get_moe_expert_parallel_rank(rank):
+def get_moe_expert_parallel_rank():
     """Return my rank for the MOE expert parallel group."""
-    return _get_rank_helper('moe_tp')
+    return _get_rank_helper('moe_ep')
+
+
+def get_tensor_and_data_parallel_rank():
+    """Return my rank for the tensor and data parallel group."""
+    return _get_rank_helper('tp-dp')
 
 
 def get_pipeline_model_parallel_first_rank():

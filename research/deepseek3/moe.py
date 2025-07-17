@@ -21,25 +21,26 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, Parameter, mint, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
-from mindspore.communication import get_rank, get_group_size
 
 from mindformers.modules.layers import Linear
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (ReduceFromModelParallelRegion,
                                                                           GatherFromMoeTensorParallelRegionV2,
                                                                           GatherFromMoeTensorParallelRegion,
-                                                                          GatherFromWorldParallelRegionV1,
+                                                                          GatherFromTensorAndDataParallelRegionV1,
                                                                           ReduceFromMoeTensorParallelRegion,
                                                                           ReduceScatterToMoeTensorParallelRegion,
-                                                                          ReduceScatterToWorldParallelRegion,
-                                                                          ReduceFromWorldParallelRegion,
+                                                                          ReduceScatterToTensorAndDataParallelRegion,
+                                                                          ReduceFromTensorAndDataParallelRegion,
                                                                           ScatterToMoeTensorParallelRegion,
-                                                                          ScatterToWorldParallelRegion,
-                                                                          GatherFromWorldParallelRegionV2)
+                                                                          ScatterToTensorAndDataParallelRegion,
+                                                                          GatherFromTensorAndDataParallelRegionV2)
 
 # pylint: disable=C0412
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_ep_world_size, get_moe_tp_world_size
 
-from mindformers.parallel_core.inference.parallel_state import get_moe_expert_parallel_group
+from mindformers.parallel_core.inference.parallel_state import (get_moe_expert_parallel_group, 
+                                                                get_tensor_and_data_parallel_world_size,
+                                                                get_moe_expert_parallel_rank,)
 from mindformers.version_control import is_910b, need_nz
 from mindformers.tools.utils import divide
 from research.deepseek3.infer.activation import SiLU
@@ -405,9 +406,9 @@ class SharedParallelMLP(nn.Cell):
         return output
 
 
-class WorldRegionSharedParallelMLP(SharedParallelMLP):
+class TPDPSharedParallelMLP(SharedParallelMLP):
     r"""
-        WorldRegionSharedParallelMLP. Parallel MoE with global world region.
+        TPDPSharedParallelMLP. Parallel MoE with tensor and parallel region.
 
         Args:
             config (Config): The configuration of Model.
@@ -418,11 +419,11 @@ class WorldRegionSharedParallelMLP(SharedParallelMLP):
             - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
     """
     def __init__(self, config, intermediate_size):
-        super(WorldRegionSharedParallelMLP, self).__init__(config=config, intermediate_size=intermediate_size)
-        world_group_size = get_group_size()
-        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, world_group_size)
+        super(TPDPSharedParallelMLP, self).__init__(config=config, intermediate_size=intermediate_size)
+        tp_dp_group_size = get_tensor_and_data_parallel_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_dp_group_size)
         if self.ffn_concat:
-            self.w_gate_hidden = ColumnParallelLinearWorldRegion(
+            self.w_gate_hidden = ColumnParallelLinearTPDP(
                 self.hidden_size,
                 self.ffn_hidden_size * 2,
                 config=self.config.parallel_config,
@@ -434,7 +435,7 @@ class WorldRegionSharedParallelMLP(SharedParallelMLP):
                 compute_dtype=self.config.compute_dtype,
             )
         else:
-            self.w1 = ColumnParallelLinearWorldRegion(
+            self.w1 = ColumnParallelLinearTPDP(
                 self.hidden_size,
                 self.ffn_hidden_size,
                 config=self.config.parallel_config,
@@ -445,7 +446,7 @@ class WorldRegionSharedParallelMLP(SharedParallelMLP):
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
-            self.w3 = ColumnParallelLinearWorldRegion(
+            self.w3 = ColumnParallelLinearTPDP(
                 self.hidden_size,
                 self.ffn_hidden_size,
                 config=self.config.parallel_config,
@@ -457,7 +458,7 @@ class WorldRegionSharedParallelMLP(SharedParallelMLP):
                 compute_dtype=self.config.compute_dtype,
             )
 
-        self.w2 = RowParallelLinearWorldRegion(
+        self.w2 = RowParallelLinearTPDP(
             self.ffn_hidden_size,
             self.hidden_size,
             input_is_parallel=True,
@@ -471,9 +472,9 @@ class WorldRegionSharedParallelMLP(SharedParallelMLP):
         )
 
 
-class ColumnParallelLinearWorldRegion(ColumnParallelLinear):
+class ColumnParallelLinearTPDP(ColumnParallelLinear):
     r"""
-        The dense layer with weight sliced on second dimension by global world region parallel size.
+        The dense layer with weight sliced on second dimension by tensor and data region parallel size.
         This layer implements the operation as:
 
         .. math::
@@ -527,7 +528,7 @@ class ColumnParallelLinearWorldRegion(ColumnParallelLinear):
             bias_init="zeros",
             **kwargs
     ):
-        super(ColumnParallelLinearWorldRegion, self).__init__(
+        super(ColumnParallelLinearTPDP, self).__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -540,7 +541,7 @@ class ColumnParallelLinearWorldRegion(ColumnParallelLinear):
             bias_init=bias_init,
             **kwargs
         )
-        self.tensor_parallel_group_size = get_group_size()
+        self.tensor_parallel_group_size = get_tensor_and_data_parallel_world_size()
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
 
         weight_shape = (self.output_size_per_partition, self.input_size) if self.transpose_b else (
@@ -551,14 +552,14 @@ class ColumnParallelLinearWorldRegion(ColumnParallelLinear):
             bias_shape = (self.output_size_per_partition,)
             self.bias = Parameter(initializer(bias_init, bias_shape, param_init_type), name="bias")
             self.bias_add = P.Add()
-        self.gather_from_mp_region = GatherFromWorldParallelRegionV1()
+        self.gather_from_mp_region = GatherFromTensorAndDataParallelRegionV1()
         if self.sequence_parallel:
-            self.gather_from_sp_region = GatherFromWorldParallelRegionV2()
+            self.gather_from_sp_region = GatherFromTensorAndDataParallelRegionV2()
 
 
-class RowParallelLinearWorldRegion(RowParallelLinear):
+class RowParallelLinearTPDP(RowParallelLinear):
     r"""
-        The dense layer with weight sliced on first dimension by global world region parallel size.
+        The dense layer with weight sliced on first dimension by tensor and data region parallel size.
         This layer implements the operation as:
 
         .. math::
@@ -611,7 +612,7 @@ class RowParallelLinearWorldRegion(RowParallelLinear):
             delay_allreduce=False,
             **kwargs
     ):
-        super(RowParallelLinearWorldRegion, self).__init__(
+        super(RowParallelLinearTPDP, self).__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -627,7 +628,7 @@ class RowParallelLinearWorldRegion(RowParallelLinear):
             bias_init=bias_init,
             **kwargs
         )
-        self.tensor_parallel_group_size = get_group_size()
+        self.tensor_parallel_group_size = get_tensor_and_data_parallel_world_size()
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
 
         # weight
@@ -641,11 +642,11 @@ class RowParallelLinearWorldRegion(RowParallelLinear):
             self.bias = Parameter(initializer(super().bias_init, bias_shape, super().param_init_type), name="bias")
             self.bias_add = P.Add()
 
-        self.reduce_from_mp_region = ReduceFromWorldParallelRegion()
+        self.reduce_from_mp_region = ReduceFromTensorAndDataParallelRegion()
         if not self.input_is_parallel:
-            self.scatter_to_mp_region = ScatterToWorldParallelRegion()
+            self.scatter_to_mp_region = ScatterToTensorAndDataParallelRegion()
         if self.sequence_parallel:
-            self.reduce_scatter_to_sp_region = ReduceScatterToWorldParallelRegion()
+            self.reduce_scatter_to_sp_region = ReduceScatterToTensorAndDataParallelRegion()
 
 
 class ColumnParallelGroupLinear(ColumnParallelLinear):
@@ -1214,7 +1215,7 @@ class ExpertParallelMoE(nn.Cell):
         self.dispatch_global_max_bs = min(moe_config.dispatch_global_max_bs, self.max_bs)
 
         self.local_ep_num = self.expert_num // self.moe_ep_size
-        self.ep_rank_index = get_rank() // self.moe_tp_size
+        self.ep_rank_index = get_moe_expert_parallel_rank()
         self.in_start_expert_idx = self.ep_rank_index * self.local_ep_num
         self.group_list_index = Tensor([0,], mstype.int32)
 
