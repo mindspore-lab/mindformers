@@ -268,6 +268,9 @@ def cached_file(
                          "For cases that need use token to download data, "
                          "please download data offline and then use them.")
 
+    logger.warning("It will download files from openMind Hub, "
+                   "please confirm that there is sufficient local storage space for these files.")
+
     if is_offline_mode() and not local_files_only:
         logger.info("Offline mode: forcing local_files_only=True")
         local_files_only = True
@@ -654,7 +657,8 @@ class PushToHubMixin:
         if revision is not None:
             create_branch(repo_id=repo_id, branch=revision, token=token, exist_ok=True)
 
-        logger.info(f"Uploading the following files to {repo_id}: {','.join(modified_files)}")
+        logger.warning(f"Uploading the following files to {repo_id}: {','.join(modified_files)}, "
+                       f"please confirm that the uploaded files and network connection are as expected.")
 
         res = create_commit(
             repo_id=repo_id,
