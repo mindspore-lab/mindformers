@@ -53,7 +53,7 @@ class Encoder:
     """Encoder"""
     def __init__(self, args):
         self.args = args
-        self.tokenizer = build_tokenizer(get_tokenizer_config(args))
+        self.tokenizer = get_tokenizer(args)
 
     def initializer(self):
         """initializer"""
@@ -103,11 +103,11 @@ class Encoder:
             sentence_lens = []
             for sentence in sentences:
                 sentence_ids = self.tokenizer(sentence)
-                if sentence_ids is not None:
+                if sentence_ids:
                     doc_ids.extend(sentence_ids['input_ids'])
                     sentence_lens.append(len(sentence_ids['input_ids']))
-            if doc_ids is not None and self.args.append_eod:
-                doc_ids.append(self.tokenizer.eod)
+            if doc_ids and self.args.append_eod:
+                doc_ids.append(self.tokenizer.eos_token_id)
                 sentence_lens[-1] += 1
             ids[key] = doc_ids
             lens[key] = sentence_lens
@@ -160,8 +160,6 @@ class Partition:
 
         startup_start = time.time()
         encoder = Encoder(self.args)
-        tokenizer = build_tokenizer(get_tokenizer_config(self.args))
-
         pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
         encoded_docs = pool.imap(encoder.encode, fin, 32)
 
@@ -187,56 +185,35 @@ class Partition:
         proc_start = time.time()
         total_bytes_processed = 0
         print("Time to startup:", startup_end - startup_start)
-        content = []
         for i, (doc, sentence_lens, bytes_processed) in enumerate(encoded_docs, start=1):
             total_bytes_processed += bytes_processed
-            if self.args.pad_or_stitch == 'pad':
-                for key in doc.keys():
-                    # pylint: disable=W0212
-                    d = {}
-                    d['input_ids'] = doc[key]
-                    doc = tokenizer._pad(d, max_length=self.args.seq_length + 1,
-                                         padding_strategy='max_length')
-                    sequences = np.array(d['input_ids'][:self.args.seq_length + 1], dtype=np.int32)
-                    lengths = [self.args.seq_length + 1] * len(sentence_lens[key])
-                    builders[key].add_document(sequences, lengths)
-            elif self.args.pad_or_stitch == 'stitch':
-                for key in doc.keys():
-                    content += doc[key]
-            else:
-                for key in doc.keys():
-                    builders[key].add_document(doc[key], sentence_lens[key])
+            for key in doc.keys():
+                builders[key].add_document(np.array(doc[key], dtype=np.int32), sentence_lens[key])
             self.print_processing_stats(i, proc_start, total_bytes_processed)
 
-        if self.args.pad_or_stitch == 'stitch':
-            for chunk in chunks(content, self.args.seq_length + 1):
-                if len(chunk) == self.args.seq_length + 1:
-                    sequence = np.array(chunk, dtype=np.int32)
-                    builders[key].add_document(sequence, [self.args.seq_length + 1])
         fin.close()
         builders[key].finalize(output_idx_files[key])
 
 
-def get_tokenizer_config(args):
-    """Return the tokenizer config"""
-    tokenizer_config = {
-        'type': args.tokenizer_type,
-        'vocab_file': args.vocab_file,
-        'merges_file': args.merges_file,
-        'tokenizer_file': args.tokenizer_file,
-        'add_bos_token': args.add_bos_token,
-        'add_eos_token': args.add_eos_token,
-    }
+def get_tokenizer(args):
+    """Get tokenizer according to args."""
+    if args.tokenizer_type == 'HuggingFaceTokenizer':
+        return build_tokenizer(use_legacy=False,
+                               pretrained_model_dir=args.tokenizer_dir,
+                               trust_remote_code=args.trust_remote_code)
     if args.tokenizer_type == 'AutoRegister':
-        tokenizer_config['type'] = args.auto_register.split('.')[-1]
-        tokenizer_config['auto_register'] = args.auto_register
-    return tokenizer_config
-
-
-def chunks(lst, n):
-    """yield n sized chunks from list"""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        tokenizer_config = {
+            'type': args.auto_register.split('.')[-1],
+            'vocab_file': args.vocab_file,
+            'merges_file': args.merges_file,
+            'tokenizer_file': args.tokenizer_file,
+            'eos_token': args.eos_token,
+            'add_bos_token': args.add_bos_token,
+            'add_eos_token': args.add_eos_token,
+            'auto_register': args.auto_register
+        }
+        return build_tokenizer(tokenizer_config)
+    raise NotImplementedError(f"Currently, `--tokenizer_type` does not support {args.tokenizer_type}.")
 
 
 def get_args():
@@ -254,7 +231,7 @@ def get_args():
 
     group = parser.add_argument_group(title='tokenizer')
     group.add_argument('--tokenizer-type', type=str, required=True,
-                       choices=['LlamaTokenizer', 'LlamaTokenizerFast', 'AutoRegister'],
+                       choices=['AutoRegister', 'HuggingFaceTokenizer'],
                        help='The tokenizer of the corresponding model.')
     group.add_argument('--vocab-file', type=str, default=None,
                        help='Path to the vocab file or tokenizer.model')
@@ -262,6 +239,11 @@ def get_args():
                        help='Path to the BPE merge file (if necessary).')
     group.add_argument('--tokenizer-file', type=str, default=None,
                        help='The path of tokenizer.json')
+    group.add_argument('--tokenizer-dir', type=str, default=None,
+                       help='The directory of HuggingFace tokenizer.')
+    group.add_argument('--trust-remote-code', action='store_true',
+                       help='Whether or not to allow for custom models defined on the Hub in their own modeling files.')
+    group.add_argument('--eos_token', type=str, default='</s>')
     group.add_argument('--add_bos_token', type=str, default=False)
     group.add_argument('--add_eos_token', type=str, default=False)
     group.add_argument('--vocab-size', default=786,
@@ -280,11 +262,6 @@ def get_args():
     group = parser.add_argument_group(title='output data')
     group.add_argument('--output-prefix', type=str, required=True,
                        help='Path to binary output file without suffix')
-    group.add_argument('--seq-length', type=int, default=4096,
-                       help='The length of the output data.')
-    group.add_argument('--pad_or_stitch', type=str, default='pad',
-                       help='Decide whether to the longest or spliced to equal length')
-
     group = parser.add_argument_group(title='runtime')
     group.add_argument('--workers', type=int, default=1,
                        help=('Number of worker processes to launch.'
@@ -305,6 +282,10 @@ def get_args():
         if args.register_path not in sys.path:
             sys.path.append(args.register_path)
         print(f'The tokenizer {args.auto_register} in the path {args.register_path} will be applied.')
+    elif args.tokenizer_type == 'HuggingFaceTokenizer':
+        assert args.tokenizer_dir is not None, \
+            'When args.tokenizer_type = "HuggingFaceTokenizer", tokenizer_dir should be set.'
+        print(f'The directory {args.tokenizer_dir} will be applied to build HuggingFace tokenizer.')
 
     # some default/dummy values for the tokenizer
     args.rank = 1
