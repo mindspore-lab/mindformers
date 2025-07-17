@@ -208,7 +208,7 @@ if __name__ == "__main__":
     print(args)
 
     # disable jit for llm boost
-    os.environ["FORCE_EAGER"] = "True"
+    os.environ["ENFORCE_EAGER"] = "True"
 
     main(
         config_path=args.config_path,

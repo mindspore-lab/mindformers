@@ -52,7 +52,7 @@ class TestJit:
     def test_jit_pynative_mode(self):
         """test jit for pynative mode."""
         os.environ["RUN_MODE"] = "predict"
-        os.environ['FORCE_EAGER'] = "True"
+        os.environ['ENFORCE_EAGER'] = "True"
         is_pynative_mode = is_pynative()
         assert is_pynative_mode
 
