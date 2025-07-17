@@ -151,6 +151,7 @@ MindSpore Transformers released version preservation policy:
    2. Data compliance: Users must ensure that data collection and processing comply with relevant laws, regulations, and privacy protection requirements.
 3. If you do not want your dataset to be mentioned in MindSpore Transformers, or if you want to update the description of your dataset in MindSpore Transformers, please submit an issue to Gitee, and we will remove or update the description of your dataset according to your issue request. We sincerely appreciate your understanding and contribution to MindSpore Transformers.
 4. Regarding model weights, users must verify the authenticity of downloaded and distributed model weights from trusted sources. MindSpore Transformers cannot guarantee the security of third-party weights. Weight files may be tampered with during transmission or loading, leading to unexpected model outputs or security vulnerabilities. Users should assume the risk of using third-party weights and ensure that weight files are verified for security before use.
+5. Regarding weights, vocabularies, scripts, and other files downloaded from sources like openmind, users must verify the authenticity of downloaded and distributed model weights from trusted sources. MindSpore Transformers cannot guarantee the security of third-party files. Users should assume the risks arising from unexpected functional issues, outputs, or security vulnerabilities when using these files.
 
 ## 6. Contribution
 
