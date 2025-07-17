@@ -568,7 +568,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.local_norm = local_norm
         # create allreduce for synchronize denominator
         pipeline_group_list, pipeline_group_name = _get_pipeline_group()
-        hashed = hashlib.md5(pipeline_group_name.encode()).hexdigest()[:48]
+        hashed = hashlib.sha256(pipeline_group_name.encode()).hexdigest()[:48]
         pipeline_group_name = str(hashed)
         create_group(pipeline_group_name, pipeline_group_list)
         self.allreduce2 = P.AllReduce(group=pipeline_group_name)
