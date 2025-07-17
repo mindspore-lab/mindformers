@@ -13,13 +13,8 @@ import os
 import sys
 import multiprocessing
 import numpy as np
-try:
-    import nltk
-    from nltk.tokenize.punkt import PunktLanguageVars
-    nltk_available = True
-except ImportError:
-    PunktLanguageVars = object  # Fallback to the built-in object class
-    nltk_available = False
+import nltk
+from nltk.tokenize.punkt import PunktLanguageVars
 
 # pylint: disable=W0611
 from mindformers.dataset.dataloader import indexed_dataset
@@ -59,8 +54,6 @@ class Encoder:
         """initializer"""
         # Use Encoder class as a container for global data
         if self.args.split_sentences:
-            if not nltk_available:
-                raise ValueError("NLTK is not available to split sentences.")
             if os.environ.get("NLTK_DATA"):
                 library = os.path.join(os.environ.get("NLTK_DATA"), "tokenizers", "punkt", f"{self.args.lang}.pickle")
                 url = f"file:{library}"
@@ -276,15 +269,15 @@ def get_args():
     args = parser.parse_args()
     args.keep_empty = False
     if args.tokenizer_type == 'AutoRegister':
-        assert args.register_path is not None and args.auto_register is not None, \
-            'When args.tokenizer_type = "AutoRegister", register_path and auto_register should be set.'
+        if not args.register_path or not args.auto_register:
+            raise ValueError('When tokenizer_type = "AutoRegister", register_path and auto_register should be set.')
         os.environ["REGISTER_PATH"] = args.register_path
         if args.register_path not in sys.path:
             sys.path.append(args.register_path)
         print(f'The tokenizer {args.auto_register} in the path {args.register_path} will be applied.')
     elif args.tokenizer_type == 'HuggingFaceTokenizer':
-        assert args.tokenizer_dir is not None, \
-            'When args.tokenizer_type = "HuggingFaceTokenizer", tokenizer_dir should be set.'
+        if not args.tokenizer_dir:
+            raise ValueError('When tokenizer_type = "HuggingFaceTokenizer", tokenizer_dir should be set.')
         print(f'The directory {args.tokenizer_dir} will be applied to build HuggingFace tokenizer.')
 
     # some default/dummy values for the tokenizer
@@ -385,11 +378,7 @@ def main():
     args = get_args()
 
     if args.split_sentences:
-        if nltk_available:
-            nltk.download("punkt", quiet=True, download_dir=os.environ.get("NLTK_DATA"))
-        else:
-            raise Exception(
-                "nltk library required for sentence splitting is not available.")
+        nltk.download("punkt", quiet=True, download_dir=os.environ.get("NLTK_DATA"))
 
     in_ss_out_names, partition = partition_file(args)
 
