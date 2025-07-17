@@ -17,7 +17,6 @@
 import os
 import random
 import subprocess
-import pytest
 
 from tests.st.test_multi_cards_cases.utils import TaskType
 
@@ -28,7 +27,6 @@ _TASK_TYPE = TaskType.FOUR_CARDS_TASK
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-@pytest.mark.level0
 def test_llama_train_mp2_pp2():
     """
     Feature: Legacy llama model test
