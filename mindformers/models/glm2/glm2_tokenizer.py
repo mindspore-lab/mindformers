@@ -19,6 +19,7 @@ from sentencepiece import SentencePieceProcessor
 
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.utils import FILE_PERMISSION
 
 __all__ = ['ChatGLM2Tokenizer']
 
@@ -260,7 +261,7 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
             proto_str = fin.read()
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(vocab_file, flags_, 0o750), 'wb') as writer:
+        with os.fdopen(os.open(vocab_file, flags_, FILE_PERMISSION), 'wb') as writer:
             writer.write(proto_str)
 
         return (vocab_file,)

@@ -17,6 +17,7 @@ import os
 from multiprocessing import shared_memory
 from multiprocessing.shared_memory import _SHM_NAME_PREFIX
 import numpy as np
+from mindformers.tools.utils import FILE_PERMISSION
 
 if _SHM_NAME_PREFIX.startswith("/"):
     SHM_NAME_PREFIX = _SHM_NAME_PREFIX[1:]
@@ -38,7 +39,7 @@ def create_shm(size, shm_name_save_path):
     try:
         shm = shared_memory.SharedMemory(create=True, size=size)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_APPEND
-        with os.fdopen(os.open(shm_name_save_path, flags_, 0o750), "a", encoding="utf-8") as fw:
+        with os.fdopen(os.open(shm_name_save_path, flags_, FILE_PERMISSION), "a", encoding="utf-8") as fw:
             fw.write(f"{shm.name}\n")
     except Exception as e:
         raise RuntimeError(f"Failed to create shared memory: {e}") from e

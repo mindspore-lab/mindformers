@@ -26,7 +26,7 @@ from mindspore import log as logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.models.tokenization_utils_base import AddedToken
-from mindformers.tools.utils import check_file
+from mindformers.tools.utils import check_file, FILE_PERMISSION
 
 
 VOCAB_FILES_NAMES = {
@@ -335,11 +335,11 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             VOCAB_FILES_NAMES["merges_file"]
         )
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(vocab_file, flags_, 0o750), "w", encoding="utf-8") as f:
+        with os.fdopen(os.open(vocab_file, flags_, FILE_PERMISSION), "w", encoding="utf-8") as f:
             f.write(json.dumps(self.encoder, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
         index = 0
-        with os.fdopen(os.open(merge_file, flags_, 0o750), "w", encoding="utf-8") as writer:
+        with os.fdopen(os.open(merge_file, flags_, FILE_PERMISSION), "w", encoding="utf-8") as writer:
             writer.write("#version: 0.2\n")
             for bpe_tokens, token_index in sorted(self.bpe_ranks.items(), key=lambda kv: kv[1]):
                 if index != token_index:
