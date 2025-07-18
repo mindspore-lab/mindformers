@@ -29,6 +29,7 @@ import sentencepiece as spm
 from mindformers.tools.logger import logger
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import FILE_PERMISSION
 from ..convert_slow_tokenizer import import_protobuf
 
 __all__ = ['LlamaTokenizer']
@@ -257,7 +258,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
             copyfile(self.vocab_file, out_vocab_file)
         elif not os.path.isfile(self.vocab_file):
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(out_vocab_file, flags_, 0o750), 'wb') as fi:
+            with os.fdopen(os.open(out_vocab_file, flags_, FILE_PERMISSION), 'wb') as fi:
                 content_spiece_model = self.sp_model.serialized_model_proto()
                 fi.write(content_spiece_model)
 

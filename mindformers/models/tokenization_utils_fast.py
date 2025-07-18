@@ -27,7 +27,7 @@ from tokenizers import Encoding as EncodingFast
 from tokenizers import Tokenizer as TokenizerFast
 from tokenizers.decoders import Decoder as DecoderFast
 from tokenizers.trainers import BpeTrainer, UnigramTrainer, WordLevelTrainer, WordPieceTrainer
-
+from mindformers.tools.utils import FILE_PERMISSION
 from .convert_slow_tokenizer import convert_slow_tokenizer
 from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_utils_base import (
@@ -746,7 +746,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             added_vocab = {tok: index for tok, index in self.added_tokens_encoder.items() if index >= self.vocab_size}
             if added_vocab:
                 flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-                with os.fdopen(os.open(added_tokens_file, flags_, 0o750), 'w', encoding="utf-8") as f:
+                with os.fdopen(os.open(added_tokens_file, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as f:
                     out_str = json.dumps(added_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
                     f.write(out_str)
 

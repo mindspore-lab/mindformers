@@ -20,6 +20,7 @@ from multiprocessing import Process, Manager, Condition
 from safetensors.numpy import load_file, save_file
 
 from mindformers.tools import logger
+from mindformers.tools.utils import FILE_PERMISSION
 from .utils import is_hf_safetensors_dir
 
 
@@ -105,7 +106,7 @@ def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict, is_qkv
     weight_map = data.get("weight_map")
     new_weight_map = convert_map_dict(weight_map, qkv_concat=is_qkv_concat)
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    with os.fdopen(os.open(os.path.join(converted_dir, 'param_name_map.json'), flags_, 0o750), 'w') as f:
+    with os.fdopen(os.open(os.path.join(converted_dir, 'param_name_map.json'), flags_, FILE_PERMISSION), 'w') as f:
         json.dump(new_weight_map, f, indent=2)
         logger.info(f"Converted file param_name_map.json")
 

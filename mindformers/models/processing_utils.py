@@ -24,6 +24,7 @@ from typing import Optional, Union
 import json
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from mindformers.tools.utils import FILE_PERMISSION
 from ..mindformer_book import print_path_or_list, MindFormerBook
 from .build_processor import build_processor
 from .tokenization_utils import PreTrainedTokenizer
@@ -472,7 +473,7 @@ class ProcessorMixin(PushToHubMixin):
         meraged_dict.update(wraped_config)
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(config_path, flags_, 0o750), 'w') as file_pointer:
+        with os.fdopen(os.open(config_path, flags_, FILE_PERMISSION), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         logger.info("processor saved successfully!")
 
