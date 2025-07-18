@@ -838,3 +838,28 @@ def get_ascend_log_path():
     if ascend_log_path:
         return os.path.join(ascend_log_path, 'log')
     return os.path.join(os.path.expanduser("~"), 'ascend', 'log')
+
+
+def check_path_is_valid(path):
+    """check path is or not valid"""
+    from .logger import logger
+    if not path or not isinstance(path, str):
+        logger.warning(f"The input path is not valid because it is {type(path)}")
+        return False
+
+    if ".." in path:
+        logger.warning(f"The input path should not include '..'.")
+        return False
+
+    # pylint: disable=W0703
+    # check whether the path has soft link. If path has soft link, function will return false.
+    try:
+        real_path = os.path.realpath(path)
+        if real_path != os.path.abspath(path):
+            logger.warning(f"The input path should not include symbolic link.")
+            return False
+
+        return True
+    except BaseException as e:
+        logger.warning(f"Error occurs when normalize the input path: {e}.")
+        return False
