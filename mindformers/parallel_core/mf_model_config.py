@@ -22,6 +22,7 @@ from mindformers.modules.transformer.transformer import (
     TransformerOpParallelConfig,
     default_transformer_config
 )
+from mindformers.core.context.build_context import is_distillation_training
 
 ms_dtype_mapping = {
     # Common floating point numbers types
@@ -401,8 +402,17 @@ class MFModelConfig:
     use_alltoall: bool = False
     """Whether to enable use_alltoall"""
 
+    disable_lazy_inline: bool = False
+    """Whether to disable lazy_inline."""
+
+    skip_lm_loss: bool = False
+    """Whether to skip loss computation in distillation training."""
+
     def __post_init__(self):
         self.parallel_config = default_transformer_config
 
         if self.residual_dtype is None:
             self.residual_dtype = self.compute_dtype
+
+        if self.skip_lm_loss and not is_distillation_training():
+            raise ValueError("skip_lm_loss can only be set True in distillation training.")

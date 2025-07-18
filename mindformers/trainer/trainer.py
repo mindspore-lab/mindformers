@@ -33,8 +33,8 @@ from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset, Dataset
 
-from mindformers.core.parallel_config import build_parallel_config, \
-    reset_parallel_config
+from mindformers.distill import DistillationConfig
+from mindformers.core.parallel_config import build_parallel_config, reset_parallel_config
 from mindformers.core.callback.callback import ProfileMonitor
 from mindformers.dataset import build_dataset_loader, check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
@@ -299,6 +299,9 @@ class Trainer:
             set_remote_save_url(self.config.remote_save_url)
             logger.info(f"Set remote_save_url: %s, the output file will be uploaded to here.",
                         self.config.remote_save_url)
+
+        # distill config init
+        self._distill_init()
 
         # build trainer
         self.trainer = build_trainer(self.config.trainer)
@@ -1094,6 +1097,49 @@ class Trainer:
             args.convert_args_to_mindformers_config(task_config)
 
         return task_config
+
+    def _distill_init(self):
+        """init distill_config from config.distill_config"""
+        if self.config.distill_config:
+            # init teacher config
+            distill_config = self.config.distill_config
+            teacher_config = distill_config.teacher_config
+            if isinstance(teacher_config, str) and teacher_config.endswith(('yaml', 'yml')):
+                teacher_config = MindFormerConfig(distill_config.teacher_config)
+            elif not isinstance(teacher_config, MindFormerConfig):
+                raise ValueError("The distill_config.teacher_config should be a `MindFormerConfig` instance, "
+                                 "or a path to yaml/yml configuration file.")
+
+            teacher_config.remove_redundancy = teacher_config.get('remove_redundancy', False)
+            teacher_config.load_ckpt_format = teacher_config.get('load_ckpt_format', 'ckpt')
+            teacher_config.model.model_config.disable_lazy_inline = True
+            teacher_config.model.model_config.skip_lm_loss = True
+            teacher_config.src_strategy_path_or_dir = self.config.get("src_strategy_path_or_dir")
+            if teacher_config.pretrained_model_dir:
+                teacher_config.model.pretrained_model_dir = teacher_config.pretrained_model_dir
+            build_parallel_config(teacher_config)
+            distill_config.teacher_config = teacher_config
+            distill_config = DistillationConfig(**distill_config)
+            distill_config.print_separate_loss = self.config.get("print_separate_loss", True)
+
+            # modify and check student config
+            self.config.model.model_config.disable_lazy_inline = True
+            self.config.model.model_config.skip_lm_loss = distill_config.skip_lm_loss
+            self.config.distill_config = distill_config
+            if self.config.calculate_per_token_loss:
+                raise ValueError("Currently, calculate_per_token_loss is not supported in distillation training.")
+            if self.config.load_ckpt_async:
+                logger.warning("The distillation training does not support load_ckpt_async.")
+                self.config.load_ckpt_async = False
+            if self.config.parallel_config.seq_split_num > 1 and not distill_config.skip_lm_loss:
+                raise ValueError("Currently, skip_lm_loss = False is not supported "
+                                 "when seq_split_num > 1 in distillation training.")
+
+            set_context(distill_enabled=True)
+            ms.set_auto_parallel_context(
+                strategy_ckpt_config={"only_trainable_params": False,
+                                      "save_file": self.config.parallel.strategy_ckpt_save_file}
+            )
 
     def _build_profile_cb(self):
         """build profile callback from config."""

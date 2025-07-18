@@ -37,7 +37,7 @@ from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
-from mindformers.core.context.build_context import is_legacy_model
+from mindformers.core.context.build_context import is_legacy_model, is_distillation_training
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, check_dataset_iterable, BaseDataset
 from mindformers.models import build_network, build_processor, build_tokenizer, \
@@ -65,6 +65,11 @@ from mindformers.core.callback.callback import (
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
+from mindformers.distill.utils import (
+    load_distill_network,
+    adjust_distillation_model_for_legacy,
+    adjust_distillation_model_for_mcore
+)
 from ..core.config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -511,6 +516,8 @@ class BaseTrainer:
             if seq_split_num > 1:
                 if self.config.recompute_config.recompute:
                     raise ValueError("When using seq pipe, cannot apply full recompute.")
+                if is_distillation_training():
+                    raise ValueError("Cannot use seq pipe in distillation training.")
                 network = SequenceSplit(network, split_num=seq_split_num)
             if self.config.runner_wrapper.calculate_per_token_loss:
                 if seq_split_num > 1:
@@ -546,6 +553,8 @@ class BaseTrainer:
             if seq_split_num > 1:
                 if self.config.recompute_config.recompute:
                     raise ValueError("When using seq pipe, cannot apply full recompute.")
+                if is_distillation_training():
+                    raise ValueError("Cannot use seq pipe in distillation training.")
                 raise ValueError("seq_split_num > 1, is not supported when use_legacy=False.")
             if self.config.runner_wrapper.calculate_per_token_loss:
                 if seq_split_num > 1:
@@ -1009,20 +1018,23 @@ class BaseTrainer:
                                "to support 'enable_save_strategy_online'.")
 
         # build network
+        distill_config = config.distill_config
         logger.info(".........Build Net For Train..........")
         if network is None and self.network is None:
             calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
-            if config.load_checkpoint:
+            if config.load_checkpoint or (distill_config and distill_config.teacher_config.load_checkpoint):
                 network = self.create_network_without_param_init(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config,
                                   "dataset_config": config.train_dataset,
+                                  "distill_config": distill_config,
                                   "calculate_per_token_loss": calculate_per_token_loss})
             else:
                 network = self.create_network(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config,
                                   "dataset_config": config.train_dataset,
+                                  "distill_config": distill_config,
                                   "calculate_per_token_loss": calculate_per_token_loss,
                                   "batch_size": self.config.runner_config.mini_batch_size})
         elif network is None and self.network is not None:
@@ -1035,7 +1047,16 @@ class BaseTrainer:
             is_moe_model = network.is_moe_model()
             is_mtp_model = network.is_mtp_model()
 
-        config.load_checkpoint = get_load_path_after_hf_convert(config, network)
+        if distill_config:
+            if is_legacy_model():
+                adjust_distillation_model_for_legacy(network, distill_config)
+            else:
+                adjust_distillation_model_for_mcore(network, distill_config)
+            teacher_config = distill_config.teacher_config
+            config.load_checkpoint = get_load_path_after_hf_convert(config, network.student_model)
+            teacher_config.load_checkpoint = get_load_path_after_hf_convert(teacher_config, network.teacher_model)
+        else:
+            config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
         eval_network = None
@@ -1218,7 +1239,15 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
 
         # resume checkpoint
-        if (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
+        if distill_config and not check_is_reboot_node():
+            teacher_config = distill_config.teacher_config
+            if config.only_save_strategy or config.load_checkpoint or teacher_config.load_checkpoint:
+                if config.resume_training:
+                    logger.info(".............Start resume distillation training from checkpoint..................")
+                    load_distill_network(config, model, network, dataset, optimizer)
+                else:
+                    load_distill_network(config, model, network, dataset)
+        elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)

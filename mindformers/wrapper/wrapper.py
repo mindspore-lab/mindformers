@@ -19,7 +19,7 @@ import shutil
 from copy import deepcopy
 
 from mindformers.core.clip_grad import ClipGradNorm
-from mindformers.core.context.build_context import is_legacy_model
+from mindformers.core.context.build_context import is_legacy_model, is_distillation_training
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
 from mindformers.utils.parameter_register import parameter_register
@@ -218,7 +218,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         # loss
         self.use_legacy = is_legacy_model()
-        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
+        self.distill_enabled = is_distillation_training()
+        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy and not self.distill_enabled)
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
@@ -304,7 +305,12 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
     def grads_for_mcore(self, scaling_sens, *inputs):
         """calculate grad for mcore model"""
-        if self.calculate_per_token_loss:
+        if self.distill_enabled:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, self.weights)(*inputs, scaling_sens_filled)
+            grad_scale_factor = self.grad_scale_factor
+        elif self.calculate_per_token_loss:
             numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
             lm_loss = numerator0 / denominator0
             mtp_loss = numerator1 / denominator0
@@ -848,7 +854,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
 
         # loss
         self.use_legacy = is_legacy_model()
-        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
+        self.distill_enabled = is_distillation_training()
+        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy and not self.distill_enabled)
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
@@ -943,7 +950,13 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
 
     def grads_for_mcore(self, scaling_sens, *inputs):
         """calculate grad for mcore model"""
-        if self.calculate_per_token_loss:
+        if self.distill_enabled:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            scaling_sens_filled = self.cast(scaling_sens_filled / self.micro_size, mstype.float32)
+            grads = self.grad(self.network, self.weights)(*inputs, scaling_sens_filled)
+            grad_scale_factor = self.grad_scale_factor
+        elif self.calculate_per_token_loss:
             numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
             denominator0 = self.allreduce2(denominator0)
             lm_loss = numerator0 / denominator0

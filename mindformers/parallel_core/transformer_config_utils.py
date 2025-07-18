@@ -430,7 +430,13 @@ COMMON_CONFIG_MAPPING = {
     "dispatch_global_max_bs": "dispatch_global_max_bs",
 
     # Pet
-    "pet_config": "pet_config"
+    "pet_config": "pet_config",
+
+    # Lazy Inline
+    "disable_lazy_inline": "disable_lazy_inline",
+
+    # Distillation
+    "skip_lm_loss": "skip_lm_loss",
 }
 
 
