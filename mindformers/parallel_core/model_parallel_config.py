@@ -178,4 +178,6 @@ class ModelParallelConfig:
 
         if self.sequence_parallel:
             if self.tensor_model_parallel_size <= 1:
-                raise ValueError("Can not use sequence paralllelism without tensor parallelism")
+                raise ValueError("Can not use sequence parallelism without tensor parallelism")
+
+default_dpmp_config = ModelParallelConfig()

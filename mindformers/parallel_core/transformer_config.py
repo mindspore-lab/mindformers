@@ -447,6 +447,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 f"tensor_model_parallel_size ({self.tensor_model_parallel_size})."
             )
 
+        if self.context_parallel_size > 1 and not self.use_flash_attention:
+            raise ValueError(f"context_parallel is only available for flash attention for now, "
+                             f"please set use_flash_attention=True.")
+
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
                 self.input_layout = "TND"
