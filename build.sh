@@ -34,5 +34,5 @@ do
 done
 pip install mindformers*whl -i https://pypi.tuna.tsinghua.edu.cn/simple
 cd ${BASEPATH} || exit
-rm -rf *-info
+rm -rf *-info $BUILD_PATH
 echo "---------------- MindFormers: build and install end   ----------------"
