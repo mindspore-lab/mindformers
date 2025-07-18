@@ -31,7 +31,7 @@ from ..mindformer_book import MindFormerBook, print_path_or_list
 from .configuration_utils import PretrainedConfig
 from ..tools.register import MindFormerConfig, DictConfig
 from ..tools.logger import logger
-from ..tools.utils import try_sync_file, replace_tk_to_mindpet
+from ..tools.utils import try_sync_file, replace_tk_to_mindpet, FILE_PERMISSION
 
 IGNORE_KEYS = ["_name_or_path"]
 
@@ -135,7 +135,7 @@ class BaseModel(nn.Cell, GenerationMixin):
         meraged_dict.update(wraped_config)
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(config_path, flags_, 0o750), 'w') as file_pointer:
+        with os.fdopen(os.open(config_path, flags_, FILE_PERMISSION), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")

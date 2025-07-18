@@ -50,9 +50,8 @@ from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer, \
     write_args_to_tensorboard, update_tensorboard_args
 from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resume_checkpoint
-from mindformers.tools.utils import count_params
+from mindformers.tools.utils import count_params, get_real_rank, get_real_group_size, FILE_PERMISSION
 from mindformers.tools.check_rules import check_rules
-from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import (
     EvalCallBack,
     MFLossMonitor,
@@ -1412,7 +1411,7 @@ class BaseTrainer:
             else:
                 output_info.append(one_output)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(save_file, flags_, 0o750), 'w') as file:
+        with os.fdopen(os.open(save_file, flags_, FILE_PERMISSION), 'w') as file:
             file.write(str(output_info))
         file.close()
 

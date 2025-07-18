@@ -52,6 +52,7 @@ from mindformers.tools.utils import (
     get_device_num_per_node,
     is_publicly_accessible_path,
     clear_auto_trans_output,
+    FILE_PERMISSION
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -1462,7 +1463,7 @@ def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
     if save_config is None:
         save_config = {}
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    with os.fdopen(os.open(save_file_path, flags_, 0o750), 'w', encoding='utf-8') as file_pointer:
+    with os.fdopen(os.open(save_file_path, flags_, FILE_PERMISSION), 'w', encoding='utf-8') as file_pointer:
         file_pointer.write(
             ordered_yaml_dump(
                 save_config,

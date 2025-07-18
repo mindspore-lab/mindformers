@@ -6,6 +6,7 @@ import json
 import os
 
 import pathlib
+from mindformers.tools.utils import FILE_PERMISSION
 
 
 def main(data_path, output_path):
@@ -45,9 +46,8 @@ def main(data_path, output_path):
         })
 
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    with os.fdopen(os.open(output_path, flags_, 0o750), 'w', encoding='utf-8') as f:
+    with os.fdopen(os.open(output_path, flags_, FILE_PERMISSION), 'w', encoding='utf-8') as f:
         json.dump(new_data, f, ensure_ascii=False, indent=2)
-
 
 
 if __name__ == "__main__":

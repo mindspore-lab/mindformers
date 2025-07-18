@@ -25,6 +25,7 @@ import mindspore as ms
 from mindformers.tools.logger import logger
 from mindformers.tools.generic import add_model_info_to_auto_map
 from mindformers.tools import PushToHubMixin, cached_file, is_offline_mode, custom_object_save
+from mindformers.tools.utils import FILE_PERMISSION
 from mindformers.utils.image_transforms import center_crop, normalize, rescale
 from mindformers.utils.image_utils import ChannelDimension
 from mindformers.models.utils import IMAGE_PROCESSOR_NAME, is_json_serializable
@@ -415,7 +416,7 @@ class ImageProcessingMixin(PushToHubMixin):
                 Path to the JSON file in which this image_processor instance's parameters will be saved.
         """
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
+        with os.fdopen(os.open(json_file_path, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as writer:
             writer.write(self.to_json_string())
 
     def __repr__(self):

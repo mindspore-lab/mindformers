@@ -24,6 +24,7 @@ import os
 import pathlib
 
 from mindformers.tools import logger
+from mindformers.tools.utils import FILE_PERMISSION
 
 # Prompt from stanford alpaca's training script
 
@@ -96,7 +97,7 @@ def main(args_param):
     file = None
     try:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(args_param.output_path, flags_, 0o750), 'w') as f:
+        with os.fdopen(os.open(args_param.output_path, flags_, FILE_PERMISSION), 'w') as f:
             json.dump(new_data, f, ensure_ascii=False, indent=2)
     except FileNotFoundError as file_not_found_error:
         logger.error(file_not_found_error)
