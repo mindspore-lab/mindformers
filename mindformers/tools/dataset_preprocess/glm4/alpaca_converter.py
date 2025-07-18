@@ -20,6 +20,7 @@ import json
 import pathlib
 import os
 from tqdm import tqdm
+from mindformers.tools.utils import FILE_PERMISSION
 
 
 def main(data_path, output_path):
@@ -66,7 +67,7 @@ def main(data_path, output_path):
             pbar.update(1)
 
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    with os.fdopen(os.open(output_path, flags_, 0o750), 'w', encoding='utf-8') as f:
+    with os.fdopen(os.open(output_path, flags_, FILE_PERMISSION), 'w', encoding='utf-8') as f:
         total_data = len(new_data)
         with tqdm(total=total_data, desc="Saving json files", unit="row") as pbar:
             for data in new_data:

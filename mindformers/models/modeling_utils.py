@@ -48,7 +48,8 @@ from mindformers.tools.utils import (
     get_output_root_path,
     clear_auto_trans_output,
     remake_folder,
-    barrier_world
+    barrier_world,
+    FILE_PERMISSION
 )
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
@@ -529,7 +530,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             save_index_file = os.path.join(save_directory, _add_variant(WEIGHTS_INDEX_NAME, variant))
             # Save the index as well
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(save_index_file, flags_, 0o750), 'w', encoding="utf-8") as f:
+            with os.fdopen(os.open(save_index_file, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as f:
                 content = json.dumps(index, indent=2, sort_keys=True) + "\n"
                 f.write(content)
             logger.info(
@@ -595,7 +596,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         meraged_dict.update(wraped_config)
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(config_path, flags_, 0o750), 'w') as file_pointer:
+        with os.fdopen(os.open(config_path, flags_, FILE_PERMISSION), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")

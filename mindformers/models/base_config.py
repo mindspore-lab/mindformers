@@ -22,6 +22,7 @@ import shutil
 
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from mindformers.tools.utils import FILE_PERMISSION
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
 from ..tools.logger import logger
@@ -200,7 +201,7 @@ class BaseConfig(dict):
             file_reader.close()
         meraged_dict.update(wraped_config)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(save_path, flags_, 0o750), 'w') as file_pointer:
+        with os.fdopen(os.open(save_path, flags_, FILE_PERMISSION), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         logger.info("config saved successfully!")
 

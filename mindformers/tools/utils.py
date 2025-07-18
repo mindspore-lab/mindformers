@@ -61,6 +61,9 @@ LAST_TRANSFORM_LOCK_PATH = "/tmp/last_transform_done.lock"
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
 
+FILE_PERMISSION = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP
+DIRECTORY_PERMISSION = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP
+
 
 def check_in_modelarts():
     """Check if the training is on modelarts.
@@ -547,14 +550,13 @@ def create_file(file_path, info=None):
                 f.write("Hugging ModelArts.")
     else:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(file_path, flags_), 'w') as f:
+        with os.fdopen(os.open(file_path, flags_, FILE_PERMISSION), 'w') as f:
             if info:
                 if isinstance(info, list):
                     for sub_info in info:
                         f.write(str(sub_info) + "\n")
                 else:
                     f.write(info)
-        set_safe_mode_for_file_or_dir(file_path)
 
 
 def delete_file(file_path):
@@ -617,9 +619,10 @@ def remove_folder(folder_path, rank_id=None):
 def set_safe_mode_for_file_or_dir(path):
     path = Path(path)
     if path.is_dir():
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP)
+        path.chmod(DIRECTORY_PERMISSION)
     if path.is_file():
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP)
+        path.chmod(FILE_PERMISSION)
+
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):
     """Get epoch and step from ckpt name."""

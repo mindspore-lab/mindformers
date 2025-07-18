@@ -32,6 +32,7 @@ from mindformers.tools import MindFormerConfig
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
 from mindformers.tools.logger import logger
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from mindformers.tools.utils import FILE_PERMISSION
 from mindformers.models.build_config import build_model_config, get_model_config
 from mindformers.models.utils import CONFIG_NAME, ms_type_to_str
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
@@ -523,7 +524,7 @@ class PretrainedConfig(PushToHubMixin):
         meraged_dict.update(wraped_config)
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(save_path, flags_, 0o750), 'w') as file_pointer:
+        with os.fdopen(os.open(save_path, flags_, FILE_PERMISSION), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
 
         logger.info("config saved successfully!")
@@ -795,7 +796,7 @@ class PretrainedConfig(PushToHubMixin):
                 Default: ``True``.
         """
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
+        with os.fdopen(os.open(json_file_path, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as writer:
             writer.write(self.to_json_string(use_diff=use_diff))
 
     def to_json_string(self, use_diff: bool = True) -> str:

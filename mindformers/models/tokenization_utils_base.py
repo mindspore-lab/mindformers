@@ -32,6 +32,7 @@ import yaml
 import numpy as np
 import mindspore as ms
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from mindformers.tools.utils import FILE_PERMISSION
 from ..tools.logger import logger
 from ..tools.generic import add_model_info_to_auto_map
 from ..utils.import_utils import is_tokenizers_available
@@ -2443,13 +2444,13 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                         kwargs[token_key] = token_value.content
             merged_dict['processor']['tokenizer'] = kwargs
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(yaml_file, flags_, 0o750), 'w') as file_reader:
+            with os.fdopen(os.open(yaml_file, flags_, FILE_PERMISSION), 'w') as file_reader:
                 yaml.dump(merged_dict, file_reader)
         elif file_format == 'json':
             kwargs["tokenizer_class"] = self.__class__.__name__
             tokenizer_config_path = os.path.join(save_directory, TOKENIZER_CONFIG_NAME)
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(tokenizer_config_path, flags_, 0o750), 'w') as fp:
+            with os.fdopen(os.open(tokenizer_config_path, flags_, FILE_PERMISSION), 'w') as fp:
                 json.dump(kwargs, fp, indent=4)
         else:
             raise ValueError(f"file_format should be one of [json, yaml], but got {file_format}.")
@@ -2590,7 +2591,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Typefields are not saved for FC, special should not be save either
         write_dict = self.convert_added_tokens(self.special_tokens_map_extended, save=True, add_type_field=False)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(special_tokens_map_file, flags_, 0o750), 'w', encoding="utf-8") as f:
+        with os.fdopen(os.open(special_tokens_map_file, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as f:
             out_str = json.dumps(write_dict, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
             f.write(out_str)
         logger.info(f"Special tokens file saved in {special_tokens_map_file}")
@@ -2642,7 +2643,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         added_vocab = {tok: index for tok, index in self.added_tokens_encoder.items() if index >= self.vocab_size}
         if added_vocab:
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(added_tokens_file, flags_, 0o750), 'w', encoding="utf-8") as f:
+            with os.fdopen(os.open(added_tokens_file, flags_, FILE_PERMISSION), 'w', encoding="utf-8") as f:
                 out_str = json.dumps(added_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
                 f.write(out_str)
                 logger.info(f"added tokens file saved in {added_tokens_file}")
