@@ -73,7 +73,7 @@ class MTPRunner:
             add_bias_linear=False,
             calculate_per_token_loss=False,
             mtp_loss_scaling_factor=0.5,
-            mtp_num_layers=2,
+            mtp_num_layers=1,
             vocab_size=self.args.vocab_size
         )
 
