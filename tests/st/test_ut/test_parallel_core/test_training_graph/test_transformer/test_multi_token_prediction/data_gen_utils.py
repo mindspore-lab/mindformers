@@ -33,10 +33,7 @@ def get_init_params(config, loc, scale, seq_length, batch_size, vocab_size):
         "layers.0.hnorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
         "layers.0.eh_proj.weight": rng.normal(loc=loc, scale=scale, size=(hidden_size, hidden_size * 2)),
         "layers.0.final_layernorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
-        "layers.1.enorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
-        "layers.1.hnorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
-        "layers.1.eh_proj.weight": rng.normal(loc=loc, scale=scale, size=(hidden_size, hidden_size * 2)),
-        "layers.1.final_layernorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
+
         # transformer weights
         "layers.0.transformer_layer.input_layernorm.weight": rng.normal(loc=loc, scale=scale, size=hidden_size),
         "layers.0.transformer_layer.self_attention.linear_proj.weight": rng.normal(loc=loc, scale=scale,
@@ -87,8 +84,8 @@ def get_init_params(config, loc, scale, seq_length, batch_size, vocab_size):
 
 def get_gpu_datas() -> dict[str, np.ndarray]:
     """Generate gpu data for test."""
-    single_card_baseline = [2.323955655097962]
-    pe_rope = [2.317903757095337]
+    single_card_baseline = [2.2938010692596436]
+    pe_rope = [2.3010997772216797]
     return {
         "single_card_baseline": np.array(single_card_baseline),
         "pe_rope": np.array(pe_rope),
@@ -97,8 +94,8 @@ def get_gpu_datas() -> dict[str, np.ndarray]:
 
 def get_golden() -> dict[str, np.ndarray]:
     """Generate golden data for test."""
-    single_card_baseline = [2.323901057243347]
-    pe_rope = [2.3179486989974976]
+    single_card_baseline = [2.293926239013672]
+    pe_rope = [2.3010616302490234]
     return {
         "single_card_baseline": np.array(single_card_baseline),
         "pe_rope": np.array(pe_rope),

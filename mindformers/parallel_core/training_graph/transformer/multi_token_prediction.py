@@ -308,6 +308,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             max_sequence_length=self.config.seq_length,
             position_embedding_type=self.config.position_embedding_type
         )
+        self.embedding.pipeline_stage = config.pipeline_model_parallel_size - 1
 
         self.output_layer = ColumnParallelLinear(
             self.config.hidden_size,
@@ -317,6 +318,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             bias=False,
             skip_weight_param_allocation=True,
         )
+        self.output_layer.pipeline_stage = config.pipeline_model_parallel_size - 1
 
         self.cast = Cast()
         self.concat_2d = Concat(axis=-1)

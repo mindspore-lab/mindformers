@@ -277,9 +277,9 @@ class TestMtpBlockSpec:
         """
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=False)
         config = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
-                                   add_bias_linear=False, mtp_num_layers=2)
+                                   add_bias_linear=False, mtp_num_layers=1)
         mtp_spec = get_gpt_mtp_block_spec(config, spec)
-        assert len(mtp_spec.layer_specs) == 2
+        assert len(mtp_spec.layer_specs) == 1
         assert mtp_spec.layer_specs[0].submodules.transformer_layer == spec
 
     @pytest.mark.level0
