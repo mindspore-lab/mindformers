@@ -425,6 +425,11 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise ValueError(
                     f"mtp_num_layers should be `None` or non-negative integer, but get {self.mtp_num_layers}."
                 )
+            elif self.mtp_num_layers > 1:
+                raise ValueError(
+                    f"The current version only supports the scenario where `mtp_num_layers` = `1` is configured. "
+                    f"But get {self.mtp_num_layers}."
+                )
 
         if self.num_attention_heads % self.tensor_model_parallel_size != 0:
             raise ValueError(
