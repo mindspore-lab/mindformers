@@ -14,7 +14,6 @@
 # ============================================================================
 """Layers"""
 import mindspore.common.dtype as mstype
-import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
@@ -181,12 +180,7 @@ class ColumnParallelLinear(nn.Cell):
             raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=True,"
                              " weight should be passed to construct(), but got None.")
 
-        origin_dtype = F.dtype(input_parallel)
-        if self.skip_weight_param_allocation:
-            weight = self.cast(weight, self.compute_dtype)
-        else:
-            weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
+        weight = weight if weight is not None else self.weight
 
         if self.sequence_parallel:
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
@@ -212,7 +206,7 @@ class ColumnParallelLinear(nn.Cell):
             output_parallel = self.bias_add(
                 output_parallel, self.cast(self.bias, self.compute_dtype)
             )
-        output_parallel = self.cast(output_parallel, origin_dtype)
+
         output_parallel = self.reshape(output_parallel, output_shape)
 
         if self.gather_output:
@@ -370,7 +364,7 @@ class RowParallelLinear(nn.Cell):
         self.reshape = P.Reshape()
         self.cast = P.Cast()
 
-    def construct(self, input_, group_list=None):
+    def construct(self, input_, group_list=None, x_scale=None):
         """
         Forward of RowParallelLinear.
         Performs a linear transformation considering various parallel modes and data type conversions.
@@ -381,23 +375,22 @@ class RowParallelLinear(nn.Cell):
         else:
             input_parallel = scatter_to_model_parallel_region(input_, self.tp_group)
 
-        origin_dtype = F.dtype(input_parallel)
-        weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
-                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                              group_list, split_item=3, group_type=0, group_list_type=1)[0]
+                weight_scale = [self.weight_scale] if self.parallel_config.use_alltoall else None
+                x_scale = [x_scale] if self.parallel_config.use_alltoall else None
+                output_parallel = self.matmul([input_parallel], [self.weight], None, weight_scale, None, None, None,
+                                              x_scale, group_list, split_item=3, group_type=0, group_list_type=1)[0]
             elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
-                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
+                output_parallel = self.matmul([input_parallel], [self.weight], None, None, None, None, None,
                                               group_list)[0]
             else:
                 raise RuntimeError("Inference of the MoE model relies on the GMM op. "
                                    "Please upgrade to a MindSpore version above 2.3.0.")
         else:
-            output_parallel = self.matmul(input_parallel, weight)
+            output_parallel = self.matmul(input_parallel, self.weight)
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
@@ -411,7 +404,7 @@ class RowParallelLinear(nn.Cell):
 
         if self.has_bias and not self.skip_bias_add:
             output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
-        output = self.cast(output, origin_dtype)
+
         output = self.reshape(output, output_shape)
         return output
 
