@@ -22,7 +22,7 @@ import os
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
 from mindformers.models.qwen3_moe.modeling_qwen3_moe_infer import InferenceQwen3MoeForCausalLM
-
+from mindformers.models.qwen3_moe.modeling_qwen3_moe_train import TrainingQwen3MoeForCausalLM
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS, legacy=False)
 class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
@@ -49,6 +49,6 @@ class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel):
             Tensor, the loss or logits of the network
 
         """
-        if os.environ.get("RUN_MODE", "predict") == "predict":
+        if os.environ.get("RUN_MODE") == "predict":
             return InferenceQwen3MoeForCausalLM(config=config)
-        raise NotImplementedError("Train mode is not supported for Qwen3Moe model.")
+        return TrainingQwen3MoeForCausalLM(config=config)
