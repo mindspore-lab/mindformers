@@ -44,8 +44,16 @@ def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance,
 
 def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     """check whether the input arguments are valid"""
-    num_heads = model_config.num_heads or model_config.num_attention_heads
-    n_kv_heads = model_config.n_kv_heads or model_config.multi_query_group_num
+    from mindformers.core.context.build_context import is_legacy_model
+    use_legacy = is_legacy_model()
+
+    if use_legacy:
+        num_heads = model_config.num_heads or model_config.num_attention_heads
+        n_kv_heads = model_config.n_kv_heads or model_config.multi_query_group_num
+    else:
+        num_heads = model_config.num_attention_heads
+        n_kv_heads = model_config.num_key_value_heads
+
     hidden_size = model_config.hidden_size
     qkv_concat = model_config.qkv_concat
 
@@ -75,24 +83,38 @@ def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
 def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict, model_config):
     """Create multiprocess to convert the safetensors"""
     sf_list = [sf for sf in os.listdir(load_checkpoint) if sf.endswith('.safetensors')]
+    if not sf_list:
+        raise FileNotFoundError(f"No '*.safetensors' files found in '{load_checkpoint}'.")
+
     processes = []
-    qkv_dict = None
+    weight_handling_dict = None
     condition = None
+
     if model_config.qkv_concat:
         manager = Manager()
-        qkv_dict = manager.dict()
+        weight_handling_dict = manager.dict()
         condition = Condition()
+
+    # For each safetensors file, make a separate subprocess to convert weight.
     for sf in sf_list:
-        p = Process(target=_convert_process, args=[os.path.join(load_checkpoint, sf),
-                                                   os.path.join(converted_dir, sf),
-                                                   convert_weight_dict,
-                                                   model_config,
-                                                   qkv_dict,
-                                                   condition])
+        p = Process(
+            target=_convert_process,
+            args=[os.path.join(load_checkpoint, sf),
+                  os.path.join(converted_dir, sf),
+                  convert_weight_dict,
+                  model_config,
+                  weight_handling_dict,
+                  condition]
+        )
         p.start()
         processes.append(p)
+
     for p in processes:
         p.join()
+
+        if p.exitcode != 0:
+            logger.error("Subprocess failed with exit code %d", p.exitcode)
+            raise RuntimeError("Convert Huggingface weight failed. Please check logs for more details.")
 
 
 def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict, is_qkv_concat):
