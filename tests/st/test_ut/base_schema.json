@@ -3987,7 +3987,7 @@
         "signature": "(self, input_tensor: mindspore.common.tensor.Tensor)"
     },
     "mindformers.parallel_core.inference.transformer.moe.shared_experts.SharedExpertMLP": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, gate: bool)"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, gate: bool, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.moe.shared_experts.SharedExpertMLP.construct": {
         "signature": "(self, hidden_states)"
