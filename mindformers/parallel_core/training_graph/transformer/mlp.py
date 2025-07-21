@@ -115,8 +115,6 @@ class MLP(nn.Cell):
             init_method=self.output_layer_init_method
         )
 
-        cp = 1 if config is None else config.context_parallel_size
-        self.compute_2d = (config.sequence_parallel and cp == 1)
         self.split = SplitWithSize()
         self.reshape = Reshape()
         self.add = AddExt()
@@ -158,21 +156,15 @@ class MLP(nn.Cell):
             dp = config.data_parallel_size if config.data_parallel_size is not None else 1
             cp = config.context_parallel_size if config.context_parallel_size is not None else 1
             tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
-            if self.compute_2d and not config.multi_latent_attention:
-                mul_in_strategy = ((dp, tp), (dp, tp))
-                self.mul.shard(in_strategy=mul_in_strategy)
-                self.add.shard(((dp, tp), (tp,)))
-                self.linear_fc2.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
-            else:
-                mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
-                self.mul.shard(in_strategy=mul_in_strategy)
-                self.add.shard(((cp, dp, tp), (tp,)))
+
+            mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
+            self.mul.shard(in_strategy=mul_in_strategy)
+            self.add.shard(((cp, dp, tp), (tp,)))
+            if not config.multi_latent_attention:
+                self.linear_fc2.matmul.shard(in_strategy=((dp * cp, tp), (tp, 1)), out_strategy=((dp * cp * tp, 1),))
 
             if self.gated_linear_unit and self.activation_type != 'swiglu':
-                if self.compute_2d and not config.multi_latent_attention:
-                    self.split.shard(((dp, 1),))
-                else:
-                    self.split.shard(((cp, dp, 1),)).add_prim_attr("skip_redistribution", True)
+                self.split.shard(((cp, dp, 1),))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
