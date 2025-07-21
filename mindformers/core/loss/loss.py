@@ -303,7 +303,7 @@ class CrossEntropyLoss(nn.Cell):
 
         # Using input_mask to mask the loss
         input_mask = P.Reshape()(input_mask, (-1,))
-
+        input_mask = F.depend(input_mask, loss_reduce)
         if self.need_monitor:
             local_numerator = self.local_sum2(self.mul2(loss_reduce, input_mask))
             local_denominator = self.add2(
