@@ -14,7 +14,7 @@ from mindformers.dataset.blended_datasets.utils import Split
 from mindformers.dataset.blended_datasets.utils_s3 import S3Config, is_s3_path
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_rank_info
+from mindformers.tools.utils import get_rank_info, set_safe_mode_for_file_or_dir
 
 
 _PAD_TOKEN_ID = -1
@@ -468,6 +468,12 @@ class GPTDataset(MegatronDataset):
                 numpy.save(path_to_document_index, document_index, allow_pickle=False)
                 numpy.save(path_to_sample_index, sample_index, allow_pickle=False)
                 numpy.save(path_to_shuffle_index, shuffle_index, allow_pickle=False)
+                set_safe_mode_for_file_or_dir([
+                    path_to_description,
+                    path_to_document_index,
+                    path_to_sample_index,
+                    path_to_shuffle_index
+                ])
             else:
                 logger.warning(
                     f"Unable to save the {type(self).__name__} indexes because path_to_cache is None",

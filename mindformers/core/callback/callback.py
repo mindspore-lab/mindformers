@@ -777,6 +777,7 @@ class TrainingStateMonitor(Callback):
                         os.makedirs(parent_dirs)
                     with open(self.global_norm_record_path, 'w') as file:
                         json.dump(self.abnormal_global_norms, file)
+                    set_safe_mode_for_file_or_dir(self.global_norm_record_path)
                 logger.info(f"Current global norm {global_norm} is greater equal than "
                             f"threshold {self.global_norm_spike_threshold}, stop training...")
                 barrier_world()
@@ -1393,6 +1394,7 @@ class CheckpointMonitor(ModelCheckpoint):
                 all_step_health_data.append(health_step_data)
                 with open(dump_health_json_path, 'w') as file:
                     json.dump(all_step_health_data, file, indent=4)
+                set_safe_mode_for_file_or_dir(dump_health_json_path)
 
         if "epoch_num" in self._append_dict:
             self._append_dict["epoch_num"] = cb_params.cur_epoch_num

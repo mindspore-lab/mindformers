@@ -28,6 +28,7 @@ from safetensors.torch import save_file
 
 import mindspore as ms
 from mindspore.ops.operations import Cast
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 ms.set_context(device_target='CPU')
 cpu_cast = Cast().set_device('CPU')
@@ -469,6 +470,7 @@ def ms_ckpt_convertor(input_path, output_path, config):
     with open(converted_model_index_file, "w") as f:
         json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
+    set_safe_mode_for_file_or_dir(converted_model_index_file)
 
 
 def ms_safetensors_convertor(input_path, output_path, config):
@@ -515,6 +517,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
     with open(converted_model_index_file, "w") as f:
         json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
+    set_safe_mode_for_file_or_dir(converted_model_index_file)
 
 
 def convert_ms_to_pt(input_path, output_path, config=None):

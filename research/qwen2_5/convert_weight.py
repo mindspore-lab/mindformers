@@ -26,7 +26,7 @@ import numpy as np
 import mindspore as ms
 
 from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, set_safe_mode_for_file_or_dir
 from mindformers.utils.convert_utils import qkv_concat_hf2mg, ffn_concat_hf2mg
 
 dtype_map = {
@@ -174,6 +174,7 @@ def convert_lora_config(input_path):
 
         with open(config_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, indent=4)
+        set_safe_mode_for_file_or_dir(config_path)
         print(f"JSON file modified successfully!")
 
     except FileNotFoundError:

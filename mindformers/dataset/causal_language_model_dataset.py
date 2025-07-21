@@ -29,6 +29,7 @@ from mindspore.communication import get_rank
 from mindformers.tools.register.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 from .dataloader.build_dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
@@ -480,6 +481,7 @@ class TokenCounter:
         # Clear existing file content
         with open(filename, 'w', newline='') as csvfile:
             _ = csv.writer(csvfile)
+        set_safe_mode_for_file_or_dir(filename)
 
         self.initialized = True
         self.token_count_pairs_header_written = False
