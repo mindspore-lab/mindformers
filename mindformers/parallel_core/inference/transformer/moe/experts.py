@@ -13,23 +13,21 @@
 # limitations under the License.
 # ============================================================================
 """Expert GrouedMLP."""
+
+__all__ = ["GroupedMLP"]
+
 from typing import Optional
 
-import mindspore.ops.functional as F
-from mindspore import Parameter, Tensor, mint, nn, ops
-from mindspore.common.initializer import initializer
+from mindspore import mint, nn
 
-from mindformers.parallel_core.inference.utils import divide
-from mindformers.parallel_core.inference.transformer.activation import get_act_func
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.inference.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
-                                                                        get_rng_tracer)
-from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
-
-__all__ = [
-    "GroupedMLP",
-]
+from mindformers.parallel_core.utils.spec_utils import build_module
+from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
+from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import UnquantizedGroupedLinearMethod
+from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.parallel_core.inference.transformer.activation import get_act_func
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 class GroupedMLP(nn.Cell):
@@ -42,120 +40,81 @@ class GroupedMLP(nn.Cell):
             self,
             num_experts: int,
             config: TransformerConfig,
+            submodules: MLPSubmodules,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__()
-        self.config = config
+        self.config: TransformerConfig = config
         self.num_experts = num_experts
-        self.has_bias = self.config.add_bias_linear
-        self.gated_linear_unit = self.config.gated_linear_unit
-        self.activation_type = self.config.hidden_act
-        self.params_dtype = self.config.params_dtype
-        self.compute_dtype = self.config.compute_dtype
-        self.moe_delay_allreduce = True
-        self.skip_bias_add = True
-
-        ffn_hidden_size = self.config.moe_ffn_hidden_size
+        self.input_size = self.config.hidden_size
         self.tp_group = model_comm_pgs.tp
         self.tp_group_size = self.tp_group.size
+
+        ffn_hidden_size = self.config.moe_ffn_hidden_size
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
-        if self.gated_linear_unit:
-            mapping_ffn_hidden_size = ffn_hidden_size * 2
-        else:
-            mapping_ffn_hidden_size = ffn_hidden_size
+        if self.config.gated_linear_unit:
+            ffn_hidden_size *= 2
+
+        self.activation_type = self.config.hidden_act
+
+        # create weights
+        # Note: Currently does not support quantization, only use UnquantizedGroupedLinearMethod.
+        self.quant_method: Optional[QuantizeMethodBase] = UnquantizedGroupedLinearMethod()
+        self.weight1 = self.quant_method.create_weights(
+            layer=None,
+            num_experts=num_experts,
+            input_size_per_partition=self.input_size,
+            output_size_per_partition=divide(ffn_hidden_size, self.tp_group_size),
+            params_dtype=self.config.params_dtype,
+        )
+        self.weight2 = self.quant_method.create_weights(
+            layer=None,
+            num_experts=num_experts,
+            input_size_per_partition=self.ffn_hidden_size_per_partition,
+            output_size_per_partition=self.input_size,
+            params_dtype=self.config.params_dtype,
+        )
 
         # linear fc1
-        self.linear_fc1_input_size = self.config.hidden_size
-        self.linzer_fc1_output_size = mapping_ffn_hidden_size
-        self.linear_fc1_output_size_per_partition = divide(self.linzer_fc1_output_size, self.tp_group_size)
-        linear_fc1_weight_shape = (self.num_experts,) + (self.linear_fc1_input_size,
-                                                         self.linear_fc1_output_size_per_partition)
+        self.linear_fc1 = build_module(
+            submodules.linear_fc1,
+            self.num_experts,
+            self.input_size,
+            ffn_hidden_size,
+            config=self.config,
+            bias=self.config.add_bias_linear,
+            gather_output=False,
+            skip_weight_param_allocation=True, # Skip creating weights and use weight1 for gemm linear calculation
+            is_expert=True,
+            compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp_group,
+        )
 
         if self.activation_type is not None:
             self.activation_func = get_act_func(self.activation_type)
         else:
             self.activation_func = None
+
         # linear fc2
-        self.linear_fc2_input_size = ffn_hidden_size
-        self.linear_fc2_output_size = self.config.hidden_size
-        self.linear_fc2_input_size_per_partition = divide(self.linear_fc2_input_size, self.tp_group_size)
-        linear_fc2_weight_shape = (self.num_experts,) + (self.linear_fc2_input_size_per_partition,
-                                                         self.linear_fc2_output_size)
-
-        self.cast = ops.Cast()
-        self.matmul = ops.auto_generate.GroupedMatmulV4()
-
-        with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
-            self.weight1 = Parameter(initializer("normal", linear_fc1_weight_shape, self.params_dtype), name="weight")
-            self.weight2 = Parameter(initializer("normal", linear_fc2_weight_shape, self.params_dtype), name="weight")
-
-        if self.has_bias:
-            self.linear_fc1_bias = Parameter(
-                initializer(
-                    "zeros", (self.linear_fc1_output_size_per_partition), self.params_dtype
-                ),
-                name="bias",
-            )
-            bias_shape = (1, self.num_experts, 1) + (self.linear_fc2_output_size,)
-            self.linear_fc2_bias = Parameter(
-                initializer(
-                    "zeros", bias_shape, self.params_dtype
-                ),
-                name="bias",
-            )
-
-    def _fc1_group_gemm(self, input_parallel: Tensor, weight=None, group_list=None,
-                        input_size=None, output_size=None, bias=None):
-        """Using grouped matmul to do compute."""
-        origin_dtype = F.dtype(input_parallel)
-        weight = self.cast(weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
-        output_size_per_partition = divide(output_size, self.tp_group_size)
-        output_shape = input_parallel.shape[:-1] + (output_size_per_partition,)
-        input_parallel.reshape((-1, input_size))
-        output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                      group_list, split_item=3, group_type=0, group_list_type=1)[0]
-        if self.has_bias:
-            output_parallel = mint.add(
-                output_parallel, self.cast(bias, self.compute_dtype)
-            )
-        output_parallel = self.cast(output_parallel, origin_dtype)
-        output_parallel = mint.reshape(output_parallel, output_shape)
-        output_parallel = self.gather_from_mp_region(output_parallel)
-
-        return output_parallel
-
-    def _fc2_group_gemm(self, input_parallel: Tensor, weight=None, group_list=None,
-                        input_size=None, output_size=None, bias=None):
-        """Using grouped matmul to do compute."""
-        origin_dtype = F.dtype(input_parallel)
-        weight = self.cast(weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
-        output_shape = input_parallel.shape[:-1] + (output_size,)
-        input_size_per_partition = divide(input_size, self.tp_group_size)
-        input_parallel = input_parallel.reshape((-1, input_size_per_partition))
-        output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                      group_list, split_item=3, group_type=0, group_list_type=1)[0]
-        if self.moe_delay_allreduce:
-            output = output_parallel
-        else:
-            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
-
-        if self.has_bias and not self.skip_bias_add:
-            output = mint.add(output, self.cast(bias, self.compute_dtype))
-
-        output = self.cast(output, origin_dtype)
-        output = output.reshape(output_shape)
-
-        return output
+        self.linear_fc2 = build_module(
+            submodules.linear_fc2,
+            self.num_experts,
+            self.config.moe_ffn_hidden_size,
+            self.input_size,
+            config=self.config,
+            bias=self.config.add_bias_linear,
+            skip_weight_param_allocation=True, # Skip creating weights and use weight2 for gemm linear calculation
+            is_expert=True,
+            compute_dtype=self.config.compute_dtype,
+            tp_group=self.tp_group,
+        )
 
     def construct(self, hidden_states, group_list=None):
         """Forward process of GroupedMLP"""
         # [T, H] -> [T, ffn_H]
-        intermediate_parallel = self._fc1_group_gemm(hidden_states, self.weight1, group_list,
-                                                     self.linear_fc1_input_size, self.linzer_fc1_output_size)
+        intermediate_parallel = self.linear_fc1(hidden_states, self.weight1, group_list=group_list)
 
-        if self.gated_linear_unit:
+        if self.config.gated_linear_unit:
             gate, hidden = mint.split(intermediate_parallel,
                                       (self.ffn_hidden_size_per_partition,
                                        self.ffn_hidden_size_per_partition), -1)
@@ -166,18 +125,17 @@ class GroupedMLP(nn.Cell):
                 intermediate_parallel) if self.activation_type else intermediate_parallel
 
         # [T, ffn_H] -> [T, H]
-        output = self._fc2_group_gemm(intermediate_parallel, self.weight2, group_list,
-                                      self.linear_fc2_input_size, self.linear_fc2_output_size)
+        output = self.linear_fc2(intermediate_parallel, self.weight2, group_list=group_list)
         return output
 
     def sharded_state_dict(self):
-        """provide the sharded state dict based on the config"""
-        w_shard = (1, self.tp_group_size, 1)
+        """Provide the sharded state dict."""
+        w1_shard = (1, 1, self.tensor_parallel_group_size)
+        w2_shard = (1, self.tensor_parallel_group_size, 1)
 
         state_dict = {}
-        state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                        'shard': w_shard}
-        if self.has_bias:
-            state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (1,)}
+        state_dict[self.weight1.name] = {'shape': self.weight1.shape,
+                                         'shard': w1_shard}
+        state_dict[self.weight2.name] = {'shape': self.weight2.shape,
+                                         'shard': w2_shard}
         return state_dict

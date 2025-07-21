@@ -15,12 +15,19 @@
 """MoE module spec."""
 from typing import Optional
 
-from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
-from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
-from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
-from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer, MoESubmodules
-from mindformers.parallel_core.inference.transformer.moe.shared_experts import SharedExpertMLP
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
+from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
+from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer, MoESubmodules
+from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
+from mindformers.parallel_core.inference.transformer.moe.shared_experts import SharedExpertMLP
+from mindformers.parallel_core.inference.tensor_parallel.layers import (
+    ColumnParallelLinear,
+    RowParallelLinear
+)
+from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import (
+    ColumnParallelGroupedLinear,
+    RowParallelGroupedLinear
+)
 
 
 def get_moe_module_spec(
@@ -38,7 +45,10 @@ def get_moe_module_spec(
     # experts spec
     ## use legacy GroupedMLP
     expert_module = GroupedMLP
-    expert_submodule = None
+    expert_submodule = MLPSubmodules(
+        linear_fc1=ColumnParallelGroupedLinear,
+        linear_fc2=RowParallelGroupedLinear,
+    )
 
     experts = ModuleSpec(module=expert_module, submodules=expert_submodule)
 

@@ -13,6 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """moe layer for infer"""
+
+__all__ = [
+    'MoESubmodules',
+    'BaseMoELayer',
+    'MoELayer'
+]
+
 from typing import Optional, Union
 
 from mindspore import Tensor, nn, mint, ops
@@ -25,12 +32,6 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-
-__all__ = [
-    'MoESubmodules',
-    'BaseMoELayer',
-    'MoELayer'
-]
 
 
 class MoESubmodules:
@@ -57,9 +58,16 @@ class BaseMoELayer(nn.Cell):
         layer_number (int): Number which indicates the index of this moe layer.
     """
 
-    def __init__(self, config: TransformerConfig, layer_number: int = None):
+    def __init__(
+            self,
+            config: TransformerConfig,
+            layer_number: int = None,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+    ):
         super().__init__()
         self.config = config
+        self.layer_number = layer_number
+        self.tp_group = model_comm_pgs.tp
 
         if self.config.expert_model_parallel_size > 1:
             raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
@@ -72,7 +80,6 @@ class BaseMoELayer(nn.Cell):
         self.experts = None
         self.shared_experts = None
         self.token_dispatcher = None
-        self.layer_number = layer_number
 
 
 class MoELayer(BaseMoELayer):
@@ -97,7 +104,9 @@ class MoELayer(BaseMoELayer):
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         self.submodules = submodules
-        super().__init__(config=config, layer_number=layer_number)
+        super().__init__(
+            config=config, layer_number=layer_number, model_comm_pgs=model_comm_pgs
+        )
 
         if self.config.expert_model_parallel_size > 1:
             raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
@@ -109,24 +118,25 @@ class MoELayer(BaseMoELayer):
         # Note: It is not supported to initialize token dispatch currently.
 
         # Initialize experts
-        self.experts = build_module(self.submodules.experts, self.num_experts, self.config)
+        self.experts = build_module(
+            self.submodules.experts,
+            self.num_experts,
+            self.config,
+            model_comm_pgs=model_comm_pgs,
+        )
 
         # Initialize shared experts
         if self.use_shared_expert:
-            self.shared_experts = build_module(self.submodules.shared_experts, config=self.config)
+            self.shared_experts = build_module(
+                self.submodules.shared_experts, config=self.config, model_comm_pgs=model_comm_pgs,
+            )
 
         self.cast = ops.Cast()
-
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.moe_token_unpermute = MoeTokenUnpermute()
-        self.tp_group = model_comm_pgs.tp
 
     def construct(self, hidden_states: Tensor):
         """Construct MoELayer."""
-        # [1, B * S, H] -> [T, H]
-        input_tensor_shape = hidden_states.shape
-        hidden_states = hidden_states.reshape((-1, self.config.hidden_size))
-
         # router
         expert_weight, routing_map = self.router(hidden_states)
 
@@ -157,5 +167,4 @@ class MoELayer(BaseMoELayer):
         if self.use_shared_expert:
             output = mint.add(output, self.shared_experts(hidden_states))
 
-        output = output.reshape(input_tensor_shape)
         return output
