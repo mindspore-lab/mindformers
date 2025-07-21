@@ -13,7 +13,7 @@ from mindformers.dataset.blended_datasets.blended_megatron_dataset_config import
 from mindformers.dataset.blended_datasets.megatron_dataset import MegatronDataset
 from mindformers.dataset.blended_datasets.utils import normalize
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_rank_info
+from mindformers.tools.utils import get_rank_info, set_safe_mode_for_file_or_dir
 
 
 _VERBOSE = False
@@ -159,6 +159,9 @@ class BlendedDataset():
                 # Save the indexes
                 numpy.save(path_to_dataset_index, dataset_index, allow_pickle=False)
                 numpy.save(path_to_dataset_sample_index, dataset_sample_index, allow_pickle=False)
+                set_safe_mode_for_file_or_dir(
+                    [path_to_description, path_to_dataset_index, path_to_dataset_sample_index]
+                )
             else:
                 logger.info(f"Unable to save the {type(self).__name__} indexes because path_to_cache is None")
 

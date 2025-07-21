@@ -27,6 +27,7 @@ from tqdm import tqdm
 from safetensors.torch import load_file
 
 import mindspore as ms
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 DTYPE_MAP = {
@@ -632,6 +633,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
     with open(converted_model_index_file, "w") as f:
         json_string = json.dumps(converted_param_name_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
+    set_safe_mode_for_file_or_dir(converted_model_index_file)
     tqdm.write(f"Param name map is saved into file '{converted_model_index_file}' successfully!")
 
 

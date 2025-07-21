@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from mindspore import dtype as msdtype
 from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType, QuantGranularity, PrecisionRecovery
 from mindspore_gs.common import BackendTarget
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 dtype_map = {"None": None,
              "bool": msdtype.bool_,
@@ -121,6 +122,7 @@ class QuantizationConfigMixin:
             json_string = json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
 
             writer.write(json_string)
+        set_safe_mode_for_file_or_dir(json_file_path)
 
     def to_dict(self) -> Dict[str, Any]:
         """
