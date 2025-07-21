@@ -722,9 +722,11 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
         self.output_size_per_partition = divide(output_size, self.moe_tp_size)
         self.moe_ep_size = get_moe_ep_world_size()
         self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
+        self.use_alltoall = config.use_alltoall
 
         weight_shape = (self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
+        weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
+        self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
         if bias:
             bias_shape = (self.ep_size_per_partition, self.output_size_per_partition)
@@ -811,10 +813,11 @@ class RowParallelGroupLinear(RowParallelLinear):
         self.input_size_per_partition = divide(input_size, self.moe_tp_size)
         self.moe_ep_size = get_moe_ep_world_size()
         self.ep_size_per_partition = divide(expert_num, self.moe_ep_size)
-
+        self.use_alltoall = config.use_alltoall
         # weight
         weight_shape = (self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
-        self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
+        weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
+        self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
         # bias
         if self.has_bias and not self.skip_bias_add:
@@ -851,7 +854,7 @@ class RoutedParallelMLP(nn.Cell):
         self.ffn_hidden_size = self.config.moe_config.moe_intermediate_size
         self.cast = P.Cast()
         self.act_type = self.config.hidden_act
-        self.act_func = SiLU()
+        self.act_func = ops.auto_generate.DequantSwigluQuant() if config.parallel_config.use_alltoall else SiLU()
         self.ffn_concat = self.config.ffn_concat
         self.moe_tp_size = get_moe_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, self.moe_tp_size)
@@ -907,8 +910,24 @@ class RoutedParallelMLP(nn.Cell):
             delay_allreduce=True,
         )
 
-    def construct(self, x, group_list=None):
+    def construct(self, x, group_list=None, x_scale=None):
         """Forward process of the FeedForward"""
+        if self.config.parallel_config.use_alltoall:
+            # use dispatch_quant and dequantSwiGluQuant which supports group_list to optimize performance
+            # original: dispatch(bf16) -> dynamicQuant(int8) -> gmmDequant(bf16) -> SwiGluQuant(int8) -> gmmDequant(bf16)
+            # now: dispatch(int8) -> gmm(int8) -> DequantSwiGluQuant(int8) -> gmmDequant(bf16)
+            x_scale = x_scale.reshape(-1, 1)
+            if self.ffn_concat:
+                gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            else:
+                gate = self.w1(x, group_list=group_list)
+                hidden = self.w3(x, group_list=group_list)
+                gate_hidden_out = mint.cat((gate, hidden), axis=1)
+            hidden, scale = self.act_func(gate_hidden_out, self.w_gate_hidden.weight_scale, x_scale,
+                                          group_index=group_list, activate_left=True, quant_mode='dynamic')
+            output = self.w2(hidden, group_list, x_scale=scale)
+            return output
+
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
             gate, hidden = mint.split(gate_hidden_out,
@@ -1197,7 +1216,7 @@ class ExpertParallelMoE(nn.Cell):
     def moe_with_dispatch_combine(self, input_tensor, expert_weight, expert_index):
         """fused ops, moe feed forward with dispatch and combine."""
         # Dispatch
-        expand_x, _, expand_idx, expert_token_nums, ep_recv_counts, tp_recv_counts, _ = self.dispatch(
+        expand_x, x_scale, expand_idx, expert_token_nums, ep_recv_counts, tp_recv_counts, _ = self.dispatch(
             x=input_tensor,
             expert_ids=expert_index,
             ep_world_size=self.moe_ep_size,
@@ -1206,11 +1225,12 @@ class ExpertParallelMoE(nn.Cell):
             group_ep=self.moe_ep_group,
             tp_world_size=self.dispatch_tp_world_size,
             shared_expert_num=self.dispatch_shared_expert_num,
+            quant_mode=2,
             global_bs=self.dispatch_global_max_bs*self.moe_ep_size,
             expert_token_nums_type=1)
 
         # GroupMamtul
-        ffn_res = self.ffn(expand_x, expert_token_nums)
+        ffn_res = self.ffn(expand_x, expert_token_nums, x_scale)
 
         # Combine
         moe_output = self.combine(
