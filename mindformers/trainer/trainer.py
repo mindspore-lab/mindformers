@@ -1123,9 +1123,6 @@ class Trainer:
                 config=self.config,
                 mstx=self.config.mstx
             )
-            logger.warning(
-                "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
-                "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
             logger.warning("In profiler mode, auto-tune will be turned off.")
             self.config.auto_tune = False
             self.config.profile_cb = profile_cb

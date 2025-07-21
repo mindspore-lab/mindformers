@@ -1075,8 +1075,8 @@ class SummaryMonitor:
         keep_default_action (bool, optional):
             This field affects the collection behavior of the 'collect_specified_data' field. Default: ``True``.
         custom_lineage_data (Union[dict, None], optional):
-            Allows you to customize the data and present it on the MingInsight `lineage page <https://
-            www.mindspore.cn/mindinsight/docs/en/master/lineage_and_scalars_comparison.html>`_ . Default: ``None``.
+            Allows you to customize the data. In the custom data, the type of the key supports str,
+            and the type of value supports str, int and float. Default: ``None`` , it means there is no custom data.
         collect_tensor_freq (Optional[int], optional):
             The same semantics as the `collect_freq`, but controls TensorSummary only. Default: ``None``.
         max_file_size (Optional[int], optional):
@@ -1849,8 +1849,9 @@ class ProfileMonitor(Callback):
         if self.profiler:
             self.profiler.step()
         if step_num == self.stop_step and self.profiler:
-            logger.info("End of Profiling, please analyze it using mindinsight. MindInsight order as follow: "
-                        "mindinsight start --summary-base-dir %s", self.output_path)
+            logger.info("End of Profiling, please analyze it using MindStudio Insight. "
+                        "See https://www.hiascend.com/document/detail/zh/mindstudio/80RC1/"
+                        "GUI_baseddevelopmenttool/msascendinsightug/Insight_userguide_0002.html for details.")
 
     def _record_metadata(self, config):
         """
