@@ -14,7 +14,8 @@
 # ============================================================================
 """Glm4 models' utils."""
 from mindformers.models.glm4_moe.configuration_glm4_moe import Glm4MoeConfig
-from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.parallel_core.utils.model_mixin import ModelMixin
 
 
 class Glm4MoePreTrainedModel(PreTrainedModel, ModelMixin):

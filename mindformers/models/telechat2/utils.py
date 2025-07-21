@@ -14,7 +14,8 @@
 # ============================================================================
 """Telechat2 models' utils."""
 from mindformers.models.telechat2.configuration_telechat2 import Telechat2Config
-from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.parallel_core.utils.model_mixin import ModelMixin
 
 
 class Telechat2PreTrainedModel(PreTrainedModel, ModelMixin):
