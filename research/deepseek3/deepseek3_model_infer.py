@@ -402,7 +402,8 @@ class DeepseekV3Attention(nn.Cell):
                  norm_eps=1e-5,
                  layernorm_compute_dtype=mstype.float32,
                  delay_allreduce=False,
-                 config: DeepseekV3Config = None
+                 config: DeepseekV3Config = None,
+                 attention_norm=None
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -555,40 +556,57 @@ class DeepseekV3Attention(nn.Cell):
                                                  config=config)
 
         self.apply_rotary_emb = InferRotaryEmbedding(rotary_cos_format=2)
+        self.attention_norm = attention_norm
+        self.use_mla_pre = config.use_mla_pre
+        if self.use_mla_pre:
+            self.mla_preprocess = ops.auto_generate.MlaPreprocess()
+            self.ctkv_scale = Parameter(Tensor(shape=(1,), dtype=mstype.bfloat16, init=Zero()), name="ctkv_scale",
+                                        requires_grad=False)
+            self.qnope_scale = Parameter(Tensor(shape=(1,), dtype=mstype.bfloat16, init=Zero()), name="qnope_scale",
+                                         requires_grad=False)
 
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None):
         """ Forward process of the DeepseekV3Attention. """
         ori_dtype = x.dtype
-        if self.q_lora_rank == 0:
-            q = self.q_proj(x)
-            latent_kv_all = self.kv2l(x)
-            latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
-        else:
-            if self.qkv_concat:
-                qkv2l = self.qkv2l(x)
-                q, latent_kv, k_pe = mint.split(qkv2l, [self.q_lora_rank, self.kv_lora_rank, self.qk_rope_head_dim],
-                                                dim=-1)
-                norm_q = self.lq_norm(q)
-                q = self.l2q_proj(norm_q)
-            else:
-                q = self.q2l_proj(x)
-                norm_q = self.lq_norm(q)
-                q = self.l2q_proj(norm_q)
+        if not self.use_mla_pre or self.is_first_iteration:
+            x = self.attention_norm(x)
+            if self.q_lora_rank == 0:
+                q = self.q_proj(x)
                 latent_kv_all = self.kv2l(x)
                 latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
+            else:
+                if self.qkv_concat:
+                    qkv2l = self.qkv2l(x)
+                    if not self.use_mla_pre:
+                        q, latent_kv, k_pe = mint.split(qkv2l,
+                                                        [self.q_lora_rank, self.kv_lora_rank, self.qk_rope_head_dim],
+                                                        dim=-1)
+                    else:
+                        # mla pre is kvq concat
+                        latent_kv, k_pe, q = mint.split(qkv2l,
+                                                        [self.kv_lora_rank, self.qk_rope_head_dim, self.q_lora_rank],
+                                                        dim=-1)
+                    norm_q = self.lq_norm(q)
+                    q = self.l2q_proj(norm_q)
+                else:
+                    q = self.q2l_proj(x)
+                    norm_q = self.lq_norm(q)
+                    q = self.l2q_proj(norm_q)
+                    latent_kv_all = self.kv2l(x)
+                    latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
 
-        q = self.reshape(q, (-1, self.n_local_heads, self.q_head_dim))
-        q_nope, q_pe = mint.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
-        # (T, kv_lora_rank)
-        i_kv = self.lkv_norm(latent_kv)
-        q_pe = self.reshape(q_pe, (-1, self.n_local_heads * self.qk_rope_head_dim))
-        q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, batch_valid_length)
-        q_pe = self.reshape(q_pe, (-1, self.n_local_heads, self.qk_rope_head_dim))
-        key_states_cache = self.kpe_concat((i_kv, k_pe))
-        key_out = self.infer_attention.paged_attention_mgr(key_states_cache, slot_mapping, key_cache=key_cache)
-        q_nope = ops.depend(q_nope, key_out)
+            q = self.reshape(q, (-1, self.n_local_heads, self.q_head_dim))
+            q_nope, q_pe = mint.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
+            # (T, kv_lora_rank)
+            i_kv = self.lkv_norm(latent_kv)
+            q_pe = self.reshape(q_pe, (-1, self.n_local_heads * self.qk_rope_head_dim))
+            q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, batch_valid_length)
+            q_pe = self.reshape(q_pe, (-1, self.n_local_heads, self.qk_rope_head_dim))
+            key_states_cache = self.kpe_concat((i_kv, k_pe))
+            key_out = self.infer_attention.paged_attention_mgr(key_states_cache, slot_mapping, key_cache=key_cache)
+            q_nope = ops.depend(q_nope, key_out)
 
         if self.is_first_iteration:
             o_k_nope = self.lkv2kv_k_nope(i_kv)
@@ -608,9 +626,26 @@ class DeepseekV3Attention(nn.Cell):
         else:
             q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
             out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
-
-            q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
-            query_states = self.pe_concat((q_nope, q_pe))
+            if not self.use_mla_pre:
+                q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
+                query_states = self.pe_concat((q_nope, q_pe))
+            else:
+                mla_key_cache = key_cache if key_cache is not None else \
+                                self.infer_attention.paged_attention_mgr.key_cache
+                freqs_cos, freqs_sin, _ = freqs_cis
+                # pylint: disable=protected-access
+                states = self.mla_preprocess(x, self.attention_norm.weight, self.qkv2l.quant_op.beta,
+                                             self.qkv2l.quant_op.input_scale, self.qkv2l.quant_op.input_zp,
+                                             self.qkv2l._layer.weight, self.qkv2l._layer.matmul.quant_bias,
+                                             self.lq_norm.weight, self.l2q_proj.quant_op.beta,
+                                             self.l2q_proj.quant_op.input_scale, self.l2q_proj.quant_op.input_zp,
+                                             self.lkv_norm.weight, freqs_sin, freqs_cos, freqs_sin, freqs_cos,
+                                             mla_key_cache, slot_mapping, self.l2q_proj._layer.weight,
+                                             self.l2q_proj._layer.matmul.quant_bias, q_absorb,
+                                             self.qkv2l._layer.matmul.dequant_scale,
+                                             self.l2q_proj._layer.matmul.dequant_scale, self.ctkv_scale,
+                                             self.qnope_scale, mla_key_cache, 0)
+                query_states = states[0]
 
             query_states = self.reshape(query_states, (-1, self.n_local_heads *
                                                        (self.kv_lora_rank + self.qk_rope_head_dim)))
@@ -1009,7 +1044,8 @@ class DeepseekV3DecodeLayer(nn.Cell):
                                              norm_eps=norm_eps,
                                              layernorm_compute_dtype=layernorm_compute_dtype,
                                              delay_allreduce=self.attn_delay_allreduce,
-                                             config=config)
+                                             config=config,
+                                             attention_norm=self.attention_norm)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
@@ -1048,8 +1084,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
             # moe layers enable dual pipe overlap
             return self._micro_batch_overlap(x, freqs_cis, mask, batch_valid_length, block_tables,
                                              slot_mapping, q_seq_lens, key_cache)
-        input_x = self.attention_norm(x)
-        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
+        h = self.attention(x, freqs_cis, mask, batch_valid_length, block_tables,
                            slot_mapping, q_seq_lens, key_cache=key_cache)
 
         if self.need_padding:
