@@ -26,6 +26,7 @@ from safetensors.torch import load_file, save_file
 from tqdm import tqdm
 
 import torch
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 def weight_dequant(weight: torch.Tensor, scale: torch.Tensor, block_size: int = 128) -> torch.Tensor:
@@ -123,6 +124,7 @@ def update_model_index(bf16_path, weight_map, fp8_weight_names):
     new_model_index_file = os.path.join(bf16_path, "model.safetensors.index.json")
     with open(new_model_index_file, "w") as f:
         json.dump({"metadata": {}, "weight_map": weight_map}, f, indent=2)
+    set_safe_mode_for_file_or_dir(new_model_index_file)
 
 
 def main(fp8_path, bf16_path):

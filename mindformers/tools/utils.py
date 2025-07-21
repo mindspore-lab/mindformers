@@ -617,11 +617,14 @@ def remove_folder(folder_path, rank_id=None):
 
 
 def set_safe_mode_for_file_or_dir(path):
-    path = Path(path)
-    if path.is_dir():
-        path.chmod(DIRECTORY_PERMISSION)
-    if path.is_file():
-        path.chmod(FILE_PERMISSION)
+    if isinstance(path, str):
+        path = [path]
+    for item in path:
+        item = Path(item)
+        if item.is_dir():
+            item.chmod(DIRECTORY_PERMISSION)
+        if item.is_file():
+            item.chmod(FILE_PERMISSION)
 
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):

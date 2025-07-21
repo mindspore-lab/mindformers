@@ -26,7 +26,7 @@ from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers.core.context import build_context
 from mindformers.trainer.utils import load_ckpt
 from mindformers.tools import get_output_root_path
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, set_safe_mode_for_file_or_dir
 from research.llm_boost.llm_boost import LlmBoostForCausalLM
 from research.llm_boost.llm_boost import LlmBoostConfig
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
@@ -127,6 +127,7 @@ def main(
                 print(tokenizer.decode(output))
                 file.write(tokenizer.decode(output) + '\n')
         file.close()
+        set_safe_mode_for_file_or_dir(save_file)
 
     else:
         _framework_profiler_step_start()
