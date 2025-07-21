@@ -64,9 +64,8 @@ from multiprocessing import Pool
 import numpy as np
 from safetensors import safe_open
 from safetensors.numpy import save_file
-# pylint: disable=W0611
-import mindspore
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 def process_attention_weights(mode, layer_id, mapping, num_heads, qk_nope_head_dim, qk_rope_head_dim):
@@ -242,8 +241,10 @@ if __name__ == "__main__":
             index_json.update(m)
 
     logger.info('Saving param_name_map.json')
-    with open(f'{args.output_path}/param_name_map.json', 'w') as f:
+    res_path = f'{args.output_path}/param_name_map.json'
+    with open(res_path, 'w') as f:
         json.dump(index_json, f, indent=4)
+    set_safe_mode_for_file_or_dir(res_path)
     logger.info('param_name_map.json is saved')
 
     end = time()

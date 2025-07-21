@@ -29,6 +29,7 @@ import torch
 from safetensors.torch import load_file
 
 import mindspore as ms
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 dtype_map = {
@@ -562,6 +563,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
     with open(converted_model_index_file, "w") as f:
         json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
+    set_safe_mode_for_file_or_dir(converted_model_index_file)
 
 
 def convert_pt_to_ms(input_path, output_path, config=None):
@@ -869,8 +871,10 @@ def infer_trans_ckpt_pt_to_ms(src_hf_dir, dst_ms_dir, worker_num, arg):
     ms_meta = {}
     os.makedirs(dst_ms_dir, exist_ok=True)
     infer_convert_weight(src_hf_dir, dst_ms_dir, worker_num, ms_meta, arg)
-    with open(f"{dst_ms_dir}/param_name_map.json", "w") as fp:
+    path = f"{dst_ms_dir}/param_name_map.json"
+    with open(path, "w") as fp:
         json.dump(ms_meta, fp, indent=4)
+    set_safe_mode_for_file_or_dir(path)
 
 
 if __name__ == "__main__":

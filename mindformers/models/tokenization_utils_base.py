@@ -33,13 +33,14 @@ import numpy as np
 import mindspore as ms
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.utils import FILE_PERMISSION
-from ..tools.logger import logger
-from ..tools.generic import add_model_info_to_auto_map
-from ..utils.import_utils import is_tokenizers_available
-from ..tools.register import MindFormerConfig
-from .build_tokenizer import build_tokenizer
-from ..mindformer_book import MindFormerBook, print_path_or_list
-from ..tools.hub import is_offline_mode, cached_file, extract_commit_hash, custom_object_save, PushToHubMixin
+from mindformers.tools.logger import logger
+from mindformers.tools.generic import add_model_info_to_auto_map
+from mindformers.utils.import_utils import is_tokenizers_available
+from mindformers.tools.register import MindFormerConfig
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
+from mindformers.models.build_tokenizer import build_tokenizer
+from mindformers.mindformer_book import MindFormerBook, print_path_or_list
+from mindformers.tools.hub import is_offline_mode, cached_file, extract_commit_hash, custom_object_save, PushToHubMixin
 
 
 TOKENIZER_URL_SUPPORT_LIST = MindFormerBook.get_tokenizer_url_support_list()
@@ -2583,6 +2584,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         with open(tokenizer_config_file, "w", encoding="utf-8") as f:
             out_str = json.dumps(tokenizer_config, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
             f.write(out_str)
+        set_safe_mode_for_file_or_dir(tokenizer_config_file)
         logger.info(f"tokenizer config file saved in {tokenizer_config_file}")
 
         # Sanitize AddedTokens in special_tokens_map
