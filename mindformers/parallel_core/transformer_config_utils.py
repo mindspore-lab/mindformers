@@ -195,7 +195,7 @@ DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(INFER_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update({
-    'monitor_config', 'dataset_config', 'batch_size', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
+    'dataset_config', 'batch_size', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
     'scaling_factor', 'input_sliced_sig', 'return_extra_loss', 'moe_config'
 })
 
@@ -417,7 +417,11 @@ COMMON_CONFIG_MAPPING = {
     "sandwich_norm": "sandwich_norm",
 
     # Pet
-    "pet_config": "pet_config"
+    "pet_config": "pet_config",
+
+    # Monitor
+    "monitor_local_loss": "monitor_local_loss",
+    "monitor_device_local_loss": "monitor_device_local_loss"
 }
 
 
@@ -482,6 +486,13 @@ def convert_to_transformer_config(
             if parallel_key in convert_map.keys():
                 mapping_config(parallel_key, parallel_value)
         model_config.pop('parallel_config')
+    if 'monitor_config' in model_config:
+        monitor_config = model_config['monitor_config']
+        monitor_on = monitor_config['monitor_on']
+        update_dict['monitor_local_loss'] = monitor_on and bool(monitor_config.get("local_loss_format", None))
+        update_dict['monitor_device_local_loss'] = monitor_on and \
+                                                   bool(monitor_config.get("device_local_loss_format", None))
+        model_config.pop('monitor_config')
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
             continue
@@ -492,7 +503,7 @@ def convert_to_transformer_config(
 
     # If there are any unconverted key values, print them out to inform the user to check the configuration
     if not_convert_keys_list:
-        raise ValueError(f"Keys: {not_convert_keys_list} dose not be converted! "
+        raise ValueError(f"Keys: {not_convert_keys_list} does not be converted! "
                          f"Please check your config parameters.")
 
     # If it is an MLA model, use MLATransformerConfig for initialization

@@ -74,7 +74,11 @@ from mindformers.tools.utils import (
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
-from mindformers.core.loss import get_device_local_loss
+from mindformers.parallel_core.training_graph.loss_func import (
+    get_device_local_loss,
+    reset_device_local_loss,
+    check_device_local_loss
+)
 
 __all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -648,13 +652,13 @@ class TrainingStateMonitor(Callback):
             if is_version_ge(ms.__version__, '2.5.0'):
                 self.dump_name_mode = 0
                 self.finish_pattern = 'finish_step_*_*'
-                self.local_loss_pattern = re.compile('(local_loss)_[a-z]+[0-9]+_([0-9]+)')
+                self.local_loss_pattern = re.compile('(local_loss)__(.+)_[a-z]+[0-9]+_([0-9]+)')
                 self.local_norm_pattern = re.compile('(local_norm)__(.+)_[a-z]+[0-9]+_([0-9]+)')
                 self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
             else:
                 self.dump_name_mode = 1
                 self.finish_pattern = '*_finish_step'
-                self.local_loss_pattern = re.compile('([0-9]+)_(local_loss)')
+                self.local_loss_pattern = re.compile('([0-9]+)_(local_loss)__(.+)')
                 self.local_norm_pattern = re.compile('([0-9]+)_(local_norm)__(.+)')
                 self.device_local_norm_pattern = re.compile('([0-9]+)_(device_local_norm)')
 
@@ -735,16 +739,14 @@ class TrainingStateMonitor(Callback):
 
         self.abnormal_global_norm_check(cb_params)
 
-        device_local_loss = None
         if self.device_local_loss_format:
-            device_local_loss_param = get_device_local_loss()
-            device_local_loss = np.mean(device_local_loss_param.asnumpy())
-            F.assign(device_local_loss_param, ms.Tensor([0.0], ms.float32))
+            reset_device_local_loss()
 
         # Boundary check.
         if self.check_for_nan_in_loss_and_grad:
             loss, global_norm, local_norm = self._get_loss_output(cb_params.net_outputs)
-            self._check_nan_or_inf(device_local_loss, loss, local_norm, global_norm)
+            check_device_local_loss()
+            self._check_nan_or_inf(loss, local_norm, global_norm)
 
     def abnormal_global_norm_check(self, cb_params):
         """Check the abnormal global_norm and raise error"""
@@ -914,15 +916,15 @@ class TrainingStateMonitor(Callback):
             groups = parsed.groups()
             dump_id = int(groups[self.dump_name_mode - 1])
             prefix = groups[self.dump_name_mode]
-            param_name = None if len(groups) < 3 else groups[self.dump_name_mode + 1]
-            return dump_id, prefix, param_name
+            suffix = None if len(groups) < 3 else groups[self.dump_name_mode + 1]
+            return dump_id, prefix, suffix
 
         self._parse_step()
         while self.dump_step <= global_step and self.dump_key.get(self.dump_step) is not None:
             begin_id = self.dump_key[self.dump_step - 1]
             end_id = self.dump_key[self.dump_step]
             file_list = os.listdir(self.dump_path)
-            local_losses = []
+            local_losses = {}
             for f in file_list:
                 parsed_name = None, None, None
                 if self.local_norm_format:
@@ -933,7 +935,7 @@ class TrainingStateMonitor(Callback):
                     parsed_name = match_pattern(self.local_loss_pattern, f)
                 if not any(parsed_name):
                     continue
-                dump_id, prefix, param_name = parsed_name
+                dump_id, prefix, suffix = parsed_name
                 if not begin_id < dump_id < end_id:
                     continue
                 data = np.load(os.path.join(self.dump_path, f), allow_pickle=False)
@@ -941,26 +943,31 @@ class TrainingStateMonitor(Callback):
                     self._output(f'device_local_norm', data, self.dump_step, self.device_local_norm_format)
                 elif prefix == 'local_loss':
                     # collect all local loss if there are more than one local loss within one step
-                    local_losses.append(data)
-                elif prefix == 'local_norm' and self._check_param_name(param_name):
-                    self._output(f'local_norm/{param_name}', data, self.dump_step, self.local_norm_format)
-            if local_losses and self.local_loss_format:
+                    local_losses[suffix] = local_losses.get(suffix, [])
+                    local_losses[suffix].append(data)
+                elif prefix == 'local_norm' and self._check_param_name(suffix):
+                    self._output(f'local_norm/{suffix}', data, self.dump_step, self.local_norm_format)
+            if self.local_loss_format:
                 self._dump_local_loss(local_losses)
             if self.device_local_loss_format:
-                device_local_loss = np.mean(get_device_local_loss().asnumpy())
-                self._output(f'device_accum_local_loss', device_local_loss, self.dump_step,
-                             self.device_local_loss_format)
+                for loss_tag in local_losses:
+                    device_local_loss = np.mean(get_device_local_loss(loss_tag).asnumpy())
+                    self._output(f'device_accum_local_{loss_tag}_loss', device_local_loss, self.dump_step,
+                                 self.device_local_loss_format)
             self._clear_dump_path()
             self.dump_step += self.step_interval
 
     def _dump_local_loss(self, local_losses):
         """write the local loss to log/tensorboard"""
         # log local loss of each micro
-        if 'log' in self.local_loss_format:
-            for local_loss in local_losses:
-                self._output(f'micro_local_loss', local_loss, self.dump_step, ['log'])
-        if 'tensorboard' in self.local_loss_format:
-            self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, ['tensorboard'])
+        if not local_losses:
+            return
+        for loss_tag, loss_list in local_losses.items():
+            if 'log' in self.local_loss_format:
+                for local_loss in loss_list:
+                    self._output(f'micro_local_{loss_tag}_loss', local_loss, self.dump_step, ['log'])
+            if 'tensorboard' in self.local_loss_format:
+                self._output(f'local_{loss_tag}_loss', np.mean(loss_list), self.dump_step, ['tensorboard'])
 
     def _dump_optimizer_state(self, cb_params):
         """write the optimizer state to tensorboard"""
@@ -1046,12 +1053,12 @@ class TrainingStateMonitor(Callback):
         return loss, global_norm, local_norm
 
     @staticmethod
-    def _check_nan_or_inf(device_local_loss, loss, local_norm, global_norm):
-        """Check if Nan or Inf in device local loss, loss, local/global norm of grad then terminate training"""
-        for indicator in [device_local_loss, loss, local_norm, global_norm]:
+    def _check_nan_or_inf(loss, local_norm, global_norm):
+        """Check if Nan or Inf in loss, local/global norm of grad then terminate training"""
+        for indicator in [loss, local_norm, global_norm]:
             if indicator is not None and (np.any(np.isnan(indicator)) or np.any(np.isinf(indicator))):
-                raise ValueError(f"device_accum_local_loss is {device_local_loss}, loss is {loss}, "
-                                 f"local_norm is {local_norm}, global_norm is {global_norm}, terminate training.")
+                raise ValueError(f"loss is {loss}, local_norm is {local_norm}, "
+                                 f"global_norm is {global_norm}, terminate training.")
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

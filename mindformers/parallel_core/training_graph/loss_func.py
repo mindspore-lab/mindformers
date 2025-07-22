@@ -13,8 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """loss function"""
+import os
+import numpy as np
 
-from mindspore import nn, Tensor
+from mindspore import nn, Tensor, Parameter, get_auto_parallel_context
+from mindspore.communication import get_rank
 from mindspore.ops.auto_generate import (Cast, Reshape, Transpose, ReLU, SumExt,
                                          ArgMaxWithValue, Exp, Log, OneHotExt,
                                          ZerosLikeExt, GatherD, ExpandDims, Neg)
@@ -30,6 +33,35 @@ from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _ge
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.parallel_core.model_parallel_config import default_dpmp_config
+
+_device_local_loss = {}
+
+
+def get_device_local_loss(tag="lm"):
+    """Get `_device_local_loss` Parameter after init"""
+    global _device_local_loss
+    if _device_local_loss.get(tag, None) is None:
+        _device_local_loss[tag] = Parameter(
+            Tensor([0.0], mstype.float32), name=f"_device_local_loss", requires_grad=False
+        )
+    return _device_local_loss[tag]
+
+
+def reset_device_local_loss():
+    """Reset `_device_local_loss` parameter to zero"""
+    global _device_local_loss
+    for _, loss in _device_local_loss.items():
+        F.assign(loss, Tensor([0.0], mstype.float32))
+
+
+def check_device_local_loss():
+    """check if Nan or Inf in `_device_local_loss` parameter then terminate training"""
+    global _device_local_loss
+    if not _device_local_loss:
+        return
+    for tag, device_local_loss in _device_local_loss.items():
+        if np.any(np.isnan(device_local_loss)) or np.any(np.isinf(device_local_loss)):
+            raise ValueError(f"device_accum_local_loss of `{tag}` is {device_local_loss}, terminate training.")
 
 
 class _LogSoftmax(nn.Cell):
@@ -189,11 +221,13 @@ class CrossEntropyLoss(nn.Cell):
               \end{cases}
 
     Args:
-        parallel_config (mindformers.modules.OpParallelConfig, optional): The parallel
-            configuration. Default: ``default_dpmp_config``.
+        parallel_config (mindformers.parallel_core.model_parallel_config.ModelParallelConfig, optional):
+            The parallel configuration. Default: ``default_dpmp_config``.
         check_for_nan_in_loss_and_grad (bool, optional): Whether to print local loss. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to use Megatron loss. Default: ``False``.
         seq_split_num (int, optional): Sequence split number in sequence pipeline parallel mode. Default: ``1``.
+        loss_tag (str, optional):
+            Distinguish different types of loss. Default: 'lm'.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
@@ -211,7 +245,7 @@ class CrossEntropyLoss(nn.Cell):
         >>> import numpy as np
         >>> from mindspore import dtype as mstype
         >>> from mindspore import Tensor
-        >>> from mindformers.core import CrossEntropyLoss
+        >>> from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
         >>> loss = CrossEntropyLoss()
         >>> logits = Tensor(np.array([[3, 5, 6, 9, 12, 33, 42, 12, 32, 72]]), mstype.float32)
         >>> labels_np = np.array([1]).astype(np.int32)
@@ -223,8 +257,9 @@ class CrossEntropyLoss(nn.Cell):
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False,
-                 calculate_per_token_loss=False, seq_split_num=1, **kwargs):
+    def __init__(self, parallel_config=default_dpmp_config,
+                 check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False,
+                 calculate_per_token_loss=False, seq_split_num=1, loss_tag='lm', **kwargs):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel_size
         mp = parallel_config.tensor_model_parallel_size
@@ -232,6 +267,7 @@ class CrossEntropyLoss(nn.Cell):
         self.seq_pipe = seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
+        self.loss_tag = loss_tag
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.enable_force_redistribute = True
             self.add = AddExt().shard(((dp * cp, mp), ())).add_prim_attr("keep_alive", True)
@@ -249,8 +285,18 @@ class CrossEntropyLoss(nn.Cell):
         self._nllloss = _NLLLoss(parallel_config)
         self.calculate_per_token_loss = calculate_per_token_loss
 
-        self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
-        if self.check_for_nan_in_loss_and_grad:
+        self.monitor_local_loss = check_for_nan_in_loss_and_grad
+        self.monitor_device_local_loss = monitor_device_local_loss
+        if self.monitor_device_local_loss:
+            self.device_local_loss = get_device_local_loss(loss_tag)
+        self.dump_local_loss = (
+            bool(get_auto_parallel_context("dump_local_norm_path")) and self.monitor_local_loss
+        )
+        if self.dump_local_loss:
+            self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_rank()}")
+            self.local_loss_filename = os.path.join(self.dump_path, f"local_loss__{loss_tag}")
+        self.need_monitor = self.monitor_local_loss or self.monitor_device_local_loss
+        if self.need_monitor:
             self.local_sum2 = SumExt().add_prim_attr("cross_batch", True)
 
     @staticmethod
@@ -271,13 +317,22 @@ class CrossEntropyLoss(nn.Cell):
 
         # Using input_mask to mask the loss
         input_mask = self.reshape(input_mask, (-1,))
-        if self.check_for_nan_in_loss_and_grad:
+        input_mask = F.depend(input_mask, loss_reduce)
+        if self.need_monitor:
             local_numerator = self.local_sum2(self.mul2(loss_reduce, input_mask))
             local_denominator = self.add2(
                 self.local_sum2(input_mask),
                 self.cast(F.tuple_to_array((1e-8,)), mstype.float32))
             local_loss = self.div2(local_numerator, local_denominator)
-            print("local loss: ", local_loss)
+            if self.monitor_local_loss:
+                if self.dump_local_loss:
+                    F.tensordump(self.local_loss_filename, local_loss)
+                else:
+                    print(f"local {self.loss_tag} loss: ", local_loss)
+            if self.monitor_device_local_loss:
+                loss_reduce = F.depend(
+                    loss_reduce,
+                    F.assign_add(self.device_local_loss, Cast()(local_loss, self.device_local_loss.dtype)))
         input_mask = self.cast(input_mask, mstype.float32)
         numerator = self.sum2(self.mul2(loss_reduce, input_mask))
         denominator = self.add2(

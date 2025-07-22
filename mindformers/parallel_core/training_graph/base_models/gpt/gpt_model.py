@@ -245,7 +245,13 @@ class GPTModel(nn.Cell):
                                                      skip_weight_param_allocation=skip_weight_param_allocation,
                                                      compute_dtype=config.compute_dtype)
             config.model_parallel = config.tensor_model_parallel_size
-            self.loss = CrossEntropyLoss(parallel_config=config)
+            self.loss = CrossEntropyLoss(
+                parallel_config=config,
+                check_for_nan_in_loss_and_grad=config.monitor_local_loss,
+                monitor_device_local_loss=config.monitor_device_local_loss,
+                calculate_per_token_loss=config.calculate_per_token_loss,
+                seq_split_num=config.seq_split_num
+            )
 
         # operations
         self.cast = aclnn_ops.Cast()
