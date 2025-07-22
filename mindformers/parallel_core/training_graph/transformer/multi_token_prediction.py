@@ -300,8 +300,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             raise ValueError("MultiTokenPredictionBlock must have at least one layer.")
 
         self.init_extra_loss = Tensor([0], mstype.float32)
-        self.compute_language_model_loss = VocabParallelCrossEntropy(
-            parallel_config=config, calculate_per_token_loss=config.calculate_per_token_loss)
+        self.compute_language_model_loss = VocabParallelCrossEntropy(parallel_config=config, loss_tag="mtp")
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,

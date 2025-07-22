@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore.communication import init
+from mindformers.core.context.build_context import init_context, set_context
 from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from data_gen_utils import get_init_params
@@ -45,16 +46,20 @@ class VocabParallelCrossEntropyRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         if self.rank_id is not None:
+            init_context(use_parallel=True)
             ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
             init()
+        else:
+            init_context(use_parallel=False)
 
         self.config = TransformerConfig(
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
             tensor_model_parallel_size=self.args.tensor_parallel,
             num_attention_heads=self.args.tensor_parallel,
+            calculate_per_token_loss=self.calculate_per_token_loss,
             num_layers=1,
         )
-
+        set_context(monitor_local_loss=self.args.check_for_nan_in_loss_and_grad)
         init_params_data = get_init_params(self.batch_size, self.seq_length, self.vocab_size)
 
         logits = init_params_data.get("logits")
@@ -76,8 +81,6 @@ class VocabParallelCrossEntropyRunner:
         """Build VocabParallelCrossEntropy model"""
         net = VocabParallelCrossEntropy(
             parallel_config=self.config,
-            check_for_nan_in_loss_and_grad=self.check_for_nan_in_loss_and_grad,
-            calculate_per_token_loss=self.calculate_per_token_loss,
         )
         return net
 

@@ -15,7 +15,7 @@
 """MindFormer Self-Define Loss."""
 import os
 
-from mindspore import nn, Tensor, Parameter, get_auto_parallel_context
+from mindspore import nn, Tensor, get_auto_parallel_context
 from mindspore import ops as P
 from mindspore.ops import functional as F
 from mindspore.common import dtype as mstype
@@ -31,18 +31,9 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank, get_context
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
+from mindformers.parallel_core.training_graph.loss_func import get_device_local_loss
 
 __all__ = ['CrossEntropyLoss']
-
-_device_local_loss = None
-
-
-def get_device_local_loss():
-    """Get `_device_local_loss` Parameter after init"""
-    global _device_local_loss
-    if _device_local_loss is None:
-        _device_local_loss = Parameter(Tensor([0.0], mstype.float32), name="_device_local_loss", requires_grad=False)
-    return _device_local_loss
 
 
 class _LogSoftmax(nn.Cell):
@@ -273,7 +264,7 @@ class CrossEntropyLoss(nn.Cell):
         if self.dump_local_loss:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
-            self.local_loss_filename = os.path.join(self.dump_path, "local_loss")
+            self.local_loss_filename = os.path.join(self.dump_path, "local_loss__lm")
 
         self._log_softmax = _LogSoftmax(parallel_config)
         self._nllloss = _NLLLoss(parallel_config)
