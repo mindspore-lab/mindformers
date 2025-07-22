@@ -132,7 +132,6 @@ class LoraModel(PreTrainedModel):
         self._check_config()
         # add lora layer.
         self.network = self.add_adapter(base_model)
-        self.network.update_parameters_name()
 
     def add_adapter(self, base_model: PreTrainedModel):
         """Add adapter for layers."""

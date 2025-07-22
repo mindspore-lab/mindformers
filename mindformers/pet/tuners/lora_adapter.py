@@ -180,4 +180,5 @@ class LoraAdapter(PetAdapter):
             logger.warning("Lora Adapter use default replace rules: '.*dense*|*linear*'")
             config.target_modules = r".*dense*|.*linear*"
         model = recursive_replace_dense_cell(model, config)
+        model.update_parameters_name()
         return model
