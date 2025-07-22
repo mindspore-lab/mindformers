@@ -198,12 +198,12 @@ class WeightUtils:
                                  f'but {len(src_keys_dict)} are present')
             q_weight_value, k_weight_value, v_weight_value = None, None, None
             for weight_name, file in src_keys_dict.items():
-                if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_q']:
+                if self.mf_hf_mapping.get('linear_q') == weight_name.split('.')[-2]:
                     q_weight_value = self.get_file_handles(f'{weights_path}/{file}').get_slice(weight_name)
                     q_weight_value = self.split_weight_by_tp_rank(q_weight_value, 0)
-                if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_k']:
+                if self.mf_hf_mapping.get('linear_k') == weight_name.split('.')[-2]:
                     k_weight_value = self.get_file_handles(f'{weights_path}/{file}').get_slice(weight_name)
-                if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_v']:
+                if self.mf_hf_mapping.get('linear_v') == weight_name.split('.')[-2]:
                     v_weight_value = self.get_file_handles(f'{weights_path}/{file}').get_slice(weight_name)
             if q_weight_value is not None and k_weight_value is not None and v_weight_value is not None:
                 if self.tp_group_size > config.num_query_groups:
@@ -338,9 +338,9 @@ class WeightUtils:
         """
         q_down_value, kv_down_value = None, None
         for weight_name, file in src_keys_dict.items():
-            if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_q_down_proj']:
+            if self.mf_hf_mapping.get('linear_q_down_proj') == weight_name.split('.')[-2]:
                 q_down_value = self.get_file_handles(f'{weights_path}/{file}').get_tensor(weight_name)
-            if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_kv_down_proj']:
+            if self.mf_hf_mapping.get('linear_kv_down_proj') == weight_name.split('.')[-2]:
                 kv_down_value = self.get_file_handles(f'{weights_path}/{file}').get_tensor(weight_name)
                 kv_lora_rank = config.kv_lora_rank
                 qk_rope_head_dim = config.qk_pos_emb_head_dim
