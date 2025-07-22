@@ -5,6 +5,7 @@ load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
+load_ckpt_format: 'ckpt'  # recommend use 'safetensors'
 
 # ==== context config ====
 context:
@@ -18,9 +19,6 @@ context:
   jit_config:
    jit_level: "O1"
   memory_optimize_level: "O0"
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
 
 # ==== model config ====
 model:
@@ -75,28 +73,6 @@ model:
 trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'glm4_9b'
-# if True do, evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: 500
-eval_epoch_interval: -1
-
-metric:
-  type: ADGENMetric
-
-processor:
-  return_tensors: ms
-  tokenizer:
-    type: ChatGLM4Tokenizer
-    bos_token: '<sop>'
-    eos_token: '<eop>'
-    end_token: '</s>'
-    mask_token: '[MASK]'
-    gmask_token: '[gMASK]'
-    pad_token: '<pad>'
-    unk_token: '<unk>'
-    vocab_file: '/path/to/tokenizer.model'
-  type: GLMProcessor
 
 # ==== dataset config ====
 train_dataset: &train_dataset
@@ -108,8 +84,6 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
-  repeat: 1
   numa_enable: False
   prefetch_size: 1
 train_dataset_task:
@@ -179,7 +153,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
     prefix: "glm4"
+    checkpoint_format: "ckpt" # recommend use 'safetensors'
     save_checkpoint_steps: 1000
     keep_checkpoint_max: 1
     integrated_save: False
-    async_save: False

@@ -6,17 +6,12 @@ auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in dis
 only_save_strategy: False
 resume_training: False
 run_mode: 'finetune'
+load_ckpt_format: 'ckpt' # recommend use 'safetensors'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'qwen2_32b'
-
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # runner config
 runner_config:
@@ -56,30 +51,11 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
-  repeat: 1
   numa_enable: False
   prefetch_size: 1
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
-
-# eval dataset
-eval_dataset: &eval_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: ""
-    shuffle: False
-  input_columns: ["input_ids", "target_ids", "attention_mask"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: False
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-eval_dataset_task:
-  type: CausalLanguageModelDataset
-  dataset_config: *eval_dataset
 
 use_parallel: True
 # parallel context config
@@ -122,10 +98,10 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
     prefix: "qwen2"
+    checkpoint_format: "ckpt" # recommend use 'safetensors'
     save_checkpoint_steps: 5000
     keep_checkpoint_max: 1
     integrated_save: False
-    async_save: False
 
 # mindspore context init config
 context:
@@ -164,7 +140,7 @@ model:
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
-    rotary_dtype: "float16"
+    rotary_dtype: "float16" # for stable training, suggest configuring float32
     param_init_type: "float32"
     use_flash_attention: True
     use_past: False
@@ -186,15 +162,3 @@ model:
 
   arch:
     type: LlamaForCausalLM
-
-processor:
-  return_tensors: ms
-  tokenizer:
-    model_max_length: 32768
-    vocab_file: "path/vocab.json" # can set in run_command --vocab_file
-    merges_file: "path/merges.txt" # can set in run_command --merges_file
-    unk_token: "<|endoftext|>"
-    eos_token: "<|endoftext|>"
-    pad_token: "<|endoftext|>"
-    type: Qwen2Tokenizer
-  type: Qwen2Processor
