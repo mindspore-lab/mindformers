@@ -2328,10 +2328,13 @@ class TopkBiasBalanceCallback(Callback):
                             self.assign(layer.feed_forward.routed_experts.expert_load, self.zeros_tensor)
 
     def on_train_step_end(self, run_context):
+        """update expert bias at the end of step."""
         cb_params = run_context.original_args()
         self.cur_step = cb_params.cur_step_num
         # pylint: disable=W0212
-        network = cb_params.train_network.network.network
+        network = cb_params.train_network
+        while hasattr(network, 'network'):
+            network = network.network
         parallel_mode = get_auto_parallel_context("parallel_mode")
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = network._backbone
@@ -2382,9 +2385,12 @@ class MoEDropRateCallback(Callback):
                         logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
 
     def on_train_step_end(self, run_context):
+        """get expert drop rate at the end of step."""
         cb_params = run_context.original_args()
         # pylint: disable=W0212
-        network = cb_params.train_network.network.network
+        network = cb_params.train_network
+        while hasattr(network, 'network'):
+            network = network.network
         parallel_mode = get_auto_parallel_context("parallel_mode")
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = network._backbone
