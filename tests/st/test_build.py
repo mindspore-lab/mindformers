@@ -257,9 +257,6 @@ def test_build_from_config():
     logger.info("Test Build Pipeline Success")
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 def test_build_from_class_name():
     """
     Feature: Build API from class name
