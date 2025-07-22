@@ -1124,16 +1124,16 @@ class ExpertParallelMoE(nn.Cell):
         self.ep_rank_index = get_rank() // self.moe_tp_size
         self.in_start_expert_idx = self.ep_rank_index * self.local_ep_num
 
+        if self.moe_ep_size > 1 and not self.use_alltoall:
+            bias_idx = [idx for idx in range(self.expert_num)]
+            self.bias_idx = bias_idx[self.in_start_expert_idx:] + bias_idx[:self.in_start_expert_idx]
+            self.router.e_score_correction_bias = self.router.e_score_correction_bias[self.bias_idx]
+
     def moe_with_allgather(self, input_tensor, expert_weight, expert_index):
         """moe feed forward with allgather."""
-        global_local_mask = expert_index < self.in_start_expert_idx
-        local_expert_index = expert_index - self.in_start_expert_idx
-        local_expert_index = self.cast(local_expert_index, mstype.int32)
-        local_expert_index = ops.masked_fill(local_expert_index, global_local_mask, self.expert_num - 1)
-
-        expert_weight = expert_weight.astype(input_tensor.dtype) # float32 -> bfloat16
-        global_local_mask1 = local_expert_index >= self.local_ep_num
-        expert_weight = ops.masked_fill(expert_weight, global_local_mask1, 0)
+        local_expert_index = self.cast(expert_index, mstype.int32)
+        expert_weight_mask = expert_index >= self.local_ep_num
+        expert_weight = ops.masked_fill(expert_weight, expert_weight_mask, 0)
 
         sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
