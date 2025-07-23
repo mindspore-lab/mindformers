@@ -74,11 +74,11 @@ def get_load_path_after_hf_convert(config, network):
     """check if it is hf safetensors and convert"""
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
-        #'qkv_concat is True' save ms safetensors
+        # 'qkv_concat is True' save ms safetensors
         if (config.model.model_config.get("qkv_concat", False) or not check_safetensors_addition_param_support()):
-            logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
+            logger.info(".......Load Checkpoint format is hf safetensors, start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
-            #wait for main rank to convert HF safetensors
+            # Wait for main rank to convert HF safetensors
             if config.use_parallel:
                 barrier()
             return converted_sf_path
@@ -88,9 +88,9 @@ def get_load_path_after_hf_convert(config, network):
 def _check_checkpoint_path(path):
     """check checkpoint path."""
     if not isinstance(path, str) or isinstance(path, os.PathLike):
-        raise ValueError(f"config.load_checkpoint must be a str, but got {path} as type {type(path)}.")
+        raise ValueError(f"config.load_checkpoint must be a `str`, but got `{path}` as type `{type(path)}`.")
     if not os.path.exists(path):
-        raise FileNotFoundError(f"config.load_checkpoint {path} does not exist.")
+        raise FileNotFoundError(f"config.load_checkpoint `{path}` does not exist.")
 
     if path[-1] == '/':  # remove last '/' in path
         return path[:-1]
@@ -365,7 +365,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
             format=config.load_ckpt_format,
             **addition_args
         )
-        #load optimizer param in resume_training
+        # Load optimizer param in resume_training
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
         if optimizer and config.resume_training:
             if not os.path.exists(hyper_param_file):
@@ -411,12 +411,37 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
         output_dir = './output'
         logger.warning(f'Output directory is set to ./output, '
                        f'due to the output_dir {output_dir} does not exist.')
-    converted_dir = os.path.join(output_dir, 'ms_safetensors')
+
+    # Get `model_type` from model.config as the folder prefix. If not, `model` is used by default.
+    model_type = getattr(model.config, 'model_type', 'model')
+
+    # Generate the base directory name.
+    base_dir_name = f"{model_type}_ms_converted_weight"
+    converted_dir = os.path.join(output_dir, base_dir_name)
+
+    # If the directory exists, rename it with a timestamp.
+    if os.path.exists(converted_dir):
+        logger.warning(f"Notice: The converted path {converted_dir} has already exist! "
+                       f"The old converted weight will be overwritten!")
+
+    logger.info(f"The Hugging Face checkpoint will be converted to MindSpore checkpoint at: '{converted_dir}'.")
+
     if is_main_rank():
         p = Process(target=convert_hf_safetensors_multiprocess,
                     args=[load_checkpoint, converted_dir, model, model.config])
         p.start()
         p.join()
+
+        # If the child process exits abnormally, the main process should also throw an exception.
+        if p.exitcode != 0:
+            raise RuntimeError("convert HuggingFace weight failed.")
+    else:
+        # Other cards are waiting for the main card to complete the weight conversion.
+        logger.info("Waiting for the main rank to convert HuggingFace weight...")
+
+    barrier()
+
+    logger.info(f"Convert Hugging Face checkpoint successfully! The MindSpore checkpoint path is: '{converted_dir}'.")
 
     return converted_dir
 
