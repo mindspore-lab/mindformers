@@ -19,7 +19,7 @@ from mindspore import nn, Tensor, dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import Reshape
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
-from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
+from mindformers.parallel_core.training_graph.transformer.norm import get_norm_cls
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import BaseTransformerLayer
@@ -71,7 +71,7 @@ def _get_block_submodules(
         if issubclass(spec.module, BaseTransformerLayer):
             num_layers = config.num_layers
             return TransformerBlockSubmodules(
-                layer_specs=[spec] * num_layers, layer_norm=FusedNorm
+                layer_specs=[spec] * num_layers, layer_norm=get_norm_cls(config.fused_norm)
                 # Only implements the FusedLayerNorm method for benchmarking purposes.
             )
         raise Exception(f"specialize for {spec.module.__name__}.")
