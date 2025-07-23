@@ -8,6 +8,7 @@ transform_process_num: 16
 resume_training: False
 ignore_data_skip: False
 run_mode: 'train'
+load_ckpt_format: 'ckpt' # recommend use 'safetensors'
 
 # trainer config
 trainer:
@@ -21,7 +22,6 @@ runner_config:
   sink_mode: True
   sink_size: 2
   gradient_accumulation_steps: 1
-
 
 # optimizer
 optimizer:
@@ -67,33 +67,11 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 6
-  repeat: 1
   numa_enable: False
   prefetch_size: 1
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-
-# eval dataset
-eval_dataset: &eval_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: ""
-    shuffle: False
-  input_columns: [ "input_ids", "labels" ]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: False
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-eval_dataset_task:
-  type: CausalLanguageModelDataset
-  dataset_config: *eval_dataset
 
 use_parallel: True
 # parallel context config
@@ -109,6 +87,7 @@ parallel:
     gradient_accumulation_shard: False
     optimizer_weight_shard_size: 2
     parallel_optimizer_threshold: 64
+
 # default parallel of device num = 8 910B
 parallel_config:
   data_parallel: 128
@@ -123,7 +102,6 @@ parallel_config:
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
 
-
 # recompute config
 recompute_config:
   recompute: [3,0]
@@ -137,10 +115,11 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
     prefix: "telechat_7b_moe"
+    checkpoint_format: "ckpt" # recommend use 'safetensors'
     save_checkpoint_steps: 1600 #1800
     keep_checkpoint_max: 4
     integrated_save: False
-    async_save: False
+
 # mindspore context init config
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
@@ -202,31 +181,11 @@ model:
     type: TelechatForCausalLM
     auto_register: telechat.TelechatForCausalLM
 
-processor:
-  return_tensors: ms
-  tokenizer:
-    unk_token: '<unk>'
-    bos_token: '<_start>'
-    eos_token: '<_end>'
-    pad_token: '<_pad>'
-    type: TelechatTokenizer
-    auto_register: telechat_tokenizer.TelechatTokenizer
-
-
-# metric
-metric:
-  type: PerplexityMetric
-
 # wrapper cell config
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense: 1.0
   use_clip_grad: True
-
-
-auto_tune: False
-filepath_prefix: './autotune'
-autotune_per_step: 10
 
 profile: False
 profile_start_step: 200
@@ -237,6 +196,3 @@ profile_memory: False
 layer_scale: False
 layer_decay: 0.65
 lr_scale_factor: 256
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
