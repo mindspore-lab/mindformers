@@ -489,9 +489,9 @@ def convert_to_transformer_config(
     if 'monitor_config' in model_config:
         monitor_config = model_config['monitor_config']
         monitor_on = monitor_config['monitor_on']
-        update_dict['monitor_local_loss'] = monitor_on and bool(monitor_config.get("local_loss_format", None))
-        update_dict['monitor_device_local_loss'] = monitor_on and \
-                                                   bool(monitor_config.get("device_local_loss_format", None))
+        model_config['monitor_local_loss'] = monitor_on and bool(monitor_config.get("local_loss_format", None))
+        model_config['monitor_device_local_loss'] = monitor_on and \
+                                                    bool(monitor_config.get("device_local_loss_format", None))
         model_config.pop('monitor_config')
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
