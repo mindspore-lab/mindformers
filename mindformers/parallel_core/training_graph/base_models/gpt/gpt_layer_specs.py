@@ -27,7 +27,7 @@ from mindformers.parallel_core.training_graph.transformer.multi_latent_attention
     MLASelfAttentionSubmodules, MLASelfAttentionConcatenated, MLASelfAttentionSubmodulesConcatenated
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import \
     MultiTokenPredictionBlockSubmodules, get_mtp_layer_spec
-from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
+from mindformers.parallel_core.training_graph.transformer.norm import get_norm_cls
 from mindformers.parallel_core.training_graph.transformer.transformer_block import TransformerBlockSubmodules
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import TransformerLayer, \
     TransformerLayerSubmodules
@@ -62,7 +62,8 @@ def get_gpt_layer_local_spec(
         multi_latent_attention: Optional[bool] = False,
         qk_l2_norm: Optional[bool] = False,
         use_contiguous_weight_layout: Optional[bool] = True,
-        mla_qkv_concat: Optional[bool] = True
+        mla_qkv_concat: Optional[bool] = True,
+        fused_norm: Optional[bool] = True,
 ) -> ModuleSpec:
     """Use this spec for an implementation using only modules in Megatron-Core.
 
@@ -79,6 +80,7 @@ def get_gpt_layer_local_spec(
             Defaults to True.
         mla_qkv_concat(bool, optional): If True, Multi Latent Attention computes q_compressed, k, kv_compressed in
             a single linear transformation; if False (default), computes them separately. Defaults to True.
+        fused_norm (bool): Whether to use fused-normalization. Defaults to True.
 
     Returns:
         ModuleSpec: Module specification with Megatron-Core modules
@@ -103,8 +105,8 @@ def get_gpt_layer_local_spec(
                     linear_kvb=ColumnParallelLinear,
                     core_attention=FlashAttention,
                     linear_proj=RowParallelLinear,
-                    q_layernorm=FusedNorm if qk_layernorm else IdentityOp,
-                    k_layernorm=FusedNorm if qk_layernorm else IdentityOp,
+                    q_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
+                    k_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
                 ),
             )
         else:
@@ -117,16 +119,16 @@ def get_gpt_layer_local_spec(
                     linear_kv_up_proj=ColumnParallelLinear,
                     core_attention=FlashAttention,
                     linear_proj=RowParallelLinear,
-                    q_layernorm=FusedNorm if qk_layernorm else IdentityOp,
-                    kv_layernorm=FusedNorm if qk_layernorm else IdentityOp,
+                    q_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
+                    kv_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
                 ),
             )
         return ModuleSpec(
             module=TransformerLayer,
             submodules=TransformerLayerSubmodules(
-                input_layernorm=FusedNorm,
+                input_layernorm=get_norm_cls(fused_norm),
                 self_attention=self_attention,
-                pre_mlp_layernorm=FusedNorm,
+                pre_mlp_layernorm=get_norm_cls(fused_norm),
                 mlp=mlp,
             ),
         )
@@ -134,18 +136,18 @@ def get_gpt_layer_local_spec(
     return ModuleSpec(
         module=TransformerLayer,
         submodules=TransformerLayerSubmodules(
-            input_layernorm=FusedNorm,
+            input_layernorm=get_norm_cls(fused_norm),
             self_attention=ModuleSpec(
                 module=SelfAttention if use_contiguous_weight_layout else SelfAttentionMegatron,
                 submodules=SelfAttentionSubmodules(
                     linear_qkv=ColumnParallelLinear,
                     core_attention=FlashAttention,
                     linear_proj=RowParallelLinear,
-                    q_layernorm=FusedNorm if qk_layernorm else IdentityOp,
-                    k_layernorm=FusedNorm if qk_layernorm else IdentityOp,
+                    q_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
+                    k_layernorm=get_norm_cls(fused_norm) if qk_layernorm else IdentityOp,
                 ),
             ),
-            pre_mlp_layernorm=FusedNorm,
+            pre_mlp_layernorm=get_norm_cls(fused_norm),
             mlp=mlp
         )
     )
@@ -165,7 +167,8 @@ def get_gpt_decoder_block_spec(
         multi_latent_attention=config.multi_latent_attention,
         qk_l2_norm=qk_l2_norm,
         use_contiguous_weight_layout=config.use_contiguous_weight_layout,
-        mla_qkv_concat=config.mla_qkv_concat
+        mla_qkv_concat=config.mla_qkv_concat,
+        fused_norm=config.fused_norm
     )
 
     moe_layer_spec = get_gpt_layer_local_spec(
@@ -175,7 +178,8 @@ def get_gpt_decoder_block_spec(
         multi_latent_attention=config.multi_latent_attention,
         qk_l2_norm=qk_l2_norm,
         use_contiguous_weight_layout=config.use_contiguous_weight_layout,
-        mla_qkv_concat=config.mla_qkv_concat
+        mla_qkv_concat=config.mla_qkv_concat,
+        fused_norm=config.fused_norm
     )
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
@@ -212,7 +216,8 @@ def get_gpt_decoder_block_spec(
             raise ValueError(f"Invalid layer pattern: {moe_layer_pattern}")
 
     # Block spec.
-    block_spec = TransformerBlockSubmodules(layer_specs=layer_specs, layer_norm=FusedNorm)
+    block_spec = TransformerBlockSubmodules(
+        layer_specs=layer_specs, layer_norm=get_norm_cls(config.fused_norm))
 
     return block_spec
 
@@ -234,7 +239,8 @@ def get_gpt_mtp_block_spec(
     else:
         raise ValueError(f"Invalid spec: {spec}")
 
-    mtp_layer_spec = get_mtp_layer_spec(transformer_layer_spec=transformer_layer_spec)
+    mtp_layer_spec = get_mtp_layer_spec(
+        transformer_layer_spec=transformer_layer_spec, fused_norm=config.fused_norm)
     mtp_num_layers = config.mtp_num_layers if config.mtp_num_layers else 0
     mtp_layer_specs = [mtp_layer_spec] * mtp_num_layers
 

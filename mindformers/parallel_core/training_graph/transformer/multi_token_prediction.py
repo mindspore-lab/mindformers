@@ -33,7 +33,7 @@ from mindspore import dtype as mstype
 from mindspore.ops.auto_generate import Cast, Concat, Reshape, Shape, StridedSlice, Zeros, Transpose, OnesLike
 
 from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
-from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
+from mindformers.parallel_core.training_graph.transformer.norm import get_norm_cls
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
@@ -64,20 +64,21 @@ class MultiTokenPredictionLayerSubmodules:
     layer_norm: Union[ModuleSpec, type] = None
 
 
-def get_mtp_layer_spec(transformer_layer_spec: ModuleSpec) -> ModuleSpec:
+def get_mtp_layer_spec(transformer_layer_spec: ModuleSpec, fused_norm=True) -> ModuleSpec:
     """Get the MTP layer spec.
 
     Returns:
         ModuleSpec: Module specification of MultiTokenPredictionLayer.
+        fused_norm (bool): Whether to use fused-normalization. Defaults to True.
     """
     mtp_layer_spec = ModuleSpec(
         module=MultiTokenPredictionLayer,
         submodules=MultiTokenPredictionLayerSubmodules(
-            enorm=FusedNorm,
-            hnorm=FusedNorm,
+            enorm=get_norm_cls(fused_norm),
+            hnorm=get_norm_cls(fused_norm),
             eh_proj=ColumnParallelLinear,
             transformer_layer=transformer_layer_spec,
-            layer_norm=FusedNorm,
+            layer_norm=get_norm_cls(fused_norm),
         ),
     )
 

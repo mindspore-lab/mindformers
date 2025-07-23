@@ -6663,7 +6663,7 @@
         "signature": "(enorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, hnorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, eh_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, transformer_layer: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, layer_norm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
     "mindformers.parallel_core.training_graph.transformer.multi_token_prediction.get_mtp_layer_spec": {
-        "signature": "(transformer_layer_spec: mindformers.parallel_core.utils.spec_utils.ModuleSpec) -> mindformers.parallel_core.utils.spec_utils.ModuleSpec"
+        "signature": "(transformer_layer_spec: mindformers.parallel_core.utils.spec_utils.ModuleSpec, fused_norm=True) -> mindformers.parallel_core.utils.spec_utils.ModuleSpec"
     },
     "mindformers.parallel_core.training_graph.transformer.norm.FusedNorm": {
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, dim, eps=1e-05, param_init_type=mindspore.float32, layernorm_compute_dtype=mindspore.float32)"
@@ -6673,6 +6673,9 @@
     },
     "mindformers.parallel_core.training_graph.transformer.norm.get_norm": {
         "signature": "(config)"
+    },
+        "mindformers.parallel_core.training_graph.transformer.norm.get_norm_cls": {
+        "signature": "(fused_norm=True)"
     },
     "mindformers.parallel_core.training_graph.transformer.utils.get_attn_mask_func": {
         "signature": "(mask_func_type)"

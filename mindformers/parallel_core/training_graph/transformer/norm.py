@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Normalization"""
-__all__ = ["get_norm", "Norm", "FusedNorm"]
+__all__ = ["get_norm_cls", "Norm", "FusedNorm"]
 
 import mindspore as ms
 import mindspore.ops.operations as P
@@ -418,43 +418,14 @@ class FusedNorm:
         raise Exception('Only LayerNorm and RMSNorm are currently supported')
 
 
-def get_norm(config):
+def get_norm_cls(fused_norm=True):
     r"""
-    Get normalization layer.
+    Get the class of normalization layer.
 
     Args:
-        config: The config of the model.
+        fused_norm (bool): Whether to use fused-normalization.
 
     Returns:
-        callable, the normalization layer.
+        callable, the class of normalization layer.
     """
-    if config.normalization == "LayerNorm":
-        return LayerNorm(
-            config=config,
-            dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
-    if config.normalization == "FusedLayerNorm":
-        return FusedLayerNorm(
-            config=config,
-            dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
-    if config.normalization == "RMSNorm":
-        return RMSNorm(
-            config=config,
-            dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
-    if config.normalization == "FusedRMSNorm":
-        return FusedRMSNorm(
-            config=config,
-            dim=config.hidden_size,
-            eps=config.layernorm_epsilon,
-            param_init_type=config.params_dtype,
-            layernorm_compute_dtype=config.layernorm_compute_dtype)
-
-    raise Exception(f"unsupported norm type '{config.normalization}'.")
+    return FusedNorm if fused_norm else Norm
