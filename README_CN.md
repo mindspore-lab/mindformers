@@ -16,12 +16,12 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 - 支持任务组件配置化开发。任意模块可通过统一配置进行使能，包括模型网络、优化器、学习率策略等；
 - 提供训练精度/性能监控指标实时可视化能力等。
 
-欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindSpore Transformers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)，以下提供部分内容的快速跳转链接：
+欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindSpore Transformers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/master/index.html)，以下提供部分内容的快速跳转链接：
 
-- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)
-- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)
-- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/evaluation.html)
-- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)
+- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/pre_training.html)
+- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/supervised_fine_tuning.html)
+- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/evaluation.html)
+- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/deployment.html)
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
@@ -31,32 +31,32 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 
 | 模型名                                                                                                     | 支持规格                          |   模型类型   |   最新支持版本   |
 |:--------------------------------------------------------------------------------------------------------|:------------------------------|:--------:|:----------:|
-| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/blob/dev/research/deepseek3)                      | 671B                          |  稀疏LLM   | 在研版本、1.5.0 |
-| [GLM4](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm4.md)                       | 9B                            |  稠密LLM   | 在研版本、1.5.0 |
-| [Llama3.1](https://gitee.com/mindspore/mindformers/blob/dev/research/llama3_1)                          | 8B/70B                        |  稠密LLM   | 在研版本、1.5.0 |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/blob/dev/research/qwen2_5)                            | 0.5B/1.5B/7B/14B/32B/72B      |  稠密LLM   | 在研版本、1.5.0 |
-| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/dev/research/telechat2)                        | 7B/35B/115B                   |  稠密LLM   | 在研版本、1.5.0 |
+| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/tree/master/research/deepseek3)                      | 671B                          |  稀疏LLM   | 在研版本、1.5.0 |
+| [GLM4](https://gitee.com/mindspore/mindformers/blob/master/docs/model_cards/glm4.md)                       | 9B                            |  稠密LLM   | 在研版本、1.5.0 |
+| [Llama3.1](https://gitee.com/mindspore/mindformers/tree/master/research/llama3_1)                          | 8B/70B                        |  稠密LLM   | 在研版本、1.5.0 |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/master/research/qwen2_5)                            | 0.5B/1.5B/7B/14B/32B/72B      |  稠密LLM   | 在研版本、1.5.0 |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/master/research/telechat2)                        | 7B/35B/115B                   |  稠密LLM   | 在研版本、1.5.0 |
 | [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md)          | 34B                           |  稠密LLM   |   1.5.0    |
 | [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md)  | 19B                           |    MM    |   1.5.0    |
 | [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md)  | 13B                           |    MM    |   1.5.0    |
-| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek2)                   | 236B                          |  稀疏LLM   |   1.5.0    |
-| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek1_5)         | 7B                            |  稠密LLM   |   1.5.0    |
-| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek)                 | 33B                           |  稠密LLM   |   1.5.0    |
-| [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k)                         | 6B                            |  稠密LLM   |   1.5.0    |
+| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek2)                   | 236B                          |  稀疏LLM   |   1.5.0    |
+| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek1_5)         | 7B                            |  稠密LLM   |   1.5.0    |
+| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek)                 | 33B                           |  稠密LLM   |   1.5.0    |
+| [GLM3-32K](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/glm32k)                         | 6B                            |  稠密LLM   |   1.5.0    |
 | [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md)                    | 6B                            |  稠密LLM   |   1.5.0    |
-| [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2)                     | 7B/20B                        |  稠密LLM   |   1.5.0    |
+| [InternLM2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/internlm2)                     | 7B/20B                        |  稠密LLM   |   1.5.0    |
 | [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)            | 3B                            |  稠密LLM   |   1.5.0    |
 | [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md)       | 11B                           |    MM    |   1.5.0    |
-| [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3)                           | 8B/70B                        |  稠密LLM   |   1.5.0    |
+| [Llama3](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/llama3)                           | 8B/70B                        |  稠密LLM   |   1.5.0    |
 | [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md)                | 7B/13B/70B                    |  稠密LLM   |   1.5.0    |
-| [Mixtral](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/mixtral)                         | 8x7B                          |  稀疏LLM   |   1.5.0    |
-| [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | 稠密/稀疏LLM |   1.5.0    |
-| [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |  稠密LLM   |   1.5.0    |
-| [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl)                          | 9.6B                          |    MM    |   1.5.0    |
-| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat)                       | 7B/12B/52B                    |  稠密LLM   |   1.5.0    |
+| [Mixtral](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/mixtral)                         | 8x7B                          |  稀疏LLM   |   1.5.0    |
+| [Qwen2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | 稠密/稀疏LLM |   1.5.0    |
+| [Qwen1.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |  稠密LLM   |   1.5.0    |
+| [Qwen-VL](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwenvl)                          | 9.6B                          |    MM    |   1.5.0    |
+| [TeleChat](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat)                       | 7B/12B/52B                    |  稠密LLM   |   1.5.0    |
 | [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |    MM    |   1.5.0    |
-| [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi)                                   | 6B/34B                        |  稠密LLM   |   1.5.0    |
-| [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao)                           | 12B                           |  稠密LLM   |   1.5.0    |
+| [Yi](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yi)                                   | 6B/34B                        |  稠密LLM   |   1.5.0    |
+| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                           | 12B                           |  稠密LLM   |   1.5.0    |
 | [Baichuan2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/baichuan2/baichuan2.md)        | 7B/13B                        |  稠密LLM   |   1.3.2    |
 | [GLM2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/glm2.md)                    | 6B                            |  稠密LLM   |   1.3.2    |
 | [GPT2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/gpt2.md)                    | 124M/13B                      |  稠密LLM   |   1.3.2    |
@@ -118,9 +118,9 @@ bash build.sh
 
 ## 三、使用指南
 
-MindSpore Transformers支持一键启动大模型的分布式[预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)、[SFT 微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)、[推理](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/inference.html)任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档。
+MindSpore Transformers支持一键启动大模型的分布式[预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/pre_training.html)、[SFT 微调](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/supervised_fine_tuning.html)、[推理](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/inference.html)任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档。
 
-关于MindSpore Transformers的更多功能说明可参阅[MindSpore Transformers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)。
+关于MindSpore Transformers的更多功能说明可参阅[MindSpore Transformers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/master/index.html)。
 
 ## 四、生命周期及版本配套策略
 
@@ -155,7 +155,7 @@ MindSpore Transformers已发布版本维护策略：
 
 ## 六、贡献
 
-欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/contribution/mindformers_contribution.html)。
+欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/contribution/mindformers_contribution.html)。
 
 ## 七、许可证
 

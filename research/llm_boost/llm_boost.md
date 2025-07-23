@@ -119,7 +119,7 @@ dtype:       转换权重的精度
 
 **场景一**：从完整模型权重切分至分布式权重
 
-通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将完整权重转换为目标切分权重。
+通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将完整权重转换为目标切分权重。
 
 以`Qwen2-7b`2卡推理为例, 生成目标strategy。
 
@@ -139,7 +139,7 @@ dtype:       转换权重的精度
 **场景二**：从分布式训练获得的已切分权重转化为另一策略的分布式权重
 
 通常是在分布式训练完成后获取了按训练切分策略进行切分的权重，在推理阶段模型需要转换为另一切分策略；
-同样需要生成目标strategy，参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，与原有切分startegy一同，转换模型切分策略
+同样需要生成目标strategy，参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，与原有切分startegy一同，转换模型切分策略
 
 ## 推理
 
@@ -223,7 +223,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 

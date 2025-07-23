@@ -57,7 +57,7 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 | 开发引入 |   -    |          mindformers/mindformers/tools/hub/hub.py           |                                                          https://hub-ci.openmind.cn                                                          | staging_mode下用于从openmind下载模型  |
 | 开发引入 |   -    |          mindformers/mindformers/tools/hub/hub.py           |                                                             https://openmind.cn                                                              | 非staging_mode下用于从openmind下载模型 |
 | 开发引入 |   -    |                    mindformers/setup.py                     |                                                   https://gitee.com/mindspore/mindformers                                                    |   setup脚本方式安装mindformers地址    |
-| 开发引入 |   -    |            mindformers/trainer/training_args.py             |    https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6     |    mindformers权重切分与合并特性文档     |
+| 开发引入 |   -    |            mindformers/trainer/training_args.py             |    https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6     |    mindformers权重切分与合并特性文档     |
 | 开发引入 |   -    |                  mindformers/run_check.py                   |                                         https://www.hiascend.com/document/detail/zh/canncommercial/                                          |          CANN官方使用文档           |
 | 开发引入 |   -    |                  mindformers/run_check.py                   |                                                      https://www.mindspore.cn/install/                                                       |        mindspore官方安装文档        |
 | 开发引入 |   -    |                      run_mindformer.py                      |                                          https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D                                          |         mindformers介绍         |
@@ -66,7 +66,7 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 
 ### 公开接口声明
 
-mindformers对外暴露接口可参考[api](https://gitee.com/mindspore/mindformers/tree/dev/docs/api)， 具体接口规格可参考对应API文档查询。
+mindformers对外暴露接口可参考[api](https://gitee.com/mindspore/mindformers/tree/master/docs/api)， 具体接口规格可参考对应API文档查询。
 
 ### 通信矩阵
 
