@@ -303,7 +303,13 @@ class MultiTokenPredictionBlock(nn.Cell):
 
         self.init_extra_loss = Tensor([0], mstype.float32)
         self.compute_language_model_loss = VocabParallelCrossEntropy(
-            parallel_config=config, calculate_per_token_loss=config.calculate_per_token_loss)
+            parallel_config=config,
+            check_for_nan_in_loss_and_grad=config.monitor_local_loss,
+            monitor_device_local_loss=config.monitor_device_local_loss,
+            calculate_per_token_loss=config.calculate_per_token_loss,
+            seq_split_num=config.seq_split_num,
+            loss_tag="mtp"
+        )
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,

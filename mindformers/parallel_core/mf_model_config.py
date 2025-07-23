@@ -348,6 +348,17 @@ class MFModelConfig:
 
     post_process: bool = True
     """When using pipeline parallel, indicate whether it's the last stage."""
+
+    ##################
+    # Metric Monitor
+    ##################
+
+    monitor_local_loss: bool = False
+    """Whether to print local loss."""
+
+    monitor_device_local_loss: bool = False
+    """Whether to monitor device local loss."""
+
     def __post_init__(self):
         self.parallel_config = default_transformer_config
 
