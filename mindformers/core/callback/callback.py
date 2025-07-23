@@ -2435,8 +2435,7 @@ class StressTestModelMonitor(Callback):
         self.last_checked_step = 0
         self.model_dir = stress_model_dir
         if not self.model_dir or not os.path.exists(self.model_dir):
-            logger.warning(f"model_dir {self.model_dir} was not found for StressTestModelMonitor, using default model")
-            self.model_dir = "configs/llama2/pretrain_llama2_7b_stress_test.yaml"
+            raise ValueError(f"model_dir {self.model_dir} was not found for StressTestModelMonitor.")
         self.dataset_dir = stress_dataset_dir
         self.stress_master_port = stress_master_port
         self.main_master_port = int(os.getenv("MS_SCHED_PORT"))
