@@ -14,7 +14,6 @@
 # ============================================================================
 """test loss."""
 import numpy as np
-import pytest
 
 import mindspore as ms
 from mindspore import Tensor
@@ -24,9 +23,6 @@ from mindformers import CrossEntropyLoss
 ms.set_context(mode=1, device_target='CPU')
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 def test_cross_entropy_loss():
     """
     Feature: CrossEntropyLoss.

@@ -17,7 +17,6 @@
 import os
 import json
 from copy import deepcopy
-import pytest
 
 from datasets import Dataset
 
@@ -103,9 +102,7 @@ def get_packing_alpaca_config(config, packing):
 class TestCommonDataLoader:
     """test class for CommonDataLoader"""
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_load_json(self):
         """test load json with CommonDataLoader"""
         config = deepcopy(global_config)
@@ -125,9 +122,7 @@ class TestCommonDataLoader:
         src_sample = list(src_sample.values()).sort()
         assert sample == src_sample
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_alpaca_handler(self):
         """test alpaca handler with CommonDataLoader"""
         # set config
@@ -140,9 +135,7 @@ class TestCommonDataLoader:
         assert dataset.column_names == ['input_ids', 'labels']
         assert dataset.num_rows == 10
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_alpaca_pack(self):
         """test pack alpaca with CommonDataLoader"""
         # set config
@@ -176,9 +169,7 @@ class TestCommonDataLoader:
         # test truncate example
         assert dataset[0]['input_ids'][-1] != 0
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_pack_compress_mask(self):
         """test use compress mask in CommonDataLoader"""
         # set config
@@ -193,9 +184,7 @@ class TestCommonDataLoader:
         assert len(dataloader[0]) == 5
         assert dataloader[0][-1].size == 128
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_pack_wo_compress_mask(self):
         """test not use compress mask in CommonDataLoader"""
         # set config
@@ -209,9 +198,7 @@ class TestCommonDataLoader:
         assert len(dataloader[0]) == 5
         assert dataloader[0][-1].shape == (1, 256, 256)
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_load_from_disk(self):
         """test CommonDataLoader load from disk"""
         # generate HF dataset
