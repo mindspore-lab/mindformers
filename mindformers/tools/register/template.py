@@ -392,7 +392,7 @@ class MoEConfig(Config):
 class RunnerConfig(Config):
     batch_size = 1
     epochs = 1
-    sink_mode = 1
+    sink_mode = True
     sink_size = 1
     gradient_accumulation_steps = 1
     num_classes = 1
