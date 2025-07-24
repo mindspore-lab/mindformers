@@ -29,7 +29,7 @@ from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _ge
 from mindformers.version_control import is_dump_supported
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank
+from mindformers.tools.utils import get_real_rank, get_context
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 
 __all__ = ['CrossEntropyLoss']
@@ -208,8 +208,6 @@ class CrossEntropyLoss(nn.Cell):
     Args:
         parallel_config (mindformers.modules.OpParallelConfig, optional): The parallel
             configuration. Default: ``default_dpmp_config``.
-        check_for_nan_in_loss_and_grad (bool, optional): Whether to print local loss. Default: ``False``.
-        monitor_device_local_loss (bool, optional): Whether to monitor device local loss. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to use Megatron loss. Default: ``False``.
         seq_split_num (int, optional): Sequence split number in sequence pipeline parallel mode. Default: ``1``.
 
@@ -242,7 +240,6 @@ class CrossEntropyLoss(nn.Cell):
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, parallel_config=default_dpmp_config,
-                 check_for_nan_in_loss_and_grad=False, monitor_device_local_loss=False,
                  calculate_per_token_loss=False, seq_split_num=1, **kwargs):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel
@@ -263,8 +260,9 @@ class CrossEntropyLoss(nn.Cell):
             self.relu.shard(((1,),))
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
-        self.monitor_local_loss = check_for_nan_in_loss_and_grad
-        self.monitor_device_local_loss = monitor_device_local_loss
+
+        self.monitor_local_loss = get_context("monitor_local_loss")
+        self.monitor_device_local_loss = get_context("monitor_device_local_loss")
         if self.monitor_device_local_loss:
             self.device_local_loss = get_device_local_loss()
         self.dump_local_loss = (
