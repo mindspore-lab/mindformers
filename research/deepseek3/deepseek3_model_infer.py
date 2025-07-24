@@ -1638,7 +1638,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
 
         from mindformers.parallel_core.inference.parallel_state import get_data_parallel_group
         tokens_len_per_dp = q_seq_len.sum().reshape(-1)
-        tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group())(tokens_len_per_dp)
+        tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group().group)(tokens_len_per_dp)
         tokens_len_per_dp = tokens_len_per_dp.asnumpy()
         padding_size = (tokens_len_per_dp.max() + tp_size - 1) // tp_size * tp_size
         dp_rank_id = get_rank() // tp_size
