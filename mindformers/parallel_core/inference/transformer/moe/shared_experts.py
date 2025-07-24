@@ -13,18 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """Shared Experts Module."""
+__all__ = ['SharedExpertMLP']
+
 from copy import deepcopy
+from typing import Optional
 
 from mindspore import mint
 
-from mindformers.parallel_core.inference.transformer.activation import get_act_func
+
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
+from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.tensor_parallel.layers import ReplicatedLinear
-
-__all__ = [
-    'SharedExpertMLP',
-]
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
 class SharedExpertMLP(MLP):
@@ -32,7 +33,13 @@ class SharedExpertMLP(MLP):
     MLP layer for Shared Experts.
     """
 
-    def __init__(self, config: TransformerConfig, submodules: MLPSubmodules, gate: bool):
+    def __init__(
+            self,
+            config: TransformerConfig,
+            submodules: MLPSubmodules,
+            gate: bool,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+    ):
         config = deepcopy(config)
         if config.add_bias_linear:
             raise ValueError("bias is not supported in the shared experts")
@@ -43,7 +50,7 @@ class SharedExpertMLP(MLP):
 
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
 
-        super().__init__(config=config, submodules=submodules)
+        super().__init__(config=config, submodules=submodules, model_comm_pgs=model_comm_pgs)
 
         self.use_shared_expert_gate = gate
         if self.use_shared_expert_gate:

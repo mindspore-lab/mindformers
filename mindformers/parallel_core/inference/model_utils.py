@@ -95,6 +95,8 @@ class InferModelMixin(ModelMixin):
         replacements = [
             (r'\.self_attention\.linear_[qkv]\.', '.self_attention.linear_qkv.'),
             (r'\.mlp\.gating\.', '.mlp.linear_fc1.'),
+            # Experts weights is three-dimensional in mcore, which different from the hf weight.
+            # So we need to remove the information about the number of experts in the weight key.
             (r'\.experts\.\d+\.gating\.weight', '.experts.weight1'),
             (r'\.experts\.\d+\.linear_fc1\.weight', '.experts.weight1'),
             (r'\.experts\.\d+\.linear_fc2\.weight', '.experts.weight2'),

@@ -13,16 +13,28 @@
 # limitations under the License.
 # ============================================================================
 """attention and qkv concat."""
+from typing import Any, Dict, Optional
 from safetensors import safe_open
 import numpy as np
 
 import mindspore as ms
+from mindspore import Parameter
 from mindspore.communication.management import get_rank
 
 from mindformers.parallel_core.inference.utils import get_tp_world_size
 
 
 file_handles = {}
+
+
+def set_weight_attrs(
+        weight: Parameter,
+        weight_attrs: Optional[Dict[str, Any]],
+):
+    if weight_attrs is None:
+        return
+    for key, value in weight_attrs.items():
+        setattr(weight, key, value)
 
 
 class WeightsLoader:
@@ -95,7 +107,7 @@ class WeightsLoader:
         else:
             for weight_name, file in src_keys_dict.items():
                 weight_value = get_file_handles(f'{self.weights_path}/{file}').get_tensor(weight_name)
-                if self.mf_hf_mapping['linear_qkv'] == weight_name.split('.')[-2]:
+                if self.mf_hf_mapping.get('linear_qkv') == weight_name.split('.')[-2]:
                     weight_value = handle_training_qkv_weight(weight_value, config)
                 else:
                     weight_value = handle_training_ffn_weight(weight_value)
@@ -154,9 +166,9 @@ class WeightsLoader:
         """
         q_down_value, kv_down_value = None, None
         for weight_name, file in src_keys_dict.items():
-            if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_q_down_proj']:
+            if self.mf_hf_mapping.get('linear_q_down_proj') == weight_name.split('.')[-2]:
                 q_down_value = get_file_handles(f'{self.weights_path}/{file}').get_tensor(weight_name)
-            if weight_name.split('.')[-2] == self.mf_hf_mapping['linear_kv_down_proj']:
+            if self.mf_hf_mapping.get('linear_kv_down_proj') == weight_name.split('.')[-2]:
                 kv_down_value = deal_linear_kv_down_weight(config, weight_name, file, self.weights_path)
         if kv_down_value is not None:
             if q_down_value is not None:
