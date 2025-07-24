@@ -15,14 +15,14 @@
 """Router For MoE."""
 from abc import ABC, abstractmethod
 
-from mindspore import nn
+from mindspore import nn, ops
 from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.mint.nn.functional import linear
 from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt
 # these ops are not supported in auto_generate
-from mindspore.ops.operations import Shape, Gather, ReduceSum, ReduceMean, OneHot
+from mindspore.ops.operations import Shape, ReduceSum, ReduceMean, OneHot
 from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -109,7 +109,7 @@ class TopKRouter(Router):
         if self.moe_router_enable_expert_bias:
             self.expert_bias = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                          requires_grad=False, parallel_optimizer=False)
-            self.gate_gather = Gather(batch_dims=2)
+            self.gate_gather = ops.GatherD()
             self.expert_load = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                          requires_grad=False, parallel_optimizer=False)
             self.assign_add = AssignAdd()
@@ -191,7 +191,7 @@ class TopKRouter(Router):
         # expert_index will be int64 without this cast,
         # and compile fails for the grad ReduceScatter don't support int64
         expert_index = self.cast(expert_index, mstype.int32)
-        expert_gate = self.gate_gather(router_prob, expert_index, 2)
+        expert_gate = self.gate_gather(router_prob, 2, expert_index)
         self._update_expert_load(expert_index)
         return expert_gate, expert_index
 
