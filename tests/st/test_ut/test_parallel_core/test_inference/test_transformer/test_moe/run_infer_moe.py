@@ -129,8 +129,8 @@ class MoERunner:
         shared_expert_w_hidden_shard = split(shared_expert_w_hidden)
         shared_expert_w_fc1_shard = np.concatenate([shared_expert_w_gate_shard, shared_expert_w_hidden_shard], axis=0)
         shared_expert_w_fc2_shard = split(shared_expert_fc2_w, split_axis=1)
-        print(f"hared_expert_w_fc1_shard: {shared_expert_w_fc1_shard.shape}")
-        print(f"hared_expert_w_fc2_shard: {shared_expert_w_fc2_shard.shape}")
+        print(f"shared_expert_w_fc1_shard: {shared_expert_w_fc1_shard.shape}")
+        print(f"shared_expert_w_fc2_shard: {shared_expert_w_fc2_shard.shape}")
         new_param_dict["shared_experts.linear_fc1.weight"] = Parameter(shared_expert_w_fc1_shard)
         new_param_dict["shared_experts.linear_fc2.weight"] = Parameter(shared_expert_w_fc2_shard)
 
@@ -181,7 +181,7 @@ def main():
     parser.add_argument("--n_group", type=int, default=2)
     parser.add_argument("--topk_group", type=int, default=2)
     parser.add_argument("--moe_intermediate_size", type=int, default=8)
-    parser.add_argument("--moe_shared_expert_intermediate_size", type=int, default=8)
+    parser.add_argument("--moe_shared_expert_intermediate_size", type=int, default=None)
     parser.add_argument("--output_path", type=str, default="output_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
 

@@ -46,11 +46,13 @@ SINGLE_CARD_TEST_CASES = [
     (
         # 并行策略: 单卡
         # 配置：seq_len: 4, batch_size: 4, hidden_size: 32, num_experts: 8,
-        # moe_intermediate_size: 8, moe_shared_expert_intermediate_size: 0
+        # moe_intermediate_size: 8, moe_shared_expert_intermediate_size: None,
+        # n_shared_experts: 0, routed_scaling_factor: 2.5, num_experts_per_tok: 2,
+        # n_group: 2, topk_group: 2
         # expected result: 功能跑通, 精度对齐。
         {"seq_len": 4, "batch_size": 4, "hidden_size": 32,
-         "moe_intermediate_size": 8, "num_experts": 8, "moe_shared_expert_intermediate_size": 0,
-         "n_shared_experts": 1, "routed_scaling_factor": 2.5, "num_experts_per_tok": 2,
+         "moe_intermediate_size": 8, "num_experts": 8, "moe_shared_expert_intermediate_size": None,
+         "n_shared_experts": 0, "routed_scaling_factor": 2.5, "num_experts_per_tok": 2,
          "n_group": 2, "topk_group": 2},
         {"output": "tp1_no_shared"},
         False,
@@ -88,7 +90,6 @@ def build_msrun_command_list(
         f"--num_experts={num_experts}",
         f"--hidden_size={hidden_size}",
         f"--moe_intermediate_size={moe_intermediate_size}",
-        f"--moe_shared_expert_intermediate_size={moe_shared_expert_intermediate_size}",
         f"--n_shared_experts={n_shared_experts}",
         f"--routed_scaling_factor={routed_scaling_factor}",
         f"--num_experts_per_tok={num_experts_per_tok}",
@@ -97,7 +98,8 @@ def build_msrun_command_list(
         f"--output_path={output_path_param}",
         f"--tensor_parallel={tensor_parallel}"
     ]
-
+    if moe_shared_expert_intermediate_size is not None:
+        cmd_list.append(f"--moe_shared_expert_intermediate_size={moe_shared_expert_intermediate_size}")
     logger.info(f"Equivalent shell command for debugging (approximate): {' '.join(cmd_list)}")
     return cmd_list
 

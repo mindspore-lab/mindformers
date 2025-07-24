@@ -13,16 +13,28 @@
 # limitations under the License.
 # ============================================================================
 """attention and qkv concat."""
+from typing import Any, Dict, Optional
 from safetensors import safe_open
 import numpy as np
 
 import mindspore as ms
+from mindspore import Parameter
 from mindspore.communication.management import get_rank
 
 from mindformers.parallel_core.inference.utils import get_tp_world_size
 
 
 file_handles = {}
+
+
+def set_weight_attrs(
+        weight: Parameter,
+        weight_attrs: Optional[Dict[str, Any]],
+):
+    if weight_attrs is None:
+        return
+    for key, value in weight_attrs.items():
+        setattr(weight, key, value)
 
 
 class WeightsLoader:
