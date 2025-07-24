@@ -267,6 +267,7 @@ COMMON_CONFIG_MAPPING = {
     "gated_linear_unit": "gated_linear_unit",
     "activation_func": "activation_func",
     "normalization": "normalization",
+    "fused_norm": "fused_norm",
     "qk_layernorm": "qk_layernorm",
     "calculate_per_token_loss": "calculate_per_token_loss",
     "multi_latent_attention": "multi_latent_attention",
