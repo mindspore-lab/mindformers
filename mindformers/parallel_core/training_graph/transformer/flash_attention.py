@@ -107,7 +107,6 @@ class FlashAttention(Cell):
 
         self.use_actual_seqlen = config.use_eod_attn_mask_compression
         self.cp = 1 if self.config.context_parallel_size is None else self.config.context_parallel_size
-        self.compute_2d = (config.sequence_parallel and self.cp == 1)
 
         projection_size = self.config.kv_channels * self.config.num_attention_heads
 
@@ -311,10 +310,7 @@ class FlashAttention(Cell):
         """
         x = self.merge_head_transpose(x, (0, 2, 1, 3))  # dp,tp,cp,1 -> dp,cp,tp,1
         bs, seq_len, n_head, head_dim = self.shape(x)
-        if self.compute_2d and not self.config.multi_latent_attention:
-            new_shape = (bs * seq_len, n_head * head_dim)
-        else:
-            new_shape = (bs, seq_len, n_head * head_dim)
+        new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         x_merge = self.fa_out_transpose(x_merge, (1, 0, 2))
         return x_merge

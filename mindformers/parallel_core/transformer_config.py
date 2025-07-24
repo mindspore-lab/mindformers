@@ -462,7 +462,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     "During training, performance may degrade if MoE and tensor parallelism"
                     "are enabled without also enabling sequence parallelism. Set to True."
                 )
-            self.sequence_parallel = True
 
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
