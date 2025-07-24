@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Utility functions for TransformerConfig."""
-
 from dataclasses import dataclass
 from typing import Union
 
@@ -135,6 +134,14 @@ class MFModelConfig:
 
     normalization: str = "LayerNorm"
     """Which norm to use for normalization layers, valid options are `LayerNorm` and `RMSNorm`."""
+
+    fused_norm: bool = True
+    """
+    Whether to use fused-normalization, only support (only effective during training for now).
+    When True (default):
+        If normalization = "LayerNorm" and fused_norm = True, use the FusedNorm operator.
+        If normalization = "RMSNorm" and fused_norm = True, use the FusedRMSNorm operator.
+    """
 
     add_bias_linear: bool = True
     """
