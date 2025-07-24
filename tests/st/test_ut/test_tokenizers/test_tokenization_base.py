@@ -15,13 +15,21 @@
 """test tokenizer base."""
 import os
 import unittest
+from unittest.mock import patch
 import tempfile
+from collections import OrderedDict
 import yaml
 import pytest
 
-from mindformers import AutoTokenizer
+from mindformers import AutoTokenizer, LlamaTokenizer
+from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import PaddingStrategy, TruncationStrategy
 from tests.st.test_ut.test_tokenizers.get_vocab_model import get_sp_vocab_model
+
+value = OrderedDict([
+    ('ChatGLM4Tokenizer', 'GLMProcessor'),
+    ('LlamaTokenizer', 'LlamaProcessor')
+    ])
 
 
 # pylint: disable=W0212
@@ -35,21 +43,25 @@ class TestTokenizerBase(unittest.TestCase):
         cls.string = "An increasing sequence: one, two, three."
         get_sp_vocab_model("llama2_7b", cls.path)
         cls.tokenizer_model_path = os.path.join(cls.path, "llama2_7b_tokenizer.model")
-        create_yaml("llama2_7b", cls.path)
-        cls.tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
+        cls.tokenizer = LlamaTokenizer(cls.tokenizer_model_path)
 
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
     def test_from_origin_pretrained(self):
         """test from origin pretrained."""
-        real_tokenizer_model_path = os.path.join(self.path, "tokenizer.model")
-        if os.path.exists(self.tokenizer_model_path):
-            os.rename(self.tokenizer_model_path, real_tokenizer_model_path)
-        tokenizer = AutoTokenizer.from_pretrained(self.path)
-        tokenizer.save_pretrained(self.path)
-        tokenizer.save_pretrained(self.path, save_json=True)
-        res = tokenizer.encode(self.string)
-        assert res == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150]
-        res = self.tokenizer.encode(self.string)
-        assert res == [1, 530, 10231, 5665, 29901, 697, 29892, 1023, 29892, 2211, 29889]
+        with patch.object(MindFormerBook, "_TOKENIZER_NAME_TO_PROCESSOR", value):
+            create_yaml("llama2_7b", self.path)
+            real_tokenizer_model_path = os.path.join(self.path, "tokenizer.model")
+            if os.path.exists(self.tokenizer_model_path):
+                os.rename(self.tokenizer_model_path, real_tokenizer_model_path)
+            tokenizer = AutoTokenizer.from_pretrained(self.path)
+            tokenizer.save_pretrained(self.path)
+            tokenizer.save_pretrained(self.path, save_json=True)
+            res = tokenizer.encode(self.string)
+            assert res == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150]
+            res = self.tokenizer.encode(self.string)
+            assert res == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150]
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
@@ -74,12 +86,13 @@ class TestTokenizerBase(unittest.TestCase):
     @pytest.mark.env_onecard
     def test_save_origin_pretrained(self):
         """test save origin pretrained."""
-        res = self.tokenizer.save_origin_pretrained("notexist")
-        assert res is None
-        res = self.tokenizer.save_origin_pretrained(self.path, "")
-        assert res is None
-        with pytest.raises(ValueError):
-            assert res == self.tokenizer.save_origin_pretrained(self.path, None, 'txt')
+        with patch.object(MindFormerBook, "_TOKENIZER_NAME_TO_PROCESSOR", value):
+            res = self.tokenizer.save_origin_pretrained("notexist")
+            assert res is None
+            res = self.tokenizer.save_origin_pretrained(self.path, "")
+            assert res is None
+            with pytest.raises(ValueError):
+                assert res == self.tokenizer.save_origin_pretrained(self.path, None, 'txt')
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
@@ -91,7 +104,7 @@ class TestTokenizerBase(unittest.TestCase):
         res = self.tokenizer._get_padding_truncation_strategies(padding=True, max_length=2048)
         assert res == (PaddingStrategy.LONGEST, TruncationStrategy.DO_NOT_TRUNCATE, 2048, {})
         res = self.tokenizer(self.string, padding=PaddingStrategy.LONGEST)
-        assert res['input_ids'] == [1, 530, 10231, 5665, 29901, 697, 29892, 1023, 29892, 2211, 29889]
+        assert res['input_ids'] == [1, 48, 87, 85, 157, 65, 135, 67, 135, 80, 150]
         kwargs = {'truncation_strategy': 'only_first'}
         res = (PaddingStrategy.LONGEST, None, 2048, kwargs)
         assert res == (PaddingStrategy.LONGEST, None, 2048, {'truncation_strategy': 'only_first'})
@@ -102,7 +115,7 @@ class TestTokenizerBase(unittest.TestCase):
     def test_apply_chat_template(self):
         conversation = "Conversation"
         res = self.tokenizer.apply_chat_template(self, conversation, None, padding=True)
-        assert res == [1281, 874, 362]
+        assert res == [134, 0, 105, 23, 143, 140, 159, 144, 139, 105]
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu

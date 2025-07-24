@@ -15,7 +15,6 @@
 """test audio_utils"""
 import os
 import unittest
-import tempfile
 import subprocess
 import numpy as np
 import pytest
@@ -38,9 +37,6 @@ from mindformers.dataset.transforms.audio_utils import (
 from librosa.filters import chroma
 
 
-tmp_path = tempfile.TemporaryDirectory().name
-
-
 def require_librosa(test_case):
     """
     Decorator marking a test that requires librosa
@@ -53,6 +49,17 @@ def require_librosa(test_case):
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 class TestAudioUtilsFunction(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_path = "./tmp"
+        if not os.path.exists(cls.tmp_path):
+            os.mkdir(cls.tmp_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        rm_command = f"rm -rf {cls.tmp_path}"
+        subprocess.run(rm_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
     def test_hertz_to_mel(self):
         self.assertEqual(hertz_to_mel(0.0), 0.0)
         self.assertAlmostEqual(hertz_to_mel(100), 150.48910241)
@@ -282,19 +289,20 @@ class TestAudioUtilsFunction(unittest.TestCase):
         while retry:
             try:
                 count += 1
-                if not os.path.exists(f"{tmp_path}/validation-00000-of-00001.parquet"):
-                    command = f"wget -P {tmp_path} https://hf-mirror.com/datasets/hf-internal-testing/librispeech_asr_dummy/resolve/main/clean/validation-00000-of-00001.parquet?download=true"
-                    rename_command = f"mv {tmp_path}/*validation* {tmp_path}/validation-00000-of-00001.parquet"
+                if not os.path.exists(f"{self.tmp_path}/validation-00000-of-00001.parquet"):
+                    command = f"wget -P {self.tmp_path} https://hf-mirror.com/datasets/hf-internal-testing/librispeech_asr_dummy/resolve/main/clean/validation-00000-of-00001.parquet?download=true"
+                    rename_command = \
+                        f"mv {self.tmp_path}/*validation* {self.tmp_path}/validation-00000-of-00001.parquet"
                     subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     subprocess.run(rename_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True)
                 success_sig = True
                 retry = False
-                ds = load_dataset(tmp_path)
+                ds = load_dataset(self.tmp_path)
                 speech_samples = ds.sort("id")["validation"][:num_samples]["audio"]
                 return [x["array"] for x in speech_samples]
             except Exception as e:
-                rm_command = f"rm -rf {tmp_path}/*validation*"
+                rm_command = f"rm -rf {self.tmp_path}/*validation*"
                 subprocess.run(rm_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 print(f"test_audio_utils.py has error {e} when download data.")
                 if count >= 3:

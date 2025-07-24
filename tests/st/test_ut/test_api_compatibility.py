@@ -69,7 +69,8 @@ def is_not_compatibility(base_str, new_str):
 
     # output params
     if base_out_params != new_out_params:
-        if re.search("tuple.*common.tensor.Tensor.*common.tensor.Tensor.", base_out_params):  # special case
+        if re.search("tuple.*common.tensor.Tensor.*common.tensor.Tensor.", base_out_params) or \
+                re.search("tuple.*common.tensor.Tensor.*common.tensor.Tensor.", new_out_params):  # special case
             return False
         return True
 
