@@ -24,7 +24,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
-from mindformers.parallel_core.inference.weights_utils import WeightUtils
+from mindformers.parallel_core.inference.weights_utils import WeightsLoader
 
 
 class InferModelMixin(ModelMixin):
@@ -60,7 +60,7 @@ class InferModelMixin(ModelMixin):
         self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
                         dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
-        logger.info("Set dynamic input for model.")
+        logger.info(f"Set dynamic input for {self.__class__.__name__}")
 
     def add_flags_custom_mcore(self, is_prefill):
         r"""
@@ -121,7 +121,7 @@ class InferModelMixin(ModelMixin):
             weights_path: The path of weights.
 
         """
-        weight_utils = WeightUtils()
+        weights_loader = WeightsLoader(weights_path)
         param_json_path = ""
         for file in os.listdir(weights_path):
             if file.endswith('index.json'):
@@ -154,8 +154,8 @@ class InferModelMixin(ModelMixin):
             if self.convert_name is not None:
                 mf_name = self.convert_name(weight_name)
                 net_name = self.convert_net_name(mf_name, self.config)
-                weight_utils.mapping_dict.update({weight_name: (net_name, weight_file)})
+                weights_loader.mapping_dict.update({weight_name: (net_name, weight_file)})
                 mf_name = mf_name.split('.')[-2]
-                if mf_name not in weight_utils.mf_hf_mapping.keys():
-                    weight_utils.mf_hf_mapping[mf_name] = weight_name.split('.')[-2]
-        self.model.load_weights(weights_path, weight_utils)
+                if mf_name not in weights_loader.mf_hf_mapping.keys():
+                    weights_loader.mf_hf_mapping[mf_name] = weight_name.split('.')[-2]
+        self.model.load_weights(weights_loader)

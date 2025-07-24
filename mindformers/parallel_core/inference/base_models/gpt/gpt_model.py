@@ -15,11 +15,11 @@
 """GPT Transformer language model"""
 from typing import Literal, Optional
 import gc
+import re
 from tqdm import tqdm
 
 import mindspore as ms
 from mindspore import nn, ops, mint
-from mindspore.communication.management import get_rank
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -35,30 +35,27 @@ from mindformers.tools.logger import logger
 
 
 _convert_map = {
-    "embedding.word_embeddings.": "split_by_tp_rank_columns",
-    "self_attention.linear_qkv": "split_qkv_weight",
-    "linear_qkv.bias": "split_qkv_weight",
-    "self_attention.linear_proj": "split_by_tp_rank_rows",
-    "mlp.linear_fc1": "split_ffn_weight",
-    "mlp.linear_fc2": "split_by_tp_rank_rows",
-    "input_layernorm": "not_split",
-    "pre_mlp_layernorm": "not_split",
-    "decoder.final_layernorm": "not_split",
-    "output_layer": "split_by_tp_rank_columns",
-    "self_attention.q_layernorm": "not_split",
-    "self_attention.k_layernorm": "not_split",
-    "router.weight.weight": "not_split",
-    "experts.weight1": "split_router_expert_weight1",
-    "experts.weight2": "split_router_expert_weight2",
-    "self_attention.linear_qkv_down_proj": "split_linear_qkv_down_proj",
-    "self_attention.linear_q_proj": "split_by_tp_rank_columns",
-    "self_attention.linear_kv_down_proj": "split_linear_kv_down_proj",
-    "self_attention.kv_layernorm": "not_split",
-    "self_attention.linear_q_up_proj": "split_linear_q_up_proj",
-    "self_attention.linear_kv_up_proj": "split_linear_kv_up_proj",
-    "router.expert_bias": "not_split",
-    "shared_experts.linear_fc1": "split_shared_experts",
-    "shared_experts.linear_fc2": "split_by_tp_rank_rows"
+    ("embedding.word_embeddings", "output_layer", "self_attention.linear_q_proj"): "split_by_tp_rank_columns",
+
+    ("self_attention.linear_qkv", "linear_qkv.bias",
+     "mlp.linear_fc1", "shared_experts.linear_fc1"): "add_qkv_ffn_weight_into_dict",
+
+    ("self_attention.linear_proj", "mlp.linear_fc2", "shared_experts.linear_fc2"): "split_by_tp_rank_rows",
+
+    ("input_layernorm", "pre_mlp_layernorm", "decoder.final_layernorm",
+     "self_attention.q_layernorm", "self_attention.k_layernorm",
+     "router.weight.weight", "self_attention.kv_layernorm",
+     "router.expert_bias"): "not_split",
+
+    ("experts.weight1",): "add_router_expert_weight1_into_dict",
+
+    ("experts.weight2",): "add_router_expert_weight2_into_dict",
+
+    ("self_attention.linear_qkv_down_proj", "self_attention.linear_kv_down_proj"): "add_linear_kv_down_proj_into_dict",
+
+    ("self_attention.linear_q_up_proj",): "add_linear_q_up_proj_into_dict",
+
+    ("self_attention.linear_kv_up_proj",): "add_linear_kv_up_proj_into_dict",
 }
 
 
@@ -263,77 +260,124 @@ class GPTModel(nn.Cell):
         logits = self.cast(logits.squeeze(0), mstype.float32)
         return logits
 
-    def load_weights(self, weights_path, weight_utils):
+    def load_weights(self, weights_loader):
         r"""
         The weight is processed in modules, and the weight is cut online and loaded.
 
         Args:
-           weights_path: The path of weights.
-           weight_utils: An instance of WeightsUtils.
+           weights_loader: An instance of WeightsUtils.
 
         """
-        global_rank_id = get_rank()
-
+        network_not_load = []
         weights_not_load = []
 
-        all_weights_keys = set(weight_utils.mapping_dict.keys())
+        all_weights_keys = set(weights_loader.mapping_dict.keys())
+        warned_layers = set()
+        pattern = re.compile(r'\.')
 
-        # Weights of Transformer Layers
-        enable_tqdm = global_rank_id == 0
-        pbar = tqdm(range(self.config.num_layers), desc="Weight loading", disable=not enable_tqdm)
-        for layer_id in pbar:
-            weight_utils.parameter_dict = {}
-            layer_prefixes = (f'model.layers.{layer_id}.', f'decoder.layers.{layer_id}.')
-            layer_keys = []
-            for k in all_weights_keys:
-                for prefix in layer_prefixes:
-                    if k.startswith(prefix):
-                        layer_keys.append(k)
-                        break
-            self._deal_weight_dict(weight_utils, layer_keys, weights_path)
-            _, weight_not_load = ms.load_param_into_net(self.decoder.layers[layer_id], weight_utils.parameter_dict)
-            if weight_not_load is not None:
-                weights_not_load.extend(weight_not_load)
-            gc.collect()
-            pbar.set_postfix({"current_layer": layer_id})
+        with tqdm(total=len(all_weights_keys), desc="Loading weights") as pbar:
+            while all_weights_keys:
+                weight_key = next(iter(all_weights_keys))
+                if not (weight_key.endswith("weight") or weight_key.endswith("bias")):
+                    all_weights_keys.remove(weight_key)
+                    weights_not_load.append(weight_key)
+                    pbar.update(1)
+                    continue
+                parts = pattern.split(weight_key)
+                layer_id = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+                if layer_id is not None:
+                    if layer_id >= self.config.num_layers:
+                        if layer_id not in warned_layers:
+                            logger.warning(f'Layer {layer_id} exceeds network depth, skipping weights.')
+                            warned_layers.add(layer_id)
+                        all_weights_keys.remove(weight_key)
+                        pbar.update(1)
+                        continue
+                    layer_prefixes = (f'model.layers.{layer_id}.', f'decoder.layers.{layer_id}.')
+                    layer_keys = {k for k in all_weights_keys if k.startswith(layer_prefixes)}
+                    self._deal_weight_dict(weights_loader, layer_keys, weights_not_load)
+                    net_not_load, _ = ms.load_param_into_net(
+                        self.decoder.layers[layer_id], weights_loader.parameter_dict)
+                    if net_not_load:
+                        network_not_load.append(net_not_load)
+                    all_weights_keys -= layer_keys
+                    gc.collect()
+                    pbar.update(len(layer_keys))
+                    pbar.set_postfix({"current": f"layer_{layer_id}"})
 
-        # # Weights of word_embaddings, output_layer, final_layernorm
-        out_layer_keys = all_weights_keys - weight_utils.processed_weights_keys
-        if out_layer_keys:
-            weight_utils.parameter_dict = {}
-            self._deal_weight_dict(weight_utils, out_layer_keys, weights_path)
-            _, weight_not_load = ms.load_param_into_net(self, weight_utils.parameter_dict)
-            if weight_not_load is not None:
-                weights_not_load.extend(weight_not_load)
-            gc.collect()
+                else:
+                    net_name = weights_loader.mapping_dict.get(weight_key)[0]
+                    matched_key = self.find_matching_key(net_name)
+                    if matched_key == 'decoder.final_layernorm':
+                        self._update_weight_dict(matched_key, weight_key, weights_loader)
+                        net_not_load, _ = ms.load_param_into_net(
+                            self.decoder.final_layernorm, weights_loader.parameter_dict)
+                        if net_not_load:
+                            network_not_load.append(net_not_load)
+                    elif matched_key == 'output_layer':
+                        self._update_weight_dict(matched_key, weight_key, weights_loader)
+                        net_not_load, _ = ms.load_param_into_net(
+                            self.output_layer, weights_loader.parameter_dict)
+                        if net_not_load:
+                            network_not_load.append(net_not_load)
+                    elif matched_key == 'embedding.word_embeddings':
+                        self._update_weight_dict(matched_key, weight_key, weights_loader)
+                        net_not_load, _ = ms.load_param_into_net(
+                            self.embedding.word_embeddings, weights_loader.parameter_dict)
+                        if net_not_load:
+                            network_not_load.append(net_not_load)
+                    else:
+                        weights_not_load.append(weight_key)
 
-        net_not_load = all_weights_keys - weight_utils.processed_weights_keys
-        if net_not_load is not None:
-            net_not_load = [weight_utils.mapping_dict[key] for key in net_not_load]
-            logger.warning(f'These parameters are not loaded in the network: {net_not_load}')
-        if weights_not_load is not None:
+                    all_weights_keys.remove(weight_key)
+                    gc.collect()
+                    pbar.update(1)
+                    pbar.set_postfix({"current": matched_key or "other"})
+
+            logger.warning(f'These parameters are not loaded in the network: {network_not_load}')
             logger.warning(f'These parameters are not loaded in the weights: {weights_not_load}')
 
-    def _deal_weight_dict(self, weight_utils, keys, weights_path):
-        """Processes and converts weight dictionary from source format to target model format.
+    def _update_weight_dict(self, matched_key, weight_key, weights_loader):
+        net_name = weights_loader.mapping_dict.get(weight_key)[0]
+        file = weights_loader.mapping_dict.get(weight_key)[1]
+        src_keys_dict = {weight_key: file}
+        func = next((v for k, v in _convert_map.items() if matched_key in k), None)
+        getattr(weights_loader, func)(src_keys_dict, net_name, self.config)
+
+    def _deal_weight_dict(self, weights_loader, keys, weights_not_load):
+        """Process weight dictionary and load matching weights into the model.
+
         Args:
-            weight_utils: Helper class instance containing weight conversion methods.
-            keys: Source weight keys/names to be processed.
-            weights_path (str): Path to the source weights file.
+            weights_loader (object): Helper object that contains weight loading utilities and mapping information
+            keys (list): List of weight names to be processed
+            weights_not_load (list): Output list that will contain names of weights that failed to load
 
         """
+        processed_weights_keys = set()
         for weight_name in keys:
-            if weight_name not in weight_utils.processed_weights_keys:
-                net_name = weight_utils.mapping_dict.get(weight_name)[0]
-                matched_keys = [k for k in _convert_map if k in net_name]
-                matched_key = max(matched_keys, key=len) if matched_keys else None
+            if weight_name not in processed_weights_keys:
+                net_name = weights_loader.mapping_dict.get(weight_name)[0]
+                matched_key = self.find_matching_key(net_name)
                 if matched_key:
                     src_keys = [
                         key
-                        for key in weight_utils.mapping_dict
-                        if weight_utils.mapping_dict[key][0] == net_name
+                        for key in weights_loader.mapping_dict
+                        if weights_loader.mapping_dict[key][0] == net_name
                     ]
-                    files = [weight_utils.mapping_dict[key][1] for key in src_keys]
+                    files = [weights_loader.mapping_dict[key][1] for key in src_keys]
                     src_keys_dict = dict(zip(src_keys, files))
-                    getattr(weight_utils, _convert_map[matched_key])(src_keys_dict, net_name, weights_path, self.config)
-                    weight_utils.processed_weights_keys.update(src_keys)
+                    func = next((v for k, v in _convert_map.items() if matched_key in k), None)
+                    getattr(weights_loader, func)(src_keys_dict, net_name, self.config)
+                    processed_weights_keys.update(src_keys)
+                else:
+                    weights_not_load.append(weight_name)
+
+    def find_matching_key(self, net_name):
+        matched_keys = []
+        for key_tuple in _convert_map:
+            for pattern in key_tuple:
+                if pattern in net_name:
+                    matched_keys.append(pattern)
+        if matched_keys:
+            return max(matched_keys, key=len)
+        return None
