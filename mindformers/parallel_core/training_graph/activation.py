@@ -59,13 +59,12 @@ class SwiGlu(nn.Cell):
         """
         dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config and config.context_parallel_size is not None else 1
-        compute_2d = config.sequence_parallel and cp == 1 and not config.multi_latent_attention
 
-        silu_in_strategy = ((cp, dp, 1),) if not compute_2d else ((dp, 1),)
+        silu_in_strategy = ((cp, dp, 1),)
         self.silu.shard(silu_in_strategy)
-        slice_in_strategy = ((cp, dp, 1),) if not compute_2d else ((dp, 1),)
+        slice_in_strategy = ((cp, dp, 1),)
         self.slice.shard(slice_in_strategy)
-        mul_in_strategy = ((cp, dp, 1), (cp, dp, 1)) if not compute_2d else ((dp, 1), (dp, 1))
+        mul_in_strategy = ((cp, dp, 1), (cp, dp, 1))
         self.mul.shard(mul_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):
@@ -131,20 +130,19 @@ class GELU(nn.Cell):
         dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config and config.context_parallel_size is not None else 1
         tp = config.tensor_model_parallel_size if config and config.tensor_model_parallel_size is not None else 1
-        compute_2d = config.sequence_parallel and cp == 1 and not config.multi_latent_attention
         if self.approximate:
-            gelu_in_strategy = ((cp, dp, tp),) if not compute_2d else ((dp, tp),)
+            gelu_in_strategy = ((cp, dp, tp),)
             self.gelu.shard(gelu_in_strategy)
         else:
-            div_in_strategy = ((cp, dp, tp), ()) if not compute_2d else ((dp, tp), ())
+            div_in_strategy = ((cp, dp, tp), ())
             self.div.shard(div_in_strategy)
-            erf_in_strategy = ((cp, dp, tp), ()) if not compute_2d else ((dp, tp), ())
+            erf_in_strategy = ((cp, dp, tp), ())
             self.erf.shard(erf_in_strategy)
-            add_erf_in_strategy = ((), (cp, dp, tp)) if not compute_2d else ((), (dp, tp))
+            add_erf_in_strategy = ((), (cp, dp, tp))
             self.add_erf.shard(add_erf_in_strategy)
-            mul_const_in_strategy = ((cp, dp, tp), ()) if not compute_2d else ((dp, tp), ())
+            mul_const_in_strategy = ((cp, dp, tp), ())
             self.mul_const.shard(mul_const_in_strategy)
-            mul_tensor_in_strategy = ((cp, dp, tp), (cp, dp, tp)) if not compute_2d else ((dp, tp), (dp, tp))
+            mul_tensor_in_strategy = ((cp, dp, tp), (cp, dp, tp))
             self.mul_tensor.shard(mul_tensor_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):
@@ -181,8 +179,7 @@ class SiLU(nn.Cell):
         """
         dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config and config.context_parallel_size is not None else 1
-        compute_2d = config.sequence_parallel and cp == 1 and not config.multi_latent_attention
-        silu_in_strategy = ((cp, dp, 1),) if not compute_2d else ((dp, 1),)
+        silu_in_strategy = ((cp, dp, 1),)
         self.silu.shard(silu_in_strategy)
 
     def sharding_propagation(self, config: ModelParallelConfig):

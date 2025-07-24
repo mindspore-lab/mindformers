@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
 from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
-from mindformers.tools.logger import logger
 
 
 @dataclass
@@ -178,9 +177,6 @@ class ModelParallelConfig:
         self.params_dtype = convert_str_to_mstype(self.params_dtype)
 
         if self.sequence_parallel and self.tensor_model_parallel_size <= 1:
-            logger.warning(
-                "Sequence parallelism can't be enabled without tensor parallelism. Set to False."
-            )
-            self.sequence_parallel = False
+            raise ValueError("Can not use sequence paralllelism without tensor parallelism")
 
 default_dpmp_config = ModelParallelConfig()
