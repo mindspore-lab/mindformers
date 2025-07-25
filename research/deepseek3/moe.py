@@ -62,7 +62,7 @@ except ImportError:
 
 
 dtype_map = {
-    'float16': mstype.float32,
+    'float16': mstype.float16,
     'float32': mstype.float32,
     'bfloat16': mstype.bfloat16
 }
@@ -1070,27 +1070,7 @@ class ParallelMoEV2(nn.Cell):
     def construct(self, input_tensor):
         """forward process"""
         gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
-        if self.need_nz:
-            score = mint.sigmoid(gating_logits)
-            origin_score = score
-
-            # bias
-            score = score + self.router.e_score_correction_bias
-            # n_group
-            score = self.reshape(score, (self.shape(input_tensor)[0], self.n_group, -1))
-            group_score = mint.topk(score, 2, dim=-1)[0].sum(axis=-1)        # 每个组选2两个，求和作为代表，代表整个组
-            group_idx = mint.topk(group_score, self.topk_group, dim=-1)[1]  # 从8个组，调出4个组
-
-            mask = mint.zeros_like(score[:,:,0]).scatter(1, group_idx, True)
-            score = (score * mask.unsqueeze(-1)).flatten(start_dim=1)           # 这里的mask是指把之前不入选的后4个组的score都置0
-
-            # topk
-            expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1] # 从选出来的前4组，取要的topk
-            expert_index = self.cast(expert_index, mstype.int32)
-            weight = origin_score.gather(expert_index, 1, 1)
-            expert_weight = self.div(weight, self.add(mint.sum(weight, -1, True), 1e-9))     # sigmoid再归一化
-            expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_tensor.dtype)
-        elif self.fused_valid:
+        if self.fused_valid:
             gating_logits = self.cast(gating_logits, mstype.float32)
             expert_weight, expert_index = \
                 self.fused_add_topk_div(
@@ -1121,32 +1101,16 @@ class ParallelMoEV2(nn.Cell):
             expert_weight = self.div(weight, mint.sum(weight, -1, True))
             expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_tensor.dtype)
 
-        # TODO: moe_init_routing_v2 in 310P do not support long sequence
-        if self.need_nz:
-            if self.is_first_iteration:
-                sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)  # 全局sorted_in
-            else:
-                sorted_input_tensor, unsort_map, group_list, _ = \
-                self.moe_init_routing_v2(
-                    input_tensor,
-                    expert_index,
-                    active_num=0,
-                    expert_capacity=0,
-                    expert_num=self.expert_num,
-                    drop_pad_mode=0,
-                    expert_tokens_count_or_cumsum_flag=1,
-                    expert_tokens_before_capacity_flag=False)
-        else:
-            sorted_input_tensor, unsort_map, group_list, _ = \
-                self.moe_init_routing_v2(
-                    input_tensor,
-                    expert_index,
-                    active_num=0,
-                    expert_capacity=0,
-                    expert_num=self.expert_num,
-                    drop_pad_mode=0,
-                    expert_tokens_count_or_cumsum_flag=2,
-                    expert_tokens_before_capacity_flag=True)
+        sorted_input_tensor, unsort_map, group_list, _ = \
+        self.moe_init_routing_v2(
+            input_tensor,
+            expert_index,
+            active_num=0,
+            expert_capacity=0,
+            expert_num=self.expert_num,
+            drop_pad_mode=0,
+            expert_tokens_count_or_cumsum_flag=1 if self.need_nz else 2,
+            expert_tokens_before_capacity_flag=False if self.need_nz else True)
         group_list = self.cast(group_list, mstype.int64)
 
         expert_output = self.ffn(sorted_input_tensor, group_list)
