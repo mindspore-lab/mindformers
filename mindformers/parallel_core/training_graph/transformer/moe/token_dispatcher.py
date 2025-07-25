@@ -21,7 +21,7 @@ import mindspore.ops as ops
 import mindspore.mint as mint
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt, IndexSelect
+from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -120,8 +120,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
 
         # compute parameters
-        self.on_value = Tensor(1.0, dtype=ms.float32)
-        self.off_value = Tensor(0.0, dtype=ms.float32)
+        self.on_value = Tensor(1.0, dtype=ms.int32)
+        self.off_value = Tensor(0.0, dtype=ms.int32)
         self.pad_tokens = Tensor(np.zeros((1, self.expert_num, self.hidden_size)), dtype=ms.bfloat16)
         self.pad_routing_map = Tensor(np.tile(np.arange(self.expert_num), (1, 1)), dtype=ms.int32)
 
@@ -195,8 +195,9 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             routing_map,
         )
 
-        num_tokens_per_expert = ops.sum(ops.OneHot()(
+        num_tokens_per_expert = ops.sum(OneHotExt()(
             reshaped_map.astype(ms.int32), self.expert_num, self.on_value, self.off_value), 1)
+        num_tokens_per_expert = Cast()(num_tokens_per_expert, ms.float32)
         unsort_pad_map = 0
         if self.use_pad_tokens:
             permuted_input, routing_map, num_tokens_per_expert, unsort_pad_map = self._process_pad_tokens(

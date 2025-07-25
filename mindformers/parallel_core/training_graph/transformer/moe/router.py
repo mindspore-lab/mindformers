@@ -20,9 +20,9 @@ from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.mint.nn.functional import linear
-from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt
+from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt
 # these ops are not supported in auto_generate
-from mindspore.ops.operations import Shape, ReduceSum, ReduceMean, OneHot
+from mindspore.ops.operations import Shape, ReduceSum, ReduceMean
 from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -89,8 +89,8 @@ class TopKRouter(Router):
         self.reshape = Reshape()
         self.cast = Cast()
         # constant values for mask
-        self.on_value = Tensor(1.0, dtype=mstype.float32)
-        self.off_value = Tensor(0.0, dtype=mstype.float32)
+        self.on_value = Tensor(1.0, dtype=mstype.int32)
+        self.off_value = Tensor(0.0, dtype=mstype.int32)
         # for scaling factor
         self.mul = Mul()
         # normalize
@@ -114,7 +114,7 @@ class TopKRouter(Router):
                                          requires_grad=False, parallel_optimizer=False)
             self.assign_add = AssignAdd()
             self.assign_add.recompute(False)
-            self.onehot_2d = OneHot()
+            self.onehot_2d = OneHotExt()
             self.reduce_mean = ReduceMean(keep_dims=False)
             self.afb_reduce_mean = ReduceMean(keep_dims=False)
             self.afb_topk = TopkExt()
@@ -127,7 +127,7 @@ class TopKRouter(Router):
         self.reduce_mean_aux_3d = ReduceMean(keep_dims=False)
         self.reduce_mean_aux_2d = ReduceMean(keep_dims=False)
         self.mul_aux_2d = Mul()
-        self.onehot_aux = OneHot()
+        self.onehot_aux = OneHotExt()
         self.mul_noshard = Mul()
         self.add_loss = AddExt()
         self.aux_loss_config = dict(zip(config.aux_loss_types, config.aux_loss_factors))
@@ -199,6 +199,7 @@ class TopKRouter(Router):
         """update experts load balance."""
         expert_index = self.reshape(expert_index, (expert_index.shape[0], -1))
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)
+        expert_mask = self.cast(expert_mask, mstype.float32)
         expert_load_data = self.reduce_mean(expert_mask, 1)
         expert_load_data = self.afb_reduce_mean(expert_load_data, 0)
         self.assign_add(self.expert_load, expert_load_data)
@@ -214,6 +215,7 @@ class TopKRouter(Router):
         top_indices = self.reshape(top_indices, (top_indices.shape[0], -1))
         # (dp, kN, E)fp32 <-- (dp, kN)int32
         mask = self.onehot_aux(top_indices, self.expert_dim, self.on_value, self.off_value)
+        mask = self.cast(mask, mstype.float32)
         # The shape change is: (dp, E) <- (dp, kN, E)
         fi = self.reduce_mean_aux_3d(mask, 1)
         # The shape change is: p*f  (dp) <- (dp, E)
