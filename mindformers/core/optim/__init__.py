@@ -14,12 +14,12 @@
 # ============================================================================
 """MindFormers Optimizer."""
 from typing import Union
-from mindspore import Parameter
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .build_optim import build_optim
 from .came import Came
 from .adamw import AdamW as BasicAdamW
 from .fused_adamw import FusedAdamW
+from .pma_adamw import PmaAdamW
 
 __all__ = ['AdamW']
 
