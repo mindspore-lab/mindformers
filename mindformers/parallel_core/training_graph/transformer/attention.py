@@ -134,7 +134,6 @@ class Attention(nn.Cell):
         self.n_rep = self.num_heads // self.kv_num_heads
         self.layer_number = max(1, layer_number)
         self.norm_factor = math.sqrt(self.head_dim)
-        self.compute_2d = (config.sequence_parallel and self.cp == 1)
         self.seq_length = config.seq_length
         self.pre_tokens = 2147483647 if self.config.attention_pre_tokens is None else self.config.attention_pre_tokens
         self.next_tokens = 0 if self.config.attention_next_tokens is None else self.config.attention_next_tokens
@@ -240,12 +239,7 @@ class Attention(nn.Cell):
     ):
         """ Construct function of attention block."""
         ori_dtype = hidden_states.dtype
-        if self.compute_2d:
-            bs_seq, _ = self.shape(hidden_states)
-            seq_len = self.seq_length
-            bs = bs_seq // seq_len
-        else:
-            seq_len, bs, _ = self.shape(hidden_states)
+        seq_len, bs, _ = self.shape(hidden_states)
 
         # apply query, key, value projection
         query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
@@ -350,11 +344,7 @@ class Attention(nn.Cell):
         """
         x = self.merge_head_transpose(x, (0, 2, 1, 3))  # dp,tp,cp,1 -> dp,cp,tp,1
         bs, seq_len, n_head, head_dim = self.shape(x)
-
-        if self.compute_2d:
-            new_shape = (bs * seq_len, n_head * head_dim)
-        else:
-            new_shape = (bs, seq_len, n_head * head_dim)
+        new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -448,7 +438,7 @@ class Attention(nn.Cell):
         self.cat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
 
         if config.sequence_parallel and cp == 1:
-            self.linear_proj.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
+            self.linear_proj.matmul.shard(in_strategy=((dp, tp), (tp, 1)), out_strategy=((dp * tp, 1),))
 
 
 class SelfAttentionContiguous(Attention):
@@ -527,12 +517,7 @@ class SelfAttentionContiguous(Attention):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
-        if self.compute_2d:
-            bs_seq, _ = self.shape(hidden_states)
-            seq_len = self.seq_length
-            bs = bs_seq // seq_len
-        else:
-            seq_len, bs, _ = self.shape(hidden_states)
+        seq_len, bs, _ = self.shape(hidden_states)
 
         qkv, _ = self.linear_qkv(hidden_states)
         qkv = self.cast(qkv, self.compute_dtype)
@@ -647,12 +632,7 @@ class SelfAttention(Attention):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
-        if self.compute_2d:
-            bs_seq, _ = self.shape(hidden_states)
-            seq_len = self.seq_length
-            bs = bs_seq // seq_len
-        else:
-            seq_len, bs, _ = self.shape(hidden_states)
+        seq_len, bs, _ = self.shape(hidden_states)
 
         qkv, _ = self.linear_qkv(hidden_states)
         qkv = self.cast(qkv, self.compute_dtype)

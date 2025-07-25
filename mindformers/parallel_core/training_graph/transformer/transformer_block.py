@@ -16,10 +16,8 @@
 from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor, dtype as mstype
-from mindspore.ops import operations as P
-from mindspore.ops.auto_generate import Reshape
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
-from mindformers.parallel_core.training_graph.transformer.norm import get_norm_cls
+from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import BaseTransformerLayer
@@ -71,7 +69,7 @@ def _get_block_submodules(
         if issubclass(spec.module, BaseTransformerLayer):
             num_layers = config.num_layers
             return TransformerBlockSubmodules(
-                layer_specs=[spec] * num_layers, layer_norm=get_norm_cls(config.fused_norm)
+                layer_specs=[spec] * num_layers, layer_norm=FusedNorm
                 # Only implements the FusedLayerNorm method for benchmarking purposes.
             )
         raise Exception(f"specialize for {spec.module.__name__}.")
@@ -127,7 +125,6 @@ class TransformerBlock(nn.Cell):
         self.post_layer_norm = post_layer_norm
         self.num_layers = config.num_layers
         cp = 1 if config is None else config.context_parallel_size
-        self.compute_2d = (config.sequence_parallel and cp == 1)
         if config.sequence_parallel and cp > 1:
             logger.warning("The context paralley way conflicts with sequence with sequence parallel way."
                            "The sequence parallel way has no effect and ignored.")
@@ -138,9 +135,6 @@ class TransformerBlock(nn.Cell):
 
         self._build_layers(config)
 
-        self.shape = P.Shape()
-        self.reshape_2d = Reshape()
-        self.reshape_back = Reshape()
         self.init_extra_loss = Tensor([0], mstype.float32)
 
         self.shard(config)
@@ -178,12 +172,6 @@ class TransformerBlock(nn.Cell):
                   prefix_keys_values=None,
                   actual_seq_len=None):
         """ Construct function of transformer. """
-        seq_len, bs, hs = self.shape(hidden_states)
-        if self.compute_2d and not self.config.multi_latent_attention:
-            hidden_states = self.reshape_2d(hidden_states, (-1, hs))
-            if seq_len != self.seq_length_in_cfg:
-                raise ValueError("config.seq_length is not equal to sequence length of input!")
-
         extra_loss = self.init_extra_loss
         for index in range(self.num_layers):
             layer = self._get_layer(index)
@@ -206,9 +194,6 @@ class TransformerBlock(nn.Cell):
         if self.post_layer_norm:
             hidden_states = self.final_layernorm(hidden_states)
 
-        if self.compute_2d and not self.config.multi_latent_attention:
-            hidden_states = self.reshape_back(hidden_states, (bs, seq_len, -1))
-
         return hidden_states, extra_loss
 
     def shard(self, config: TransformerConfig):
@@ -216,11 +201,9 @@ class TransformerBlock(nn.Cell):
         dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config.context_parallel_size is not None else 1
         tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+
         if self.post_layer_norm:
-            if config.sequence_parallel and cp == 1:
-                if config.multi_latent_attention:
-                    self.final_layernorm.shard(config, in_strategy=(tp, dp, 1))
-                else:
-                    self.final_layernorm.shard(config, in_strategy=(dp * cp, 1))
+            if config.sequence_parallel or cp > 1:
+                self.final_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
             else:
-                self.final_layernorm.shard(config, in_strategy=(cp, dp, 1))
+                self.final_layernorm.shard(config, in_strategy=(1, dp, 1))
