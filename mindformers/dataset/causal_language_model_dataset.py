@@ -271,7 +271,7 @@ class CausalLanguageModelDataset(BaseDataset):
         >>> # Note:
         >>> #     `"/path/to/dataset"` should be replaced with the real path of the dataset file.
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm4.md
+        >>> #     https://gitee.com/mindspore/mindformers/blob/master/docs/model_cards/glm4.md
         >>> data_loader = MindDataset(dataset_files="/path/to/dataset", shuffle=True)
         >>> dataset_from_param = CausalLanguageModelDataset(data_loader=data_loader,
         ...                                                 input_columns=["input_ids", "attention_mask"])

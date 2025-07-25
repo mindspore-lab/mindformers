@@ -66,7 +66,7 @@ DeepSeek-V3所依赖的版本配套如下：
 |:-----------:|:---------:|:----:|:-----:|
 |    在研版本     |   在研版本    | 在研版本 | 在研版本  |
 
-环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html)。
+环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html)。
 
 ## 模型权重下载
 
