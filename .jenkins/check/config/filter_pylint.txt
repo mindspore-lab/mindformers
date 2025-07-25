@@ -1,5 +1,4 @@
 "mindformers/tests/st/test_model/test_model_configs.py"                                                                       "unused-variable"
-"mindformers/mindformers/dataset/transforms/audio_utils.py"                                                                   "redefined-outer-name"
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "bad-continuation"
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "missing-final-newline"
 "mindformers/mindformers/experimental/graph/transformer/spec_utils.py"                                                        "missing-docstring"
