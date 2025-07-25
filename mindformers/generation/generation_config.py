@@ -217,7 +217,6 @@ class GenerationConfig:
 
         config = cls(**{**config_dict, **kwargs})
         unused_kwargs = config.update(**kwargs)
-        logger.debug("Generate config %s", config)
         if return_unused_kwargs:
             return config, unused_kwargs
         return config
