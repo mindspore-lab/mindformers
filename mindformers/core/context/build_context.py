@@ -98,7 +98,6 @@ class MSContextOperator:
     def __init__(self, config):
         self.config = config
         ms_kwargs = self._handle_data()
-        logger.debug('MSContextConfig load configs: %s', ms_kwargs)
         self.set_context(**ms_kwargs)
 
     def _handle_data(self):
