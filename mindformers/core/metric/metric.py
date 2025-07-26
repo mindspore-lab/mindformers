@@ -28,6 +28,7 @@ import mindspore as ms
 from mindspore.ops import operations as P
 from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.logger import logger
 from mindformers.core.loss import CrossEntropyLoss
 
 from .utils import PerplexityCell
@@ -311,8 +312,7 @@ class ADGENMetric(nn.Metric):
             preds = preds[0]
 
         for pred, label in zip(preds, labels):
-            print(f"pred is:\n {pred}\n",
-                  f"label is:\n {label}")
+            logger.info(f"pred is:\n {pred}\nlabel is:\n {label}")
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
             hypothesis_str = ' '.join(hypothesis)
