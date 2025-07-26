@@ -507,14 +507,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
         loss_parallel_config.data_parallel *= loss_parallel_config.context_parallel
-        monitor_config = getattr(config, "monitor_config", None)
-        monitor_on = getattr(monitor_config, "monitor_on", False)
-        check_for_nan_in_loss_and_grad = monitor_on and bool(getattr(monitor_config, "local_loss_format", None))
-        monitor_device_local_loss = monitor_on and bool(getattr(monitor_config, "device_local_loss_format", None))
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                     monitor_device_local_loss=monitor_device_local_loss,
                                      calculate_per_token_loss=calculate_per_token_loss,
                                      seq_split_num=config.parallel_config.seq_split_num)
 

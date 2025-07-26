@@ -953,22 +953,19 @@ class BaseTrainer:
         # build network
         logger.info(".........Build Net For Train..........")
         if network is None and self.network is None:
-            monitor_config = getattr(config, "monitor_config", None)
             calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
             if config.load_checkpoint:
                 network = self.create_network_without_param_init(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config,
                                   "dataset_config": config.train_dataset,
-                                  "calculate_per_token_loss": calculate_per_token_loss,
-                                  "monitor_config": monitor_config})
+                                  "calculate_per_token_loss": calculate_per_token_loss})
             else:
                 network = self.create_network(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config,
                                   "dataset_config": config.train_dataset,
                                   "calculate_per_token_loss": calculate_per_token_loss,
-                                  "monitor_config": monitor_config,
                                   "batch_size": self.config.runner_config.mini_batch_size})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)

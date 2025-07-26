@@ -44,6 +44,7 @@ from mindformers.models.utils import WEIGHTS_NAME
 from mindformers.tools.utils import (
     set_output_path,
     set_strategy_save_path,
+    set_context,
     check_in_modelarts,
     get_real_rank,
     get_real_group_size,
@@ -337,6 +338,10 @@ class Trainer:
                 dump_local_norm=bool(monitor_config.get('local_norm_format')),
                 dump_device_local_norm=bool(monitor_config.get('device_local_norm_format'))
             )
+            if monitor_config.local_loss_format:
+                set_context(monitor_local_loss=True)
+            if monitor_config.device_local_loss_format:
+                set_context(monitor_device_local_loss=True)
             for callback in self.config.callbacks:
                 if "type" in callback and callback["type"] == "TrainingStateMonitor":
                     callback['config'] = monitor_config

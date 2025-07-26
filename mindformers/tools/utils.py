@@ -829,6 +829,14 @@ def get_context(attr_key, default_value=None):
     return default_value
 
 
+def set_context(run_mode=None, **kwargs):
+    context_module = import_module("mindformers.core.context.build_context")
+    if context_module.Context.is_exists():
+        context_module.set_context(run_mode=run_mode, **kwargs)
+        return
+    raise RuntimeError("Build a Context instance before set_context().")
+
+
 def get_ascend_log_path():
     """Get Ascend log path: $ASCEND_PROCESS_LOG_PATH > $ASCEND_WORK_PATH/log > default($HOME/ascend/log)"""
     ascend_log_path = os.getenv('ASCEND_PROCESS_LOG_PATH')

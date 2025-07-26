@@ -514,6 +514,8 @@ class MFContextConfig(BaseArgsConfig):
         'resume_training',
         'use_graceful_exit',
         'affinity_cpu_list',
+        'monitor_local_loss',
+        'monitor_device_local_loss',
         'profile',
         'profile_level',
         'profile_start_step',
