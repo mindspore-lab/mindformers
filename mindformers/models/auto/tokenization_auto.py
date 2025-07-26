@@ -31,7 +31,6 @@ from mindformers.tools import (
     extract_commit_hash,
 )
 from mindformers.tools.hub import get_class_from_dynamic_module, resolve_trust_remote_code
-from mindformers.tools.utils import check_path_is_valid
 from mindformers.utils.import_utils import is_sentencepiece_available, is_tokenizers_available
 from mindformers.tools.logger import logger
 from mindformers.models.auto.configuration_auto import (
@@ -58,9 +57,6 @@ def is_experimental_mode(path):
     experimental_mode = False
 
     is_exist = os.path.exists(path)
-    if is_exist and not check_path_is_valid(path):
-        raise ValueError(f"The value of path in AutoTokenizer.from_pretrained() is {path}, "
-                         f"it is not valid, please check and reset it.")
     is_dir = os.path.isdir(path)
     if is_dir:
         yaml_list = [file for file in os.listdir(path) if file.endswith(".yaml")]
@@ -350,7 +346,7 @@ class AutoTokenizer:
     @classmethod
     def get_class_from_origin_mode(cls, yaml_name_or_path, **kwargs):
         """original logic: from yaml."""
-        from mindformers import MindFormerRegister
+        from mindformers.tools import MindFormerRegister
 
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
