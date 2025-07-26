@@ -18,7 +18,7 @@ AutoConfig, AutoModel, AutoProcessor, AutoTokenizer
 import os
 import shutil
 
-from mindformers.tools.utils import try_sync_file
+from mindformers.tools.utils import try_sync_file, check_path_is_valid
 
 from mindformers.mindformer_book import MindFormerBook, print_dict
 from mindformers.models.build_processor import build_processor
@@ -110,9 +110,9 @@ class AutoConfig:
         if pretrained_model_name_or_path is not None:
             yaml_name_or_path = pretrained_model_name_or_path
 
-        if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str,"
-                            f" but got {type(yaml_name_or_path)}.")
+        if not check_path_is_valid(yaml_name_or_path):
+            raise ValueError(f"The value of yaml_name_or_path is {yaml_name_or_path}, and it is not valid, "
+                             f"please check and reset it.")
 
         if os.path.exists(yaml_name_or_path):
             if not yaml_name_or_path.endswith(".yaml"):
@@ -425,9 +425,10 @@ class AutoModel:
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_dir = pretrained_model_name_or_path
 
-        if not isinstance(pretrained_model_name_or_dir, str):
-            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
-                            f" but got {type(pretrained_model_name_or_dir)}")
+        if not check_path_is_valid(pretrained_model_name_or_path):
+            raise ValueError(f"The value of pretrained_model_name_or_path is {pretrained_model_name_or_path}, "
+                             f"and it is not valid, please check and reset it.")
+
         pretrained_model_name_or_dir = os.path.realpath(pretrained_model_name_or_dir)
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
@@ -526,8 +527,9 @@ class AutoProcessor:
         if pretrained_model_name_or_path is not None:
             yaml_name_or_path = pretrained_model_name_or_path
 
-        if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str, but got {type(yaml_name_or_path)}")
+        if not check_path_is_valid(yaml_name_or_path):
+            raise ValueError(f"The value of yaml_name_or_path is {yaml_name_or_path}, and it is not valid, "
+                             f"please check and reset it.")
 
         is_exist = os.path.exists(yaml_name_or_path)
         model_name = yaml_name_or_path.split('/')[cls._model_name].split("_")[cls._model_type] \
@@ -716,9 +718,10 @@ class AutoTokenizer:
         if pretrained_model_name_or_path is not None:
             yaml_name_or_path = pretrained_model_name_or_path
 
-        from . import MindFormerRegister
-        if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str, but got {type(yaml_name_or_path)}")
+        from mindformers import MindFormerRegister
+        if not check_path_is_valid(yaml_name_or_path):
+            raise ValueError(f"The value of yaml_name_or_path is {yaml_name_or_path}, and it is not valid, "
+                             f"please check and reset it.")
 
         # Try to load from the remote
         if not cls.invalid_yaml_name(yaml_name_or_path):

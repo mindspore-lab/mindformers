@@ -22,7 +22,7 @@ import shutil
 
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
-from mindformers.tools.utils import FILE_PERMISSION
+from mindformers.tools.utils import FILE_PERMISSION, check_path_is_valid
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
 from ..tools.logger import logger
@@ -107,9 +107,9 @@ class BaseConfig(dict):
         if pretrained_model_name_or_path is not None:
             yaml_name_or_path = pretrained_model_name_or_path
 
-        if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str,"
-                            f" but got {type(yaml_name_or_path)}.")
+        if not check_path_is_valid(yaml_name_or_path):
+            raise ValueError(f"The value of yaml_name_or_path is {yaml_name_or_path}, and it is not valid, "
+                             f"please check and reset it.")
 
         if os.path.exists(yaml_name_or_path):
             if not yaml_name_or_path.endswith(".yaml"):
@@ -177,9 +177,12 @@ class BaseConfig(dict):
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
 
-        if not isinstance(save_directory, str) or not isinstance(save_name, str):
-            raise TypeError(f"save_directory and save_name should be a str,"
-                            f" but got {type(save_directory)} and {type(save_name)}.")
+        if not check_path_is_valid(save_directory):
+            raise ValueError(f"The value of save_directory is {save_directory}, "
+                             f"it is not valid, please check and reset it.")
+
+        if not isinstance(save_name, str):
+            raise TypeError(f"save_name should be a str, but got {type(save_name)}.")
 
         if not os.path.exists(save_directory):
             os.makedirs(save_directory, exist_ok=True)

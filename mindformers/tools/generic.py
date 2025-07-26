@@ -19,6 +19,7 @@ import os
 import tempfile
 
 from contextlib import contextmanager
+from mindformers.tools.utils import check_path_is_valid
 
 
 @contextmanager
@@ -86,6 +87,9 @@ def is_experimental_mode(path):
     if not os.path.exists(path) and "/" in path and path.split("/")[0] != "mindspore":
         experimental_mode = True
     elif os.path.isdir(path) or is_json_file(path):
+        if not check_path_is_valid(path):
+            raise ValueError(f"The value of path in AutoConfig.from_pretrained() is {path}, "
+                             f"it is not valid, please check and reset it.")
         experimental_mode = True
 
     return experimental_mode

@@ -24,7 +24,7 @@ from typing import Optional, Union
 import json
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
-from mindformers.tools.utils import FILE_PERMISSION
+from mindformers.tools.utils import FILE_PERMISSION, check_path_is_valid
 from ..mindformer_book import print_path_or_list, MindFormerBook
 from .build_processor import build_processor
 from .tokenization_utils import PreTrainedTokenizer
@@ -57,6 +57,9 @@ def is_experimental_mode(path):
     is_exists = os.path.exists(path)
     is_dir = os.path.isdir(path)
     if is_exists:
+        if not check_path_is_valid(path):
+            raise ValueError(f"The value of path in ProcessorMixin.from_pretrained() is {path}, "
+                             f"it is not valid, please check and reset it.")
         if is_dir:
             experimental_mode = True
         else:  # file
