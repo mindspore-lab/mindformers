@@ -20,22 +20,22 @@ import importlib
 import inspect
 import json
 from collections import OrderedDict
-from mindformers.tools.utils import check_path_is_valid
-from mindformers.models.auto.tokenization_auto import AutoTokenizer
-from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.models.tokenization_utils_base import TOKENIZER_CONFIG_FILE
-from mindformers.models.auto.image_processing_auto import AutoImageProcessor
-from mindformers.models.image_processing_utils import ImageProcessingMixin
-from mindformers.models.processing_utils import ProcessorMixin
-from mindformers.models.utils import FEATURE_EXTRACTOR_NAME, PROCESSOR_NAME
-from mindformers.models.auto.auto_factory import _LazyAutoMapping
-from mindformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
-from mindformers.tools.hub.hub import get_file_from_repo
-from mindformers.tools.generic import experimental_mode_func_checker
-from mindformers.tools import get_class_from_dynamic_module, resolve_trust_remote_code, logger
-from mindformers.tools.register.config import MindFormerConfig
-from mindformers.mindformer_book import MindFormerBook, print_dict
-from mindformers.models.build_processor import build_processor
+
+from .tokenization_auto import AutoTokenizer
+from ..configuration_utils import PretrainedConfig
+from ..tokenization_utils_base import TOKENIZER_CONFIG_FILE
+from .image_processing_auto import AutoImageProcessor
+from ..image_processing_utils import ImageProcessingMixin
+from ..processing_utils import ProcessorMixin
+from ..utils import FEATURE_EXTRACTOR_NAME, PROCESSOR_NAME
+from .auto_factory import _LazyAutoMapping
+from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
+from ...tools.hub.hub import get_file_from_repo
+from ...tools.generic import experimental_mode_func_checker
+from ...tools import get_class_from_dynamic_module, resolve_trust_remote_code, logger
+from ...tools.register.config import MindFormerConfig
+from ...mindformer_book import MindFormerBook, print_dict
+from ..build_processor import build_processor
 
 
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, or a " \
@@ -59,9 +59,6 @@ def is_experimental_mode(path):
     is_exists = os.path.exists(path)
     is_dir = os.path.isdir(path)
     if is_exists:
-        if not check_path_is_valid(path):
-            raise ValueError(f"The value of path in AutoProcessor.from_pretrained() is {path}, "
-                             f"it is not valid, please check and reset it.")
         if is_dir:
             yaml_list = [file
                          for file in os.listdir(path)
