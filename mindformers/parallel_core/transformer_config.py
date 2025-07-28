@@ -446,12 +446,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if self.num_query_groups is None:
             self.num_query_groups = self.num_attention_heads
 
-        if self.num_query_groups % self.tensor_model_parallel_size != 0:
-            raise ValueError(
-                f"num_query_groups ({self.num_query_groups}) must be a multiple of "
-                f"tensor_model_parallel_size ({self.tensor_model_parallel_size})."
-            )
-
         if self.context_parallel_size > 1 and not self.use_flash_attention:
             raise ValueError(f"context_parallel is only available for flash attention for now, "
                              f"please set use_flash_attention=True.")
