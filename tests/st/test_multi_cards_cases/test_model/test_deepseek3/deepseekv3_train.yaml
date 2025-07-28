@@ -41,7 +41,7 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
-  max_device_memory: "30GB"
+  max_device_memory: "28GB"
   save_graphs: False
   save_graphs_path: "./graph"
   jit_config:
