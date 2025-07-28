@@ -87,6 +87,7 @@ model:
     qkv_concat: True
     ffn_concat: True
     use_mla_pre: True
+    use_mla_op: False
     quantization_config:
       quant_method: 'ptq'
       weight_dtype: 'int8'
