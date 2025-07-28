@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """Build Model API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from mindformers.tools.utils import get_context
+from mindformers.core.context import is_legacy_model
 from mindformers.generation.generation_config import GenerationConfig
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_config import build_model_config, get_model_config
 
 
@@ -48,7 +48,7 @@ def build_model(
         return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
 
     if config is not None:
-        use_legacy = get_context("use_legacy", True)
+        use_legacy = is_legacy_model()
 
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)

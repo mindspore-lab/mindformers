@@ -13,20 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Trainer API."""
-from .config_args import (
-    BaseArgsConfig,
-    CheckpointConfig,
-    CloudConfig,
-    ConfigArguments,
-    ContextConfig,
-    DataLoaderConfig,
-    DatasetConfig,
-    LRConfig,
-    OptimizerConfig,
-    ParallelContextConfig,
-    RunnerConfig,
-    WrapperConfig
-)
 from .general_task_trainer import GeneralTaskTrainer
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
 from .causal_language_modeling import CausalLanguageModelingTrainer

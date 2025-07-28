@@ -18,7 +18,8 @@ from .build_context import (
     build_mf_context,
     get_context,
     init_context,
-    set_context
+    set_context,
+    is_legacy_model
 )
 
 __all__ = ['build_context', 'get_context', 'init_context', 'set_context']

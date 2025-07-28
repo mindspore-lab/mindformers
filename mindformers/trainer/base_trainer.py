@@ -63,7 +63,7 @@ from mindformers.core.callback.callback import (
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
-from .config_args import ConfigArguments
+from ..core.config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
     check_runner_config,
