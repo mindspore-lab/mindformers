@@ -47,10 +47,12 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=False)
-        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(get_group_size(), order='tp')
+        if is_initialized():
             model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
+        else:
+            model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
         self.pad_token_id = self.config.pad_token_id
