@@ -543,7 +543,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.input_sliced_sig = config.input_sliced_sig
 
     def to_embeddings(self, tokens):
-        """return embedding tokens"""
+        """Return embedding tokens"""
         return self.model.tok_embeddings(tokens)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):

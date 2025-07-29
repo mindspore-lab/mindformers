@@ -406,7 +406,7 @@ class MLASelfAttention(MultiLatentAttention):
             # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
             kv = self.linear_kv_up_proj(kv_compressed)
 
-            # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
+            # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition]
             # value: [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
             k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
                                              self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)

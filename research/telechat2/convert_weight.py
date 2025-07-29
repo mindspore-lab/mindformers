@@ -258,9 +258,6 @@ if __name__ == '__main__':
     ms_dtype = dtype_map.get(args.dtype)
 
     if args.qkv_concat:
-        # for example
-        # python convert_weight.py --model_name=telechat_115B --qkv_concat=True --pre_ckpt_path=/path/to/llama_dist_ckpt_dir  --mindspore_ckpt_path=/path/to/new_llama_dist_ckpt_dir
-        # python convert_weight.py --model_name=telechat_7B --qkv_concat=True --pre_ckpt_path=/path/to/llama.ckpt  --mindspore_ckpt_path=/path/to/new_llama.ckpt
         convert_to_qkv_concat(args.model_name, args.pre_ckpt_path, args.mindspore_ckpt_path)
     else:
         # convert hf ckpt to ms

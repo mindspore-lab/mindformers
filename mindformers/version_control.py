@@ -164,7 +164,7 @@ def get_tril():
 
 
 def get_norm():
-    """return ops.norm"""
+    """Return ops.norm"""
 
     def tensor_norm1(input_tensor, tensor_ord=None, dim=None, keepdim=False, dtype=None):
         return F.norm(input_tensor, ord=tensor_ord, dim=dim, keepdim=keepdim, dtype=dtype)

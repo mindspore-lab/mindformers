@@ -25,7 +25,7 @@ NEW_CLASS_PREFIX = "mcore_"
 
 
 def get_legacy():
-    """return mf context: use_legacy"""
+    """Return mf context: use_legacy"""
     try:
         legacy = get_context("use_legacy")
         use_legacy = bool(legacy is None or legacy)

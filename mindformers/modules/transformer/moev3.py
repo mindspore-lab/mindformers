@@ -513,13 +513,13 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, ep_group, hidden_size, ep, u
     x, unresort_map = _ffn_resort(x, expert_id, use_fused_ops_permute)
 
     # 3.GroupedMM
-    # squeeze x [B, S, h] -- > [B*S, h] where B=1
+    # Squeeze x shape: [B, S, h] to shape: [B*S, h] where B equals 1
     x = x.reshape((-1, hidden_size))
     gate = GroupedMatmul(split_item=3, group_type=0)([x], [w1], None, None, None, None, None, group_list)[0]
     # pylint: disable=W0212
     hidden = ms.ops.auto_generate.gen_ops_prim.Swiglu()(gate, -1).reshape((-1, w2.shape[1]))
     y = GroupedMatmul(split_item=3, group_type=0)([hidden], [w2], None, None, None, None, None, group_list)[0]
-    # unsqueeze y [B*S, h] -- > [B, S, h] where B=1
+    # Unsqueeze y shape: [B*S, h] to shape: [B, S, h] where B equals 1
     y = y.reshape((1, -1, hidden_size))
 
     # 4.Unresort

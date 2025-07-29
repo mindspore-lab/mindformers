@@ -133,7 +133,7 @@ class FlashAttention(Cell):
                                                    input_layout=self.input_layout,
                                                    sparse_mode=self.sparse_mode)
 
-        # Note: only support config.apply_query_key_layer_scaling=False,
+        # Note: only support config.apply_query_key_layer_scaling be set False
         # FusedScaleMaskSoftmax does not require implementation.
 
         self.use_alibi_mask = config.use_alibi_mask
