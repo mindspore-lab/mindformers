@@ -182,5 +182,6 @@ if __name__ == '__main__':
             'Topic :: Software Development :: Libraries :: Python Modules',
         ],
         license='Apache 2.0',
+        license_files=(),
         keywords='mindformers',
     )
