@@ -91,9 +91,6 @@ class MLP(nn.Cell):
             ffn_hidden_size = self.config.ffn_hidden_size
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
 
-        if self.config.gated_linear_unit:
-            ffn_hidden_size *= 2
-
         self.activation_type = self.config.hidden_act
 
         self.linear_fc1 = build_module(

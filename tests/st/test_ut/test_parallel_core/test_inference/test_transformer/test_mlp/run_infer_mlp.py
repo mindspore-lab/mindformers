@@ -24,12 +24,10 @@ import mindspore.common.dtype as mstype
 from mindspore.communication import init, get_rank
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
-from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
-from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
-
+from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_mlp_module_spec
 from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_mlp.data_gen_utils import (
     get_init_params,
     INPUT_SIZE,
@@ -93,21 +91,10 @@ class MLPRunner:
             params_dtype='fp32',
         )
 
-    @staticmethod
-    def _get_mlp_spec():
-        """Construct test mlp spec."""
-        return ModuleSpec(
-            module=MLP,
-            submodules=MLPSubmodules(
-                linear_fc1=ColumnParallelLinear,
-                linear_fc2=RowParallelLinear,
-            )
-        )
-
     def build_model(self):
         """Build MLP module"""
         net = build_module(
-            self._get_mlp_spec(),
+            get_mlp_module_spec(gated_linear_unit=self.config.gated_linear_unit),
             config=self.config,
             input_size=self.input_size,
             model_comm_pgs=self.model_comm_pgs,
