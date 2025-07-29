@@ -180,7 +180,7 @@ def main():
     parser.add_argument("--num_experts_per_tok", type=int, default=2)
     parser.add_argument("--n_group", type=int, default=2)
     parser.add_argument("--topk_group", type=int, default=2)
-    parser.add_argument("--moe_intermediate_size", type=int, default=8)
+    parser.add_argument("--moe_intermediate_size", type=int, default=None)
     parser.add_argument("--moe_shared_expert_intermediate_size", type=int, default=8)
     parser.add_argument("--output_path", type=str, default="output_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
