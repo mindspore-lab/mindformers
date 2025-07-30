@@ -330,8 +330,9 @@ class Trainer:
         if self.config.get('monitor_config') and self.config.monitor_config.monitor_on:
             monitor_config = self.config.monitor_config
             if not monitor_config.dump_path:
-                monitor_config.dump_path = './dump'
-                logger.info("`monitor_config.dump_path` is unset or set to empty, use default path './dump' instead.")
+                logger.warning("`monitor_config.dump_path` is unset or set to empty, "
+                               "so `device_local_norm` will not be monitored, "
+                               "and `local_norm` can not be monitored by tensorboard.")
             step_interval = monitor_config.get('step_interval')
             ms.set_auto_parallel_context(
                 dump_local_norm_path=monitor_config.dump_path,

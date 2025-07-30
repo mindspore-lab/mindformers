@@ -531,7 +531,7 @@ class EvalCallbackConfig(ListConfig):
 class MonitorConfig(Config):
     """monitor config"""
     monitor_on = False
-    dump_path = ""
+    dump_path = "./dump"
     target = None
     invert = False
     step_interval = 1
