@@ -698,7 +698,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     def convert_weight_dict(cls, source_dict, **kwargs):
         """convert HuggingFace weight dict to MindFormers weight dict"""
         model_config = kwargs.get("model_config")
-        qkv_concat = model_config.qkv_concat if 'qkv_concat' in dir(model_config) else False
+        qkv_concat = model_config.qkv_concat if 'qkv_concat' in dict(model_config) else False
         target_dict = {}
         wq_keys = []
         wk_keys = []

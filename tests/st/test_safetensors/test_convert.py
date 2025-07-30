@@ -33,8 +33,8 @@ from mindformers.utils import (
     convert_hf_safetensors_multiprocess,
     contains_safetensors_files,
     is_hf_safetensors_dir,
-    qkv_concat_hf2mg,
 )
+from mindformers.utils.convert_utils import qkv_concat_hf2mg
 
 
 @pytest.mark.level0
@@ -206,7 +206,7 @@ class TestConvert:
         assert "model.layers.0.attention.w_qkv.weight" in converted_dict.keys(), \
             "model-00001-of-00003.safetensors does not have key 'model.layers.0.attention.w_qkv.weight'."
 
-        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate(self.fake_weight1, self.fake_weight2, self.fake_weight3),
+        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate([self.fake_weight1, self.fake_weight2, self.fake_weight3]),
                                               self.num_heads, self.n_kv_heads, self.hidden_size)
         assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), expect_qkv_weights), \
             f"The value of 'model.layers.0.attention.w_qkv.weight' got \
@@ -276,7 +276,7 @@ class TestConvert:
         assert "model.layers.0.attention.w_qkv.weight" in converted_dict.keys(), \
             "model.safetensors does not have key 'model.layers.0.attention.w_qkv.weight'"
 
-        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate(self.fake_weight1, self.fake_weight2, self.fake_weight3),
+        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate([self.fake_weight1, self.fake_weight2, self.fake_weight3]),
                                               self.num_heads, self.n_kv_heads, self.hidden_size)
         assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), expect_qkv_weights), \
             f"The value of 'model.layers.0.attention.w_qkv.weight' got \
