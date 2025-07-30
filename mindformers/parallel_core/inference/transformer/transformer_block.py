@@ -112,6 +112,14 @@ class TransformerBlock(nn.Cell):
         - **q_seq_lens** (Tensor) - Tensor of query lengths.
         - **block_tables** (Tensor) - Block tables for memory optimization.
         - **slot_mapping** (Tensor) - Slot mapping for memory optimization.
+        - **attn_padding_idx** (Tensor) - Indices mapping positions in attention output sequence to
+            original token positions, used for padding attention output to fixed size.
+        - **attn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded attention output sequence to
+            their original positions, used for removing padding in attention output.
+        - **ffn_padding_idx** (Tensor) - Indices mapping positions in MoE output sequence to
+            flattened valid token positions, used for padding MoE output to fixed size.
+        - **ffn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded MoE output sequence to
+            their original positions, used for removing padding in MoE output.
         - **key_cache** (Tensor, optional) - Key cache for incremental inference.
         - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
@@ -195,6 +203,10 @@ class TransformerBlock(nn.Cell):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
+            attn_padding_idx=None,
+            attn_unpadding_idx=None,
+            ffn_padding_idx=None,
+            ffn_unpadding_idx=None,
             key_cache=None,
             value_cache=None
     ):
@@ -217,6 +229,10 @@ class TransformerBlock(nn.Cell):
                 q_seq_lens=q_seq_lens,
                 block_tables=block_tables,
                 slot_mapping=slot_mapping,
+                attn_padding_idx=attn_padding_idx,
+                attn_unpadding_idx=attn_unpadding_idx,
+                ffn_padding_idx=ffn_padding_idx,
+                ffn_unpadding_idx=ffn_unpadding_idx,
                 key_cache=key_cache_idx,
                 value_cache=value_cache_idx
             )

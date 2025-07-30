@@ -27,7 +27,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.utils import divide
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
 
 
 @dataclass
@@ -55,8 +55,8 @@ class MLP(nn.Cell):
         submodules (MLPSubmodules): The submodules used to construct the MLP, such as activation and linear layers.
         is_expert (bool, optional): Whether this block is used as an expert in MoE. Default: False.
         input_size (int, optional): Input hidden size. If None, will use config.hidden_size. Default: None.
-        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
-            Default: default_model_comm_pgs.
+        delay_allreduce (bool): Whether to delay allreduce during linear_fc2 forward function. Default: False
+        tp_group (ProcessGroup): The process_group that current layer used. Default: default_pgs.
 
 
     Inputs:
@@ -75,15 +75,16 @@ class MLP(nn.Cell):
             submodules: MLPSubmodules,
             is_expert: bool = False,
             input_size: Optional[int] = None,
-            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            delay_allreduce: bool = False,
+            tp_group: Optional[ProcessGroup] = default_pgs,
     ):
         super().__init__(config)
 
         self.config: TransformerConfig = config
 
         self.input_size = input_size if input_size is not None else self.config.hidden_size
-        self.tp = model_comm_pgs.tp
-        self.tp_group_size = self.tp.size
+        self.tp_group = tp_group
+        self.tp_group_size = self.tp_group.size
 
         if is_expert and self.config.moe_ffn_hidden_size is not None:
             ffn_hidden_size = self.config.moe_ffn_hidden_size
@@ -93,17 +94,30 @@ class MLP(nn.Cell):
 
         self.activation_type = self.config.hidden_act
 
+        fc1_parallel_kwargs = {}
+        fc2_parallel_kwargs = {}
+        if self.tp_group is not None:
+            # linear fc1 parallel kwargs
+            fc1_parallel_kwargs.update({
+                "gather_output": False,
+                "tp_group": self.tp_group
+            })
+            # linear fc2 parallel kwargs
+            fc2_parallel_kwargs.update({
+                "delay_allreduce": delay_allreduce,
+                "tp_group": self.tp_group
+            })
+
         self.linear_fc1 = build_module(
             submodules.linear_fc1,
             self.input_size,
             ffn_hidden_size,
             config=self.config,
-            gather_output=False,
             bias=self.config.add_bias_linear,
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
-            tp_group=self.tp,
+            **fc1_parallel_kwargs,
         )
 
         if self.activation_type is not None:
@@ -117,11 +131,10 @@ class MLP(nn.Cell):
             self.config.hidden_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            input_is_parallel=True,
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
-            tp_group=self.tp,
+            **fc2_parallel_kwargs,
         )
 
     def construct(self, hidden_states):

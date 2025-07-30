@@ -57,6 +57,7 @@ class Attention(nn.Cell):
         attn_mask_type (AttnMaskType): Type of attention mask used in the self-attention module, of type AttnMaskType.
         attention_type (str): Type of attention used in the self-attention module, default value is None.
         cp_comm_type (str): Type of communication used in the self-attention module, default value is None.
+        delay_allreduce (bool): Whether to delay allreduce during proj linear forward function. Default: False
         model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
             Default: default_model_comm_pgs.
 
@@ -96,6 +97,7 @@ class Attention(nn.Cell):
             attn_mask_type: AttnMaskType = None,
             attention_type: str = None,
             cp_comm_type: str = None,
+            delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(config)
@@ -186,6 +188,7 @@ class Attention(nn.Cell):
             input_is_parallel=True,
             config=self.config,
             bias=self.config.add_bias_linear,
+            delay_allreduce=delay_allreduce,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
             tp_group=self.tp
@@ -294,6 +297,7 @@ class SelfAttention(Attention):
                  layer_number: int,
                  attn_mask_type: AttnMaskType = None,
                  cp_comm_type: str = None,
+                 delay_allreduce: bool = False,
                  model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
         super().__init__(
             config=config,
@@ -302,6 +306,7 @@ class SelfAttention(Attention):
             attn_mask_type=attn_mask_type,
             attention_type=None,
             cp_comm_type=cp_comm_type,
+            delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
         )
 

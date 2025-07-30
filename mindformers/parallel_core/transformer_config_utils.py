@@ -415,6 +415,14 @@ COMMON_CONFIG_MAPPING = {
     "block_size": "block_size",
     "num_blocks": "num_blocks",
     "parallel_decoding_params": "parallel_decoding_params",
+    "attn_reduce_scatter": "attn_reduce_scatter",
+    "attn_allgather": "attn_allgather",
+    "attn_allreduce": "attn_allreduce",
+    "ffn_reduce_scatter": "ffn_reduce_scatter",
+    "ffn_allgather": "ffn_allgather",
+    "ffn_allreduce": "ffn_allreduce",
+    "use_alltoall": "use_alltoall",
+    "dispatch_global_max_bs": "dispatch_global_max_bs",
     "sandwich_norm": "sandwich_norm",
 
     # Pet

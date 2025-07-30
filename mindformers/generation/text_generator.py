@@ -1380,6 +1380,7 @@ class GenerationMixin:
         model_inputs["attn_metadata"] = None
         model_inputs["key_cache"] = self.key_cache
         model_inputs["value_cache"] = self.value_cache
+        model_inputs = self.model.update_padding_index_to_inputs(model_inputs)
         return model_inputs, prefill
 
     def forward_mcore(self,
