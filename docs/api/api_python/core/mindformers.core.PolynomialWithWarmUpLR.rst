@@ -10,9 +10,9 @@ mindformers.core.PolynomialWithWarmUpLR
     .. math::
         \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{start}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
 
-    其中， :math:`\text{warmup\_steps}` 为预热阶段的总步数。
+    其中， :math:`\text{warmup_steps}` 为预热阶段的总步数。
 
-    在预热阶段结束后，学习率按照多项式函数逐渐衰减到设定的最终学习率 :math:`\eta_{\text{end}}` 。学习率在总步数 :math:`\text{total\_steps}` 中的变化可以通过以下公式表示：
+    在预热阶段结束后，学习率按照多项式函数逐渐衰减到设定的最终学习率 :math:`\eta_{\text{end}}` 。学习率在总步数 :math:`\text{total_steps}` 中的变化可以通过以下公式表示：
 
     .. math::
         \eta_t = \eta_{\text{end}} + (\eta_{\text{start}} - \eta_{\text{end}}) \times \left(1 - \frac{t - \text{warmup_steps}}{\text{decay_steps}}\right)^{\text{power}}

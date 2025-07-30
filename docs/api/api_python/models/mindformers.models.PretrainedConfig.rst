@@ -10,6 +10,7 @@ mindformers.models.PretrainedConfig
 
     参数：
         - **\*\*kwargs** (Any) - 关键字参数。
+
           - **name_or_path** (str, 可选) - 存储传递给 :func:`mindformers.models.PreTrainedModel.from_pretrained` 的字符串作为 ``pretrained_model_name_or_path`` ，如果配置是用这种方法创建的。默认值： ``""`` 。
           - **checkpoint_name_or_path** (str, 可选) - checkpoint 文件的路径或名称。默认值： ``None`` 。
           - **mindformers_version** (str, 可选) - MindSpore Transformers 的版本。默认值： ``""`` 。

@@ -228,7 +228,7 @@ class TrainingArguments:
         adam_beta2 (float, optional):
             Beta2 for AdamW optimizer. Default: ``0.999``.
         adam_epsilon (float, optional):
-            Epsilon for AdamW optimizer. Default: ``1.e-8``.
+            Epsilon for AdamW optimizer. Default: ``1e-8``.
         weight_decay (float, optional):
             Weight decay for AdamW if we apply some. Default: ``0.0``.
         layer_scale (bool, optional):
@@ -238,9 +238,9 @@ class TrainingArguments:
         lr_scheduler_type (Union[LrSchedulerType, str], optional):
             The scheduler type to use. Default: ``'cosine'``.
         learning_rate (float, optional):
-            The initial learning rate. Default: ``5.e-5``.
+            The initial learning rate. Default: ``5e-5``.
         lr_end (float, optional):
-            The end learning rate. Default: ``1.e-6``.
+            The end learning rate. Default: ``1e-6``.
         warmup_lr_init (float, optional):
             The initial learning rate of warm up. Default: ``0.0``.
         warmup_epochs (int, optional):
@@ -801,7 +801,7 @@ class TrainingArguments:
         metadata={"help": "Beta2 for AdamW optimizer"}
     )
     adam_epsilon: float = field(
-        default=1.e-8,
+        default=1e-8,
         metadata={"help": "Epsilon for AdamW optimizer."}
     )
     weight_decay: float = field(
@@ -823,11 +823,11 @@ class TrainingArguments:
         metadata={"help": "The scheduler type to use. Default: cosine."},
     )
     learning_rate: float = field(
-        default=5.e-5,
+        default=5e-5,
         metadata={"help": "The initial learning rate. Default: 5e-5."}
     )
     lr_end: float = field(
-        default=1.e-6,
+        default=1e-6,
         metadata={"help": "The end learning rate. Default: 1e-6."}
     )
     warmup_lr_init: float = field(
