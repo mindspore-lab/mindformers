@@ -518,7 +518,7 @@ def is_publicly_accessible_path(path):
     if check_shared_disk(path):
         return True
 
-    # For example, SHARED_PATHS="/mnt/shared1,/mnt/shared2"
+    # For example, SHARED_PATHS="/mnt/shared1,/mnt/shared2", which will be split by "/mnt/shared1" and "/mnt/shared2".
     shared_paths = os.getenv("SHARED_PATHS", "").split(',')
     path = os.path.realpath(path)
     for shared_path in shared_paths:

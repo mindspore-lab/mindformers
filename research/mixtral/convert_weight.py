@@ -77,7 +77,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
                 print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
                 ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
             else:
-                # 3:number of linear(w1,w2,w3) ,24 = 3 * 8(number of linear * expert_num)
+                # #3:number of linear(w1,w2,w3) ,24 = 3 * 8(number of linear * expert_num)
                 if count % 3 == 0 and count != 24:
                     list_w1.append(value)
                 if count % 3 == 1 and count != 24:

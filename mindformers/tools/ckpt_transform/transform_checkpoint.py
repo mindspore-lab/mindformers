@@ -129,13 +129,12 @@ class TransformCkpt:
             transform_process_num = self.world_size // npu_num_per_node
         if check_in_modelarts() and transform_process_num == 1:
             # The 0th NPU of each node is responsible for transform all checkpoints.
-            # For example, if world_size=16 and npu_num_per_node=8,
-            # then transform_rank_id_list=[0,8].
+            # For example, if world_size is 16 and npu_num_per_node is 8, then transform_rank_id_list should be [0,8].
             self.transform_rank_id_list = [i for i in range(0, self.world_size, self.npu_num_per_node)]
         else:
-            # Obtain transform_rank_id_list. For example, if world_size=8 and transform_process_num=2,
-            # then transform_rank_id_list=[0,4], means that the 0th rank and the 4th rank
-            # responsible for transform checkpoints.
+            # Obtain transform_rank_id_list. For example,
+            # if world_size is 8 and transform_process_num is 2, then transform_rank_id_list should be [0,4].
+            # which means that the 0th rank and the 4th rank responsible for transform checkpoints.
             self.transform_rank_id_list = \
                 [i for i in range(0, self.world_size, self.world_size // transform_process_num)]
         self.transform_process_num = len(self.transform_rank_id_list)
