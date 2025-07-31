@@ -39,7 +39,6 @@ from mindspore import (
     ModelCheckpoint,
     CheckpointConfig,
     context,
-    save_checkpoint,
     Tensor,
     get_auto_parallel_context,
     set_auto_parallel_context
@@ -81,6 +80,8 @@ from mindformers.parallel_core.training_graph.loss_func import (
     reset_device_local_loss,
     check_device_local_loss
 )
+from mindformers.checkpoint.checkpoint import AsyncSaveManager, CommonInfo
+from mindformers.checkpoint.checkpoint import save_checkpoint
 
 __all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -1128,7 +1129,6 @@ class TrainingStateMonitor(Callback):
                 raise ValueError(f"There is inf in {indicator_name} with value {indicator}, terminate training.")
 
 
-
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class SummaryMonitor:
     """
@@ -1231,6 +1231,12 @@ class CheckpointMonitor(ModelCheckpoint):
         embedding_local_norm_threshold (float, optional): The threshold of the embedding norm. Default: ``1.0``.
         health_ckpts_record_dir (str, optional): The path of the file which is used to record the health of checkpoint.
             Default: ``./output``.
+        use_legacy_format (bool, optional): Whether to use the legacy 'save_checkpoint' process, Default: ``True``.
+        save_optimizer (bool, optional): Whether to save optimizer weights,
+            only used in megatron-format weight save scene. Legacy scene will be set to ``None``.
+            Default: ``True``.
+        save_checkpoint_path (str, optional): Users can specify the path to store weights.
+            If None, the checkpoints will be saved at './output_dir/checkpoint'. Default: ``None``.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -1265,7 +1271,10 @@ class CheckpointMonitor(ModelCheckpoint):
                  embedding_size=4096,
                  embedding_local_norm_threshold=1.0,
                  use_checkpoint_health_monitor=False,
-                 health_ckpts_record_dir="./output"):
+                 health_ckpts_record_dir="./output",
+                 use_legacy_format=True,
+                 save_optimizer=True,
+                 save_checkpoint_path=None):
 
         self.config = config
         self.save_network_params = save_network_params
@@ -1275,6 +1284,11 @@ class CheckpointMonitor(ModelCheckpoint):
         self.use_checkpoint_health_monitor = use_checkpoint_health_monitor
         self.embedding_size = embedding_size
         self.health_ckpts_record_dir = health_ckpts_record_dir
+        self.use_legacy_format = use_legacy_format
+        # Ensure that 'save_optimizer' only use in the sense of 'use_legacy_format == False'
+        self.save_optimizer = save_optimizer if not use_legacy_format else None
+        self.origin_prefix = prefix
+        self.save_checkpoint_path = save_checkpoint_path
 
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
@@ -1321,13 +1335,15 @@ class CheckpointMonitor(ModelCheckpoint):
                                      format=checkpoint_format,
                                      exception_save=exception_save,
                                      remove_redundancy=remove_redundancy)
-        super(CheckpointMonitor, self).__init__(prefix, ckpt_directory, config=config_ck)
+        super(CheckpointMonitor, self).__init__(prefix, ckpt_directory if self.use_legacy_format else None,
+                                                config=config_ck)
         self.meta_json = os.path.join(self._directory, "meta.json")
         if self._config.async_save:
             self.last_epoch_num = None
             self.last_step_num_in_epoch = None
             self.last_ckpoint_file = None
             self.meta_updated = True
+            self.async_save_manager = AsyncSaveManager(self._config.async_save)
 
         if self.save_network_params:
             self._network_manager = CheckpointManager(config_ck.format)
@@ -1336,6 +1352,7 @@ class CheckpointMonitor(ModelCheckpoint):
             self._trainable_manager = CheckpointManager(config_ck.format)
 
         self.need_remove_extra_ckpt = False
+        self.common_info = CommonInfo()
 
     def print_savetime(self, record_step, batch_num):
         """print the time cost of saving checkpoint files."""
@@ -1367,7 +1384,6 @@ class CheckpointMonitor(ModelCheckpoint):
             self._flush_from_cache(cb_params)
 
         save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
-
         # if async_save is True, check whether saving processes are completed each step
         if self._config.async_save:
             keys = list(self.save_info_list.keys())
@@ -1378,18 +1394,19 @@ class CheckpointMonitor(ModelCheckpoint):
                     self.save_info_list.pop(record_step)
 
         if self._config.async_save and not ms.async_ckpt_thread_status() and \
-            self.last_epoch_num and self.last_step_num_in_epoch and self.last_ckpoint_file and \
+                self.last_epoch_num and self.last_step_num_in_epoch and self.last_ckpoint_file and \
                 not self.meta_updated:
             self.record_last_ckpt_to_json(self.last_epoch_num, self.last_step_num_in_epoch, self.last_ckpoint_file)
             self.meta_updated = True
 
         if save_ckpt:
+            # NOTE: origin checkpoint processes are remained here
             self.save_checkpoint(cb_params)
             self.save_checkpoint_network(cb_params)
-            # if async_save is False, output the time cost directly
+
+            # If async_save is False, output the time cost directly
             if not self._config.async_save:
                 self.print_savetime(cb_params.cur_step_num, cb_params.batch_num)
-
 
     def get_checkpoint_health_info(self, cb_params):
         """get the health of checkpoint."""
@@ -1539,10 +1556,10 @@ class CheckpointMonitor(ModelCheckpoint):
             return (x not in param_layout_set or (save_param_names is not None and x in save_param_names)) \
                 and self._filter_ckpt_not_save(x, self.filter_list)
 
-        save_checkpoint(network, cur_file, False, False,
-                        append_dict, self._config.enc_key, self._config.enc_mode,
-                        format=self._config.format, choice_func=choice_func,
-                        remove_redundancy=self._config.remove_redundancy)
+        ms.save_checkpoint(network, cur_file, False, False,
+                           append_dict, self._config.enc_key, self._config.enc_mode,
+                           format=self._config.format, choice_func=choice_func,
+                           remove_redundancy=self._config.remove_redundancy)
 
     # pylint: disable=W0640
     def _do_remove_redundancy_for_tft(self, redundancy_info, cur_file, network, append_dict):
@@ -1629,16 +1646,16 @@ class CheckpointMonitor(ModelCheckpoint):
                 self._do_remove_redundancy_for_tft(redundancy_info, cur_file, network, append_dict)
                 return
 
-            save_checkpoint(network, cur_file, False, self._config.async_save,
-                            append_dict, self._config.enc_key, self._config.enc_mode,
-                            format=self._config.format, choice_func=choice_func,
-                            remove_redundancy=self._config.remove_redundancy)
+            ms.save_checkpoint(network, cur_file, False, self._config.async_save,
+                               append_dict, self._config.enc_key, self._config.enc_mode,
+                               format=self._config.format, choice_func=choice_func,
+                               remove_redundancy=self._config.remove_redundancy)
         else:
-            save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
-                            append_dict, self._config.enc_key, self._config.enc_mode,
-                            format=self._config.format,
-                            choice_func=lambda x: self._filter_ckpt_not_save(x, self.filter_list),
-                            remove_redundancy=self._config.remove_redundancy)
+            ms.save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
+                               append_dict, self._config.enc_key, self._config.enc_mode,
+                               format=self._config.format,
+                               choice_func=lambda x: self._filter_ckpt_not_save(x, self.filter_list),
+                               remove_redundancy=self._config.remove_redundancy)
 
     def save_checkpoint_network(self, cb_params):
         """save checkpoint only network params, which is suitable for train, evaluate and predict."""
@@ -1706,7 +1723,30 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.need_remove_extra_ckpt = False
 
+    def _save_megatron_ckpt_file_format(self, cb_params):
+        """Save the checkpoints like megatron format."""
+        # Get current step as iteration
+        iteration = self._append_step_num + cb_params.cur_step_num
 
+        # Get common info
+        self.common_info.step_num = iteration
+        self.common_info.epoch_num = cb_params.cur_epoch_num
+        self.common_info.global_step = int(cb_params.network.optimizer.global_step)
+        self.common_info.loss_scale = None
+        if isinstance(cb_params.net_outputs, (tuple, list)) and len(cb_params.net_outputs) >= 3:
+            self.common_info.loss_scale = float(cb_params.net_outputs[2])
+        self.common_info.global_batch_size = self.global_batch_size
+
+        save_checkpoint(
+            iteration=iteration,
+            network=cb_params.network.network,
+            optimizer=cb_params.network.optimizer if self.save_optimizer else None,
+            async_save_manager=self.async_save_manager if self._config.async_save else None,
+            common_info=self.common_info,
+            keep_max_num=self._config.keep_checkpoint_max,
+            user_prefix=self.origin_prefix,
+            save_checkpoint_path=self.save_checkpoint_path
+        )
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
@@ -1720,6 +1760,64 @@ class CheckpointMonitor(ModelCheckpoint):
             temp_file_path = temp_file.name
         os.replace(temp_file_path, self.meta_json)
         set_safe_mode_for_file_or_dir(self.meta_json)
+
+    def step_end(self, run_context):
+        """
+        Save the checkpoint at the end of step.
+
+        Args:
+            run_context (RunContext): Context of the train running.
+        """
+        if self.use_legacy_format:
+            super().step_end(run_context)
+        else:
+            cb_params = run_context.original_args()
+            force_to_save = False
+            if cb_params.cur_step_num == self._last_triggered_step:
+                return
+
+            # If param is cache enable, flush data from cache to host before save_ckpt
+            if self._need_flush_from_cache:
+                self._flush_from_cache(cb_params)
+
+            cur_step_need_save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
+            # Save checkpoint
+            if cur_step_need_save_ckpt:
+                self._save_megatron_ckpt_file_format(cb_params)
+
+                # If async_save is False, output the time cost directly
+                if not self._config.async_save:
+                    self.print_savetime(cb_params.cur_step_num, cb_params.batch_num)
+                self._last_triggered_step = cb_params.cur_step_num
+
+    def end(self, run_context):
+        """
+        Save the last checkpoint after training finished.
+
+        Args:
+            run_context (RunContext): Context of the train running.
+        """
+        if self.use_legacy_format:
+            super().end(run_context)
+
+    def on_train_step_begin(self, run_context):
+        """Called before each training step."""
+        super().on_train_step_begin(run_context)
+        if not self.use_legacy_format and self._config.async_save:
+            logger.info("(on_train_step_begin) Try to execute finalize func.")
+            self.async_save_manager.maybe_finalize(wait_finish=False)
+
+    def on_train_end(self, run_context):
+        """Called after the end of training."""
+        super().on_train_end(run_context)
+        if not self.use_legacy_format:
+            cb_params = run_context.original_args()
+            # Need to save the last step checkpoint
+            self._save_megatron_ckpt_file_format(cb_params)
+
+            if self._config.async_save:
+                logger.info("(on_train_end) Wait all ranks and execute finalize func.")
+                self.async_save_manager.maybe_finalize(wait_finish=True)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
