@@ -24,7 +24,6 @@ from mindformers import Trainer, MindFormerConfig
 from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import check_in_modelarts, str2bool, set_remote_save_url
-from infer.qwen2_5 import ParallelQwenForCausalLM
 
 if check_in_modelarts():
     import moxing as mox

@@ -320,7 +320,11 @@ class MLAInferAttention(nn.Cell):
         return self._incre_attention(query, batch_valid_length, block_tables,
                                      attn_mask, q_seq_lens, key_cache=key_cache)
 
+
 class ParallelBatchMatMul(nn.Cell):
+    """
+    Implementation of BatchMatmul for aborbed matmul
+    """
     def __init__(
             self,
             transpose_a=False,
@@ -663,40 +667,41 @@ class DeepseekV3Attention(nn.Cell):
             context_layer = self.dim_slice_4d(context_layer, (0, 0, 0), (-1, self.n_local_heads, self.v_head_dim))
         else:
             if self.need_nz:
-                q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2)).transpose(1,0,2)
+                q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2)).transpose(1, 0, 2)
                 query_states = self.pe_concat((q_nope, q_pe))
                 query_states = query_states.view(-1, self.n_local_heads * (self.kv_lora_rank + self.qk_rope_head_dim))
                 key_states = key_states_cache
                 context_layer = self.infer_attention(query_states, key_states, key_states, batch_valid_length,
-                                                     block_tables, attn_mask=mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
+                                                     block_tables, attn_mask=mask, q_seq_lens=q_seq_lens,
+                                                     key_cache=key_cache)
                 context_layer = context_layer.view(-1, self.n_local_heads, self.kv_lora_rank).transpose(1, 0, 2)
                 context_layer = self.outabsorb_matmul(context_layer).transpose(1, 0, 2)
             else:
                 q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
                 out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
                 if not self.use_mla_pre:
-                        q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
-                        query_states = self.pe_concat((q_nope, q_pe))
+                    q_nope = self.qabsorb_matmul(q_nope.transpose(1, 0, 2), q_absorb).transpose(1, 0, 2)
+                    query_states = self.pe_concat((q_nope, q_pe))
                 else:
                     mla_key_cache = key_cache if key_cache is not None else \
                                     self.infer_attention.paged_attention_mgr.key_cache
                     freqs_cos, freqs_sin, _ = freqs_cis
                     # pylint: disable=protected-access
                     states = self.mla_preprocess(x, self.attention_norm.weight, self.qkv2l.quant_op.beta,
-                                                self.qkv2l.quant_op.input_scale, self.qkv2l.quant_op.input_zp,
-                                                self.qkv2l._layer.weight, self.qkv2l._layer.matmul.quant_bias,
-                                                self.lq_norm.weight, self.l2q_proj.quant_op.beta,
-                                                self.l2q_proj.quant_op.input_scale, self.l2q_proj.quant_op.input_zp,
-                                                self.lkv_norm.weight, freqs_sin, freqs_cos, freqs_sin, freqs_cos,
-                                                mla_key_cache, slot_mapping, self.l2q_proj._layer.weight,
-                                                self.l2q_proj._layer.matmul.quant_bias, q_absorb,
-                                                self.qkv2l._layer.matmul.dequant_scale,
-                                                self.l2q_proj._layer.matmul.dequant_scale, self.ctkv_scale,
-                                                self.qnope_scale, mla_key_cache, 0)
+                                                 self.qkv2l.quant_op.input_scale, self.qkv2l.quant_op.input_zp,
+                                                 self.qkv2l._layer.weight, self.qkv2l._layer.matmul.quant_bias,
+                                                 self.lq_norm.weight, self.l2q_proj.quant_op.beta,
+                                                 self.l2q_proj.quant_op.input_scale, self.l2q_proj.quant_op.input_zp,
+                                                 self.lkv_norm.weight, freqs_sin, freqs_cos, freqs_sin, freqs_cos,
+                                                 mla_key_cache, slot_mapping, self.l2q_proj._layer.weight,
+                                                 self.l2q_proj._layer.matmul.quant_bias, q_absorb,
+                                                 self.qkv2l._layer.matmul.dequant_scale,
+                                                 self.l2q_proj._layer.matmul.dequant_scale, self.ctkv_scale,
+                                                 self.qnope_scale, mla_key_cache, 0)
                     query_states = states[0]
 
                 query_states = self.reshape(query_states, (-1, self.n_local_heads *
-                                                        (self.kv_lora_rank + self.qk_rope_head_dim)))
+                                                           (self.kv_lora_rank + self.qk_rope_head_dim)))
                 context_layer = self.infer_attention(query_states, None, None, batch_valid_length,
                                                      block_tables, attn_mask=mask, q_seq_lens=q_seq_lens,
                                                      key_cache=key_cache)
@@ -1339,15 +1344,15 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         if self.pre_process:
             if config.parallel_config.vocab_emb_dp:
                 self.tok_embeddings = VocabParallelEmbedding(num_embeddings=config.vocab_size,
-                                                            embedding_dim=config.hidden_size,
-                                                            parallel_config=config.parallel_config,
-                                                            init_method="normal",
-                                                            init_type=config.param_init_type,)
+                                                             embedding_dim=config.hidden_size,
+                                                             parallel_config=config.parallel_config,
+                                                             init_method="normal",
+                                                             init_type=config.param_init_type,)
             else:
                 self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
-                                                    embedding_dim=config.hidden_size,
-                                                    param_init_type=config.param_init_type,
-                                                    param_init="normal")
+                                                     embedding_dim=config.hidden_size,
+                                                     param_init_type=config.param_init_type,
+                                                     param_init="normal")
 
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
@@ -1388,7 +1393,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
 
         if self.post_process:
             self.norm_out = RMSNorm(config.hidden_size, config.rms_norm_eps,
-                                compute_type=config.layernorm_compute_type)
+                                    compute_type=config.layernorm_compute_type)
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, h=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
@@ -1774,7 +1779,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                 return None
             cache_list = []
             for _ in self.model.layers:
-                cache_list.append(Tensor(shape=[None, None, None] if need_nz() else [None, None, None, None], dtype=self.config.compute_dtype))
+                cache_list.append(Tensor(shape=[None, None, None] if need_nz() else [None, None, None, None],
+                                         dtype=self.config.compute_dtype))
             return mutable(cache_list)
 
         key_cache = get_input()

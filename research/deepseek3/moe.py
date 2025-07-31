@@ -38,7 +38,7 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (Reduce
 # pylint: disable=C0412
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_moe_ep_world_size, get_moe_tp_world_size
 
-from mindformers.parallel_core.inference.parallel_state import (get_moe_expert_parallel_group, 
+from mindformers.parallel_core.inference.parallel_state import (get_moe_expert_parallel_group,
                                                                 get_tensor_and_data_parallel_world_size,
                                                                 get_moe_expert_parallel_rank,)
 from mindformers.version_control import is_910b, need_nz
@@ -728,8 +728,8 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
         self.use_alltoall = config.use_alltoall
         self.transpose_b = transpose_b if need_nz() else False
 
-        weight_shape = (self.ep_size_per_partition, self.output_size_per_partition, self.input_size) if self.transpose_b else (
-            self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
+        weight_shape = (self.ep_size_per_partition, self.output_size_per_partition, self.input_size) \
+            if self.transpose_b else (self.ep_size_per_partition, self.input_size, self.output_size_per_partition)
         weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
         self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
@@ -824,8 +824,8 @@ class RowParallelGroupLinear(RowParallelLinear):
         self.transpose_b = transpose_b if need_nz() else False
 
         # weight
-        weight_shape = (self.ep_size_per_partition, self.output_size, self.input_size_per_partition) if self.transpose_b else (
-            self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
+        weight_shape = (self.ep_size_per_partition, self.output_size, self.input_size_per_partition) \
+            if self.transpose_b else (self.ep_size_per_partition, self.input_size_per_partition, self.output_size)
         weight_dtype = mstype.int8 if self.use_alltoall else param_init_type
         self.weight = Parameter(initializer(weight_init, weight_shape, weight_dtype), name="weight")
 
@@ -1110,7 +1110,7 @@ class ParallelMoEV2(nn.Cell):
             expert_num=self.expert_num,
             drop_pad_mode=0,
             expert_tokens_count_or_cumsum_flag=1 if self.need_nz else 2,
-            expert_tokens_before_capacity_flag=False if self.need_nz else True)
+            expert_tokens_before_capacity_flag=not self.need_nz)
         group_list = self.cast(group_list, mstype.int64)
 
         expert_output = self.ffn(sorted_input_tensor, group_list)

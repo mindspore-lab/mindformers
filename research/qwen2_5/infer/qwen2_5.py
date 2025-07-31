@@ -29,10 +29,10 @@ from mindformers.parallel_core.inference.parallel_state import get_group_info, i
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.version_control import need_nz
 from research.qwen2_5.infer.layers import ColumnParallelLinear
 from research.qwen2_5.infer.transformer import ParallelTransformer
 from research.qwen2_5.infer.utils import convert_model_config
-from mindformers.version_control import need_nz
 
 __all__ = ["ParallelQwenForCausalLM"]
 

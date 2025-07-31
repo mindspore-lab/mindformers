@@ -25,11 +25,10 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (Gather
                                                                           ScatterToModelParallelRegion)
 from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_rank
-from mindformers.version_control import check_valid_gmm_op
+from mindformers.version_control import (check_valid_gmm_op, need_nz)
 from mindformers.models.utils import jit
 from mindformers.tools.utils import divide
 from research.deepseek3.infer.random import (TENSOR_PARALLEL_GENERATOR, get_rng_tracer)
-from mindformers.version_control import need_nz
 
 __all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
 

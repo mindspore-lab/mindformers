@@ -14,7 +14,7 @@
 # ======================
 """mapping"""
 
-from mindspore import nn, ops, Tensor
+from mindspore import nn, ops
 from mindspore.communication import get_group_size, GlobalComm, get_rank
 from mindformers.parallel_core.inference.utils import get_tp_world_size, get_dp_world_size, get_moe_tp_world_size
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_group,
