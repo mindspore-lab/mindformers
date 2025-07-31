@@ -244,7 +244,7 @@ class GPTModel(nn.Cell):
                                                      gather_output=not self.parallel_output,
                                                      skip_weight_param_allocation=skip_weight_param_allocation)
             config.model_parallel = config.tensor_model_parallel_size
-            self.loss = CrossEntropyLoss(parallel_config=config)
+            self.loss = CrossEntropyLoss(config=config)
 
         # operations
         self.cast = aclnn_ops.Cast()

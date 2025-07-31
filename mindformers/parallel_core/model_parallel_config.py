@@ -177,6 +177,4 @@ class ModelParallelConfig:
         self.params_dtype = convert_str_to_mstype(self.params_dtype)
 
         if self.sequence_parallel and self.tensor_model_parallel_size <= 1:
-            raise ValueError("Can not use sequence paralllelism without tensor parallelism")
-
-default_dpmp_config = ModelParallelConfig()
+            raise ValueError("Can not use sequence parallelism without tensor parallelism")

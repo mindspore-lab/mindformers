@@ -456,13 +456,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             raise ValueError(f"context_parallel is only available for flash attention for now, "
                              f"please set use_flash_attention=True.")
 
-        if self.tensor_model_parallel_size > 1 and self.num_moe_experts:
-            if not self.sequence_parallel:
-                logger.warning(
-                    "During training, performance may degrade if MoE and tensor parallelism"
-                    "are enabled without also enabling sequence parallelism. Set to True."
-                )
-
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
                 self.input_layout = "TND"
@@ -662,3 +655,5 @@ class MLATransformerConfig(TransformerConfig):
 
     mscale_all_dim: float = 0.707
     """Mscale all dimensions for YaRN RoPE in Multi-Latent Attention, used by yarn."""
+
+default_transformer_config = TransformerConfig(num_attention_heads=1, num_layers=1)
