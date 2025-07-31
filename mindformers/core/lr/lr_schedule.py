@@ -624,11 +624,11 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     .. math::
         \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{start}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
 
-    where :math:`\text{warmup\_steps}` represents the total number of steps in the warm-up phase.
+    where :math:`\text{warmup_steps}` represents the total number of steps in the warm-up phase.
 
     After the warm-up phase concludes, the learning rate gradually decays according to a polynomial function,
     reaching the final learning rate, :math:`\eta_{\text{end}}` . The change in learning rate over the total
-    number of steps :math:`\text{total\_steps}` is given by the formula:
+    number of steps :math:`\text{total_steps}` is given by the formula:
 
     .. math::
         \eta_t = \eta_{\text{end}} + (\eta_{\text{start}} - \eta_{\text{end}}) \times \left(1
@@ -795,9 +795,40 @@ class WarmUpStableDecayLR(LearningRateSchedule):
     r"""
     Warm Up Stable Decay Learning Rate.
 
+    This learning rate scheduler consists of three phases:
+
+    1. **Warm-up Phase**: The learning rate increases linearly from the initial value `warmup_lr_init` to the base
+       learning rate `learning_rate`.
+    2. **Steady Phase**: The learning rate remains constant at the base value.
+    3. **Decay Phase**: The learning rate decreases linearly from `learning_rate` to the final value `lr_end`.
+
+    **Warm-up Phase Formula**:
+
+    .. math::
+        \eta\_t = \eta\_{\text{warmup}} + t \times \frac{\eta\_{\text{base}} -
+        \eta\_{\text{warmup}}}{\text{warmup_steps}}
+
+    Where:
+
+    * :math:`\eta_{\text{warmup}}` is the initial warm-up learning rate (`warmup_lr_init`)
+    * :math:`\eta_{\text{base}}` is the base learning rate (`learning_rate`)
+    * :math:`t` is the current step (not exceeding `warmup_steps`)
+
+    **Decay Phase Formula**:
+
+    .. math::
+        \eta\_t = \eta\_{\text{base}} - (\eta\_{\text{base}} - \eta\_{\text{end}}) \times
+        \frac{t - T\_{\text{decay_start}}}{T\_{\text{decay_steps}}}
+
+    Where:
+
+    * :math:`\eta_{\text{end}}` is the final learning rate (`lr_end`)
+    * :math:`T_{\text{decay_start}}` is the step at which decay begins (`decay_start_steps`)
+    * :math:`T_{\text{decay_steps}}` is the total number of decay steps (`total_steps - decay_start_steps`)
+
     Args:
         learning_rate (float): Initial value of learning rate.
-        lr_end (float, optional): Final value of learning rate. Default: ``0.``.
+        lr_end (float, optional): Final value of learning rate. Default: ``1e-7``.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
         warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
@@ -806,7 +837,7 @@ class WarmUpStableDecayLR(LearningRateSchedule):
         decay_start_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
 
     Raises:
-        - **ValueError** - If `lr_end` is greater than or equal to initial `learning_rate`.
+        ValueError: If `lr_end` is greater than or equal to initial `learning_rate`.
 
     Inputs:
         - **global_step** (int) - The global step.
