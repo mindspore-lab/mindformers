@@ -54,12 +54,14 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
         self.config = convert_model_config(config)
-        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(tensor_model_parallel_size=self.config.parallel_config.model_parallel,
                                       data_parallel_size=self.config.parallel_config.data_parallel,
                                       order='tp-dp')
+        if is_initialized():
             model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp', 'dp'])
+        else:
+            model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
