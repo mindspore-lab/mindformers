@@ -14,6 +14,8 @@ reviewers:
 - hss-shuai
 - renyujin
 - wang_shaocong
+- erpim
+- tan-wei-cheng
 
 approvers:
 - Lin-Bert
@@ -22,3 +24,6 @@ approvers:
 - hss-shuai
 - wjlflyer
 - zyw-hw
+- wang_shaocong
+- erpim
+- tan-wei-cheng
