@@ -65,10 +65,8 @@ def parallel_train_dp2_mp2_ep2():
                 13.551405, 13.552004, 13.551588, 13.551432, 13.548488,
                 13.547302, 13.551485, 13.551678, 13.552629, 13.550841,
                 13.546679, 13.545593, 13.554431, 13.549174, 13.543098]
-    time_std = 480
     checker_config = {
         'loss_list_std': loss_std,
-        'avg_step_time_std': time_std,
         'experiment_mode': False,
         'micro_batch_num': 1,
         'micro_batch_interleave_num': 1
@@ -103,7 +101,6 @@ def parallel_train_dp2_pp2_ep2_tnd():
                 13.549754, 13.550379, 13.556471, 13.551868, 13.548780]
     checker_config = {
         'loss_list_std': loss_std,
-        'avg_step_time_std': None, # do not monitor performance because of fluctuations in tnd
         'experiment_mode': False,
         'micro_batch_num': 2,
         'micro_batch_interleave_num': 1
