@@ -1152,7 +1152,7 @@
         "signature": "(input_ids, model_kwargs: dict)"
     },
     "mindformers.generation.GenerationMixin.slice_incremental_inputs": {
-        "signature": "(model_inputs: dict, current_index)"
+        "signature": "(model_inputs: dict, current_index, need_flatten: bool = False)"
     },
     "mindformers.generation.GenerationMixin.process_logits": {
         "signature": "(logits, current_index=None, keep_all=False)"
@@ -1437,7 +1437,7 @@
         "signature": "(input_ids, model_kwargs: dict)"
     },
     "mindformers.generation.text_generator.GenerationMixin.slice_incremental_inputs": {
-        "signature": "(model_inputs: dict, current_index)"
+        "signature": "(model_inputs: dict, current_index, need_flatten: bool = False)"
     },
     "mindformers.generation.text_generator.GenerationMixin.process_logits": {
         "signature": "(logits, current_index=None, keep_all=False)"

@@ -177,7 +177,7 @@ class GenerationMixin:
             context_len = batch_valid_length[i]
             input_ids_list.append(input_ids[i][:context_len])
         input_ids = np.concatenate(input_ids_list, 0)
-        input_ids = input_ids.reshape((1, -1))
+        input_ids = input_ids.reshape((-1))
         slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
         model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
@@ -244,7 +244,7 @@ class GenerationMixin:
         return
 
     @staticmethod
-    def slice_incremental_inputs(model_inputs: dict, current_index):
+    def slice_incremental_inputs(model_inputs: dict, current_index, need_flatten: bool = False):
         """used for non-first iterations, slice the inputs to length 1."""
         input_ids = model_inputs.pop("input_ids")
         if isinstance(input_ids, Tensor):
@@ -255,7 +255,10 @@ class GenerationMixin:
 
         current_index_tmp = current_index - np.arange(input_ids.size, step=input_ids.shape[1])
         arg = np.arange(input_ids.shape[0])
-        inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1, 1)
+        if need_flatten:
+            inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1)
+        else:
+            inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1, 1)
         model_inputs["input_ids"] = Tensor.from_numpy(inputs_tmp.astype(np.int32))
 
     @staticmethod
@@ -419,9 +422,6 @@ class GenerationMixin:
             if self._exec_add_flags:
                 self.add_flags_custom(is_first_iteration=True)
             self.detailed_latency.start_predict_timer()
-            if need_flatten:
-                model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
-                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape((-1,))
             model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
             # pylint: disable=E1102
             res = self(
@@ -439,11 +439,8 @@ class GenerationMixin:
             if self._pre_set_phase:
                 self.phase = f"increment_{self._pre_set_phase}"
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
-                self.slice_incremental_inputs(model_inputs, current_index)
+                self.slice_incremental_inputs(model_inputs, current_index, need_flatten)
             self.detailed_latency.start_predict_timer()
-            if need_flatten:
-                model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
-                model_inputs["batch_valid_length"] = model_inputs["batch_valid_length"].reshape((-1,))
             model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
             # pylint: disable=E1102
             res = self(
@@ -1299,7 +1296,7 @@ class GenerationMixin:
                                                                           step=real_input_ids.shape[-1])
             if use_past:
                 if "batch_valid_length" not in model_inputs:
-                    model_inputs["batch_valid_length"] = np.array([valid_length_each_example], dtype=np.int32)
+                    model_inputs["batch_valid_length"] = np.array(valid_length_each_example, dtype=np.int32)
                 if block_tables is not None and "block_tables" not in model_inputs:
                     model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
                 if slot_mapping is not None and "slot_mapping" not in model_inputs:
