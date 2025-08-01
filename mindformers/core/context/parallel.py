@@ -70,7 +70,6 @@ class ParallelOperator:
         if parallel_mode not in [
                 context.ParallelMode.SEMI_AUTO_PARALLEL,
                 context.ParallelMode.AUTO_PARALLEL,
-                context.ParallelMode.STAND_ALONE,
         ] and parallel_ctx.get('full_batch'):
             logger.info("full_batch is set to False for non-parallel modes")
             parallel_ctx['full_batch'] = False
