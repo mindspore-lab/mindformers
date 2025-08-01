@@ -64,6 +64,7 @@ class ParallelOperator:
             self.config.parallel.pipeline_stages = final_stages
 
     def _get_parallel_ctx_config(self):
+        """Get parallel context configuration."""
         parallel_ctx = self.config.get('parallel', {})
         parallel_mode = parallel_ctx.get('parallel_mode')
         if parallel_mode not in [

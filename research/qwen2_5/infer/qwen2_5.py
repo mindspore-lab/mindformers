@@ -29,10 +29,10 @@ from mindformers.parallel_core.inference.parallel_state import get_group_info, i
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.version_control import need_nz
 from research.qwen2_5.infer.layers import ColumnParallelLinear
 from research.qwen2_5.infer.transformer import ParallelTransformer
 from research.qwen2_5.infer.utils import convert_model_config
-
 
 __all__ = ["ParallelQwenForCausalLM"]
 
@@ -155,7 +155,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.float16 if need_nz() else mstype.bfloat16)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
@@ -163,7 +163,8 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
                 return None
             cache_list = []
             for _ in self.model.layers:
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+                cache_list.append(Tensor(shape=[None, None, None] if need_nz() else [None, None, None, None],
+                                         dtype=self.config.compute_dtype))
             return mutable(cache_list)
 
         key_cache = get_input()
