@@ -144,7 +144,7 @@ class ColumnParallelLinear(nn.Cell):
             weight_shape = (self.expert_num,) + weight_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4') and not self.need_nz:
                 self.matmul = ops.auto_generate.GroupedMatmulV4()
-            if check_valid_gmm_op(gmm_version='GroupedMatmul'):
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0, transpose_b=self.transpose_b)
             else:
                 raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
@@ -341,7 +341,7 @@ class RowParallelLinear(nn.Cell):
             bias_shape = (1, self.expert_num, 1) + bias_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4') and not self.need_nz:
                 self.matmul = ops.auto_generate.GroupedMatmulV4()
-            if check_valid_gmm_op(gmm_version='GroupedMatmul'):
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0, transpose_b=True)
             else:
                 raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
