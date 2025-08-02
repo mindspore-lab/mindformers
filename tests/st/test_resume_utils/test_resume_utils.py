@@ -37,7 +37,8 @@ def test_get_resume_checkpoint():
     os.makedirs(os.path.join(cur_dir, "rank_0"), exist_ok=True)
     resume_training = os.path.join(cur_dir, "rank_0", "test_rank_0-1_1.ckpt")
     with open(resume_training, 'w') as file:
-        pass
+        file.write("rank_0-1_1")
+        file.flush()
     resume_ckpt_ = get_resume_checkpoint(cur_dir, resume_training, "ckpt")
     assert resume_ckpt_ == resume_training
 
@@ -53,7 +54,8 @@ def test_get_resume_checkpoint():
     last_checkpoint = os.path.join(cur_dir, "rank_0", "test_rank_0-1_2.ckpt")
     meta_json = os.path.join(cur_dir, "rank_0", "meta.json")
     with open(last_checkpoint, 'w') as file:
-        pass
+        file.write("rank_0-1_2")
+        file.flush()
     if os.path.exists(meta_json):
         os.remove(meta_json)
     resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "ckpt")
