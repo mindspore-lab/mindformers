@@ -10,12 +10,12 @@ auto_trans_ckpt: False # If true, auto transform load_checkpoint to load in dist
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'DeepSeekR1-W8A8'
+  model_name: 'DeepSeekR1-W4A8'
 
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  model_parallel: 4
-  pipeline_stage: 6
+  model_parallel: 8
+  pipeline_stage: 2
   expert_parallel: 1
   vocab_emb_dp: False
 
@@ -74,7 +74,7 @@ model:
     use_flash_attention: True
     block_size: 128
     num_blocks: 512
-    offset: [1, 0, 0, 0, 0, 0]
+    offset: [1, 0]
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 128
@@ -83,10 +83,10 @@ model:
     theta: 10000.0
     do_sample: False
     is_dynamic: True
-    qkv_concat: True
+    qkv_concat: False
     ffn_concat: True
     quantization_config:
-      quant_method: 'ptq'
+      quant_method: 'a8w4'
     auto_map:
       AutoConfig: deepseek3_config.DeepseekV3Config
       AutoModel: deepseek3.DeepseekV3ForCausalLM
