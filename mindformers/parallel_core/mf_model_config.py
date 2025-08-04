@@ -268,7 +268,7 @@ class MFModelConfig:
     enable_deredundency: bool = False
     """This parameter is used for inter-machine communication masking and performance optimization features."""
 
-    npu_nums_per_device: int = 1
+    npu_nums_per_device: int = 8
     """Set NPU ranks for each device."""
 
     use_pad_tokens: bool = False

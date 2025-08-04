@@ -368,7 +368,7 @@ COMMON_CONFIG_MAPPING = {
     "aux_loss_types": "aux_loss_types",
     "aux_loss_factors": "aux_loss_factors",
     "moe_input_jitter_eps": "moe_input_jitter_eps",
-    "use_allgather_dispatcher": "use_allgather_dispatcher",
+    "moe_token_dispatcher_type": "moe_token_dispatcher_type",
     "group_wise_a2a": "group_wise_a2a",
     "moe_enable_deepep": "moe_enable_deepep",
     "moe_per_layer_logging": "moe_per_layer_logging",

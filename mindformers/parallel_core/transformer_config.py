@@ -326,9 +326,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     moe_input_jitter_eps: Optional[float] = None
     """Add noise to the input tensor by applying jitter with a specified epsilon value."""
 
-    use_allgather_dispatcher: bool = False
-    """Whether the dispatcher's communication algorithm uses 'allgather'."""
-
     group_wise_a2a: bool = False
     """
     Whether to enable group-wise alltoall communication,
@@ -336,6 +333,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
     This parameter is effective only when model parallel > 1 and data_parallel equal to expert parallel.
     """
+
+    moe_token_dispatcher_type: str = "alltoall"
+    """The type of token dispatcher to use. The default is 'alltoall'.
+    Options are 'alltoall' and 'alltoall_deredundency'."""
 
     moe_enable_deepep: bool = False
     """[Experimental] Enable DeepEP for efficient token dispatching and combine in MoE models."""
