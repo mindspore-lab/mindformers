@@ -384,7 +384,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         push_to_hub = kwargs.pop("push_to_hub", False)
         max_shard_size = kwargs.pop("max_shard_size", "5GB")
         variant = kwargs.pop("variant", None)
-        token = kwargs.pop("variant", None)
+        token = kwargs.pop("token", None)
 
         save_json = kwargs.pop("save_json", False)
         if not save_json:
