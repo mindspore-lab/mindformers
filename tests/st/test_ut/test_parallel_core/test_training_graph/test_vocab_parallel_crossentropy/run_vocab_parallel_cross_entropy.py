@@ -80,7 +80,7 @@ class VocabParallelCrossEntropyRunner:
     def build_model(self):
         """Build VocabParallelCrossEntropy model"""
         net = VocabParallelCrossEntropy(
-            parallel_config=self.config,
+            config=self.config,
         )
         return net
 

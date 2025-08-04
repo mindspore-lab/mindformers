@@ -32,7 +32,7 @@ from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _ge
 
 from mindformers.tools.utils import get_real_rank, get_context
 from mindformers.tools.logger import _LogActionOnce
-from mindformers.parallel_core.model_parallel_config import default_dpmp_config
+from mindformers.parallel_core.transformer_config import TransformerConfig, default_transformer_config
 
 _device_local_loss = {}
 
@@ -74,8 +74,8 @@ class _LogSoftmax(nn.Cell):
     to optimize the bprop of the cross entroy loss.
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
-            an instance of `OpParallelConfig` with default args.
+        config (TransformerConfig): The parallel configuration. Default: default_transformer_config,
+            an instance of `TransformerConfig` with default args.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
@@ -86,11 +86,11 @@ class _LogSoftmax(nn.Cell):
     Returns:
         The corresponding log softmax results.
     """
-    def __init__(self, parallel_config=default_dpmp_config):
+    def __init__(self, config: TransformerConfig = default_transformer_config):
         super(_LogSoftmax, self).__init__()
-        dp = parallel_config.data_parallel_size
-        mp = parallel_config.tensor_model_parallel_size
-        cp = parallel_config.context_parallel_size
+        dp = config.data_parallel_size
+        mp = config.tensor_model_parallel_size
+        cp = config.context_parallel_size
         # on/off value for onehot, for smooth labeling, modify the off_value
         self.on_value = Tensor(1.0, mstype.int32)
         self.off_value = Tensor(0.0, mstype.int32)
@@ -131,8 +131,8 @@ class _NLLLoss(nn.Cell):
     This cell should be used together with _Log_softmax, to optimize the bprop of the cross entroy loss.
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
-            an instance of `OpParallelConfig` with default args.
+        config (TransformerConfig): The parallel configuration. Default: default_transformer_config,
+            an instance of `TransformerConfig` with default args.
 
     Inputs:
         - **log_softmax_result** (Tensor) - Tensor of shape (N, C). Data type is float32.
@@ -141,11 +141,11 @@ class _NLLLoss(nn.Cell):
     Returns:
         The corresponding loss results.
     """
-    def __init__(self, parallel_config=default_dpmp_config):
+    def __init__(self, config: TransformerConfig = default_transformer_config):
         super(_NLLLoss, self).__init__()
-        dp = parallel_config.data_parallel_size
-        mp = parallel_config.tensor_model_parallel_size
-        cp = parallel_config.context_parallel_size
+        dp = config.data_parallel_size
+        mp = config.tensor_model_parallel_size
+        cp = config.context_parallel_size
         self.repeat_loss = 1
         self.gather_d = GatherD()
         self.expand_dims = ExpandDims()
@@ -224,10 +224,9 @@ class CrossEntropyLoss(nn.Cell):
               \end{cases}
 
     Args:
-        parallel_config (mindformers.parallel_core.model_parallel_config.ModelParallelConfig, optional):
-            The parallel configuration. Default: ``default_dpmp_config``.
-        loss_tag (str, optional):
-            Distinguish different types of loss. Default: 'lm'.
+        config (TransformerConfig): The parallel configuration. Default: default_transformer_config,
+            an instance of `TransformerConfig` with default args.
+        loss_tag (str, optional): Distinguish different types of loss. Default: 'lm'.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
@@ -257,12 +256,12 @@ class CrossEntropyLoss(nn.Cell):
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, parallel_config=default_dpmp_config, loss_tag='lm', **kwargs):
+    def __init__(self, config: TransformerConfig = default_transformer_config, loss_tag='lm', **kwargs):
         super(CrossEntropyLoss, self).__init__()
-        dp = parallel_config.data_parallel_size
-        mp = parallel_config.tensor_model_parallel_size
-        cp = parallel_config.context_parallel_size
-        self.seq_pipe = parallel_config.seq_split_num > 1
+        dp = config.data_parallel_size
+        mp = config.tensor_model_parallel_size
+        cp = config.context_parallel_size
+        self.seq_pipe = config.seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
         self.loss_tag = loss_tag
@@ -279,9 +278,9 @@ class CrossEntropyLoss(nn.Cell):
         self.reshape = Reshape()
         self.cast = Cast()
 
-        self._log_softmax = _LogSoftmax(parallel_config)
-        self._nllloss = _NLLLoss(parallel_config)
-        self.calculate_per_token_loss = getattr(parallel_config, "calculate_per_token_loss", False)
+        self._log_softmax = _LogSoftmax(config)
+        self._nllloss = _NLLLoss(config)
+        self.calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
 
         self.monitor_local_loss = get_context("monitor_local_loss")
         self.monitor_device_local_loss = get_context("monitor_device_local_loss")
@@ -344,9 +343,9 @@ class CrossEntropyLoss(nn.Cell):
 class VocabParallelCrossEntropy(nn.Cell):
     """calculate cross entropy loss"""
 
-    def __init__(self, parallel_config=default_dpmp_config, **kwargs):
+    def __init__(self, config: TransformerConfig = default_transformer_config, **kwargs):
         super(VocabParallelCrossEntropy, self).__init__()
-        self.cross_entropy = CrossEntropyLoss(parallel_config, **kwargs)
+        self.cross_entropy = CrossEntropyLoss(config, **kwargs)
 
     def construct(self, vocab_parallel_logits, target, input_mask=None, label_smoothing=None):
         if label_smoothing:
