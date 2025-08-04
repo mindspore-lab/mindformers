@@ -295,6 +295,7 @@ class MultiTokenPredictionBlock(nn.Cell):
         self.config = config
         self.submodules = _get_mtp_block_submodules(spec)
         self.mtp_loss_scaling_factor = config.mtp_loss_scaling_factor
+        self.calculate_per_token_loss = config.calculate_per_token_loss
         self._build_layers()
         if not self.layers:
             raise ValueError("MultiTokenPredictionBlock must have at least one layer.")
@@ -402,6 +403,7 @@ class MultiTokenPredictionBlock(nn.Cell):
             extra_loss = self.init_extra_loss
 
         mtp_loss = 0
+        numerator, denominator = 0, 0
         for layer in self.layers:
             # Calc logits for the current Multi-Token Prediction (MTP) layers.
             input_ids = self.roll_tensor(input_ids)
@@ -440,11 +442,18 @@ class MultiTokenPredictionBlock(nn.Cell):
 
             # config.calculate_per_token_loss is supported in training_graph.loss_func.VocabParallelCrossEntropy
             mtp_layer_loss = self.compute_language_model_loss(mtp_logits, labels_t, loss_mask_t)
-            mtp_layer_loss_scale = self.mtp_loss_scaling_factor / self.config.mtp_num_layers
-            mtp_layer_loss = mtp_layer_loss_scale * mtp_layer_loss
-            # MTPLossAutoScaler is not supported for now, forward is not effective, backward grad scale=1.0 by default.
-            mtp_loss = mtp_loss + mtp_layer_loss
 
+            mtp_layer_loss_scale = self.mtp_loss_scaling_factor / self.config.mtp_num_layers
+            if self.calculate_per_token_loss:
+                numerator = numerator + mtp_layer_loss_scale * mtp_layer_loss[0]
+                denominator = denominator + mtp_layer_loss[1]
+            else:
+                mtp_layer_loss = mtp_layer_loss_scale * mtp_layer_loss
+                # MTPLossAutoScaler is not supported for now, forward is not effective, backward grad scale=1.0 by default.
+                mtp_loss = mtp_loss + mtp_layer_loss
+
+        if self.calculate_per_token_loss:
+            return (numerator, denominator), extra_loss
         return mtp_loss, extra_loss
 
 

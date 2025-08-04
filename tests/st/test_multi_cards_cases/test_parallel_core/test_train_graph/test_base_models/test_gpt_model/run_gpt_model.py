@@ -147,16 +147,14 @@ class TransformerLayerRunner:
 
         output = net(self.input_ids, labels=self.input_ids, loss_mask=self.loss_mask)
 
-        output_ms = {"output": output}
-
         if self.rank_id is None or int(self.rank_id) == 0:
             output_np = {}
-            for k, v_tensor in output_ms.items():
-                if v_tensor is not None:
-                    if v_tensor.dtype == ms.bfloat16:
-                        output_np[k] = v_tensor.to(ms.float32).asnumpy()
-                    else:
-                        output_np[k] = v_tensor.asnumpy()
+
+            loss = output[0] + output[1] + output[2]
+            if loss.dtype == ms.bfloat16:
+                output_np["output"] = loss.to(ms.float32).asnumpy()
+            else:
+                output_np["output"] = loss.asnumpy()
 
             output_path = self.args.output_path
             np.savez(output_path, **output_np)
