@@ -596,7 +596,7 @@ class DeepseekV3Attention(nn.Cell):
         return context_layer
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                  block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ Forward process of the DeepseekV3Attention. """
         ori_dtype = x.dtype
         x = self.attention_norm(x)
@@ -748,15 +748,15 @@ class DeepseekV3FusedMlaAttention(DeepseekV3Attention):
                            if self.scale_fa is None else self.scale_fa
 
         self.key_cache = None
-        self.rope_cache = None
+        self.value_cache = None
         self.npu_mem_size = config.npu_mem_size if hasattr(config, 'npu_mem_size') else 2
         if self.npu_mem_size > 0 and self.use_mla_op:
             kv_shape = (self.num_blocks, self.block_size, 1, config.kv_lora_rank)
             rope_shape = (self.num_blocks, self.block_size, 1, config.qk_rope_head_dim)
             self.key_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="key_cache",
                                        requires_grad=False)
-            self.rope_cache = Parameter(Tensor(shape=rope_shape, dtype=compute_dtype, init=Zero()), name="rope_cache",
-                                        requires_grad=False)
+            self.value_cache = Parameter(Tensor(shape=rope_shape, dtype=compute_dtype, init=Zero()), name="value_cache",
+                                         requires_grad=False)
 
         self.reshape_and_cache = ops.auto_generate.ReshapeAndCache()
         self.mla_preprocess = ops.auto_generate.MlaPreprocess()
@@ -766,14 +766,14 @@ class DeepseekV3FusedMlaAttention(DeepseekV3Attention):
                                      requires_grad=False)
         self.mla = ops.auto_generate.Mla()
 
-    def mla_attention_mgr(self, key, rope, slot_mapping, key_cache=None, rope_cache=None):
+    def mla_attention_mgr(self, key, rope, slot_mapping, key_cache=None, value_cache=None):
         """The forward compute of ctKV and k_rope cache for MLA Attention."""
         if self.npu_mem_size > 0:
             key_out = self.reshape_and_cache(key, None, self.key_cache, None, slot_mapping)
-            rope_out = self.reshape_and_cache(rope, None, self.rope_cache, None, slot_mapping)
+            rope_out = self.reshape_and_cache(rope, None, self.value_cache, None, slot_mapping)
             return key_out, rope_out
         key_out = self.reshape_and_cache(key, None, key_cache, None, slot_mapping)
-        rope_out = self.reshape_and_cache(rope, None, rope_cache, None, slot_mapping)
+        rope_out = self.reshape_and_cache(rope, None, value_cache, None, slot_mapping)
         return key_out, rope_out
 
     def mla_preprocess_infer(self, x, freqs_sin, freqs_cos, k_cache, slot_mapping, q_absorb, r_cache=None):
@@ -795,7 +795,7 @@ class DeepseekV3FusedMlaAttention(DeepseekV3Attention):
         return states
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                  block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ Forward process of DeepseekV3FusedMlaAttention. """
         ori_dtype = x.dtype
         if self.is_first_iteration:
@@ -814,7 +814,7 @@ class DeepseekV3FusedMlaAttention(DeepseekV3Attention):
 
             q_nope, q_pe, i_kv, k_pe = self.rotary_emb(q, latent_kv, k_pe, freqs_cis, batch_valid_length)
             if self.use_mla_op:
-                key_out, rope_out = self.mla_attention_mgr(i_kv, k_pe, slot_mapping, key_cache, rope_cache)
+                key_out, rope_out = self.mla_attention_mgr(i_kv, k_pe, slot_mapping, key_cache, value_cache)
                 q_nope = ops.depend(q_nope, key_out)
                 q_nope = ops.depend(q_nope, rope_out)
             else:
@@ -831,8 +831,8 @@ class DeepseekV3FusedMlaAttention(DeepseekV3Attention):
             if self.use_mla_op:
                 k_cache = key_cache if key_cache is not None else \
                           self.key_cache
-                r_cache = rope_cache if rope_cache is not None else \
-                          self.rope_cache
+                r_cache = value_cache if value_cache is not None else \
+                          self.value_cache
                 states = self.mla_preprocess_infer(x, freqs_sin, freqs_cos, k_cache, slot_mapping, q_absorb, r_cache)
                 context_layer, _ = self.mla(states[0], states[2], k_cache, r_cache, block_tables, None, None, None,
                                             q_seq_lens, batch_valid_length, self.n_local_heads, self.scale_value, 1)
@@ -1265,7 +1265,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None, q_seq_lens=None, attn_padding_idx=None, attn_unpadding_idx=None,
-                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, rope_cache=None):
+                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -1273,9 +1273,9 @@ class DeepseekV3DecodeLayer(nn.Cell):
         if self.enable_micro_batch and self.is_first_iteration and not self.first_k_dense:
             # moe layers enable dual pipe overlap
             return self._micro_batch_overlap(x, freqs_cis, mask, batch_valid_length, block_tables,
-                                             slot_mapping, q_seq_lens, key_cache, rope_cache)
+                                             slot_mapping, q_seq_lens, key_cache, value_cache)
         h = self.attention(x, freqs_cis, mask, batch_valid_length, block_tables,
-                           slot_mapping, q_seq_lens, key_cache=key_cache, rope_cache=rope_cache)
+                           slot_mapping, q_seq_lens, key_cache=key_cache, value_cache=value_cache)
 
         if self.need_padding:
             h, x = self.attention_reduce_scatter.padding_with_idx(h, x, attn_padding_idx)
@@ -1313,13 +1313,13 @@ class DeepseekV3DecodeLayer(nn.Cell):
         return True
 
     def _micro_batch_overlap(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                             slot_mapping=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                             slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """dual batch dual-batch step level"""
         # batch_0 stage0 computation
         if self.layer_id == self.moe_config.first_k_dense_replace:
             # attention
             h_0 = self.attention(x[0], freqs_cis, mask, batch_valid_length[0], block_tables[0], slot_mapping[0],
-                                 q_seq_lens[0], key_cache=key_cache, rope_cache=rope_cache)
+                                 q_seq_lens[0], key_cache=key_cache, value_cache=value_cache)
             h_0_new = self.add(x[0], h_0)
         else:
             h_0_new = x[0]
@@ -1335,7 +1335,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
         # batch_1 stage0 computation
         # attention
         h_1 = self.attention(x[1], freqs_cis, mask, batch_valid_length[1], block_tables[1], slot_mapping[1],
-                             q_seq_lens[1], key_cache=key_cache, rope_cache=rope_cache)
+                             q_seq_lens[1], key_cache=key_cache, value_cache=value_cache)
         h_1_new = self.add(x[1], h_1)
         ffn_norm_1 = self.ffn_norm(h_1_new)
         # gating logicts
@@ -1388,7 +1388,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
             next_layer_x_0 = ops.depend(next_layer_x_0, ffn_res_1)
             next_layer_h_0 = self.attention(next_layer_x_0, freqs_cis, mask, batch_valid_length[0], block_tables[0],
                                             slot_mapping[0], q_seq_lens[0], key_cache=key_cache,
-                                            rope_cache=rope_cache)
+                                            value_cache=value_cache)
             next_layer_h_0_new = self.add(out_0, next_layer_h_0)
         else:
             next_layer_h_0_new = out_0
@@ -1523,7 +1523,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, position_ids=None, q_seq_lens=None,
                   attention_mask=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None,
-                  ffn_unpadding_idx=None, key_cache=None, rope_cache=None):
+                  ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         """
         Forward of deepseekv3 model.
 
@@ -1559,7 +1559,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
 
         for i in range(self.num_layers):
             key_cache_i = key_cache[i] if key_cache is not None else None
-            rope_cache_i = rope_cache[i] if rope_cache is not None else None
+            value_cache_i = value_cache[i] if value_cache is not None else None
             if (self.moe_config.first_k_dense_replace and i < self.moe_config.first_k_dense_replace) \
                     or not (self.enable_micro_batch and self.is_first_iteration):
                 h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
@@ -1567,7 +1567,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
                                    q_seq_lens=q_seq_lens, attn_padding_idx=attn_padding_idx,
                                    attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
                                    ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i,
-                                   rope_cache=rope_cache_i)
+                                   value_cache=value_cache_i)
             else:
                 # split dual batch in prefilling
                 if i == self.moe_config.first_k_dense_replace:
@@ -1578,7 +1578,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
                                              q_seq_lens=split_qsl, attn_padding_idx=attn_padding_idx,
                                              attn_unpadding_idx=attn_unpadding_idx, ffn_padding_idx=ffn_padding_idx,
                                              ffn_unpadding_idx=ffn_unpadding_idx, key_cache=key_cache_i,
-                                             rope_cache=rope_cache_i)
+                                             value_cache=value_cache_i)
                 if i == self.num_layers - 1:
                     h = mint.concat((split_input[0], split_input[1]), dim=0)
 
@@ -1894,12 +1894,12 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             return mutable(cache_list)
 
         key_cache = get_input()
-        rope_cache = get_input() if self.use_mla_op else None
+        value_cache = get_input() if self.use_mla_op else None
         self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None,
                         dynamic_init_reset, dynamic_batch_valid_length, None, None, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_q_seq_lens, dynamic_attn_padding_idx,
                         dynamic_attn_unpadding_idx, dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx,
-                        key_cache, rope_cache)
+                        key_cache, value_cache)
         logger.info("Set dynamic input for DeepseekV3.")
 
     def pre_gather_func(self, pre_gather, output, batch_valid_length):
@@ -1920,12 +1920,12 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, attn_padding_idx=None,
                   attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None,
-                  rope_cache=None):
+                  value_cache=None):
         """ DeepseekV3ForCausalLM forward. """
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, position_ids, q_seq_lens, attention_mask, attn_padding_idx,
                             attn_unpadding_idx, ffn_padding_idx, ffn_unpadding_idx, key_cache=key_cache,
-                            rope_cache=rope_cache)
+                            value_cache=value_cache)
         if self.return_hidden_states:
             return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
@@ -1947,8 +1947,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         """Get the key_cache depend on layer_idx."""
         if self.use_mla_op:
             key_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.key_cache
-            rope_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.rope_cache
-            return key_cache, rope_cache
+            value_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.value_cache
+            return key_cache, value_cache
 
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         return key_cache, None
@@ -2024,7 +2024,7 @@ class DeepseekV3MTPLayer(nn.Cell):
                                                   config=config)
 
     def construct(self, emb, hidden_states, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                  slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ Forward of DeepSeekV3MTP layer. """
         norm_emb = self.enorm(emb)
         norm_h = self.hnorm(hidden_states)
@@ -2032,7 +2032,7 @@ class DeepseekV3MTPLayer(nn.Cell):
         h = self.eh_proj(cat_h)
         hidden_states = self.decode_layer(h, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                           block_tables=block_tables, slot_mapping=slot_mapping, q_seq_lens=q_seq_lens,
-                                          key_cache=key_cache, rope_cache=rope_cache)
+                                          key_cache=key_cache, value_cache=value_cache)
         return hidden_states
 
 
@@ -2107,7 +2107,7 @@ class DeepseekV3MTPModel(DeepseekV3PreTrainedModel):
                                          tp_group=self.tp_group)
 
     def construct(self, input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping,
-                  position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                  position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """
         Forward of deepseekv3 model.
         """
@@ -2128,9 +2128,9 @@ class DeepseekV3MTPModel(DeepseekV3PreTrainedModel):
         else:
             freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
         key_cache = key_cache[0] if key_cache is not None else None
-        rope_cache = rope_cache[0] if rope_cache is not None else None
+        value_cache = value_cache[0] if value_cache is not None else None
         hidden_states = self.layer(emb, hidden_states, freqs_cis, mask, batch_valid_length,
-                                   block_tables, slot_mapping, q_seq_lens, key_cache, rope_cache)
+                                   block_tables, slot_mapping, q_seq_lens, key_cache, value_cache)
         output = self.norm(hidden_states)
         return output
 
@@ -2237,27 +2237,27 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
         dynamic_key_cache = None if self.npu_mem_size > 0 else \
             mutable([Tensor(shape=[None, None, None, None], dtype=self.dtype)])
-        dynamic_rope_cache = None if self.npu_mem_size > 0 or not self.use_mla_op else \
+        dynamic_value_cache = None if self.npu_mem_size > 0 or not self.use_mla_op else \
             mutable([Tensor(shape=[None, None, None, None], dtype=self.dtype)])
         self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_batch_valid_length, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_position_ids, dynamic_attention_mask, dynamic_q_seq_lens,
-                        dynamic_key_cache, dynamic_rope_cache)
+                        dynamic_key_cache, dynamic_value_cache)
         logger.info("Set dynamic input for DeepSeekV3-MTP.")
 
     @jit
     def construct(self, input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping, position_ids=None,
-                  attention_mask=None, q_seq_lens=None, key_cache=None, rope_cache=None):
+                  attention_mask=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """ DeepseekV3ForCausalLM forward. """
         hidden_states = self.mtp_model(input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping,
-                                       position_ids, attention_mask, q_seq_lens, key_cache, rope_cache)
+                                       position_ids, attention_mask, q_seq_lens, key_cache, value_cache)
         return hidden_states.reshape(-1, hidden_states.shape[-1])
 
     def kvcache(self, layer_idx):
         """Get the key_cache depend on layer_idx."""
         if self.use_mla_op:
             key_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.key_cache
-            rope_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.rope_cache
-            return key_cache, rope_cache
+            value_cache = self.model.layers[layer_idx].attention.infer_attention.mla_attention_mgr.value_cache
+            return key_cache, value_cache
 
         key_cache = self.mtp_model.layer.decode_layer.attention.infer_attention.paged_attention_mgr.key_cache
         return key_cache, None
