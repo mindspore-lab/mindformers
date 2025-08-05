@@ -25,6 +25,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from mindformers.models.utils import DEFAULT_CHECKPOINT_SAVE_FOLDER
 from .build_model import build_network
 from ..generation import GenerationMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
@@ -97,12 +98,12 @@ class BaseModel(nn.Cell, GenerationMixin):
         Args:
             save_directory(str): a directory to save the model weight and configuration.
                 If None, the directory will be  `./checkpoint_save`, which can be obtained by the
-                `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
+                `DEFAULT_CHECKPOINT_SAVE_FOLDER`. If set, the directory will be what is set.
             save_name(str): the name of saved files, including model weight and configuration file.
                 Default mindspore_model.
         """
         if save_directory is None:
-            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
+            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
 
         if not isinstance(save_directory, str) or not isinstance(save_name, str):
             raise TypeError(f"save_directory and save_name should be a str,"

@@ -41,6 +41,7 @@ from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools.hub import is_offline_mode, cached_file, extract_commit_hash, custom_object_save, PushToHubMixin
+from mindformers.models.utils import DEFAULT_CHECKPOINT_SAVE_FOLDER
 
 
 TOKENIZER_URL_SUPPORT_LIST = MindFormerBook.get_tokenizer_url_support_list()
@@ -2397,11 +2398,11 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         Args:
             save_directory(str): The output file directory. If None, the directory will be  `./checkpoint_save`,
-                which can be obtained by the `MindFormerBook.get_default_checkpoint_save_folder()`. Default None.
+                which can be obtained by the `DEFAULT_CHECKPOINT_SAVE_FOLDER`. Default None.
             save_name(str): The file name of the saved files. Default mindspore_model.
             file_format(str): Support json or yaml. Default yaml.
         """
-        default_directory = MindFormerBook.get_default_checkpoint_save_folder()
+        default_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
         if not os.path.exists(save_directory):
             os.makedirs(save_directory, exist_ok=True)
         if save_directory is None:
