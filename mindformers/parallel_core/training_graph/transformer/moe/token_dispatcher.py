@@ -13,16 +13,23 @@
 # limitations under the License.
 # ============================================================================
 """MoETokenDispatcher for MoE."""
+
 import hashlib
 from abc import abstractmethod
+from typing import Any
 import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
 import mindspore.mint as mint
+from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
 from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast
 from mindformers.parallel_core.transformer_config import TransformerConfig
+
+
+_OEP_GROUP_NAME = {}
+_IEP_GROUP_NAME = {}
 
 
 class MoETokenDispatcher:
@@ -58,22 +65,25 @@ class MoETokenDispatcher:
     @property
     def tp_group(self):
         """Get expert tensor parallel group."""
-        return 'tp_group'
+        return "tp_group"
 
     @property
     def tp_rank(self):
         """Get expert tensor parallel rank."""
-        return 'tp_rank'
+        return "tp_rank"
 
     @property
     def tp_ep_group(self):
         """Get expert tensor and model parallel group."""
-        return 'tp_ep_group'
+        return "tp_ep_group"
 
     @abstractmethod
     def token_permutation(
-            self, tokens: Tensor, probs: Tensor, routing_map: Tensor
-    ):
+            self,
+            tokens: Tensor,
+            probs: Tensor,
+            routing_map: Tensor
+        ):
         """Dispatch tokens to experts.
 
         Args:
@@ -87,9 +97,218 @@ class MoETokenDispatcher:
         raise NotImplementedError("Dispatch function not implemented.")
 
     @abstractmethod
-    def token_unpermutation(self, tokens, probs):
+    def token_unpermutation(
+            self,
+            tokens: Tensor,
+            ctx: Any
+        ) -> Tensor:
         """Restores the expert output to its original ordering."""
         raise NotImplementedError("Restore function not implemented.")
+
+
+class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
+    """
+    Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
+    an expert network (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication,
+    resorting, grouped matrix multiplication (GroupedMM), and its reverse operation.
+    """
+
+    def __init__(self, config):
+        """
+        Initialize the AlltoAll token dispatcher.
+
+        Args:
+            config (TransformerConfig): Configuration for the transformer model.
+        """
+        super().__init__(config)
+        self.ep = config.expert_model_parallel_size
+        self.rank_id = get_rank()
+        self.expert_num = config.num_moe_experts
+        self.use_pad_tokens = config.use_pad_tokens
+
+        self.outer_dp = self.config.data_parallel_size // self.ep
+        self.inner_dp = self.ep
+        self.iep = config.npu_nums_per_device
+        self.oep = self.ep // self.iep
+
+        node_expert_num = self.expert_num // self.oep
+        ep_idx = self.rank_id % self.ep
+        self.a = ep_idx // self.iep * node_expert_num
+        self.b = self.a + node_expert_num
+
+        # communication group
+        self.oep_group = self._get_oep_group_name()
+        self.iep_group = self._get_iep_group_name()
+
+    def _get_oep_group_name(self):
+        """
+        Generates a unique group name for a set of ranks involved in outer expert partitioning (oep)
+        and creates a communication group with this name.
+        This method calculates a range of ranks based on the current rank id
+        and the expert partition size, hashes this range to create a unique
+        identifier, and then establishes a new communication group using this identifier.
+        """
+        rank_start = self.rank_id // self.ep * self.ep
+        rank_start = rank_start + self.rank_id % self.iep
+        rand_end = rank_start + self.ep
+        rank_list = [i for i in range(rank_start, rand_end, self.iep)]
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        if rank_list_str in _OEP_GROUP_NAME:
+            return _OEP_GROUP_NAME[rank_list_str]
+
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
+        oep_group_name = str(hashed)
+        create_group(oep_group_name, rank_list)
+        _OEP_GROUP_NAME[rank_list_str] = oep_group_name
+        return oep_group_name
+
+    def _get_iep_group_name(self):
+        """
+        Generates a unique group name for a set of ranks involved in inner expert partitioning (iep)
+        and creates a communication group with this name.
+        This method calculates a range of ranks based on the current rank id
+        and the expert partition size, hashes this range to create a unique
+        identifier, and then establishes a new communication group using this identifier.
+        """
+        rank_start = self.rank_id // self.iep * self.iep
+        rand_end = rank_start + self.iep
+        rank_list = [i for i in range(rank_start, rand_end)]
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        if rank_list_str in _IEP_GROUP_NAME:
+            return _IEP_GROUP_NAME[rank_list_str]
+
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
+        iep_group_name = str(hashed)
+        create_group(iep_group_name, rank_list)
+        _IEP_GROUP_NAME[rank_list_str] = iep_group_name
+        return iep_group_name
+
+    def get_exdispatch_idx(self, x, expert_ids, router_coeff):
+        """
+        Obtain nddispatch information within nodes.
+        """
+        chosen_expert_num = expert_ids.shape[1]
+        hidden_size = x.shape[1]
+        expert_ids = expert_ids.reshape(-1)  # [nK] <-- [n,k]
+        sorted_expert_ids, dispatch_idx = ops.sort(expert_ids.astype(ms.float32))
+        sorted_expert_ids = sorted_expert_ids.astype(ms.int32)
+        router_coeff = router_coeff.reshape(-1)  # [nK] <-- [n,k]
+        sorted_router_coeff = ops.gather(
+            router_coeff, dispatch_idx, axis=0, batch_dims=0)
+        dispatch_idx = ops.Depend()(dispatch_idx, sorted_router_coeff)
+        dispatch_idx_floordiv_k = dispatch_idx // chosen_expert_num
+        sorted_expert_ids = ops.Depend()(sorted_expert_ids, dispatch_idx_floordiv_k)
+        mask = ops.logical_and(sorted_expert_ids >= self.a, sorted_expert_ids < self.b)
+        x = ops.Depend()(x, mask)
+        x = ops.AllGather(group=self.oep_group)(x)
+        idx = mask.reshape(-1).nonzero()
+        idx = idx.reshape(-1)
+        dispatch_idx = ops.gather(dispatch_idx_floordiv_k,
+                                  idx, axis=0, batch_dims=0)
+        sorted_expert_ids = ops.gather(
+            sorted_expert_ids, idx, axis=0, batch_dims=0)
+        sorted_router_coeff = ops.gather(
+            sorted_router_coeff, idx, axis=0, batch_dims=0)
+        x = x.reshape(-1, hidden_size)
+        return x, dispatch_idx, sorted_expert_ids, sorted_router_coeff
+
+    def token_permutation(
+            self,
+            tokens: Tensor,
+            probs: Tensor,
+            routing_map: Tensor
+        ):
+        x_orig_shape = tokens.shape
+        x = ops.squeeze(tokens, 0)
+        expert_id = ops.squeeze(routing_map, 0).astype(ms.int32)
+        router_coeff = ops.squeeze(probs, 0).astype(ms.bfloat16)
+
+        hidden_size = x.shape[1]
+        chosen_expert_nums = expert_id.shape[1]
+        node_expert_num = self.b - self.a
+        if self.use_pad_tokens:
+            safe_tokens = ms.ops.zeros((node_expert_num, hidden_size), ms.bfloat16)
+            x = ops.concat((safe_tokens, x), 0)
+            safe_expert_ids = ms.ops.cumsum(ms.ops.ones((node_expert_num, chosen_expert_nums)), 0)
+            safe_expert_ids = (safe_expert_ids - 1 + self.a).astype(ms.int32)
+            expert_id = ops.concat((safe_expert_ids, expert_id), 0)
+            safe_router_coeff = ms.ops.zeros((node_expert_num, chosen_expert_nums), ms.bfloat16)
+            router_coeff = ops.concat((safe_router_coeff, router_coeff), 0)
+
+        # prepare counter
+        iepones = [node_expert_num // self.iep for i in range(self.iep)]
+        expert_id = ops.AllGather(group=self.oep_group)(expert_id).reshape(-1, chosen_expert_nums)
+        excounter = P.OneHot()(
+            expert_id.reshape(-1), self.expert_num, Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)
+        )
+        excounter = excounter.sum(axis=0)[self.a: self.b]
+        local_excounter = ops.AlltoAllV(group=self.iep_group, block_size=1)(excounter.reshape(-1), iepones, iepones)
+        exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+        exgl = ops.cast(
+            ops.cumsum(local_excounter.reshape(self.iep, -1).sum(dim=-2, keepdim=False), 0, ms.int32), ms.int64
+        )
+        exsl = ops.cast(excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+        exgl = ops.Depend()(exgl, exrl)
+        exsl = ops.Depend()(exsl, exgl)
+
+        router_coeff = ops.Depend()(router_coeff, exgl)
+        expert_id = ops.Depend()(expert_id, exsl)
+
+        # 1. allgather
+        router_coeff = ops.AllGather(group=self.oep_group)(router_coeff).reshape(-1, chosen_expert_nums)
+
+        # 2. exdispatch
+        x, exdispatch_idx, expert_id, router_coeff = self.get_exdispatch_idx(x, expert_id, router_coeff)
+        exgl = ops.Depend()(exgl, x)
+        exsl = ops.Depend()(exsl, exdispatch_idx)
+        exsl = self.d2h(exsl, "CPU", True)
+        exrl = self.d2h(exrl, "CPU", True)
+        excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
+        x = ops.gather(x, exdispatch_idx, axis=0, batch_dims=0)
+
+        # 3. inner alltoallv
+        x = ops.AlltoAllV(group=self.iep_group, block_size=hidden_size)(x.reshape(-1), exsl, exrl).reshape(
+            -1, hidden_size
+        )
+        expert_id = ops.Depend()(expert_id, x)
+        expert_id = ops.AlltoAllV(group=self.iep_group, block_size=1)(expert_id.reshape(-1), exsl, exrl)
+
+        # 4. resort
+        _, sort_map = ops.sort(expert_id.astype(ms.float32))
+        _, unsort_map = ops.sort(sort_map.astype(ms.float32))
+        x = ops.gather(x, sort_map, axis=0, batch_dims=0)
+
+        ctx = (router_coeff, unsort_map, exrl, exsl, excombine_whiteboard, exdispatch_idx, x_orig_shape)
+        return x, exgl, ctx
+
+    def token_unpermutation(
+            self,
+            tokens,
+            ctx
+        ):
+        """Restores the expert output to its original ordering."""
+        probs, unsort_map, exrl, exsl, excombine_whiteboard, exdispatch_idx, x_orig_shape = ctx
+        # -4. unresort
+        x = ops.gather(tokens, unsort_map, axis=0, batch_dims=0)
+
+        # -3. allToAllv
+        hidden_size = x_orig_shape[-1]
+        x = ops.AlltoAllV(group=self.iep_group, block_size=hidden_size)(x.reshape(-1), exrl, exsl).reshape(
+            -1, hidden_size
+        )
+
+        # -2. excombine
+        x = ops.mul(probs.unsqueeze(1), x)
+        x = excombine_whiteboard.index_add_(0, exdispatch_idx.reshape(-1), x)
+
+        # -1 reduce scatter
+        x = ops.ReduceScatter(group=self.oep_group)(x)
+        if self.use_pad_tokens:
+            node_expert_num = self.b - self.a
+            x = x[node_expert_num:]
+        return x.reshape(x_orig_shape)
 
 
 class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
@@ -180,7 +399,10 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         return tokens, routing_map, num_tokens_per_expert, unsort_pad_map
 
     def token_permutation(
-            self, tokens: Tensor, probs: Tensor, routing_map: Tensor
+            self,
+            tokens: Tensor,
+            probs: Tensor,
+            routing_map: Tensor
     ):
         """Dispatch tokens to experts.
 
@@ -232,12 +454,16 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             index = mint.reshape(sort_map, (sort_map.shape[0]*sort_map.shape[1],))
             global_input_tokens = IndexSelect()(global_input_tokens, 1, index)
 
-        return (global_input_tokens, tokens_per_expert, unsort_map, outer_unsort_map,
-                input_splits, output_splits, original_shape, unsort_pad_map)
+        ctx = (
+            probs, unsort_map, outer_unsort_map, input_splits,
+            output_splits, original_shape, unsort_pad_map
+        )
+        return global_input_tokens, tokens_per_expert, ctx
 
     def token_unpermutation(
-            self, tokens, probs, unsort_map=None, outer_unsort_map=None,
-            input_splits=None, output_splits=None, original_shape=None, unsort_pad_map=None
+            self,
+            tokens,
+            ctx
     ):
         """
         Reverse the token permutation to restore the original order.
@@ -247,6 +473,9 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         2. Perform expert parallel AlltoAll communication to restore the original order.
         3. Unpermute tokens to restore the original order.
         """
+        probs, unsort_map, outer_unsort_map, input_splits, \
+            output_splits, original_shape, unsort_pad_map = ctx
+        tokens = tokens.reshape((1, -1, self.hidden_size))
 
         # Unpermutation 2: Unsort tokens by local expert.
         if self.moe_permute_fusion:

@@ -16,13 +16,13 @@
 import mindspore.nn as nn
 from mindspore.common.parameter import Parameter
 from mindspore.context import ParallelMode
-from mindspore.ops.auto_generate import Cast, GroupedMatmul, Reshape, Swiglu
+from mindspore.ops.auto_generate import Shape, Cast, GroupedMatmul, Reshape, Swiglu, StridedSlice
 from mindspore.ops.operations import Morph
 from mindspore.parallel.shard import Layout
 from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher
+from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher, MoEAlltoAllDeredundencyTokenDispatcher
 
 
 def func_infer_dtype(*args):
@@ -67,6 +67,7 @@ class FFNGroupedGEMM(nn.Cell):
 
         self.compute_dtype = config.compute_dtype
         self.param_init_type = config.params_dtype
+        self.moe_token_dispatcher_type = config.moe_token_dispatcher_type
         self.init_method = config.init_method
         self.ep = config.expert_model_parallel_size
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
@@ -80,12 +81,23 @@ class FFNGroupedGEMM(nn.Cell):
             name='w2')
 
         # init token dispatcher
-        self.token_dispatcher = MoEAlltoAllTokenDispatcher(config)
+        if self.moe_token_dispatcher_type == "alltoall":
+            self.token_dispatcher = MoEAlltoAllTokenDispatcher(config)
+        elif self.moe_token_dispatcher_type == "alltoall_deredundency":
+            self.token_dispatcher = MoEAlltoAllDeredundencyTokenDispatcher(config)
+            self.stride_slice = StridedSlice()
+        else:
+            raise ValueError(
+                f"Unsupported moe_token_dispatcher_type: "
+                f"{self.moe_token_dispatcher_type!r}. "
+                "Expected 'alltoall' or 'alltoall_deredundency'."
+            )
 
         # init morphed layer
         self.morphed_forward = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
             "self_define_shard", True)
 
+        self.shape = Shape()
         self.cast_op = Cast()
         self.reshape = Reshape()
 
@@ -98,6 +110,9 @@ class FFNGroupedGEMM(nn.Cell):
         This module integrates the computations of both the token_dispatcher and experts into the Morph operator.
         The detailed implementation can be found in the functions encapsulated within the Morph operator.
         """
+        new_input_tensor_shape = self.shape(tokens)
+        if self.moe_token_dispatcher_type == "alltoall_deredundency":
+            tokens = self.stride_slice(tokens, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         dtype = tokens.dtype
         w1 = self.cast_op(self.weight1, dtype)
         w2 = self.cast_op(self.weight2, dtype)
@@ -105,19 +120,19 @@ class FFNGroupedGEMM(nn.Cell):
         w1 = self.reshape(w1, (self.num_local_experts, self.hidden_size, 2 * self.intermediate_size))
         w2 = self.reshape(w2, (self.num_local_experts, self.intermediate_size, self.hidden_size))
         output = self.morphed_forward(tokens, probs, routing_map, w1, w2)
+        if self.moe_token_dispatcher_type == "alltoall_deredundency":
+            output = self.stride_slice(output, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         return output
 
     def forward_func(self, tokens, probs, routing_map, w1, w2):
         """Morphed forward."""
-        (dispatched_input, tokens_per_expert, unsort_map, outer_unsort_map,
-         input_splits, output_splits, original_shape, unsort_pad_map) = \
+        dispatched_input, tokens_per_expert, ctx = \
             self.token_dispatcher.token_permutation(tokens, probs, routing_map)
 
         expert_output = self.experts_forward(dispatched_input, tokens_per_expert, w1, w2)
 
         output = self.token_dispatcher.token_unpermutation(
-            expert_output, probs, unsort_map, outer_unsort_map,
-            input_splits, output_splits, original_shape, unsort_pad_map)
+            expert_output, ctx)
         return output
 
     def experts_forward(self, permuted_local_hidden_states, tokens_per_expert, w1, w2):
@@ -134,7 +149,6 @@ class FFNGroupedGEMM(nn.Cell):
         intermediate_parallel = Swiglu()(fc1_output, -1).reshape((-1, w2.shape[1]))
         fc2_output = GroupedMatmul(split_item=3, group_type=0)(
             [intermediate_parallel], [w2], None, None, None, None, None, tokens_per_expert)[0]
-        fc2_output = fc2_output.reshape((1, -1, self.hidden_size))
         return fc2_output
 
     def shard(self, config: TransformerConfig):
@@ -152,6 +166,9 @@ class FFNGroupedGEMM(nn.Cell):
                 f"expert_model_parallel_size: {config.expert_model_parallel_size}.")
         outer_dp = dp // ep
         inner_dp = ep
+
+        if self.moe_token_dispatcher_type == "alltoall_deredundency":
+            self.stride_slice.shard(((dp, 1, 1),))
 
         layout = Layout((outer_dp, inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
         self.morphed_forward.shard(
