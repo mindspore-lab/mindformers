@@ -34,7 +34,7 @@ from mindformers.models.auto import AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
-from ..config_args import ConfigArguments
+from ...core.config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 from ..utils import transform_and_load_checkpoint, get_real_rank

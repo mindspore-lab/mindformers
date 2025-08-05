@@ -16,8 +16,8 @@
 import abc
 from dataclasses import dataclass
 
+from mindformers.core.context import is_legacy_model
 from mindformers.models.build_tokenizer import build_tokenizer
-from mindformers.tools.utils import get_context
 from mindformers.tools.logger import logger
 
 
@@ -106,7 +106,7 @@ class BaseInstructDataHandler:
     def get_tokenizer(self, config):
         """get tokenizer"""
         tokenizer_name = config.tokenizer_name
-        use_legacy = get_context("use_legacy", True)
+        use_legacy = is_legacy_model()
         if tokenizer_name is not None and tokenizer_name.strip() != "":
             from mindformers.auto_class import AutoTokenizer
             word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)

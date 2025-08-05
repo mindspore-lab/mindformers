@@ -17,8 +17,8 @@
 import inspect
 import os
 
+from mindformers.core.context import is_legacy_model
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
-from mindformers.tools.utils import get_context
 
 
 NEW_CLASS_PREFIX = "mcore_"
@@ -27,7 +27,7 @@ NEW_CLASS_PREFIX = "mcore_"
 def get_legacy():
     """return mf context: use_legacy"""
     try:
-        legacy = get_context("use_legacy")
+        legacy = is_legacy_model()
         use_legacy = bool(legacy is None or legacy)
         return use_legacy
     except RuntimeError:
@@ -371,7 +371,7 @@ class MindFormerRegister:
         if 'auto_register' in cfg:
             cls.auto_register(class_reference=cfg.pop('auto_register'), module_type=module_type)
 
-        use_legacy = get_context("use_legacy", True)
+        use_legacy = get_legacy()
         if use_legacy or module_type not in [MindFormerModuleType.CONFIG, MindFormerModuleType.MODELS]:
             if 'type' not in cfg:
                 raise KeyError(

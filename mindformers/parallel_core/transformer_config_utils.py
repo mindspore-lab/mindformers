@@ -189,7 +189,7 @@ PARALLEL_CONFIG_KEY = set(ParallelConfig.keys())
 INFER_CONFIG_KEY = set({
     "mindformers_version", "rl_config", "checkpoint_name_or_path", "_name_or_path", "type", "model_type",
     "tokenizer_class", "architectures", "is_encoder_decoder", "is_sample_acceleration", "bos_token_id", "eos_token_id",
-    "temperature", "repetition_penalty", "max_decode_length", "top_k", "top_p", "do_sample", "post_process"
+    "temperature", "repetition_penalty", "max_decode_length", "top_k", "top_p", "do_sample"
 })
 DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)
@@ -279,6 +279,7 @@ COMMON_CONFIG_MAPPING = {
     "is_dynamic": "is_dynamic",
     "use_eod_reset": "use_eod_reset",
     "use_contiguous_weight_layout": "use_contiguous_weight_layout",
+    "post_process": "post_process",
 
     # Flash Attention
     # not changes
