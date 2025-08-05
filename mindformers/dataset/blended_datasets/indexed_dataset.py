@@ -778,7 +778,7 @@ class IndexedDatasetBuilder(object):
             self.sequence_modes.append(mode)
 
     def add_document(
-        self, np_array: numpy.ndarray, lengths: List[int], modes: Optional[List[int]] = None
+        self, np_array: numpy.ndarray, lengths: Union[int, List[int]], modes: Optional[List[int]] = None
     ) -> None:
         """Add an entire document to the dataset
 
