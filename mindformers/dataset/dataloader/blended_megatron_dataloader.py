@@ -18,7 +18,6 @@ import os
 from enum import Enum
 from typing import Callable, List, Union
 
-import numpy as np
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
@@ -37,27 +36,8 @@ from mindformers.tools.utils import (
     is_publicly_accessible_path
 )
 
-
-def is_dataset_built_on_rank() -> bool:
-    """check which rank need to build dataset."""
-    global_rank_id = get_real_rank()
-    stage_num = ms.get_auto_parallel_context("pipeline_stages")
-    total_device_num = get_real_group_size() // stage_num
-    dp = get_dp_from_dataset_strategy()
-    tp = int(total_device_num // dp)
-
-    local_stage_num = int(global_rank_id // (dp * tp))
-
-    # when not stage 0 or last stage, no need to build dataset.
-    # pylint: disable=R1716
-    if local_stage_num > 0 and local_stage_num < (stage_num - 1):
-        return False
-
-    # In tp group, only need one card to build dataset, others don't need to build dataset.
-    if global_rank_id % tp != 0:
-        return False
-
-    return True
+from .utils import is_dataset_built_on_rank
+from .mock_dataloader import BaseMockDataLoader
 
 
 def is_compile_runtime():
@@ -176,7 +156,7 @@ class MegatronDatasetBuilder:
             else:
                 logger.info(f"This rank is {global_rank_id}, tensor parallel = {tp}, \
                             pipeline stage = {global_rank_id//(dp *tp )}, this rank will build empty data.")
-                source = FakeGptDataset(blended_config)
+                source = MockBlendedMegatron(blended_config, sizes[0])
                 gen_dataset = GeneratorDataset(source, column_names=source.cols(), shuffle=False)
                 skip_barrier_controller(times=2)
         else:
@@ -221,42 +201,43 @@ class MegatronDatasetBuilder:
         )
 
 
-class FakeGptDataset:
-    """Fake dataset."""
-    def __init__(self, config: GPTDatasetConfig):
+class MockBlendedMegatron(BaseMockDataLoader):
+
+    """
+    The mock GPTDataset
+
+    Args:
+        config (GPTDatasetConfig): Dataset configurations.
+        size (int): Total number of samples in the dataset.
+    """
+
+    def __init__(self, config, size):
+        self.seq_length = config.sequence_length
         self.create_attention_mask = config.create_attention_mask
         self.create_compressed_eod_mask = config.create_compressed_eod_mask
-        self.seq_length = config.sequence_length
-        self.data_length = 1024  # fake dataset num
-        self.input_ids = np.ones((self.seq_length,), dtype=np.int32)
-        self.labels = np.ones((self.seq_length,), dtype=np.int32)
-        self.loss_mask = np.ones((self.seq_length,), dtype=np.int32)
-        self.position_mask = np.ones((self.seq_length,), dtype=np.int32)
+
+        # Define column names and shapes for each column based on configuration
+        mock_columns = ["input_ids", "labels", "loss_mask", "position_ids"]
+        mock_shapes = [
+            [self.seq_length],  # input_ids
+            [self.seq_length],  # labels
+            [self.seq_length],  # loss_mask
+            [self.seq_length]   # position_ids
+        ]
         if self.create_compressed_eod_mask:
-            self.actual_seq_len = np.ones((config.eod_pad_length,), dtype=np.int32)
-        if self.create_attention_mask:
-            self.attention_mask = np.ones((1, self.seq_length, self.seq_length,), dtype=np.int32)
+            mock_columns.append('actual_seq_len')
+            mock_shapes.append([config.eod_pad_length])
+        elif self.create_attention_mask:
+            mock_columns.append('attention_mask')
+            mock_shapes.append([1, self.seq_length, self.seq_length])
+
+        # Define data types: all fields use int32
+        mock_dtypes = ['int32'] * len(mock_columns)
+        super().__init__(mock_columns, mock_shapes, mock_dtypes, size)
 
     def cols(self):
-        # pylint: disable=R1705
-        if self.create_compressed_eod_mask:
-            return ["input_ids", "labels", "loss_mask", "position_ids", "actual_seq_len"]
-        elif self.create_attention_mask:
-            return ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
-        else:
-            return ["input_ids", "labels", "loss_mask", "position_ids"]
-
-    def __getitem__(self, i):
-        # pylint: disable=R1705
-        if self.create_compressed_eod_mask:
-            return self.input_ids, self.labels, self.loss_mask, self.position_mask, self.actual_seq_len
-        elif self.create_attention_mask:
-            return self.input_ids, self.labels, self.loss_mask, self.position_mask, self.attention_mask
-        else:
-            return self.input_ids, self.labels, self.loss_mask, self.position_mask
-
-    def __len__(self):
-        return self.data_length
+        """Returns the list of column names generated during initialization."""
+        return self.mock_columns
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
