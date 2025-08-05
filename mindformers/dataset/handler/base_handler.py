@@ -54,6 +54,7 @@ class BaseInstructDataHandler:
         self.seq_length = config.seq_length
         self.packing = kwargs.get('packing', None)
         self.is_dynamic = config.get('is_dynamic', False)
+        self.use_legacy = get_context("use_legacy", True)
 
         self.tokenizer = self.get_tokenizer(config)
         self.config = config
@@ -106,7 +107,6 @@ class BaseInstructDataHandler:
     def get_tokenizer(self, config):
         """get tokenizer"""
         tokenizer_name = config.tokenizer_name
-        use_legacy = get_context("use_legacy", True)
         if tokenizer_name is not None and tokenizer_name.strip() != "":
             from mindformers.auto_class import AutoTokenizer
             word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
@@ -115,7 +115,7 @@ class BaseInstructDataHandler:
             pretrained_model_dir = config.get("pretrained_model_dir", None)
             trust_remote_code = config.get("trust_remote_code", False)
             word_tokenizer = build_tokenizer(tokenizer_dict,
-                                             use_legacy=use_legacy,
+                                             use_legacy=self.use_legacy,
                                              pretrained_model_dir=pretrained_model_dir,
                                              trust_remote_code=trust_remote_code)
             word_tokenizer.padding_side = config.tokenizer.get("padding_side", "right")

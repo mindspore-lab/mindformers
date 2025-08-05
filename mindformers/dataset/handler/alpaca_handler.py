@@ -13,10 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """Alpaca Dataset Handler."""
+
 import numpy as np
 
-from mindformers.dataset.handler.base_handler import BaseInstructDataHandler, BaseTemplate
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.logger import logger
+from .base_handler import BaseInstructDataHandler, BaseTemplate
 
 
 class AlpacaTemplate(BaseTemplate):
@@ -45,94 +47,76 @@ PROMPT_NO_INPUT = (
 @MindFormerRegister.register(MindFormerModuleType.DATA_HANDLER)
 class AlpacaInstructDataHandler(BaseInstructDataHandler):
     """Alpaca Data Handler"""
-    user_role = "USER"
-    assistant_role = "ASSISTANT"
 
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
         self.template = AlpacaTemplate()
+        self.padding = self.packing is None and not self.is_dynamic
+
+        if self.tokenizer is not None and getattr(self.tokenizer, 'pad_token_id', None) is not None:
+            self.pad_token_id = self.tokenizer.pad_token_id
+        else:
+            logger.info(f"tokenizer not set or it have no pad_token_id, set 0 as `pad_token_id`.")
+            self.pad_token_id = kwargs.get('pad_token_id', 0)
 
     def format_func(self, example):
-        """format func"""
-        source = PROMPT_INPUT.format_map(example) \
-            if example.get(self.input_key, "") != "" \
-            else PROMPT_NO_INPUT.format_map(example)
-        target = example.get(self.output_key)
-        formatted_example = [
+        """Apply alpaca instruct template on samples"""
+        if example.get('input'):
+            usr_input = PROMPT_INPUT.format_map(example)
+        else:
+            usr_input = PROMPT_NO_INPUT.format_map(example)
+        assis_response = example.get('output', '')
+        example = [
             {
-                "from": self.user_role,
-                "value": source,
+                "from": "USER",
+                "value": usr_input,
             },
             {
-                "from": self.assistant_role,
-                "value": target,
+                "from": "ASSISTANT",
+                "value": assis_response,
             },
         ]
-
-        return formatted_example
+        return example
 
     def tokenize_func(self, messages):
-        """tokenize func"""
-        conversation = self.gen_prompt(messages)
-        sep = self.template.sep + self.assistant_role + ": "
-        # Tokenize conversations
-        rounds = conversation.split(self.template.sep2)
-        ids = [self.tokenizer.bos_token_id]
-        mask = [1]
-        for _, rou in enumerate(rounds):
-            if rou == "":
-                break
-            conv_out = self.tokenizer(rou)
-            ids.extend(conv_out['input_ids'][1:])
-            mask.extend(conv_out['attention_mask'][1:])
-        d = {'input_ids': ids, 'attention_mask': mask}
-        # pylint: disable=W0212
-        if not (self.is_dynamic or self.packing):
-            d = self.tokenizer._pad(d, max_length=self.seq_length + 1, padding_strategy='max_length')
-        input_id = d['input_ids'][:self.seq_length + 1]
-        target = np.array(d['input_ids'])
-        total_len = int(np.not_equal(target, self.tokenizer.pad_token_id).sum())
-        cur_len = 1
-        target[:cur_len] = self.ignore_token_id
-        for _, rou in enumerate(rounds):
-            if rou == "":
-                break
-            parts = rou.split(sep)
-            if len(parts) != 2:
-                break
-            parts[0] += sep
-            round_len = len(self.tokenizer(rou)['input_ids']) - 1
-            instruction_len = len(self.tokenizer(parts[0])['input_ids']) - 3
+        """Encode source text with tokenizer"""
+        text = f"{self.template.system} "
+        token = self.tokenizer(text)['input_ids']
 
-            target[cur_len: cur_len + instruction_len] = self.ignore_token_id
+        # ignore_token_id = -100 default
+        labels = [self.ignore_token_id] * len(token)
 
-            cur_len += round_len
-        if self.is_dynamic or self.packing:
-            return {
-                "input_ids": input_id,
-                "labels": target[:len(input_id)].tolist()
-            }
-        target[cur_len:] = self.ignore_token_id
-        if cur_len < self.seq_length + 1:
-            if cur_len != total_len:
-                target[:] = self.ignore_token_id
-        else:
-            target = target[:self.seq_length + 1]
-        label = target.tolist()
-        return {
-            "input_ids": input_id,
-            "labels": label,
-        }
+        for message in messages:
+            role = message.get("from")
+            value = message.get("value")
 
-    def gen_prompt(self, messages):
-        """gen prompt"""
-        seps = [self.template.sep, self.template.sep2]
-        ret = self.template.system + seps[0]
-        for i, message in enumerate(messages):
-            role = message["from"]
-            value = message["value"]
-            if value:
-                ret += role + ": " + value + seps[i % 2]
+            if role == "USER":
+                cur_text = f"{role}: {value} "
+                cur_token = self.tokenizer(cur_text)['input_ids']
+                cur_labels = [self.ignore_token_id] * len(cur_token)
             else:
-                ret += role + ":"
-        return ret
+                cur_text = f"{role}: {value}</s>"  # last token is </s>
+                cur_token = self.tokenizer(cur_text)['input_ids']
+                cur_labels = cur_token
+
+            text += cur_text
+            token += cur_token
+            labels += cur_labels
+
+        labels = labels[1:] + [self.ignore_token_id]
+
+        max_length = self.seq_length
+        if self.use_legacy:
+            max_length += 1
+
+        if self.padding and len(token) < max_length:
+            token += [self.pad_token_id] * (max_length - len(token))
+            labels += [self.ignore_token_id] * (max_length - len(labels))
+
+        token = token[:max_length]
+        labels = labels[:max_length]
+
+        return {
+            "input_ids": np.array(token, dtype=np.int32),
+            "labels": np.array(labels, dtype=np.int32)
+        }

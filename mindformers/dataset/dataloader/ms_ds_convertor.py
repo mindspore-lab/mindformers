@@ -199,8 +199,8 @@ class MSDatasetAdaptor:
 
     def __getitem__(self, idx):
         if self.packing:
-            return self._generate_mask(idx)
-        return [getattr(self, col_name)[idx] for col_name in self.col_names]
+            return self._generate_mask(int(idx))
+        return [getattr(self, col_name)[int(idx)] for col_name in self.col_names]
 
     def __len__(self):
         return len(self.dataset)
@@ -211,6 +211,7 @@ class MSDatasetAdaptor:
             config = dict()
 
         self.compress_mask = config.get('compress_mask', False)
+        self.eod_pad_length = config.get('eod_pad_length', 128)
 
     def _generate_mask(self, idx):
         """Generate EOD mask for packing dataset."""
@@ -242,7 +243,7 @@ class MSDatasetAdaptor:
 
         if self.compress_mask:
             actual_seq_len = np.pad(
-                actual_seq_len, (0, 128 - len(actual_seq_len)),
+                actual_seq_len, (0, self.eod_pad_length - len(actual_seq_len)),
                 mode='constant',
                 constant_values=seq_length)
             attention_mask = actual_seq_len
