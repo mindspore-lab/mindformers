@@ -18,7 +18,6 @@ import copy
 import functools
 import importlib
 import os
-import shutil
 import types
 from collections import OrderedDict
 
@@ -40,6 +39,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.tools.utils import try_sync_file
 
+from mindformers.models.auto.utils import set_default_yaml_file
 from ...mindformer_book import MindFormerBook, print_dict
 from ..build_model import build_network
 
@@ -473,21 +473,8 @@ class _BaseAutoModelClass:
 
             yaml_file = os.path.join(checkpoint_path, pretrained_checkpoint_name + ".yaml")
 
-            def get_default_yaml_file(model_name):
-                default_yaml_file = ""
-                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
-                    if model_name in model_dict:
-                        default_yaml_file = model_dict.get(model_name)
-                        break
-                return default_yaml_file
+            set_default_yaml_file(pretrained_checkpoint_name, yaml_file)
 
-            if not os.path.exists(yaml_file):
-                default_yaml_file = get_default_yaml_file(pretrained_checkpoint_name)
-                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
-                    shutil.copy(default_yaml_file, yaml_file)
-                    logger.info("default yaml config in %s is used.", yaml_file)
-                else:
-                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
             kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \

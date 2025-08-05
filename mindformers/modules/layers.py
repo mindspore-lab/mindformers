@@ -555,9 +555,8 @@ class Linear(Cell):
                 self.bias_add.shard(strategy_bias)
             return self
 
-        if enable_nd_tp:
-            if out_strategy_matmul:
-                raise ValueError("When the enable nd_tp = True, the out_strategy_matmul must be None.")
+        if enable_nd_tp and out_strategy_matmul:
+            raise ValueError("When the enable nd_tp = True, the out_strategy_matmul must be None.")
         self.matmul.add_prim_attr("enable_nd_tp", enable_nd_tp)
         self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
         if self.has_bias:

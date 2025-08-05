@@ -19,9 +19,9 @@ Support huggingface format
 
 import argparse
 from pathlib import Path
+from safetensors.torch import load_file
 import torch
 import mindspore as ms
-from safetensors.torch import load_file
 from mindformers.tools.utils import str2bool
 
 dtype_map = {
@@ -71,44 +71,44 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
             value = value.to(torch.float32).numpy()
             print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
             ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
-        else:
-            if 'feed_forward.ffn' not in name:
-                value = value.to(torch.float32).numpy()
-                print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
-                ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
-            else:
-                # #3:number of linear(w1,w2,w3) ,24 = 3 * 8(number of linear * expert_num)
-                if count % 3 == 0 and count != 24:
-                    list_w1.append(value)
-                if count % 3 == 1 and count != 24:
-                    list_w2.append(value)
-                if count % 3 == 2 and count != 24:
-                    list_w3.append(value)
-                count = count + 1
-                if count == 24:
-                    str_front = name.split('ffn')[0]
-                    name_w1 = str_front + 'ffn.w1.weight'
-                    name_w2 = str_front + 'ffn.w2.weight'
-                    name_w3 = str_front + 'ffn.w3.weight'
-                    w1_value = torch.stack(list_w1, 0).to(torch.float32).numpy()
-                    print(f'\rprocessing parameter: {name_w1} {w1_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w1,
-                                      'data': ms.Tensor(w1_value if not use_gmm else w1_value.transpose((0, 2, 1)),
-                                                        dtype=dtype)})
-                    w2_value = torch.stack(list_w2, 0).to(torch.float32).numpy()
-                    print(f'\rprocessing parameter: {name_w2} {w2_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w2,
-                                      'data': ms.Tensor(w2_value if not use_gmm else w2_value.transpose((0, 2, 1)),
-                                                        dtype=dtype)})
-                    w3_value = torch.stack(list_w3, 0).to(torch.float32).numpy()
-                    print(f'\rprocessing parameter: {name_w3} {w3_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w3,
-                                      'data': ms.Tensor(w3_value if not use_gmm else w3_value.transpose((0, 2, 1)),
-                                                        dtype=dtype)})
-                    count = 0
-                    list_w1 = []
-                    list_w2 = []
-                    list_w3 = []
+            continue
+        if 'feed_forward.ffn' not in name:
+            value = value.to(torch.float32).numpy()
+            print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
+            continue
+        # #3:number of linear(w1,w2,w3) ,24 = 3 * 8(number of linear * expert_num)
+        if count % 3 == 0 and count != 24:
+            list_w1.append(value)
+        if count % 3 == 1 and count != 24:
+            list_w2.append(value)
+        if count % 3 == 2 and count != 24:
+            list_w3.append(value)
+        count = count + 1
+        if count == 24:
+            str_front = name.split('ffn')[0]
+            name_w1 = str_front + 'ffn.w1.weight'
+            name_w2 = str_front + 'ffn.w2.weight'
+            name_w3 = str_front + 'ffn.w3.weight'
+            w1_value = torch.stack(list_w1, 0).to(torch.float32).numpy()
+            print(f'\rprocessing parameter: {name_w1} {w1_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': name_w1,
+                              'data': ms.Tensor(w1_value if not use_gmm else w1_value.transpose((0, 2, 1)),
+                                                dtype=dtype)})
+            w2_value = torch.stack(list_w2, 0).to(torch.float32).numpy()
+            print(f'\rprocessing parameter: {name_w2} {w2_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': name_w2,
+                              'data': ms.Tensor(w2_value if not use_gmm else w2_value.transpose((0, 2, 1)),
+                                                dtype=dtype)})
+            w3_value = torch.stack(list_w3, 0).to(torch.float32).numpy()
+            print(f'\rprocessing parameter: {name_w3} {w3_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': name_w3,
+                              'data': ms.Tensor(w3_value if not use_gmm else w3_value.transpose((0, 2, 1)),
+                                                dtype=dtype)})
+            count = 0
+            list_w1 = []
+            list_w2 = []
+            list_w3 = []
 
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
