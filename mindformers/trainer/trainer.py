@@ -53,7 +53,7 @@ from mindformers.tools.utils import (
     get_device_num_per_node,
     is_publicly_accessible_path,
     clear_auto_trans_output,
-    FILE_PERMISSION
+    FILE_PERMISSION, set_checkpoint_save_path
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -293,6 +293,7 @@ class Trainer:
         # set output directory
         set_output_path(self.config.output_dir)
         set_strategy_save_path(self.config.parallel)
+        set_checkpoint_save_path()
         if (self.config.auto_trans_ckpt or self.config.resume_training) and \
                 check_in_modelarts() and self.config.remote_save_url:
             set_remote_save_url(self.config.remote_save_url)
@@ -1332,41 +1333,86 @@ class Trainer:
 
     def _check_config_rules(self):
         """Check config rules."""
+        self._adjust_resume_training_if_ckpt_path_invalid()
+        self._try_use_pretrained_model_dir_as_ckpt()
+        self._validate_auto_trans_ckpt_requirements()
+        self._using_checkpoint_name_or_path_if_needed()
+        self._clear_redundant_model_checkpoint_name()
+        self._warn_if_resume_training_is_string()
+
+    def _adjust_resume_training_if_ckpt_path_invalid(self):
+        """Disable resume_training if checkpoint path is empty or invalid."""
+        if isinstance(self.config.resume_training, bool) and self.config.resume_training:
+            try:
+                p = Path(self.config.load_checkpoint).resolve()
+            except TypeError as e:
+                raise TypeError(f"`load_checkpoint` should be a string, "
+                                f"but got type {type(self.config.load_checkpoint)}.") from e
+
+            if self.config.load_checkpoint:
+                if p.is_dir() and not any(p.iterdir()):
+                    self.config.resume_training = False
+                    self.config.load_checkpoint = ""
+                    logger.warning(
+                        "The `load_checkpoint` is an empty path while the `resume_training` is True. "
+                        "Hence `resume_training` and `load_checkpoint` is changed to False "
+                        "and '' respectively, and randomly initialized weights will be used."
+                    )
+            else:
+                self.config.resume_training = False
+                self.config.load_checkpoint = ""
+                logger.warning(
+                    "The `load_checkpoint` is '' while the `resume_training` is True. "
+                    "Hence `resume_training` and `load_checkpoint` is changed to False and '' respectively, "
+                    "and randomly initialized weights will be used."
+                )
+
+    def _try_use_pretrained_model_dir_as_ckpt(self):
+        """Use `pretrained_model_dir` as fallback for checkpoint if applicable."""
         if not self.config.load_checkpoint and self.config.pretrained_model_dir:
             from mindformers.utils import contains_safetensors_files
             if contains_safetensors_files(self.config.pretrained_model_dir):
                 self.config.load_checkpoint = self.config.pretrained_model_dir
-                logger.info(f'Parameter load_checkpoint does not set the weight path default read from '
-                            f'parameter pretrain_model_dir: {self.config.pretrained_model_dir}')
+                logger.info(f'Parameter load_checkpoint does not set the weight path. Defaulting to '
+                            f'pretrained_model_dir: {self.config.pretrained_model_dir}')
             else:
-                logger.info(f'parameter pretrain_model_dir: {self.config.pretrained_model_dir} '
-                            f'does not contain any safetensors file and load_checkpoint is empty.'
-                            f'It will not load any weights.')
+                logger.info(f'Pretrained_model_dir: {self.config.pretrained_model_dir} '
+                            f'does not contain any safetensors file and load_checkpoint is empty. '
+                            f'No weights will be loaded.')
 
+    def _validate_auto_trans_ckpt_requirements(self):
+        """Ensure auto_trans_ckpt has shared directory requirements met."""
         if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
             if not is_publicly_accessible_path(get_output_root_path()):
-                raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
-                                 "the output_dir should be a shared directory that can be accessed by all nodes."
-                                 f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")
+                raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True, "
+                                 f"the output_dir should be a shared directory that can be accessed by all nodes. "
+                                 f"But {os.path.abspath(self.config.output_dir)} is not a shared directory.")
             clear_auto_trans_output(self.config.load_checkpoint, self.config.src_strategy_path_or_dir)
 
+    def _using_checkpoint_name_or_path_if_needed(self):
+        """Using model_config.checkpoint_name_or_path if possible."""
         if (self.config.auto_trans_ckpt or self.config.resume_training) and not self.config.load_checkpoint:
             if self.config.model and self.config.model.model_config.checkpoint_name_or_path:
                 self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
                 self.config.model.model_config.checkpoint_name_or_path = None
             else:
-                raise ValueError("when `auto_trans_ckpt` or `resume_training` is True, "
-                                 "the `load_checkpoint` should not be empty string or None."
+                raise ValueError("When `auto_trans_ckpt` or `resume_training` is True, "
+                                 "`load_checkpoint` should not be empty or None. "
                                  "If you are using TrainingArguments, `resume_from_checkpoint` should be set.")
-        if self.config.load_checkpoint and self.config.model \
-                and self.config.model.model_config.checkpoint_name_or_path:
-            self.config.model.model_config.checkpoint_name_or_path = None
-            logger.info("The `load_checkpoint` is set, the `checkpoint_name_or_path` will be set to None.")
 
+    def _clear_redundant_model_checkpoint_name(self):
+        """Clear model_config.checkpoint_name_or_path if load_checkpoint is set."""
+        if self.config.load_checkpoint and self.config.model and \
+                self.config.model.model_config.checkpoint_name_or_path:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            logger.info("The `load_checkpoint` is set; `checkpoint_name_or_path` will be cleared.")
+
+    def _warn_if_resume_training_is_string(self):
+        """Warn if resume_training is an invalid string while load_checkpoint is a file."""
         if isinstance(self.config.resume_training, str) and \
                 self.config.load_checkpoint and os.path.isfile(self.config.load_checkpoint):
             logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
-                           "when `load_checkpoint` is a file path")
+                           "when `load_checkpoint` is a file path.")
             self.config.resume_training = True
 
     def _check_args_task_and_model(self):
