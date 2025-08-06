@@ -596,6 +596,11 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 setattr(self, k, v)
             del self.rope_scaling
 
+        if self.bias_swiglu_fusion and self.hidden_act != 'swiglu':
+            raise ValueError(
+                "When using bias_swiglu_fusion, hidden_act must be swiglu."
+            )
+
 
 @dataclass
 class MLATransformerConfig(TransformerConfig):
