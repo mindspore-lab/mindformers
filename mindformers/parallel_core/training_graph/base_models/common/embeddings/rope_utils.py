@@ -19,7 +19,7 @@ __all__ = [
     "ApplyRotaryPosEmb"
 ]
 
-from mindspore import nn, Tensor
+from mindspore import nn, Tensor, ops, Layout
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import AddExt, Reshape, Mul, Cos, Sin, Split, Neg, Concat, StackExt, StridedSlice
@@ -91,6 +91,10 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.stack = StackExt(dim=-1)
         self.slice = StridedSlice()
         self.reshape = Reshape()
+        self.apply_rope_fusion = config.apply_rope_fusion
+
+        if self.apply_rope_fusion:
+            self.rope = ops.auto_generate.gen_ops_prim.RotaryPositionEmbedding()
 
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -144,8 +148,11 @@ class ApplyRotaryPosEmb(nn.Cell):
         cos_ = self.cos(freqs * m_scale).astype(t.dtype)
         sin_ = self.sin(freqs * m_scale).astype(t.dtype)
 
-        t_rot = self._rotate_half(t, rotary_interleaved, input_is_parallel)
-        output = add(mul(t, cos_), mul(t_rot, sin_))
+        if self.apply_rope_fusion:
+            output = self.rope(t, cos_, sin_, 0)
+        else:
+            t_rot = self._rotate_half(t, rotary_interleaved, input_is_parallel)
+            output = add(mul(t, cos_), mul(t_rot, sin_))
 
         if t_not_rotary is not None:
             output = cat((output, t_not_rotary))
@@ -185,6 +192,7 @@ class ApplyRotaryPosEmb(nn.Cell):
     def shard(self, config: TransformerConfig):
         """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""
         dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
+        cp = config.context_parallel_size if config and config.context_parallel_size is not None else 1
         tp = config.tensor_model_parallel_size if config and config.tensor_model_parallel_size is not None else 1
 
         strategy_in = (1, dp, tp, 1)
@@ -217,6 +225,16 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.neg_input_is_parallel.shard(in_strategy=(strategy_in_input_is_parallel,))
         self.sin.shard(in_strategy=sin_in_strategy)
         self.cos.shard(in_strategy=cos_in_strategy)
+
+        if self.apply_rope_fusion:
+            layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
+            self.rope.shard(in_strategy=(layout("cp", "dp", "tp", "None"),
+                                         layout("cp", "None", "None", "None"),
+                                         layout("cp", "None", "None", "None")),
+                            out_strategy=(layout("cp", "dp", "tp", "None"),)
+                            )
+            self.rope.add_prim_attr("self_define_shard", True)
+
 
     def sharding_propagation(self, config: TransformerConfig):
         """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""

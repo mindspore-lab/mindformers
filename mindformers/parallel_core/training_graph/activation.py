@@ -13,15 +13,32 @@
 # limitations under the License.
 # ============================================================================
 """Activation functions for transformer."""
-__all__ = ["GELU", "SwiGlu", "SiLU", "get_activation"]
+__all__ = ["FusedSwiGLU", "GELU", "SwiGlu", "SiLU", "get_activation"]
 
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import Mul, AddExt, GeLU, Erf, Sqrt, Div, Cast
 from mindspore.ops.auto_generate import SiLU as SiLU_op
+from mindspore.ops.auto_generate.gen_ops_prim import Swiglu as Swiglu_op
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
+
+
+class FusedSwiGLU(nn.Cell):
+    """
+    Fused SwiGlu activation function.
+
+    Args:
+        config (ModelParallelConfig): The model parallel configuration.
+    """
+
+    def __init__(self, config: ModelParallelConfig = None):
+        super(FusedSwiGLU, self).__init__()
+        self.swiglu = Swiglu_op()
+
+    def construct(self, x: Tensor) -> Tensor:
+        return self.swiglu(x, -1)
 
 
 class SwiGlu(nn.Cell):
@@ -189,7 +206,8 @@ class SiLU(nn.Cell):
 ACTIVATION_MAP = {
     'gelu': GELU,
     'swiglu': SwiGlu,
-    'silu': SiLU
+    'silu': SiLU,
+    'fusedswiglu': FusedSwiGLU
 }
 
 

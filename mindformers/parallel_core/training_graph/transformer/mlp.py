@@ -85,7 +85,12 @@ class MLP(nn.Cell):
         self.mlp_has_bias = config.add_bias_linear
         self.init_method = config.init_method
         self.output_layer_init_method = config.output_layer_init_method
-        self.activation_type = config.hidden_act
+
+        if config.hidden_act == 'swiglu' and config.bias_swiglu_fusion:
+            self.activation_type = 'fusedswiglu'
+        else:
+            self.activation_type = config.hidden_act
+
         self.compute_dtype = config.compute_dtype
 
         self.linear_fc1 = build_module(
@@ -136,7 +141,7 @@ class MLP(nn.Cell):
         if bias_parallel is not None:
             intermediate_parallel = self.add(intermediate_parallel, bias_parallel)
         if self.gated_linear_unit:
-            if self.activation_type == 'swiglu':
+            if self.activation_type == 'swiglu' or self.activation_type == 'fusedswiglu':
                 intermediate_parallel = self.activation_func(intermediate_parallel)
             else:
                 hidden_size = intermediate_parallel.shape[-1]
