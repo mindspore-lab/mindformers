@@ -233,6 +233,8 @@ class GPTModel(nn.Cell):
         if self.mtp_process:
             self.mtp = MultiTokenPredictionBlock(config=self.config, spec=mtp_block_spec)
 
+        if self.post_process and fp16_lm_cross_entropy:
+            raise ValueError("GPTModel does not need to support fp16_lm_cross_entropy.")
         # Output
         if self.post_process or self.mtp_process:
             skip_weight_param_allocation = self.pre_process and self.share_embeddings_and_output_weights
@@ -345,9 +347,18 @@ class GPTModel(nn.Cell):
         if not self.post_process:
             return hidden_states
 
-        # labels origin shape is [b s h], Transpose is not required.
-        loss = self.compute_language_model_loss(hidden_states, labels, output_weight,
-                                                self.fp16_lm_cross_entropy, loss_mask)
+        # logits origin shape is [s b h], transform it to [b*s h].
+        logits, _ = self.output_layer(hidden_states, output_weight)
+        if logits.ndim > 2:
+            logits = self.reshape(logits, (-1, logits.shape[-1]))
+        logits = self.cast(logits, dtype.float32)
+        logits = self.transpose(logits, (0, 1))
+
+        if not self.training:
+            return logits.contiguous()
+
+        # labels origin shape is [b s], Transpose is not required.
+        loss = self.compute_language_model_loss(labels, logits, loss_mask)
 
         if self.calculate_per_token_loss:
             numerator0, denominator0 = loss
@@ -418,36 +429,21 @@ class GPTModel(nn.Cell):
         return None
 
     def compute_language_model_loss(self,
-                                    lm_output: Tensor,
                                     labels: Tensor,
-                                    logit_weights: Tensor,
-                                    fp16_lm_cross_entropy: bool,
+                                    logits: Tensor,
                                     loss_mask: Tensor
                                     ):
         """Post-processing of language model output.
 
         Args:
-            lm_output (Tensor): Language model output.
             labels (Tensor): Labels.
-            logit_weights (Tensor): Logit weights.
-            fp16_lm_cross_entropy (bool): Whether to use fp16 for loss computation.
+            logits (Tensor): Logit.
             loss_mask (Tensor): Loss mask.
 
         Returns:
             output (Tensor): Output loss.
         """
-        if fp16_lm_cross_entropy:
-            raise ValueError("GPTModel does not need to support fp16_lm_cross_entropy.")
-        logits, _ = self.output_layer(lm_output, logit_weights)
-
-        if not self.training:
-            return logits.contiguous()
-
-        if logits.ndim > 2:
-            logits = self.reshape(logits, (-1, logits.shape[-1]))
-        output = self.cast(logits, dtype.float32)
-        output = self.transpose(output, (0, 1))
-        return self.loss(output, labels, loss_mask)
+        return self.loss(logits, labels, loss_mask)
 
     def _preprocess_input_labels_and_masks(self,
                                            input_ids: Tensor,

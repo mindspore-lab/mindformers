@@ -4224,7 +4224,7 @@
         "signature": "(self)"
     },
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.compute_language_model_loss": {
-        "signature": "(self, lm_output: mindspore.common.tensor.Tensor, labels: mindspore.common.tensor.Tensor, logit_weights: mindspore.common.tensor.Tensor, fp16_lm_cross_entropy: bool, loss_mask: mindspore.common.tensor.Tensor)"
+        "signature": "(self, labels: mindspore.common.tensor.Tensor, logits: mindspore.common.tensor.Tensor, loss_mask: mindspore.common.tensor.Tensor)"
     },
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel._preprocess_input_labels_and_masks": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, labels: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None)"
