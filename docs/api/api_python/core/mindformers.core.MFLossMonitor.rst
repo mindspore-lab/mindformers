@@ -18,3 +18,4 @@ mindformers.core.MFLossMonitor
         - **gradient_accumulation_steps** (int, 可选) - 梯度累加步数。默认值： ``1`` 。
         - **check_for_nan_in_loss_and_grad** (bool, 可选) - 是否检查损失和梯度存在Nan。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的loss。默认值： ``False`` 。
+        - **print_separate_loss** (bool, 可选) - 是否分开打印loss。默认值： ``False`` 。

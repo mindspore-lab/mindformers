@@ -35,7 +35,6 @@ from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
-
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
 from mindformers.core.parallel_config import build_parallel_config
@@ -43,14 +42,16 @@ from mindformers.dataset import build_dataset, check_dataset_config, check_datas
 from mindformers.models import build_network, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.pipeline import pipeline
-from mindformers.wrapper import build_wrapper, PipelineCellWithTwoOutput, GradAccumulationCellWithTwoOutput
+from mindformers.wrapper import build_wrapper
+from mindformers.wrapper.wrapper import GradAccumulationCellWithTwoOutput, GradAccumulationCellWithMultiOutputs, \
+    PipelineCellWithTwoOutput, PipelineCellWithMultiOutputs
 from mindformers.tools.register import MindFormerConfig
 from mindformers.wrapper.wrapper import DataOrderWrapperCell
 from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer, \
     write_args_to_tensorboard, update_tensorboard_args
 from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resume_checkpoint
-from mindformers.tools.utils import count_params, get_real_rank, get_real_group_size, FILE_PERMISSION
+from mindformers.tools.utils import count_params, get_real_rank, get_real_group_size, FILE_PERMISSION, get_context
 from mindformers.tools.check_rules import check_rules
 from mindformers.core.callback.callback import (
     EvalCallBack,
@@ -487,7 +488,7 @@ class BaseTrainer:
         """For passing parameters in lexicographical order."""
         return DataOrderWrapperCell(construct_args_key, network)
 
-    def wrap_network_with_tool_cells(self, network):
+    def _wrap_network_with_tool_cells_legacy(self, network):
         """For training process, warp the network with some tool cells."""
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
@@ -523,6 +524,45 @@ class BaseTrainer:
                 # pylint: disable=W0212
                 network._virtual_dataset.add_prim_attr("repeat_dim_direct", "right")
         return network
+
+    def _wrap_network_with_tool_cells(self, network):
+        """For training process, warp the network with some tool cells."""
+        micro_batch_interleave_num = self.config.micro_batch_interleave_num
+        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
+        parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
+        pp = self.get_pipeline_stages()
+        if micro_batch_interleave_num > 1:
+            raise ValueError("micro_batch_interleave_num > 1, is not supported when use_legacy=False.")
+
+        if not pp > 1:
+            if gradient_accumulation_steps > 1:
+                logger.info("gradient_accumulation_steps > 1, GradAccumulationCell is wrapped on network. "
+                            "It is suggested to use `Lazy Inline` feature to save compiling time.")
+                network = GradAccumulationCellWithMultiOutputs(network, gradient_accumulation_steps)
+        else:
+            micro_batch_num = self.config.parallel_config.micro_batch_num
+            seq_split_num = self.config.parallel_config.seq_split_num
+            if seq_split_num > 1:
+                if self.config.recompute_config.recompute:
+                    raise ValueError("When using seq pipe, cannot apply full recompute.")
+                raise ValueError("seq_split_num > 1, is not supported when use_legacy=False.")
+            if self.config.runner_wrapper.calculate_per_token_loss:
+                if seq_split_num > 1:
+                    raise ValueError("When using seq pipe, cannot apply calculate_per_token_loss.")
+            network = PipelineCellWithMultiOutputs(network, micro_size=micro_batch_num)
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
+            network = _VirtualDatasetCell(network)
+            ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+            if ds_broadcast_level > 0:
+                # pylint: disable=W0212
+                network._virtual_dataset.add_prim_attr("repeat_dim_direct", "right")
+        return network
+
+    def wrap_network_with_tool_cells(self, network):
+        """For training process, warp the network with some tool cells."""
+        if get_context("use_legacy", True):
+            return self._wrap_network_with_tool_cells_legacy(network)
+        return self._wrap_network_with_tool_cells(network)
 
     @staticmethod
     def wrap_eval_network_with_tool_cells(network):
@@ -638,6 +678,7 @@ class BaseTrainer:
         logger.info(".........Build Model Wrapper for Train From Config..........")
         calculate_per_token_loss = getattr(self.config, "calculate_per_token_loss", False)
         use_skip_data_by_global_norm = getattr(self.config, "use_skip_data_by_global_norm", False)
+        print_separate_loss = getattr(self.config, "print_separate_loss", False)
         global_norm_spike_threshold = 1.0
         if self.config.get('monitor_config') is not None:
             global_norm_spike_threshold = getattr(self.config.monitor_config, "global_norm_spike_threshold", 1.0)
@@ -647,6 +688,7 @@ class BaseTrainer:
                                                     "parallel_config": self.config.parallel_config,
                                                     "calculate_per_token_loss": calculate_per_token_loss,
                                                     "global_norm_spike_threshold": global_norm_spike_threshold,
+                                                    "print_separate_loss": print_separate_loss,
                                                     "use_skip_data_by_global_norm": use_skip_data_by_global_norm
                                                     })
         return model_wrapper
@@ -1045,7 +1087,8 @@ class BaseTrainer:
                     "initial_step": config.runner_config.initial_step,
                     "global_batch_size": self.global_batch_size,
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps,
-                    "calculate_per_token_loss": getattr(config, "calculate_per_token_loss", False)
+                    "calculate_per_token_loss": getattr(config, "calculate_per_token_loss", False),
+                    "print_separate_loss": getattr(config, "print_separate_loss", False)
                 }
             if "type" in callback and callback["type"] == "TrainingStateMonitor":
                 default_args = {

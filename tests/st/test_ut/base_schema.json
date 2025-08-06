@@ -240,7 +240,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
     },
     "mindformers.core.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -252,7 +252,7 @@
         "signature": "(self, run_context)"
     },
     "mindformers.core.MFLossMonitor._fix_loss_for_parallel": {
-        "signature": "(self, loss)"
+        "signature": "(self, loss, print_warning=True)"
     },
     "mindformers.core.MFLossMonitor._get_pipeline_group": {
         "signature": "()"
@@ -264,7 +264,7 @@
         "signature": "(self)"
     },
     "mindformers.core.MFLossMonitor.print_output_info": {
-        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
+        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm, main_loss, extra_loss, mtp_loss)"
     },
     "mindformers.core.PerplexityMetric": {
         "signature": "()"
@@ -456,7 +456,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
     },
     "mindformers.core.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -468,7 +468,7 @@
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.MFLossMonitor._fix_loss_for_parallel": {
-        "signature": "(self, loss)"
+        "signature": "(self, loss, print_warning=True)"
     },
     "mindformers.core.callback.MFLossMonitor._get_pipeline_group": {
         "signature": "()"
@@ -480,7 +480,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.MFLossMonitor.print_output_info": {
-        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
+        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm, main_loss, extra_loss, mtp_loss)"
     },
     "mindformers.core.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
@@ -621,7 +621,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
     },
     "mindformers.core.callback.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -633,7 +633,7 @@
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.MFLossMonitor._fix_loss_for_parallel": {
-        "signature": "(self, loss)"
+        "signature": "(self, loss, print_warning=True)"
     },
     "mindformers.core.callback.callback.MFLossMonitor._get_pipeline_group": {
         "signature": "()"
@@ -645,7 +645,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.callback.MFLossMonitor.print_output_info": {
-        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm)"
+        "signature": "(self, cb_params, cur_epoch_num, origin_epochs, throughput, cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow, scaling_sens, time_remain, percent, global_norm, main_loss, extra_loss, mtp_loss)"
     },
     "mindformers.core.callback.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
@@ -5163,13 +5163,13 @@
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.MFPipelineWithLossScaleCell": {
-        "signature": "(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.MFPipelineWithLossScaleCell.construct": {
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.MFTrainOneStepCell": {
-        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"
@@ -5196,13 +5196,13 @@
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.wrapper.MFPipelineWithLossScaleCell": {
-        "signature": "(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.wrapper.MFPipelineWithLossScaleCell.construct": {
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell": {
-        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"

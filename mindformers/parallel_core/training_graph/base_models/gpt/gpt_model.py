@@ -155,6 +155,7 @@ class GPTModel(nn.Cell):
         self.hidden_dropout = config.hidden_dropout
         self.pad_token_id = config.pad_token_id
         self.ignore_token_id = config.ignore_token_id
+        self.calculate_per_token_loss = config.calculate_per_token_loss
         use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
 
         # Internally generates AttentionMask.
@@ -315,6 +316,8 @@ class GPTModel(nn.Cell):
         )
 
         # multi token prediction
+        mtp_loss = 0.0
+        numerator1, denominator1 = 0, 1e-9
         if self.mtp_process:
             mtp_loss, extra_loss = self.mtp(
                 tokens,
@@ -331,7 +334,8 @@ class GPTModel(nn.Cell):
                 output_weight=self.output_layer.weight,
                 extra_loss=extra_loss,
             )
-            extra_loss = self.add(extra_loss, mtp_loss)
+            if self.calculate_per_token_loss:
+                numerator1, denominator1 = mtp_loss
 
         # logits and loss
         output_weight = None
@@ -345,9 +349,10 @@ class GPTModel(nn.Cell):
         loss = self.compute_language_model_loss(hidden_states, labels, output_weight,
                                                 self.fp16_lm_cross_entropy, loss_mask)
 
-        # moe/mtp extra loss, default 0.0
-        loss = self.add(loss, extra_loss)
-        return loss
+        if self.calculate_per_token_loss:
+            numerator0, denominator0 = loss
+            return numerator0, denominator0, numerator1, denominator1, extra_loss * denominator0
+        return loss, mtp_loss, extra_loss
 
     def language_model(
             self,

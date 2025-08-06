@@ -20,7 +20,8 @@ from copy import deepcopy
 
 from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank
+from mindformers.tools.utils import get_real_rank, get_context
+from mindformers.utils.parameter_register import parameter_register
 from mindformers.version_control import get_identity, is_dump_supported
 
 from mindspore._checkparam import args_type_check
@@ -36,12 +37,9 @@ from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import SumExt
+
 if is_dump_supported():
     from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
-
-
-
-
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'PipelineCellWithTwoOutput',
            'GradAccumulationCellWithTwoOutput']
@@ -124,6 +122,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         global_norm_spike_threshold (float, optional): The threshold of global norm when
             the skip data function is enabled. Default: ``1.0``.
         use_skip_data_by_global_norm (bool, optional): The switch of the skip data function. Default: ``False``.
+        print_separate_loss (bool, optional): Whether to print loss separately. Default: ``False``.
         **kwargs (Any): Additional parameters.
 
     Inputs:
@@ -180,6 +179,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  calculate_per_token_loss=False,
                  global_norm_spike_threshold=1.0,
                  use_skip_data_by_global_norm=False,
+                 print_separate_loss=False,
                  **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
@@ -215,34 +215,72 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.global_norm_spike_threshold = global_norm_spike_threshold
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
+        # loss
+        self.use_legacy = get_context("use_legacy", True)
+        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
+        if self.print_separate_loss:
+            self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
+            self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
+            self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
+
     def construct(self, *inputs):
         """forward and backward."""
         weights = self.weights
         scaling_sens = self.scale_sense
-        if self.calculate_per_token_loss:
-            numerator, denominator = self.network(*inputs)
-            loss = numerator / denominator
+        if self.dump_device_local_norm:
+            _ = F.assign(self.squared_device_local_norm, Tensor(0.0, mstype.float32))
+            scaling_sens = F.depend(self.scale_sense, _)
 
-            if self.dump_device_local_norm:
-                _ = F.assign(self.squared_device_local_norm, Tensor(0.0, mstype.float32))
-                scaling_sens = F.depend(self.scale_sense, _)
+        if self.use_legacy:
+            if self.calculate_per_token_loss:
+                numerator, denominator = self.network(*inputs)
+                loss = numerator / denominator
 
-            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
-            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
-            grads = self.grad(self.network, weights)(*inputs,
-                                                     (self.cast(scaling_sens_filled, mstype.float32),
-                                                      self.cast(scaling_sens_filled2, mstype.float32)))
-            grad_scale_factor = denominator
+                scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+                scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
+                grads = self.grad(self.network, weights)(*inputs,
+                                                         (self.cast(scaling_sens_filled, mstype.float32),
+                                                          self.cast(scaling_sens_filled2, mstype.float32)))
+                grad_scale_factor = denominator
+            else:
+                loss = self.network(*inputs)
+                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+                grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
+                grad_scale_factor = self.grad_scale_factor
         else:
-            loss = self.network(*inputs)
+            if self.calculate_per_token_loss:
+                numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
+                lm_loss = numerator0 / denominator0
+                mtp_loss = numerator1 / denominator0
+                aux_loss = aux_loss / denominator0
+                loss = lm_loss + aux_loss
+                loss = loss + mtp_loss
 
-            if self.dump_device_local_norm:
-                _ = F.assign(self.squared_device_local_norm, Tensor(0.0, mstype.float32))
-                scaling_sens = F.depend(self.scale_sense, _)
+                scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
+                scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
+                grads = self.grad(self.network, weights)(*inputs,
+                                                         (self.cast(scaling_sens_filled, mstype.float32),
+                                                          self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                          self.cast(scaling_sens_filled, mstype.float32),
+                                                          self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                          self.cast(scaling_sens_filled, mstype.float32),
+                                                          ))
+                grad_scale_factor = denominator0
+            else:
+                lm_loss, mtp_loss, aux_loss = self.network(*inputs)
+                loss = lm_loss + aux_loss
+                loss = loss + mtp_loss
 
-            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-            grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
-            grad_scale_factor = self.grad_scale_factor
+                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+                grads = self.grad(self.network, weights)(*inputs, (scaling_sens_filled,
+                                                                   scaling_sens_filled,
+                                                                   scaling_sens_filled))
+                grad_scale_factor = self.grad_scale_factor
+
+            if self.print_separate_loss:
+                F.assign_add(self.aux_loss_parameter, aux_loss)
+                F.assign_add(self.mtp_loss_parameter, mtp_loss)
+                F.assign_add(self.lm_loss_parameter, lm_loss)
 
         status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
         grads = self.hyper_map(F.partial(_grad_scale, scaling_sens * grad_scale_factor), grads)
@@ -393,6 +431,105 @@ class GradAccumulationCellWithTwoOutput(nn.Cell):
         return loss
 
 
+class GradAccumulationCellWithMultiOutputs(nn.Cell):
+    """
+        Wrap the network with Micro Batch to enable the grad accumulation in semi_auto_parallel/auto_parallel mode.
+
+        Note:
+            micro_size must be greater or equal to pipeline stages.
+
+        Args:
+            network (Cell): The target network to wrap.
+            micro_size (int): MicroBatch size.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+    """
+
+    def __init__(self, network, micro_size):
+        super().__init__(auto_prefix=False)
+        self.network = network
+        self.micro_inputs = nn.CellList()
+        self.micro_size = micro_size
+        self.add_list = []
+        if not isinstance(network, nn.Cell):
+            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'network' must cell type, "
+                            "but got the type : {}.".format(type(network)))
+        if not isinstance(micro_size, int):
+            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be integer, "
+                            "but got the type : {}.".format(type(micro_size)))
+        if micro_size <= 0:
+            raise ValueError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
+                             "but got {}.".format(micro_size))
+        for i in range(micro_size):
+            micro_input = _MicroBatch(micro_size)
+            micro_input.strided_slice.add_prim_attr("grad_accu_num", micro_size)
+            self.micro_inputs.append(micro_input)
+            self.add = P.Add().add_prim_attr("forward_end", i)
+            self.add_list.append(self.add)
+        self._get_attr_from_cell(network)
+
+    def construct(self, *inputs):
+        """Construct function for pipeline with multiple outputs."""
+        ret = None
+        ret2 = None
+        ret3 = None
+        ret4 = None
+        ret5 = None
+        output = None
+        for i in range(self.micro_size):
+            micro_input = self.micro_inputs[i](i, *inputs)
+            output = self.network(*micro_input)
+
+            if not isinstance(output, tuple):
+                if ret is not None:
+                    ret = self.add_list[i](ret, output)
+                else:
+                    ret = output
+                continue
+
+            if ret is not None:
+                ret = self.add_list[i](ret, output[0])
+            else:
+                ret = output[0]
+
+            if len(output) >= 2:
+                if ret2 is not None:
+                    ret2 = self.add_list[i](ret2, output[1])
+                else:
+                    ret2 = output[1]
+
+            if len(output) >= 3:
+                if ret3 is not None:
+                    ret3 = self.add_list[i](ret3, output[2])
+                else:
+                    ret3 = output[2]
+
+            if len(output) >= 4:
+                if ret4 is not None:
+                    ret4 = self.add_list[i](ret4, output[3])
+                else:
+                    ret4 = output[3]
+
+            if len(output) >= 5:
+                if ret5 is not None:
+                    ret5 = self.add_list[i](ret5, output[4])
+                else:
+                    ret5 = output[4]
+
+        if not isinstance(output, tuple):
+            return ret
+        if len(output) == 2:
+            return ret, ret2
+        if len(output) == 3:
+            return ret, ret2, ret3
+        if len(output) == 4:
+            return ret, ret2, ret3, ret4
+        if len(output) == 5:
+            return ret, ret2, ret3, ret4, ret5
+        return ret
+
+
 def _get_pipeline_group():
     """
     Calculate the communication group between all pipeline stages
@@ -474,6 +611,111 @@ class PipelineCellWithTwoOutput(nn.Cell):
         return loss
 
 
+class PipelineCellWithMultiOutputs(nn.Cell):
+    """
+        Slice MiniBatch into finer-grained MicroBatch for use in pipeline-parallel training.
+
+        Note:
+            micro_size must be greater or equal to pipeline stages.
+
+        Args:
+            network (Cell): The target network to wrap.
+            micro_size (int): MicroBatch size.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+    """
+
+    def __init__(self, network, micro_size):
+        super().__init__(auto_prefix=False)
+        self.network = network
+        self.micro_inputs = nn.CellList()
+        self.micro_size = micro_size
+        self.add_list = []
+        if not isinstance(network, nn.Cell):
+            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'network' must cell type, "
+                            "but got the type : {}.".format(type(network)))
+        if not isinstance(micro_size, int):
+            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be integer, "
+                            "but got the type : {}.".format(type(micro_size)))
+        if micro_size <= 0:
+            raise ValueError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
+                             "but got {}.".format(micro_size))
+        for i in range(micro_size):
+            micro_input = _MicroBatch(micro_size)
+            self.micro_inputs.append(micro_input)
+            self.add = P.Add().add_prim_attr("pipeline_end", i)
+            self.add_list.append(self.add)
+        self._get_attr_from_cell(network)
+
+    def construct(self, *inputs):
+        """
+        Construct function for pipeline with multiple input
+        Args:
+            *inputs:
+
+        Returns:
+
+        """
+        ret = None
+        ret2 = None
+        ret3 = None
+        ret4 = None
+        ret5 = None
+        output = None
+        for i in range(self.micro_size):
+            micro_input = self.micro_inputs[i](i, *inputs)
+            output = self.network(*micro_input)
+
+            if not isinstance(output, tuple):
+                if ret is not None:
+                    ret = self.add_list[i](ret, output)
+                else:
+                    ret = output
+                continue
+
+            if ret is not None:
+                ret = self.add_list[i](ret, output[0])
+            else:
+                ret = output[0]
+
+            if len(output) >= 2:
+                if ret2 is not None:
+                    ret2 = self.add_list[i](ret2, output[1])
+                else:
+                    ret2 = output[1]
+
+            if len(output) >= 3:
+                if ret3 is not None:
+                    ret3 = self.add_list[i](ret3, output[2])
+                else:
+                    ret3 = output[2]
+
+            if len(output) >= 4:
+                if ret4 is not None:
+                    ret4 = self.add_list[i](ret4, output[3])
+                else:
+                    ret4 = output[3]
+
+            if len(output) >= 5:
+                if ret5 is not None:
+                    ret5 = self.add_list[i](ret5, output[4])
+                else:
+                    ret5 = output[4]
+
+        if not isinstance(output, tuple):
+            return ret
+        if len(output) == 2:
+            return ret, ret2
+        if len(output) == 3:
+            return ret, ret2, ret3
+        if len(output) == 4:
+            return ret, ret2, ret3, ret4
+        if len(output) == 5:
+            return ret, ret2, ret3, ret4, ret5
+        return ret
+
+
 # pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
@@ -492,6 +734,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         global_norm_spike_threshold (float, optional): The threshold of global norm when
             the skip data function is enabled. Default: ``1.0``.
         use_skip_data_by_global_norm (bool, optional): The switch of the skip data function. Default: ``False``.
+        print_separate_loss (bool, optional): Whether to print loss separately. Default: ``False``.
         **kwargs (Any): Additional parameters.
 
     Inputs:
@@ -520,7 +763,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
                  scale_sense=1.0, micro_batch_num=1, local_norm=False,
                  calculate_per_token_loss=False, global_norm_spike_threshold=1.0,
-                 use_skip_data_by_global_norm=False, **kwargs):
+                 use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
@@ -593,6 +836,14 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.global_norm_spike_threshold = global_norm_spike_threshold
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
+        # loss
+        self.use_legacy = get_context("use_legacy", True)
+        self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
+        if self.print_separate_loss:
+            self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
+            self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
+            self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
+
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
         """The construct processes of pipeline wrapper cell."""
@@ -602,24 +853,61 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             _ = F.assign(self.squared_device_local_norm, Tensor(0.0, mstype.float32))
             scaling_sens = F.depend(self.scale_sense, _)
 
-        if self.calculate_per_token_loss:
-            numerator, denominator = self.network(*inputs)
-            denominator = self.allreduce2(denominator)
-            loss = numerator / denominator
-            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
-            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
+        if self.use_legacy:
+            if self.calculate_per_token_loss:
+                numerator, denominator = self.network(*inputs)
+                denominator = self.allreduce2(denominator)
+                loss = numerator / denominator
+                scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+                scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
 
-            grads = self.grad(self.network, self.weights)(*inputs,
-                                                          (self.cast(scaling_sens_filled, mstype.float32),
-                                                           self.cast(scaling_sens_filled2, mstype.float32)))
-            grad_scale_factor = denominator
+                grads = self.grad(self.network, self.weights)(*inputs,
+                                                              (self.cast(scaling_sens_filled, mstype.float32),
+                                                               self.cast(scaling_sens_filled2, mstype.float32)))
+                grad_scale_factor = denominator
+            else:
+                loss = self.network(*inputs)
+                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+                grads = self.grad(self.network, self.weights)(*inputs,
+                                                              self.cast(scaling_sens_filled / self.micro_size,
+                                                                        mstype.float32))
+                grad_scale_factor = self.grad_scale_factor
         else:
-            loss = self.network(*inputs)
-            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-            grads = self.grad(self.network, self.weights)(*inputs,
-                                                          self.cast(scaling_sens_filled / self.micro_size,
-                                                                    mstype.float32))
-            grad_scale_factor = self.grad_scale_factor
+            if self.calculate_per_token_loss:
+                numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
+                denominator0 = self.allreduce2(denominator0)
+                lm_loss = numerator0 / denominator0
+                mtp_loss = numerator1 / denominator0
+                aux_loss = aux_loss / denominator0
+                loss = lm_loss + aux_loss
+                loss = loss + mtp_loss
+
+                scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
+                scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
+                grads = self.grad(self.network, self.weights)(*inputs,
+                                                              (self.cast(scaling_sens_filled, mstype.float32),
+                                                               self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                               self.cast(scaling_sens_filled, mstype.float32),
+                                                               self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                               self.cast(scaling_sens_filled / self.micro_size,
+                                                                         mstype.float32),
+                                                               ))
+                grad_scale_factor = denominator0
+            else:
+                lm_loss, mtp_loss, aux_loss = self.network(*inputs)
+                loss = lm_loss + aux_loss
+                loss = loss + mtp_loss
+                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+                scaling_sens_filled = self.cast(scaling_sens_filled / self.micro_size, mstype.float32)
+                grads = self.grad(self.network, self.weights)(*inputs, (scaling_sens_filled,
+                                                                        scaling_sens_filled,
+                                                                        scaling_sens_filled))
+                grad_scale_factor = self.grad_scale_factor
+
+            if self.print_separate_loss:
+                F.assign_add(self.aux_loss_parameter, aux_loss)
+                F.assign_add(self.mtp_loss_parameter, mtp_loss)
+                F.assign_add(self.lm_loss_parameter, lm_loss)
 
         if self.local_norm:
             local_norm, size = self.localnorm(grads)

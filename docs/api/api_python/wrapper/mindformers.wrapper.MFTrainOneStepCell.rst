@@ -17,6 +17,7 @@ mindformers.wrapper.MFTrainOneStepCell
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
         - **global_norm_spike_threshold** (float, 可选) - 使用跳过数据功能时global norm的阈值。默认值： ``1.0`` 。
         - **use_skip_data_by_global_norm** (bool, 可选) - 是否开始数据跳过功能。默认值： ``False`` 。
+        - **print_separate_loss** (bool, 可选) - 是否分开打印loss。默认值： ``False`` 。
         - **\*\*kwargs** (Any) - 其他参数。
 
     输入：
