@@ -31,7 +31,7 @@ _SP_RECV_OML_STREAM = None
 group_info_maps = {}
 
 # special_groups has a different initialization process compared to normal_groups
-normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 'tp-cp']
+normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'dp-tp', 'tp-cp']
 special_groups = ['ep', 'tp-ep', 'tp-ep-pp', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding',
                   'moe_tp', 'moe_ep']
 valid_groups = normal_groups + special_groups
@@ -479,7 +479,7 @@ def get_model_parallel_group(with_expert_parallel=False):
 
 
 def get_tensor_and_data_parallel_group(with_context_parallel=False):
-    return _get_group_helper('tp-dp-cp') if with_context_parallel else _get_group_helper('tp-dp')
+    return _get_group_helper('tp-dp-cp') if with_context_parallel else _get_group_helper('dp-tp')
 
 
 def get_tensor_and_context_parallel_group():
@@ -573,7 +573,7 @@ def get_moe_expert_parallel_world_size():
 
 def get_tensor_and_data_parallel_world_size():
     """Return world size for the tensor and data parallel group."""
-    return _get_world_size_helper('tp-dp')
+    return _get_world_size_helper('dp-tp')
 
 
 ### get rank
@@ -623,7 +623,7 @@ def get_moe_expert_parallel_rank():
 
 def get_tensor_and_data_parallel_rank():
     """Return my rank for the tensor and data parallel group."""
-    return _get_rank_helper('tp-dp')
+    return _get_rank_helper('dp-tp')
 
 
 def get_pipeline_model_parallel_first_rank():
