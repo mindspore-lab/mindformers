@@ -40,7 +40,6 @@ from .handler import (
     AdgenInstructDataHandler,
     AlpacaInstructDataHandler,
     CodeAlpacaInstructDataHandler,
-    LlavaInstructDataHandler,
     build_data_handler
 )
 from .build_dataset import build_dataset

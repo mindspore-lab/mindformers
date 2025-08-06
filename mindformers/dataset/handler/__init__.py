@@ -17,7 +17,6 @@ from .build_data_handler import build_data_handler
 from .alpaca_handler import AlpacaInstructDataHandler
 from .codealpaca_handler import CodeAlpacaInstructDataHandler
 from .adgen_handler import AdgenInstructDataHandler
-from .llava_handler import LlavaInstructDataHandler
 from .packing_handler import PackingHandler
 
 __all__ = []
