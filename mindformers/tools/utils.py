@@ -181,6 +181,13 @@ def set_strategy_save_path(config):
         context.set_auto_parallel_context(strategy_ckpt_save_file=config['strategy_ckpt_save_file'])
         logger.info(f"set strategy path to '{config['strategy_ckpt_save_file']}'")
 
+def set_checkpoint_save_path():
+    """set checkpoint save path"""
+    from .logger import logger
+    checkpoint_save_path = os.path.join(get_output_root_path(), "checkpoint")
+    os.makedirs(checkpoint_save_path, exist_ok=True)
+    set_safe_mode_for_file_or_dir(checkpoint_save_path)
+    logger.info(f"set checkpoint save path to `{checkpoint_save_path}`")
 
 def get_log_path():
     path = os.getenv("LOG_MF_PATH", os.path.join(get_output_root_path(), "log"))
