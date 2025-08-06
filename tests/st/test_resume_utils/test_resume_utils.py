@@ -58,6 +58,7 @@ def test_get_resume_checkpoint():
         file.flush()
     if os.path.exists(meta_json):
         os.remove(meta_json)
+    os.utime(last_checkpoint, (os.path.getatime(last_checkpoint) + 1, os.path.getmtime(last_checkpoint) + 1))
     resume_ckpt_ = get_resume_checkpoint(cur_dir, True, "ckpt")
     assert resume_ckpt_ == last_checkpoint
 
