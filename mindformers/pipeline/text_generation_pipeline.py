@@ -19,7 +19,7 @@ from typing import Union, Optional
 import mindspore
 from mindspore import Model, Tensor
 
-from mindformers.tools.utils import get_context
+from mindformers.core.context import is_legacy_model
 from ..models import PreTrainedModel, PreTrainedTokenizer
 from ..tools.register import MindFormerModuleType, MindFormerRegister
 from .base_pipeline import Pipeline
@@ -201,7 +201,7 @@ class TextGenerationPipeline(Pipeline):
         Return:
             Translation results.
         """
-        if get_context("use_legacy", True):
+        if is_legacy_model():
             outputs = self.tokenizer.decode(model_outputs["sequences"], skip_special_tokens=True)
         else:
             outputs = self.tokenizer.batch_decode(model_outputs["sequences"], skip_special_tokens=True)

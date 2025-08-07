@@ -19,13 +19,13 @@ from mindspore.communication.management import get_group_size, get_rank, init
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
+from mindformers.core.config_args import ParallelConfig
 from mindformers.modules.transformer.transformer import (
     TransformerOpParallelConfig,
 )
 from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_strategy_save_path
-from mindformers.trainer.config_args import ParallelConfig
 
 
 class ParallelOperator:

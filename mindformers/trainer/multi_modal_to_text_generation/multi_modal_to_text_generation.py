@@ -24,7 +24,7 @@ from mindformers.models import PreTrainedModel, BaseProcessor, build_processor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from ...dataset.dataloader import build_dataset_loader
-from ..config_args import ConfigArguments
+from ...core.config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 

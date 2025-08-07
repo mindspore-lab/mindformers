@@ -30,7 +30,8 @@ from mindspore.parallel import set_algo_parameters
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
-from mindformers.tools.utils import get_real_rank, get_context
+from mindformers.core.context.build_context import Context, get_context
+from mindformers.tools.utils import get_real_rank
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.parallel_core.transformer_config import TransformerConfig, default_transformer_config
 
@@ -281,9 +282,11 @@ class CrossEntropyLoss(nn.Cell):
         self._log_softmax = _LogSoftmax(config)
         self._nllloss = _NLLLoss(config)
         self.calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
-
-        self.monitor_local_loss = get_context("monitor_local_loss")
-        self.monitor_device_local_loss = get_context("monitor_device_local_loss")
+        self.monitor_local_loss = None
+        self.monitor_device_local_loss = None
+        if Context.is_exists():
+            self.monitor_local_loss = get_context("monitor_local_loss")
+            self.monitor_device_local_loss = get_context("monitor_device_local_loss")
         if self.monitor_device_local_loss:
             self.device_local_loss = get_device_local_loss(loss_tag)
         self.dump_local_loss = (

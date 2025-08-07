@@ -58,6 +58,7 @@ from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 
+from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -70,7 +71,7 @@ from mindformers.tools.utils import (
     is_last_pipeline_stage,
     barrier_world,
     get_ascend_log_path,
-    set_safe_mode_for_file_or_dir, get_context
+    set_safe_mode_for_file_or_dir
 )
 from mindformers.utils.parameter_register import parameter_register
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
@@ -250,7 +251,7 @@ class MFLossMonitor(Callback):
         self.mstx_range_id = None
         self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and _check_mspti_is_on()
         self.print_separate_loss = print_separate_loss
-        if self.print_separate_loss and get_context("use_legacy", True):
+        if self.print_separate_loss and is_legacy_model():
             logger.warning("print_separate_loss = True, is not supported when use_legacy = True.")
             self.print_separate_loss = False
 

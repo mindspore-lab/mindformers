@@ -23,18 +23,20 @@ import mindspore.dataset as ds
 import mindspore.context as ms_context
 import psutil
 
-from mindformers.core.context.parallel import ParallelOperator
-from mindformers.core.context.validators import RunMode, execute_validator
-from mindformers.tools import MODE, get_output_subpath
-from mindformers.tools.logger import logger
-from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_dynamic_cluster
-from mindformers.trainer.config_args import (
+from mindformers.core.config_args import (
     ContextConfig,
     MFContextConfig,
     ParallelContextConfig,
 )
-from mindformers.trainer.training_args import TrainingArguments
+from mindformers.core.context.parallel import ParallelOperator
+from mindformers.core.context.validators import RunMode, execute_validator
+from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerConfig
+from mindformers.tools.utils import (
+    MODE,
+    get_output_subpath,
+    check_in_dynamic_cluster
+)
 from mindformers.utils import get_cann_workqueue_cores
 from mindformers.version_control import (
     check_cpu_affinity_valid,
@@ -78,6 +80,11 @@ class Context:
     def is_exists(cls):
         """Check if singleton Context exists."""
         return cls._instance is not None
+
+    @classmethod
+    def reset_instance(cls):
+        if cls._instance:
+            cls._instance = None
 
     def set_mf_ctx_run_mode(self, run_mode):
         if run_mode is not None:
@@ -241,6 +248,11 @@ class MFContextOperator(MFContextConfig):
         if cls._instance:
             return cls.__new__(cls)
         return None
+
+    @classmethod
+    def reset_instance(cls):
+        if cls._instance:
+            cls._instance = None
 
     def _handle_data(self):
         ctx_config = self.config.get('context', {})
@@ -427,7 +439,7 @@ def init_context(
     return ctx.rank_id, ctx.device_num
 
 
-def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+def build_context(config: Union[dict, MindFormerConfig]):
     """
     Build the context from config.
 
@@ -436,10 +448,9 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         when config is dict.
 
     Args:
-        config (Union[dict, MindFormerConfig, TrainingArguments]):
+        config (Union[dict, MindFormerConfig]):
             The configuration to initialize the context.
-            This can be a dictionary, a MindFormerConfig instance,
-            or a TrainingArguments instance.
+            This can be a dictionary, a MindFormerConfig instance.
 
     Returns:
         Context instance, The instantiated context.
@@ -449,8 +460,6 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
         >>> build_context(config=config)
     """
-    if isinstance(config, TrainingArguments):
-        config = config.convert_args_to_mindformers_config()
 
     config['parallel_config'] = config.get('parallel_config', {})
     mf_config = MindFormerConfig(**config)
@@ -565,7 +574,7 @@ def get_context(attr_key):
     return ctx.ms_ctx_opr.get_context(attr_key)
 
 
-def build_mf_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+def build_mf_context(config: Union[dict, MindFormerConfig]):
     """
     Build the mindformer context from config.
 
@@ -574,19 +583,26 @@ def build_mf_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         when config is dict.
 
     Args:
-        config (Union[dict, MindFormerConfig, TrainingArguments]):
+        config (Union[dict, MindFormerConfig]):
             The configuration to initialize the context.
-            This can be a dictionary, a MindFormerConfig instance,
-            or a TrainingArguments instance.
+            This can be a dictionary, a MindFormerConfig instance.
 
     Returns:
         Mindformer context instance, The instantiated context.
     """
-    if isinstance(config, TrainingArguments):
-        config = config.convert_args_to_mindformers_config()
 
     config['parallel_config'] = config.get('parallel_config', {})
     mf_config = MindFormerConfig(**config)
 
     execute_validator(mf_config)
     return MFContextOperator(mf_config)
+
+
+def is_legacy_model():
+    """Determine whether it is use_legacy mode."""
+    mf_ctx_instance = MFContextOperator.get_mf_ctx_instance()
+    if mf_ctx_instance is not None:
+        is_use_legacy = mf_ctx_instance.get_context("use_legacy")
+        if is_use_legacy is not None:
+            return is_use_legacy
+    return True

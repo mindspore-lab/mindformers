@@ -17,21 +17,11 @@
 import inspect
 import os
 
+from mindformers.core.context import is_legacy_model
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
-from mindformers.tools.utils import get_context
 
 
 NEW_CLASS_PREFIX = "mcore_"
-
-
-def get_legacy():
-    """Return mf context: use_legacy"""
-    try:
-        legacy = get_context("use_legacy")
-        use_legacy = bool(legacy is None or legacy)
-        return use_legacy
-    except RuntimeError:
-        return True
 
 
 class MindFormerModuleType:
@@ -270,7 +260,7 @@ class MindFormerRegister:
         """
         if not class_name:
             return module_type in cls.registry
-        class_name = cls._add_class_name_prefix(module_type, class_name, get_legacy())
+        class_name = cls._add_class_name_prefix(module_type, class_name, is_legacy_model())
         if (module_type, class_name) in cls.search_names_map:
             class_name = cls.search_names_map[(module_type, class_name)]
             return module_type in cls.registry and class_name in cls.registry.get(module_type)
@@ -295,16 +285,16 @@ class MindFormerRegister:
         """
         if not cls.is_exist(module_type, class_name):
             raise ValueError(f"Can't find class type {module_type} class name {class_name} in class registry "
-                             f"when use_legacy={get_legacy()}")
+                             f"when use_legacy={is_legacy_model()}")
 
         if not class_name:
             raise ValueError(f"Can't find class. class type = {class_name}")
-        class_name = cls._add_class_name_prefix(module_type, class_name, get_legacy())
+        class_name = cls._add_class_name_prefix(module_type, class_name, is_legacy_model())
         if (module_type, class_name) in cls.search_names_map:
             class_name = cls.search_names_map[(module_type, class_name)]
         if not (module_type in cls.registry and class_name in cls.registry.get(module_type)):
             raise ValueError(f"Can't find class type {module_type} class name {class_name} in class registry "
-                             f"when use_legacy={get_legacy()}")
+                             f"when use_legacy={is_legacy_model()}")
         register_class = cls.registry.get(module_type).get(class_name)
         return register_class
 
@@ -371,7 +361,7 @@ class MindFormerRegister:
         if 'auto_register' in cfg:
             cls.auto_register(class_reference=cfg.pop('auto_register'), module_type=module_type)
 
-        use_legacy = get_context("use_legacy", True)
+        use_legacy = is_legacy_model()
         if use_legacy or module_type not in [MindFormerModuleType.CONFIG, MindFormerModuleType.MODELS]:
             if 'type' not in cfg:
                 raise KeyError(
@@ -469,7 +459,7 @@ class MindFormerRegister:
         register_path = os.path.realpath(os.getenv("REGISTER_PATH"))
         module_class = get_class_from_dynamic_module(
             class_reference=class_reference, pretrained_model_name_or_path=register_path)
-        _ = cls.register_cls(module_class, module_type=module_type, legacy=get_legacy())
+        _ = cls.register_cls(module_class, module_type=module_type, legacy=is_legacy_model())
 
     @classmethod
     def _add_class_name_prefix(cls, module_type, class_name, legacy=True):

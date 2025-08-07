@@ -31,6 +31,20 @@ from base_model import get_config, get_model, BASE_CONFIG
 ms.set_context(mode=ms.GRAPH_MODE)
 
 
+def _build_context_from_training_args(config):
+    """
+    Build context from training configuration parameters.
+
+    Args:
+        config: Configuration object containing training parameters.
+
+    Returns:
+        None
+    """
+    config = config.convert_args_to_mindformers_config()
+    build_context(config)
+
+
 def parallel_train_mp2_pp2():
     """test llama2 train in model_parallel=2, pipeline_stage=2."""
     # dp=1, mp=2, pp=2, micro_batch_num=4, micro_batch_interleave_num=2
@@ -46,7 +60,7 @@ def parallel_train_mp2_pp2():
         'vocab_emb_dp': False  # if set True, cause error
     }
     runner = ModelTester(run_mode='train', batch_size=8, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
 
     model_config = get_config()
     model_config.parallel_config = runner.args.get_parallel_config()
@@ -76,7 +90,7 @@ def parallel_train_dp2():
         'enable_parallel_optimizer': True
     }
     runner = ModelTester(run_mode='train', batch_size=2, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
 
     model_config = get_config()
     model_config.parallel_config = runner.args.get_parallel_config()
@@ -100,7 +114,7 @@ def parallel_train_mp2_cp2():
         'enable_parallel_optimizer': True
     }
     runner = ModelTester(run_mode='train', batch_size=2, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
 
     model_config = get_config()
     # only support mp with cp
@@ -139,7 +153,7 @@ def parallel_train_sapp_mp2_pp2():
         'search_mode': "recursive_programming"
     }
     runner = ModelTester(run_mode='train', batch_size=8, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
 
     model_config = get_config()
     model_config.parallel_config = runner.args.get_parallel_config()
@@ -170,7 +184,7 @@ def train_input_sliced():
         'micro_batch_num': 1,
     }
     runner = ModelTester(run_mode='train', batch_size=8, input_sliced_sig=True, use_label=True, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
 
     model_config = get_config()
     model_config.input_sliced_sig = True
@@ -194,7 +208,7 @@ def parallel_train_ndtp_cp2x2y2z1():
         'use_seq_parallel': True,
     }
     runner = ModelTester(run_mode='train', batch_size=8, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
+    _build_context_from_training_args(runner.args)
     base_config = copy.deepcopy(BASE_CONFIG)
     base_config['use_3d_tensor_parallel'] = True
     base_config['tp_x'] = 2

@@ -36,12 +36,13 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    TopPLogitsWarper, MinLengthLogitsProcessor,
                                                    MinNewTokensLengthLogitsProcessor)
 from mindformers import version_control
+from mindformers.core.context import is_legacy_model
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_pynative, get_context
+from mindformers.tools.utils import is_pynative
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 from mindformers.generation.parallel_decoding_mcore import la_pre_process
@@ -820,7 +821,7 @@ class GenerationMixin:
         if use_past_tmp is not None:
             logger.warning("use_past should be defined in model config, it will not take effect when passed to "
                            ".generate() method.")
-        use_legacy = get_context("use_legacy", True)
+        use_legacy = is_legacy_model()
         # Handle `generation_config` and kwargs that might update it
         # priority: `generation_config` argument > `model.generation_config` (default config)
         if generation_config is None:
