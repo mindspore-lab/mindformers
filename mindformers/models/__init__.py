@@ -67,6 +67,11 @@ from .qwen3_moe import (
     Qwen3MoePreTrainedModel,
     Qwen3MoeForCausalLM,
 )
+from .glm4_moe import (
+    Glm4MoeConfig,
+    Glm4MoePreTrainedModel,
+    Glm4MoeForCausalLM,
+)
 from .tokenization_utils import (
     PreTrainedTokenizer,
     PreTrainedTokenizerBase

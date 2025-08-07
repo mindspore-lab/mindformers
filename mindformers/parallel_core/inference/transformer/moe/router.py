@@ -100,11 +100,12 @@ class TopKRouter(Router):
         self.topk_group = config.moe_router_group_topk
         self.group_topk_inner = 2
         self.num_experts_chosen = config.moe_router_topk
-
+        self.moe_router_topk_scaling_factor = 1.0 if config.moe_router_topk_scaling_factor is None else \
+            config.moe_router_topk_scaling_factor
         self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
 
         self.group_topk = GroupTopkCell()
-
+        self.mul = mint.Mul()
         self.moe_router_enable_expert_bias = config.moe_router_enable_expert_bias
 
         self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
@@ -126,7 +127,7 @@ class TopKRouter(Router):
         input_dtype = logits.dtype
         gating_logits = self.gating(self.cast(logits, self.router_dense_type))
         gating_logits = self.cast(gating_logits, mstype.float32)
-        if self.config.moe_router_group_topk:
+        if self.config.moe_router_group_topk > 1:
             expert_weight, expert_index = \
                 self.fused_add_topk_div(
                     gating_logits,
@@ -140,10 +141,12 @@ class TopKRouter(Router):
                     self.config.moe_router_topk_scaling_factor)
         else:
             score = mint.sigmoid(gating_logits)
-            score = score + self.expert_bias
-            expert_weight, expert_index = mint.topk(score, self.config.moe_router_topk, dim=-1)
+            scores_for_choice = score + self.expert_bias.unsqueeze(0)
+            _, expert_index = mint.topk(scores_for_choice, self.config.moe_router_topk, dim=-1)
+            expert_weight = score.gather(1, expert_index)
             expert_index = self.cast(expert_index, mstype.int32)
             expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
+            expert_weight = self.mul(self.moe_router_topk_scaling_factor, expert_weight)
         expert_weight = expert_weight.astype(input_dtype)
         return expert_weight, expert_index
 

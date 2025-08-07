@@ -32,7 +32,6 @@ from mindspore.common.initializer import initializer
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
                                                                           reduce_from_model_parallel_region,
-                                                                          reduce_scatter_to_model_parallel_region,
                                                                           scatter_to_model_parallel_region)
 from mindformers.parallel_core.inference.utils import divide
 
@@ -631,13 +630,8 @@ class VocabParallelEmbedding(nn.Cell):
         if self.tensor_parallel_group_size > 1:
             output_parallel = mint.mul(output_parallel, input_mask)
 
-        if self.sequence_parallel:
-            output_parallel = output_parallel.swapaxes(0, 1).contiguous()
-            output = reduce_scatter_to_model_parallel_region(output_parallel, self.tp_group)
-            output = output.swapaxes(0, 1).contiguous()
-        else:
-            # Reduce across all the model parallel devices.
-            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
+        # Reduce across all the model parallel devices.
+        output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
 
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):

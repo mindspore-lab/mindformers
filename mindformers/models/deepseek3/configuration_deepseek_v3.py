@@ -146,7 +146,6 @@ class DeepseekV3Config(PretrainedConfig):
         use_flash_attention=True,
         aux_loss_factors=[0.0001],
         aux_loss_types=['expert'],
-        qk_layernorm=True,
         moe_router_enable_expert_bias=True,
         normalization="RMSNorm",
         add_bias_linear=False,

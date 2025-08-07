@@ -257,6 +257,7 @@ COMMON_CONFIG_MAPPING = {
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
     ("num_layers", "num_hidden_layers"): "num_layers",
     ("rope_interleave", "rotary_interleaved"): "rotary_interleaved",
+    ("use_qk_norm", "qk_layernorm"): "qk_layernorm",
     # not changes
     "hidden_size": "hidden_size",
     "softmax_scale": "softmax_scale",
@@ -269,7 +270,6 @@ COMMON_CONFIG_MAPPING = {
     "activation_func": "activation_func",
     "normalization": "normalization",
     "fused_norm": "fused_norm",
-    "qk_layernorm": "qk_layernorm",
     "calculate_per_token_loss": "calculate_per_token_loss",
     "multi_latent_attention": "multi_latent_attention",
     "compute_dtype": "compute_dtype",
@@ -281,6 +281,7 @@ COMMON_CONFIG_MAPPING = {
     "is_dynamic": "is_dynamic",
     "use_eod_reset": "use_eod_reset",
     "use_contiguous_weight_layout": "use_contiguous_weight_layout",
+    "partial_rotary_factor": "partial_rotary_factor",
     "post_process": "post_process",
 
     # Flash Attention
