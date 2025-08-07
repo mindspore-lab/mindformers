@@ -68,7 +68,8 @@ def _update_run_op(beta1, beta2, eps, step,
         if fused_algo == 'sma' and step % interleave_step == 0 and step > 0:
             F.assign(pma_weight, pma_weight + return_param)
         if step % (fused_num * interleave_step) == 0 and step > 0:
-            pma_weight = pma_weight / fused_num if fused_algo == 'sma' else pma_weight
+            if fused_algo == 'sma':
+                F.assign(pma_weight, pma_weight / fused_num)
             F.assign(return_param, pma_weight)
             F.assign(pma_weight, ops.ZerosLike()(pma_weight))
 
@@ -91,7 +92,7 @@ def _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, prim_n
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class PmaAdamW(AdamW):
     r"""
-    This is the implementation of AdamW.
+    This is the implementation of PmAdamW.
 
     Args:
         params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
@@ -146,14 +147,14 @@ class PmaAdamW(AdamW):
               the Cell with step as the input to get the weight decay value of current step.
 
         fused_num (int, optional): Only after fusing every fused_num weights,
-            are they updated into the network parameters. Default: ``2``.
+            are they updated into the network parameters. Default: ``10``.
 
         interleave_step (int, optional): Fusion interval,
-            take weights once every `interleave_step` for fusion. Default: ``1``.
+            take weights once every `interleave_step` for fusion. Default: ``1000``.
 
         fused_algo (string, optional): Fusion algorithm, supporting SMA and EMA. Default: ``ema``.
 
-        ema_alpha (float, optional): The fusion coefficient is only effective when fused_algo=ema. Default: ``0.5``.
+        ema_alpha (float, optional): The fusion coefficient is only effective when fused_algo=ema. Default: ``0.2``.
 
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
