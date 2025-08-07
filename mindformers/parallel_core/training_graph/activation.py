@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Activation functions for transformer."""
-__all__ = ["FusedSwiGLU", "GELU", "SwiGlu", "SiLU", "get_activation"]
+__all__ = ["FusedSwiGlu", "GELU", "SwiGlu", "SiLU", "get_activation"]
 
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
@@ -25,7 +25,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
 
 
-class FusedSwiGLU(nn.Cell):
+class FusedSwiGlu(nn.Cell):
     """
     Fused SwiGlu activation function.
 
@@ -34,7 +34,7 @@ class FusedSwiGLU(nn.Cell):
     """
 
     def __init__(self, config: ModelParallelConfig = None):
-        super(FusedSwiGLU, self).__init__()
+        super(FusedSwiGlu, self).__init__()
         self.swiglu = Swiglu_op()
 
     def construct(self, x: Tensor) -> Tensor:
@@ -207,7 +207,7 @@ ACTIVATION_MAP = {
     'gelu': GELU,
     'swiglu': SwiGlu,
     'silu': SiLU,
-    'fusedswiglu': FusedSwiGLU
+    'fusedswiglu': FusedSwiGlu
 }
 
 
