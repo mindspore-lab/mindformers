@@ -19,8 +19,9 @@ import shutil
 from copy import deepcopy
 
 from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank, get_context
+from mindformers.tools.utils import get_real_rank
 from mindformers.utils.parameter_register import parameter_register
 from mindformers.version_control import get_identity, is_dump_supported
 
@@ -216,7 +217,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
         # loss
-        self.use_legacy = get_context("use_legacy", True)
+        self.use_legacy = is_legacy_model()
         self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
@@ -837,7 +838,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
         # loss
-        self.use_legacy = get_context("use_legacy", True)
+        self.use_legacy = is_legacy_model()
         self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))

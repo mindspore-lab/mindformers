@@ -17,7 +17,7 @@
 import inspect
 from enum import Enum
 
-from mindformers.tools import MODE, PARALLEL_MODE
+from mindformers.tools.utils import MODE, PARALLEL_MODE
 from mindformers.version_control import check_tft_valid
 
 

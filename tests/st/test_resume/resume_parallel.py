@@ -121,7 +121,8 @@ def llama_trainer_train_from_instance():
         save_directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel"),
     )
 
-    build_context(config)
+    mindformers_config = config.convert_args_to_mindformers_config()
+    build_context(mindformers_config)
 
     # Model
     model_config = LlamaConfig(num_layers=NUM_LAYERS, seq_length=SEQ_LENGTH,

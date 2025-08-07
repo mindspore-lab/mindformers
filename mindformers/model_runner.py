@@ -30,6 +30,7 @@ from mindspore._c_expression import swap_cache
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
+from mindformers.core.context import is_legacy_model
 from mindformers.models.utils import convert_mstype, str_to_ms_type
 from mindformers.utils import contains_safetensors_files
 
@@ -40,7 +41,6 @@ from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_mo
 from mindformers.generation.parallel_decoding import parallel_decoding_control
 from mindformers.version_control import check_delay_init_valid, need_nz
 from mindformers.models import build_processor, PretrainedConfig
-from mindformers.tools.utils import get_context
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
 __all__ = ["ModelRunner"]
@@ -264,7 +264,7 @@ class MindIEModelRunner:
 
         build_context(self.config)
         logger.info(f"Build context finished.")
-        self.use_legacy = get_context("use_legacy", True)
+        self.use_legacy = is_legacy_model()
 
         if self.is_multi_modal_model:
             if isinstance(self.model_config.llm_model, PretrainedConfig):

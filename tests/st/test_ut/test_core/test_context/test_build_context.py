@@ -15,14 +15,16 @@
 """Test build_context.py"""
 import multiprocessing
 import os
-
 import pytest
+
 from mindformers.core.context import (
     build_context,
     build_mf_context,
     get_context,
+    is_legacy_model,
     set_context,
 )
+from mindformers.core.context.build_context import MFContextOperator
 
 def get_config_tpl():
     return {'context': {'mode': 'PYNATIVE_MODE'}, 'parallel': {}}
@@ -107,3 +109,24 @@ def test_build_mf_context():
     mf_ctx = build_mf_context(config_tpl)
     another_mf_ctx = build_mf_context(config_tpl)
     assert mf_ctx is another_mf_ctx
+
+@pytest.mark.level1
+@pytest.mark.platform_x86_cpu
+@pytest.mark.parametrize(
+    'cfg, is_legacy_model_except', (
+        ({}, True),
+        ({'use_legacy': True}, True),
+        ({'use_legacy': False}, False),
+    )
+)
+def test_get_use_legacy(cfg, is_legacy_model_except):
+    """
+    Feature: Test whether the method of getting use_legacy is correct.
+    Description: Test get_context and is_legacy_model functions.
+    Expectation: The result of execution does not equal the expected result.
+    """
+    build_mf_context(cfg)
+
+    assert is_legacy_model() == is_legacy_model_except
+
+    MFContextOperator.reset_instance()

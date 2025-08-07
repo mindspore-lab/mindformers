@@ -16,8 +16,8 @@
 import abc
 from dataclasses import dataclass
 
+from mindformers.core.context import is_legacy_model
 from mindformers.models.build_tokenizer import build_tokenizer
-from mindformers.tools.utils import get_context
 from mindformers.tools.logger import logger
 
 
@@ -54,7 +54,7 @@ class BaseInstructDataHandler:
         self.seq_length = config.seq_length
         self.packing = kwargs.get('packing', None)
         self.is_dynamic = config.get('is_dynamic', False)
-        self.use_legacy = get_context("use_legacy", True)
+        self.use_legacy = is_legacy_model()
 
         self.tokenizer = self.get_tokenizer(config)
         self.config = config

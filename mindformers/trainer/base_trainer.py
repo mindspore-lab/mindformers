@@ -37,6 +37,7 @@ from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
+from mindformers.core.context.build_context import is_legacy_model
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, check_dataset_iterable, BaseDataset
 from mindformers.models import build_network, build_processor, build_tokenizer, \
@@ -51,7 +52,7 @@ from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer, \
     write_args_to_tensorboard, update_tensorboard_args
 from mindformers.utils.resume_ckpt_utils import get_resume_checkpoint, load_resume_checkpoint
-from mindformers.tools.utils import count_params, get_real_rank, get_real_group_size, FILE_PERMISSION, get_context
+from mindformers.tools.utils import count_params, get_real_rank, get_real_group_size, FILE_PERMISSION
 from mindformers.tools.check_rules import check_rules
 from mindformers.core.callback.callback import (
     EvalCallBack,
@@ -64,7 +65,7 @@ from mindformers.core.callback.callback import (
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
-from .config_args import ConfigArguments
+from ..core.config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
     check_runner_config,
@@ -560,7 +561,7 @@ class BaseTrainer:
 
     def wrap_network_with_tool_cells(self, network):
         """For training process, warp the network with some tool cells."""
-        if get_context("use_legacy", True):
+        if is_legacy_model():
             return self._wrap_network_with_tool_cells_legacy(network)
         return self._wrap_network_with_tool_cells(network)
 

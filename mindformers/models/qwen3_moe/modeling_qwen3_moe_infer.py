@@ -76,7 +76,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
                               position_embedding_type=config.position_embedding_type,
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
-                              post_process=self.config.post_process,
+                              post_process=config.post_process,
                               model_comm_pgs=model_comm_pgs)
 
     @jit

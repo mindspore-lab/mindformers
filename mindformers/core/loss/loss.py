@@ -26,10 +26,11 @@ from mindspore.parallel import set_algo_parameters
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
+from mindformers.core.context.build_context import Context, get_context
 from mindformers.version_control import is_dump_supported
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank, get_context
+from mindformers.tools.utils import get_real_rank
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 from mindformers.parallel_core.training_graph.loss_func import get_device_local_loss
 
@@ -251,9 +252,11 @@ class CrossEntropyLoss(nn.Cell):
             self.relu.shard(((1,),))
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
-
-        self.monitor_local_loss = get_context("monitor_local_loss")
-        self.monitor_device_local_loss = get_context("monitor_device_local_loss")
+        self.monitor_local_loss = None
+        self.monitor_device_local_loss = None
+        if Context.is_exists():
+            self.monitor_local_loss = get_context("monitor_local_loss")
+            self.monitor_device_local_loss = get_context("monitor_device_local_loss")
         if self.monitor_device_local_loss:
             self.device_local_loss = get_device_local_loss()
         self.dump_local_loss = (

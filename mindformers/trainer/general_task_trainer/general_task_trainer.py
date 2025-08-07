@@ -23,7 +23,7 @@ from mindformers.dataset import BaseDataset
 from mindformers.models import PreTrainedModel
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
-from ..config_args import ConfigArguments
+from ...core.config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 
