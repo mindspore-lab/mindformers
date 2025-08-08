@@ -117,6 +117,7 @@ class Attention(nn.Cell):
         self.submodules = submodules
         self.layer_number = max(1, layer_number)
         self.attn_mask_type = attn_mask_type
+        self.partial_rotary_factor = config.partial_rotary_factor
 
         self.params_dtype = self.config.params_dtype
         self.compute_dtype = self.config.compute_dtype
@@ -126,9 +127,10 @@ class Attention(nn.Cell):
         self.num_query_groups = (self.num_heads
                                  if config.num_query_groups is None else
                                  config.num_query_groups)
-        self.hidden_size_per_attention_head = getattr(config, 'kv_channels', divide(
-            self.config.hidden_size, self.num_heads
-        ))
+        if hasattr(config, "kv_channels"):
+            self.hidden_size_per_attention_head = getattr(config, 'kv_channels')
+        else:
+            self.hidden_size_per_attention_head = divide(self.config.hidden_size, self.num_heads)
         self.query_projection_size = self.hidden_size_per_attention_head * self.num_heads
         self.n_rep = divide(self.num_heads, self.num_query_groups)
 
@@ -175,9 +177,8 @@ class Attention(nn.Cell):
             self.core_attention = build_module(submodules.core_attention,
                                                config=self.config,
                                                layer_number=self.layer_number)
-
         self.rotary_embedding = RotaryEmbedding(kv_channels=self.hidden_size_per_attention_head,
-                                                rotary_cos_format=2)
+                                                rotary_percent=self.partial_rotary_factor, rotary_cos_format=2)
 
         self.linear_proj = build_module(
             submodules.linear_proj,

@@ -61,10 +61,12 @@ class RotaryEmbedding(Cell):
         if seq_len_interpolation_factor:
             raise NotImplementedError("For RotaryEmbedding, `seq_len_interpolation_factor` is not supported.")
 
-        self.dim = kv_channels
+        self.kv_channels = kv_channels
+        self.rotary_percent = rotary_percent
         if rotary_percent < 1.0:
-            self.dim = int(self.dim * rotary_percent)
-
+            self.dim = int(self.kv_channels * rotary_percent)
+        else:
+            self.dim = self.kv_channels
         self.rotary_base = rotary_base
 
         self.cast = P.Cast()
@@ -143,7 +145,24 @@ class RotaryEmbedding(Cell):
             query: The query matrix
             key: The key matrix
         """
-        return self.rotary_embedding_op(query, key, rotary_pos_cos, rotary_pos_sin, seq_lens_tensor)
+        if self.rotary_percent < 1.0:
+            bs, _ = query.shape
+            query = query.reshape((bs, -1, self.kv_channels))
+            key = key.reshape((bs, -1, self.kv_channels))
+            q_rot, q_pass = query[..., :self.dim], query[..., self.dim:]
+            k_rot, k_pass = key[..., :self.dim], key[..., self.dim:]
+            q_rot = q_rot.reshape((bs, -1))
+            k_rot = k_rot.reshape((bs, -1))
+            q_rot, k_rot = self.rotary_embedding_op(q_rot, k_rot, rotary_pos_cos, rotary_pos_sin, seq_lens_tensor)
+            q_rot = q_rot.reshape((bs, -1, self.dim))
+            k_rot = k_rot.reshape((bs, -1, self.dim))
+            query = self.cat((q_rot, q_pass))
+            key = self.cat((k_rot, k_pass))
+            query = query.reshape((bs, -1))
+            key = key.reshape((bs, -1))
+        else:
+            query, key = self.rotary_embedding_op(query, key, rotary_pos_cos, rotary_pos_sin, seq_lens_tensor)
+        return query, key
 
 
 class Llama3RotaryEmbedding(RotaryEmbedding):

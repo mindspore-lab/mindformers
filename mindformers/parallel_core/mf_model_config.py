@@ -107,9 +107,6 @@ class MFModelConfig:
     bias_swiglu_fusion: bool = False
     """If True, use fused swiglu kernel."""
 
-    qk_layernorm: bool = False
-    """Whether to apply `normalization` type of normalization to the query and key embeddings."""
-
     mla_qkv_concat: bool = True
     """If True, Multi Latent Attention computes q_compressed, k, kv_compressed in a single linear transformation;
     if False, computes them separately."""

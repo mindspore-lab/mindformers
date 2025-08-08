@@ -151,9 +151,12 @@ class GPTModel(nn.Cell):
 
         self.max_position_embeddings = max_sequence_length
         if not hasattr(config, "qk_pos_emb_head_dim"):
-            self.hidden_dim = getattr(config, "kv_channels", divide(config.hidden_size, config.num_attention_heads))
+            if hasattr(config, "kv_channels"):
+                self.head_dim = getattr(config, "kv_channels")
+            else:
+                self.head_dim = divide(config.hidden_size, config.num_attention_heads)
         else:
-            self.hidden_dim = config.qk_pos_emb_head_dim
+            self.head_dim = config.qk_pos_emb_head_dim
         self.rotary_percent = rotary_percent
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.tp = model_comm_pgs.tp
@@ -161,10 +164,7 @@ class GPTModel(nn.Cell):
         self.tp_rank = self.tp.rank
         self.is_prefill = True
 
-        if hasattr(self.config, 'position_embedding_type'):
-            self.position_embedding_type = self.config.position_embedding_type
-        else:
-            self.position_embedding_type = position_embedding_type
+        self.position_embedding_type = position_embedding_type
 
         if hasattr(self.config, 'rotary_base'):
             self.rotary_base = self.config.rotary_base
@@ -188,7 +188,7 @@ class GPTModel(nn.Cell):
 
         self.rotary_pos_emb = get_rope(
             config,
-            hidden_dim=self.hidden_dim,
+            hidden_dim=self.head_dim,
             rotary_percent=self.rotary_percent,
             rotary_base=self.rotary_base,
             rotary_dtype=self.config.rotary_dtype,

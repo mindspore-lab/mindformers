@@ -160,7 +160,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         )
 
         self.post_self_attn_layernorm = build_module(
-            submodules.pre_cross_attn_layernorm,
+            submodules.post_self_attn_layernorm,
             config=config,
             hidden_size=config.hidden_size,
             eps=config.layernorm_epsilon
@@ -194,7 +194,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.mlp = build_module(submodules.mlp, config=self.config, model_comm_pgs=model_comm_pgs)
 
         self.post_mlp_layernorm = build_module(
-            submodules.pre_cross_attn_layernorm,
+            submodules.post_mlp_layernorm,
             config=config,
             hidden_size=config.hidden_size,
             eps=config.layernorm_epsilon

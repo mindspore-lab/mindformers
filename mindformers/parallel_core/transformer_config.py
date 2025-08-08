@@ -111,6 +111,12 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     rotary_base: float = 10000.0
     """Rotary base for the rotary embeddings, used by rope and yarn. Mindformers required."""
 
+    partial_rotary_factor: float = 1.0
+    """rotaty partial dim"""
+
+    qk_layernorm: bool = False
+    """Whether to apply `normalization` type of normalization to the query and key embeddings."""
+
     ####################
     # Initialization
     ####################

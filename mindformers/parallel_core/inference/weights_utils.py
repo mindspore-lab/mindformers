@@ -53,9 +53,13 @@ class WeightsLoader:
     def not_split(self, src_keys_dict, net_name, config):
         for weight_name, file in src_keys_dict.items():
             weight_value = get_file_handles(f'{self.weights_path}/{file}').get_tensor(weight_name)
-            self.parameter_dict[net_name] = ms.Parameter(
-                ms.from_numpy(weight_value).astype(getattr(config, 'params_dtype')),
-                name=net_name, requires_grad=False)
+            if weight_name.split(".")[-1] == "e_score_correction_bias":
+                self.parameter_dict[net_name] = ms.Parameter(ms.from_numpy(weight_value),
+                                                             name=net_name, requires_grad=False)
+            else:
+                self.parameter_dict[net_name] = ms.Parameter(
+                    ms.from_numpy(weight_value).astype(getattr(config, 'params_dtype')),
+                    name=net_name, requires_grad=False)
 
     def split_by_tp_rank_rows(self, src_keys_dict, net_name, config):
         for weight_name, file in src_keys_dict.items():
