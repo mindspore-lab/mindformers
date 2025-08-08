@@ -107,9 +107,45 @@ def parallel_train_dp2_pp2_ep2_tnd():
     }
     ds3_train(config, dataset, construct_args_key, checker_config)
 
+
+def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss():
+    """test mcore deepseekv3 train in dp=mp=ep=2."""
+    ms.set_seed(0)
+    config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = True
+    config.calculate_per_token_loss = True
+
+    config.train_precision_sync = True
+    config.pretrained_model_dir = CUR_DIR
+    config.runner_config.sink_mode = False
+    config.parallel.full_batch = True
+    config.parallel.dataset_strategy = 'full_batch'
+    config.parallel_config.pipeline_stage = 1
+    build_context(config)
+
+    construct_args_key = ['input_ids', 'labels']
+    model_config = config.model.model_config
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
+
+    loss_std = [13.5547285, 13.550419, 13.551372, 13.551842, 13.555878,
+                13.550605, 13.551352, 13.550753, 13.550691, 13.547881,
+                13.546463, 13.550682, 13.550955, 13.55204, 13.550012,
+                13.546221, 13.544758, 13.553933, 13.548302, 13.542173]
+
+    checker_config = {
+        'loss_list_std': loss_std,
+        'experiment_mode': False,
+        'micro_batch_num': 1,
+        'micro_batch_interleave_num': 1
+    }
+    ds3_train(config, dataset, construct_args_key, checker_config)
+
+
 TEST_MAP = {
     'parallel_train_dp2_mp2_ep2': parallel_train_dp2_mp2_ep2,
     'parallel_train_dp2_pp2_ep2_tnd': parallel_train_dp2_pp2_ep2_tnd,
+    "parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss":
+        parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss,
 }
 
 if __name__ == '__main__':
