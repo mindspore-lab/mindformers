@@ -230,6 +230,9 @@ class GPTModel(nn.Cell):
         )
 
         # multi token prediction block
+        self.init_mtp_loss = Tensor([0], ms.float32)
+        self.init_numerator1 = Tensor([0], ms.float32)
+        self.init_denominator1 = Tensor([1e-9], ms.float32)
         if self.mtp_process:
             self.mtp = MultiTokenPredictionBlock(config=self.config, spec=mtp_block_spec)
 
@@ -318,8 +321,8 @@ class GPTModel(nn.Cell):
         )
 
         # multi token prediction
-        mtp_loss = 0.0
-        numerator1, denominator1 = 0, 1e-9
+        mtp_loss = self.init_mtp_loss
+        numerator1, denominator1 = self.init_numerator1, self.init_denominator1
         if self.mtp_process:
             mtp_loss, extra_loss = self.mtp(
                 tokens,
