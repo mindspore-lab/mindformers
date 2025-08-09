@@ -22,7 +22,7 @@ from typing import Optional, List, Union, Dict
 
 import numpy as np
 import mindspore as ms
-from mindspore import mint, mutable
+from mindspore import mint, mutable, ops
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
@@ -37,6 +37,8 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    MinNewTokensLengthLogitsProcessor)
 from mindformers import version_control
 from mindformers.core.context import is_legacy_model
+from mindformers.version_control import is_310p
+from mindformers.models.utils import format_type
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
@@ -95,7 +97,10 @@ class GenerationMixin:
         self._pre_set_phase = None
         self._exec_add_flags = True
         self.gather = P.Gather()
-        self.hard_mask = Tensor([0], dtype=ms.bfloat16).reshape(1, 1)
+        if is_310p():
+            self.hard_mask = Tensor([0], dtype=ms.float16).reshape(1, 1)
+        else:
+            self.hard_mask = Tensor([0], dtype=ms.bfloat16).reshape(1, 1)
         self.lower_triangle_mask = None
         self.key_cache = None
         self.value_cache = None
@@ -149,12 +154,16 @@ class GenerationMixin:
                     num_query_groups_per_partition,
                     hidden_size_per_attention_head
                     )
-
+            if is_310p():
+                kv_cache_shape = (kv_cache_shape[0], kv_cache_shape[1], kv_cache_shape[2] * kv_cache_shape[3])
             key_cache = []
             value_cache = []
             for _ in range(tansformer_config.num_layers):
                 k_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
                 v_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
+                if is_310p():
+                    k_cache = ops.auto_generate.format_cast(k_cache, format_type['nz'])
+                    v_cache = ops.auto_generate.format_cast(v_cache, format_type['nz'])
                 key_cache.append(k_cache)
                 value_cache.append(v_cache)
             self.key_cache = mutable(key_cache)

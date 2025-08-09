@@ -41,6 +41,8 @@ from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
                                                                deal_linear_kv_down_weight)
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.version_control import is_310p
+from mindformers.models.utils import format_type
 
 
 class LinearMethodBase(QuantizeMethodBase):
@@ -153,10 +155,19 @@ class LinearBase(ms.nn.Cell):
         # Currently does not support quantization, only use UnquantizedLinearMethod.
         self.quant_method: Optional[
             QuantizeMethodBase] = UnquantizedLinearMethod()
+        self.param_load_counts: Dict[str, int] = {}
 
     def construct(self, x: ms.Tensor) -> ms.Tensor:
         raise NotImplementedError
 
+    def format_to_nz(self, param, merge_count=1):
+        current_count = self.param_load_counts.get(param.name, 0) + 1
+        self.param_load_counts[param.name] = current_count
+
+        if current_count == merge_count:
+            cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
+            param.set_data(cast_weight)
+            del self.param_load_counts[param.name]
 
 class ColumnParallelLinear(LinearBase):
     r"""
@@ -363,6 +374,8 @@ class ColumnParallelLinear(LinearBase):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
         param.set_data(ms.from_numpy(loaded_weight))
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param)
 
 
 class MergedColumnParallelLinear(ColumnParallelLinear):
@@ -445,6 +458,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[1])} and "
                 f"the shape of weight is{loaded_weight.shape}")
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param, 2)
 
 
 class QKVParallelLinear(ColumnParallelLinear):
@@ -559,6 +574,8 @@ class QKVParallelLinear(ColumnParallelLinear):
                     f" but got the shape of param is {(shard_size,)} and "
                     f"the shape of weight is{loaded_weight.shape}")
         param[shard_offset:shard_offset + shard_size] = loaded_weight
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param, 3)
 
 
 class RowParallelLinear(LinearBase):
@@ -747,6 +764,8 @@ class RowParallelLinear(LinearBase):
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param)
 
 
 class ReplicatedLinear(LinearBase):

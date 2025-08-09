@@ -44,6 +44,9 @@ str_to_ms_type = {
     "int8": mstype.int8
 }
 
+format_type = {
+    "nz": 29,
+}
 
 def convert_mstype(ms_type: str = "float16"):
     """Convert the string type to MindSpore type."""
