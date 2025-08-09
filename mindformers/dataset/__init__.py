@@ -18,7 +18,6 @@ from .dataloader import (
     BaseMultiModalDataLoader,
     BlendedMegatronDatasetDataLoader,
     CommonDataLoader,
-    IndexedDataLoader,
     MultiSourceDataLoader,
     SFTDataLoader,
     ToolAlpacaDataLoader,
