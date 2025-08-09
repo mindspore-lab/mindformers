@@ -28,6 +28,7 @@ from mindformers.parallel_core.inference.tensor_parallel.quantization.base_confi
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 
 
 class GroupedMLP(nn.Cell):
@@ -84,7 +85,7 @@ class GroupedMLP(nn.Cell):
             config=self.config,
             bias=self.config.add_bias_linear,
             gather_output=False,
-            skip_weight_param_allocation=True, # Skip creating weights and use weight1 for gemm linear calculation
+            weight=self.weight1, # Skip creating weights and use weight1 for gemm linear calculation
             is_expert=True,
             compute_dtype=self.config.compute_dtype,
             tp_group=self.tp_group,
@@ -103,16 +104,19 @@ class GroupedMLP(nn.Cell):
             self.input_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            skip_weight_param_allocation=True, # Skip creating weights and use weight2 for gemm linear calculation
+            weight=self.weight2, # Skip creating weights and use weight2 for gemm linear calculation
             is_expert=True,
             compute_dtype=self.config.compute_dtype,
             tp_group=self.tp_group,
         )
 
+        set_weight_attrs(self.weight1, {"weight_loader": self.linear_fc1.weight_loader})
+        set_weight_attrs(self.weight2, {"weight_loader": self.linear_fc2.weight_loader})
+
     def construct(self, hidden_states, group_list=None):
         """Forward process of GroupedMLP"""
         # [T, H] -> [T, ffn_H]
-        intermediate_parallel = self.linear_fc1(hidden_states, self.weight1, group_list=group_list)
+        intermediate_parallel = self.linear_fc1(hidden_states, group_list=group_list)
 
         if self.config.gated_linear_unit:
             gate, hidden = mint.split(intermediate_parallel,
@@ -125,7 +129,7 @@ class GroupedMLP(nn.Cell):
                 intermediate_parallel) if self.activation_type else intermediate_parallel
 
         # [T, ffn_H] -> [T, H]
-        output = self.linear_fc2(intermediate_parallel, self.weight2, group_list=group_list)
+        output = self.linear_fc2(intermediate_parallel, group_list=group_list)
         return output
 
     def sharded_state_dict(self):
