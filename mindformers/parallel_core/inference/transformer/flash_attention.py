@@ -124,9 +124,14 @@ class FlashAttention(Cell):
                   value_cache=None):
         """Forward process of the FlashAttention."""
         if not self.use_multi_latent_attention:
+            key = key.contiguous()
+            value = value.contiguous()
             self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:
+            query = query.contiguous()
+            key = key.contiguous()
+            value = value.contiguous()
             _, _, _, context = self.flash_attention(query, key, value,
                                                     None, None,
                                                     padding_mask, attn_mask,
