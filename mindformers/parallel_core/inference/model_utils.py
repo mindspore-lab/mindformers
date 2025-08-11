@@ -14,27 +14,21 @@
 # ============================================================================
 """ModelMixin for infer models."""
 import os
-import json
-import re
-from abc import abstractmethod
+from typing import Any, Generator, List, Tuple, Iterable
 from safetensors import safe_open
+from tqdm.auto import tqdm
 
 from mindspore import Tensor, mutable
 import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
-from mindformers.parallel_core.inference.weights_utils import WeightsLoader
 
 
 class InferModelMixin(ModelMixin):
     """
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
     """
-
-    @abstractmethod
-    def convert_name(self, weight_name):
-        pass
 
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
@@ -80,42 +74,7 @@ class InferModelMixin(ModelMixin):
             if self.config.use_flash_attention:
                 layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
 
-    def convert_net_name(self, mf_name, config):
-        r"""
-        Convert Mindformers weight name to network name.
-
-        Args:
-            mf_name (str): Mindformers weight name.
-            config (object): Configuration object containing q_lora_rank.
-
-        Returns:
-            str: Converted network name.
-        """
-        net_name = mf_name
-        replacements = [
-            (r'\.self_attention\.linear_[qkv]\.', '.self_attention.linear_qkv.'),
-            (r'\.mlp\.gating\.', '.mlp.linear_fc1.'),
-            # Experts weights is three-dimensional in mcore, which different from the hf weight.
-            # So we need to remove the information about the number of experts in the weight key.
-            (r'\.experts\.\d+\.gating\.weight', '.experts.weight1'),
-            (r'\.experts\.\d+\.linear_fc1\.weight', '.experts.weight1'),
-            (r'\.experts\.\d+\.linear_fc2\.weight', '.experts.weight2'),
-            (r'\.shared_experts\.gating\.', '.shared_experts.linear_fc1.')
-        ]
-
-        for pattern, replacement in replacements:
-            net_name = re.sub(pattern, replacement, net_name)
-
-        if hasattr(config, 'q_lora_rank') and config.q_lora_rank is not None:
-            net_name = re.sub(r'\.self_attention\.linear_(q|kv)_down_proj\.',
-                              '.self_attention.linear_qkv_down_proj.', net_name)
-        else:
-            net_name = net_name.replace('.self_attention.linear_q_down_proj.',
-                                        '.self_attention.linear_q_proj.')
-
-        return net_name
-
-    def load_weights(self, weights_path):
+    def load_weights(self, weights_path=None, weights: Iterable[Tuple[str, Tensor]] = None):
         r"""
         Load weights.
 
@@ -123,41 +82,87 @@ class InferModelMixin(ModelMixin):
             weights_path: The path of weights.
 
         """
-        weights_loader = WeightsLoader(weights_path)
-        param_json_path = ""
-        for file in os.listdir(weights_path):
-            if file.endswith('index.json'):
-                param_json_path = os.path.join(weights_path, file)
-            elif file.endswith('param_name_map.json'):
-                param_json_path = os.path.join(weights_path, file)
-
-        weight_map = {}
-        if os.path.exists(param_json_path):
-            with open(param_json_path, "r") as fp:
-                data = json.load(fp)
-                weight_map = data.get("weight_map", data)
+        if not os.path.isdir(weights_path):
+            if not weights:
+                raise ValueError(
+                    f"Either 'weights_path' or 'weights' is required, "
+                    f"but got weights_path={weights_path}, weights={weights}"
+                )
+            self.model.load_weights(weights)
         else:
-            # only one safetensors
-            safetensors_count = sum(
-                1 for file in os.listdir(weights_path)
+            weights_files = [
+                os.path.join(weights_path, file)
+                for file in os.listdir(weights_path)
                 if file.endswith(".safetensors")
-            )
-            if safetensors_count != 1:
-                raise ValueError(f"There should be only one `.safetensors` file {weights_path}, "
-                                 f"but {safetensors_count} `.safetensors` files were unexpectedly found.")
-            safetensor_file = "model.safetensors"
-            with safe_open(f"{weights_path}/{safetensor_file}",
-                           framework="np") as sf_file:
-                all_keys = sf_file.keys()
-                for key in all_keys:
-                    weight_map[str(key).strip()] = safetensor_file
+            ]
 
-        for weight_name, weight_file in weight_map.items():
-            if self.convert_name is not None:
-                mf_name = self.convert_name(weight_name)
-                net_name = self.convert_net_name(mf_name, self.config)
-                weights_loader.mapping_dict.update({weight_name: (net_name, weight_file)})
-                mf_name = mf_name.split('.')[-2]
-                if mf_name not in weights_loader.mf_hf_mapping.keys():
-                    weights_loader.mf_hf_mapping[mf_name] = weight_name.split('.')[-2]
-        self.model.load_weights(weights_loader)
+            if not weights_files:
+                raise ValueError(f"No .safetensors files found in {weights_path}")
+
+            self.model.load_weights(
+                self._safetensors_weights_iterator(weights_files),
+                self.generate_mapping()
+            )
+
+    def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
+        """Iterate over the weights in the model safetensor files."""
+        for st_file in tqdm(
+                weights_files,
+                desc="Loading safetensors checkpoint shards",
+        ):
+            with safe_open(st_file, framework="np") as f:
+                for name in f.keys():  # noqa: SIM118
+                    # Return a lightweight PySafeSlice object
+                    # that uses file pointer offset internally to read Safetensor
+                    # on demand, avoiding memory explosion. Actual data can be obtained through slicing operation
+                    # like param[start:end]
+                    param = f.get_slice(name)
+                    name = self.convert_name(name)
+                    yield name, param
+
+    def generate_mapping(self):
+        """
+        Generate stacked parameter mapping for weight conversion between different model frameworks.
+
+        This method creates a mapping between parameter names in HuggingFace format and
+        MindFormers/MCore format, specifically handling cases where multiple parameters
+        need to be stacked or merged during the conversion process.
+
+        The mapping rules define how individual weight components (like Q, K, V projections
+        or MLP gating/hidden layers) should be mapped to their corresponding stacked
+        parameters in the target framework.
+
+        Returns:
+            list: A list of tuples, where each tuple contains three elements:
+                  - Target parameter name in MCore format
+                  - Source parameter name in HuggingFace format
+                  - Parameter type identifier for weight loading logic
+
+        Mapping rules cover:
+        - Linear projection mappings (Q, K, V, KV projections)
+        - MLP layer mappings (gating and hidden layers)
+        - Shared expert MLP mappings
+        """
+        mapping_rules = {
+            '.linear_q_down_proj': ('.linear_qkv_down_proj', '.linear_q_down_proj', 'q_down'),
+            '.linear_kv_down_proj': ('.linear_qkv_down_proj', '.linear_kv_down_proj', 'kv_down'),
+            '.linear_q_up_proj': ('.linear_q_up_proj', '.linear_q_up_proj', 'q_up'),
+            '.linear_kv_up_proj': ('.linear_kv_up_proj', '.linear_kv_up_proj', 'kv_up'),
+            '.linear_q': ('.linear_qkv', '.linear_q', 'q'),
+            '.linear_k': ('.linear_qkv', '.linear_k', 'k'),
+            '.linear_v': ('.linear_qkv', '.linear_v', 'v'),
+            '.linear_kv': ('.linear_qkv', '.linear_kv', 'kv'),
+            '.mlp.gating': ('.mlp.linear_fc1', '.mlp.gating', 'gating'),
+            '.mlp.hidden': ('.mlp.linear_fc1', '.mlp.hidden', 'hidden'),
+            '.mlp.shared_experts.gating': ('.mlp.shared_experts.linear_fc1', '.mlp.shared_experts.gating', 'gating'),
+            '.mlp.shared_experts.hidden': ('.mlp.shared_experts.linear_fc1', '.mlp.shared_experts.hidden', 'hidden')
+        }
+
+        stacked_params_mapping = []
+        for _, mcore_name in self.weight_mapping:
+            for pattern, stacked_param in mapping_rules.items():
+                if pattern in mcore_name:
+                    stacked_params_mapping.append(stacked_param)
+                    break
+
+        return stacked_params_mapping

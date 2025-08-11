@@ -23,25 +23,22 @@ __all__ = [
 from typing import Callable, Optional
 from abc import abstractmethod
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Tensor, Parameter, nn, ops, mint
-from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
-from mindformers.parallel_core.inference.tensor_parallel.random import (
-    TENSOR_PARALLEL_GENERATOR,
-    get_rng_tracer
-)
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (
     gather_from_model_parallel_region,
     reduce_from_model_parallel_region,
     scatter_to_model_parallel_region
 )
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
+from mindformers.parallel_core.inference.weights_utils import split_loaded_weight
 
 
 class GroupedLinearMethodBase(QuantizeMethodBase):
@@ -217,7 +214,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             gather_output: bool = False,
             stride: int = 1,
             skip_bias_add: bool = False,
-            skip_weight_param_allocation: bool = False,
+            weight: Tensor = None,
             is_expert: bool = True,
             tp_comm_buffer_name: str = None,
             compute_dtype: mstype = mstype.bfloat16,
@@ -247,7 +244,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         self.config = config
         self.has_bias = bias
         self.gather_output = gather_output
-        self.skip_weight_param_allocation = skip_weight_param_allocation
+        self.skip_weight_param_allocation = weight is not None
         self.compute_dtype = compute_dtype
 
         self.tp_group = tp_group
@@ -257,11 +254,16 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             raise ValueError("`quant_method` is not initialized in ColumnParallelGroupedLinear.")
 
         if not self.skip_weight_param_allocation:
-            weight_shape = (self.num_experts, self.input_size, self.output_size_per_partition)
-            with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
-                self.weight = Parameter(initializer(init_method, weight_shape, self.params_dtype), name="weight")
+            self.quant_method: Optional[UnquantizedGroupedLinearMethod] = UnquantizedGroupedLinearMethod()
+            self.quant_method.create_weights(
+                layer=self,
+                num_experts=self.num_experts,
+                input_size_per_partition=self.input_size,
+                output_size_per_partition=self.output_size_per_partition,
+                params_dtype=self.config.params_dytpe,
+            )
         else:
-            self.weight = None
+            self.weight = weight
 
         if self.has_bias:
             bias_shape = (self.num_experts, self.output_size_per_partition)
@@ -278,10 +280,6 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
     def construct(self, input_parallel, weight=None, group_list=None):
         """Forward of ColumnParallelGroupedLinear."""
         if weight is None:
-            if self.skip_weight_param_allocation:
-                raise ValueError(
-                    "For ColumnParallelGroupedLinear, when skip_weight_param_allocation=True,"
-                    " weight should be passed to construct(), but got None.")
             weight = self.weight
         else:
             # Check the weight passed in is the correct shape.
@@ -310,6 +308,56 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             state_dict[self.bias.name] = {'shape': self.bias.shape,
                                           'shard': (1, self.tensor_parallel_group_size)}
         return state_dict
+
+    def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:
+        """
+        Args:
+            param: The parameter tensor in the model, used to store the loaded weights.
+            loaded_weight: The weight data loaded from a file or checkpoint.
+            shard_id: The weight shard identifier, such as "w1" or "w3",
+                        indicating which part of the weights is currently being processed.
+            expert_id: The index of the expert network, used to locate the parameters of a specific expert
+                        in the MoE structure.
+
+        Returns:
+            None. This function directly modifies the input `param` parameter.
+        """
+        # Fetch the dim to shard the parameter/loaded weight
+        # based on the shard id. This will be whatever
+        # dimension intermediate_size_per_partition is used.
+        shard_id_to_sharded_dim = {"w1": 1, "w3": 1}
+        shard_dim = shard_id_to_sharded_dim.get(shard_id)
+        loaded_weight_dim = len(loaded_weight.get_shape())
+        full_load = loaded_weight_dim == 3
+        if full_load:
+            shard_dim += 1
+
+        expert_data = param.data if full_load else param.data[expert_id]
+
+        # Case model weights
+        shard_size = expert_data.shape[shard_dim] // 2
+        # Because this weight shape is two-dimensional,
+        # but the dimension splitting in the network is defined based on three dimensions,
+        # so the splitting dimension needs to be subtracted by 1.
+        output_dim = getattr(param, "input_dim", None) - 1
+        tp_rank = self.tp_group.rank
+        start_idx = tp_rank * shard_size
+        # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
+        # The shape of param is [moe_ffn_hidden_size, hidden_size]
+        # So must be transposed.
+        loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size).T
+        if len(loaded_weight.shape) == ():
+            loaded_weight = loaded_weight.reshape(1)
+        if loaded_weight.shape == (param.shape[1], shard_size):
+            if shard_id == "w1":
+                param[expert_id][:, :shard_size] = ms.from_numpy(loaded_weight)
+            elif shard_id == "w3":
+                param[expert_id][:, shard_size:shard_size + shard_size] = ms.from_numpy(loaded_weight)
+        else:
+            raise ValueError(
+                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                f" but got the shape of param is {(param.shape[1], shard_size)} and "
+                f"the shape of weight is{loaded_weight.shape}")
 
 
 class RowParallelGroupedLinear(GroupedLinearBase):
@@ -366,7 +414,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             bias: bool = False,
             input_is_parallel: bool = True,
             skip_bias_add: bool = False,
-            skip_weight_param_allocation: bool = False,
+            weight: Tensor = None,
             stride: int = 1,
             delay_allreduce: bool = True,
             is_expert: bool = True,
@@ -394,10 +442,11 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                 "In RowParallelGroupedLinear, `delay_allreduce` and `bias` cannot be enabled simultaneously, "
                 "otherwise the accuracy will be incorrect")
 
+        self.config = config
         self.has_bias = bias
         self.input_is_parallel = input_is_parallel
         self.delay_allreduce = delay_allreduce
-        self.skip_weight_param_allocation = skip_weight_param_allocation
+        self.skip_weight_param_allocation = weight is not None
         self.compute_dtype = compute_dtype
 
         self.tp_group = tp_group
@@ -407,11 +456,16 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             raise ValueError("`quant_method` is not initialized in RowParallelGroupedLinear.")
 
         if not self.skip_weight_param_allocation:
-            weight_shape = (self.num_experts, self.input_size_per_partition, self.output_size)
-            with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
-                self.weight = Parameter(initializer(init_method, weight_shape, self.params_dtype), name="weight")
+            self.quant_method: Optional[UnquantizedGroupedLinearMethod] = UnquantizedGroupedLinearMethod()
+            self.quant_method.create_weights(
+                layer=self,
+                num_experts=self.num_experts,
+                input_size_per_partition=self.input_size_per_partition,
+                output_size_per_partition=self.output_size,
+                params_dtype=self.config.params_dytpe,
+            )
         else:
-            self.weight = None
+            self.weight = weight
 
         if self.has_bias:
             bias_shape = (self.num_experts, self.output_size)
@@ -428,10 +482,6 @@ class RowParallelGroupedLinear(GroupedLinearBase):
     def construct(self, input_, weight=None, group_list=None):
         """Forward of RowParallelGroupedLinear."""
         if weight is None:
-            if self.skip_weight_param_allocation:
-                raise ValueError(
-                    "For RowParallelGroupedLinear, when skip_weight_param_allocation=True,"
-                    " weight should be passed to construct(), but got None.")
             weight = self.weight
         else:
             # Check the weight passed in is the correct shape.
@@ -462,3 +512,55 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             state_dict[self.bias.name] = {'shape': self.bias.shape,
                                           'shard': (1, 1)}
         return state_dict
+
+    def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:
+        """
+        Load and process weights for RowParallelGroupedLinear layer.
+
+        This method handles the loading of weights that have been partitioned along the input dimension
+        according to tensor parallelism for grouped linear layers in MoE (Mixture of Experts) architecture.
+        Each expert's weights are loaded and processed separately based on the shard ID and expert ID.
+
+        Args:
+            param: The parameter tensor in the model to store the loaded weights.
+                  For RowParallelGroupedLinear, this is typically a 3D tensor with shape
+                  [num_experts, input_size_per_partition, output_size].
+            loaded_weight: The weight data loaded from checkpoint file.
+                          Shape depends on whether it's a full load or partitioned load.
+            shard_id: The weight shard identifier, specifically "w2" for RowParallelGroupedLinear,
+                      indicating which part of the weights is being processed.
+            expert_id: The index of the expert network, used to locate the parameters of a specific expert
+                       in the MoE structure.
+        """
+        # Fetch the dim to shard the parameter/loaded weight
+        # based on the shard id. This will be whatever
+        # dimension intermediate_size_per_partition is used.
+        shard_id_to_sharded_dim = {"w2": 0}
+        shard_dim = shard_id_to_sharded_dim.get(shard_id)
+        full_load = len(loaded_weight.get_shape()) == 3
+        if full_load:
+            shard_dim += 1
+
+        expert_data = param.data if full_load else param.data[expert_id]
+
+        # Case model weights
+        shard_size = expert_data.shape[shard_dim]
+        # Because this weight shape is two-dimensional,
+        # but the dimension splitting in the network is defined based on three dimensions,
+        # so the splitting dimension needs to be subtracted by 1.
+        output_dim = getattr(param, "output_dim", None) - 1
+        tp_rank = self.tp_group.rank
+        start_idx = tp_rank * shard_size
+        # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
+        # The shape of param is [moe_ffn_hidden_size, hidden_size]
+        # So must be transposed.
+        loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size).T
+        if len(loaded_weight.shape) == ():
+            loaded_weight = loaded_weight.reshape(1)
+        if loaded_weight.shape == (shard_size, param.shape[2]):
+            param[expert_id] = ms.from_numpy(loaded_weight)
+        else:
+            raise ValueError(
+                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                f" but got the shape of param is {(shard_size, param.shape[2])} and "
+                f"the shape of weight is{loaded_weight.shape}")

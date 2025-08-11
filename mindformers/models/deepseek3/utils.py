@@ -15,7 +15,6 @@
 """DeepSeek3 models' utils."""
 import mindspore as ms
 
-from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
 from mindformers.models.deepseek3.configuration_deepseek_v3 import DeepseekV3Config
 
@@ -29,46 +28,31 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
     config_class = DeepseekV3Config
     base_model_prefix = "Deepseekv3"
 
-    def convert_name(self, weight_name):
-        r"""
-        convert HuggingFace weight name to MindFormers weight name.
-
-        Args:
-            weight_name: huggingface weight names.
-
-        Returns:
-            weight_name: converted weight names.
-
-        """
-        origin_name = weight_name
-        weight_name = weight_name.replace('model.embed_tokens.', 'embedding.word_embeddings.')
-        weight_name = weight_name.replace('.self_attn.q_a_proj.', '.self_attention.linear_q_down_proj.')
-        weight_name = weight_name.replace('.self_attn.q_a_layernorm.', '.self_attention.q_layernorm.')
-        weight_name = weight_name.replace('.self_attn.q_b_proj.', '.self_attention.linear_q_up_proj.')
-        weight_name = weight_name.replace('.self_attn.kv_a_proj_with_mqa.', '.self_attention.linear_kv_down_proj.')
-        weight_name = weight_name.replace('.self_attn.kv_a_layernorm.', '.self_attention.kv_layernorm.')
-        weight_name = weight_name.replace('.self_attn.kv_b_proj.', '.self_attention.linear_kv_up_proj.')
-        weight_name = weight_name.replace('.self_attn.o_proj.', '.self_attention.linear_proj.')
-        weight_name = weight_name.replace('.mlp.gate_proj.', '.mlp.gating.')
-        weight_name = weight_name.replace('.mlp.down_proj.', '.mlp.linear_fc2.')
-        weight_name = weight_name.replace('.mlp.up_proj.', '.mlp.linear_fc1.')
-        weight_name = weight_name.replace('.gate.weight', '.router.weight.weight')
-        weight_name = weight_name.replace('.gate.e_score_correction_bias', '.router.expert_bias')
-        weight_name = weight_name.replace('.shared_experts.gate_proj.', '.shared_experts.gating.')
-        weight_name = weight_name.replace('.shared_experts.up_proj.', '.shared_experts.linear_fc1.')
-        weight_name = weight_name.replace('.shared_experts.down_proj.', '.shared_experts.linear_fc2.')
-        weight_name = weight_name.replace('.gate_proj.', '.gating.')
-        weight_name = weight_name.replace('.down_proj.', '.linear_fc2.')
-        weight_name = weight_name.replace('.up_proj.', '.linear_fc1.')
-
-        weight_name = weight_name.replace('.post_attention_layernorm.', '.pre_mlp_layernorm.')
-        weight_name = weight_name.replace('model.norm.', 'decoder.final_layernorm.')
-        weight_name = weight_name.replace('lm_head.', 'output_layer.')
-        weight_name = weight_name.replace('model.layers.', 'decoder.layers.')
-        if weight_name == origin_name:
-            logger.warning(f"weight name '{weight_name}' does not change after conversion. "
-                           f"Please check if it is as expected.")
-        return weight_name
+    weight_mapping = [
+        ('model.embed_tokens.', 'embedding.word_embeddings.'),
+        ('.self_attn.q_a_proj.', '.self_attention.linear_q_down_proj.'),
+        ('.self_attn.q_a_layernorm.', '.self_attention.q_layernorm.'),
+        ('.self_attn.q_b_proj.', '.self_attention.linear_q_up_proj.'),
+        ('.self_attn.kv_a_proj_with_mqa.', '.self_attention.linear_kv_down_proj.'),
+        ('.self_attn.kv_a_layernorm.', '.self_attention.kv_layernorm.'),
+        ('.self_attn.kv_b_proj.', '.self_attention.linear_kv_up_proj.'),
+        ('.self_attn.o_proj.', '.self_attention.linear_proj.'),
+        ('.mlp.gate_proj.', '.mlp.gating.'),
+        ('.mlp.down_proj.', '.mlp.linear_fc2.'),
+        ('.mlp.up_proj.', '.mlp.hidden.'),
+        ('.gate.weight', '.router.weight.weight'),
+        ('.gate.e_score_correction_bias', '.router.expert_bias'),
+        ('.mlp.shared_experts.gate_proj.', '.mlp.shared_experts.gating.'),
+        ('.mlp.shared_experts.up_proj.', '.mlp.shared_experts.hidden.'),
+        ('.mlp.shared_experts.down_proj.', '.mlp.shared_experts.linear_fc2.'),
+        ('.gate_proj.', '.gating.'),
+        ('.down_proj.', '.linear_fc2.'),
+        ('.up_proj.', '.hidden.'),
+        ('.post_attention_layernorm.', '.pre_mlp_layernorm.'),
+        ('model.norm.', 'decoder.final_layernorm.'),
+        ('lm_head.', 'output_layer.'),
+        ('model.layers.', 'decoder.layers.')
+    ]
 
     def check_pipeline_stage(self):
         """check pipeline_stage and num_layers"""
