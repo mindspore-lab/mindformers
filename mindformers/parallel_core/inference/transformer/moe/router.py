@@ -105,7 +105,6 @@ class TopKRouter(Router):
         self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
 
         self.group_topk = GroupTopkCell()
-        self.mul = mint.Mul()
         self.moe_router_enable_expert_bias = config.moe_router_enable_expert_bias
 
         self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
@@ -146,7 +145,7 @@ class TopKRouter(Router):
             expert_weight = score.gather(1, expert_index)
             expert_index = self.cast(expert_index, mstype.int32)
             expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
-            expert_weight = self.mul(self.moe_router_topk_scaling_factor, expert_weight)
+            expert_weight = mint.mul(self.moe_router_topk_scaling_factor, expert_weight)
         expert_weight = expert_weight.astype(input_dtype)
         return expert_weight, expert_index
 
