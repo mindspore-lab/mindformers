@@ -25,6 +25,7 @@ from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import Mul, AddExt, SplitWithSize, Reshape
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.parallel_core.training_graph.activation import get_activation
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
@@ -160,16 +161,12 @@ class MLP(nn.Cell):
         if self.gated_linear_unit:
             dp = config.data_parallel_size if config.data_parallel_size is not None else 1
             cp = config.context_parallel_size if config.context_parallel_size is not None else 1
-            tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
 
-            mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
-            self.mul.shard(in_strategy=mul_in_strategy)
-            self.add.shard(((cp, dp, tp), (tp,)))
-            if not config.multi_latent_attention:
-                self.linear_fc2.matmul.shard(in_strategy=((dp * cp, tp), (tp, 1)), out_strategy=((dp * cp * tp, 1),))
-
-            if self.gated_linear_unit and self.activation_type != 'swiglu':
-                self.split.shard(((cp, dp, 1),))
+            self.mul.shard((layout("cp", "dp", "tp"),
+                            layout("cp", "dp", "tp")))
+            self.add.shard((layout("cp", "dp", "tp"),
+                            layout("tp",)))
+            self.split.shard(((cp, dp, 1),))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

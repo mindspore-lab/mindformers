@@ -20,6 +20,7 @@ import numpy as np
 import mindspore as ms
 from mindspore.communication import init
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_normal
 from data_gen_utils import get_init_params
@@ -70,6 +71,8 @@ class ColumnParallelLinearRunner:
             init_method=init_method_normal(0.01, self.param_init_dtype),
             output_layer_init_method=init_method_normal(0.01, self.param_init_dtype),
         )
+
+        layout.init_layout(self.config)
 
     def build_model(self):
         """Build and initialize ColumnParallelLinear model"""

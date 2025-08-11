@@ -15,16 +15,16 @@
 """Normalization"""
 __all__ = ["get_norm_cls", "Norm", "FusedNorm"]
 
-import mindspore as ms
 import mindspore.ops.operations as P
 
-from mindspore import nn, Parameter
+from mindspore import nn, Parameter, Layout
 from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import MeanExt, Sqrt, Rsqrt, SubExt, AddExt, Mul, Div, Cast
 from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 def get_strategy(config: TransformerConfig):
@@ -92,10 +92,14 @@ class LayerNorm(nn.Cell):
 
     def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        dp, _, cp = get_strategy(config)
+
         if in_strategy:
-            strategy = in_strategy
+            if isinstance(in_strategy[0], Layout):
+                strategy = layout.to_tuple_strategy(in_strategy[0])
+            else:
+                strategy = in_strategy
         else:
+            dp, _, cp = get_strategy(config)
             strategy = (cp, dp, 1)
 
         self.mean.shard((strategy,))
@@ -156,10 +160,13 @@ class FusedLayerNorm(nn.Cell):
 
     def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        dp, _, cp = get_strategy(config)
         if in_strategy:
-            strategy = in_strategy
+            if isinstance(in_strategy[0], Layout):
+                strategy = layout.to_tuple_strategy(in_strategy[0])
+            else:
+                strategy = in_strategy
         else:
+            dp, _, cp = get_strategy(config)
             strategy = (cp, dp, 1)
 
         if strategy[-1] != 1:
@@ -223,10 +230,13 @@ class RMSNorm(nn.Cell):
 
     def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        dp, _, cp = get_strategy(config)
         if in_strategy:
-            strategy = in_strategy
+            if isinstance(in_strategy[0], Layout):
+                strategy = layout.to_tuple_strategy(in_strategy[0])
+            else:
+                strategy = in_strategy
         else:
+            dp, _, cp = get_strategy(config)
             strategy = (cp, dp, 1)
 
         self.square.shard((strategy,))
@@ -279,19 +289,12 @@ class FusedRMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, config: TransformerConfig, in_strategy=None):
+    def shard(self, config: TransformerConfig, in_strategy: tuple = None):
         """shard method"""
-        dp, _, cp = get_strategy(config)
         if in_strategy:
-            strategy = in_strategy
+            self.norm.shard(in_strategy)
         else:
-            strategy = (cp, dp, 1)
-
-        if strategy[-1] != 1 and ms.get_context('mode') == ms.GRAPH_MODE:
-            raise TypeError(
-                'The last dim in FusedRMSNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
-
-        self.norm.shard((strategy, (strategy[-1],)))
+            self.norm.shard((layout("cp", "dp", "None"), layout("None",)))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

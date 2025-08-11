@@ -22,12 +22,14 @@ import mindspore as ms
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops import auto_generate as aclnn_ops
+from mindspore.ops.operations import Morph
 from mindspore import Tensor, dtype, nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -45,8 +47,22 @@ from mindformers.parallel_core.training_graph.transformer.transformer_block impo
     TransformerBlockSubmodules
 )
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_lazy_inline as lazy_inline
+
+
+def func_infer_dtype(*args):
+    """infer_dtype for Morph."""
+    return args[0]
+
+
+def func_infer_shape(*args):
+    """infer_shape for Morph."""
+    input_shape = args[0]
+    shape_value = np.prod(input_shape[:-1])
+    output_shape = [int(shape_value), args[0][-1]]
+    return output_shape
 
 
 class GPTModel(nn.Cell):
@@ -127,6 +143,9 @@ class GPTModel(nn.Cell):
         self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
         self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
 
+        # init layout
+        layout.init_layout(config)
+
         if hasattr(self.config, 'position_embedding_type'):
             # By default, use the position_embedding_type configuration in TransformerConfig.
             self.position_embedding_type = self.config.position_embedding_type
@@ -158,6 +177,13 @@ class GPTModel(nn.Cell):
         self.ignore_token_id = config.ignore_token_id
         self.calculate_per_token_loss = config.calculate_per_token_loss
         use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
+
+        # init parallel state groups
+        self.tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        self.dp = config.data_parallel_size if config.data_parallel_size is not None else 1
+        self.pp = config.pipeline_model_parallel_size if config.pipeline_model_parallel_size is not None else 1
+        initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                  pipeline_model_parallel_size=self.pp)
 
         # Internally generates AttentionMask.
         self.casual_mask = CausalMaskGenerate(
@@ -266,6 +292,10 @@ class GPTModel(nn.Cell):
         self.transpose = aclnn_ops.Transpose()
         self.assign = aclnn_ops.Assign()
 
+        # init morphed layer
+        self.morphed_reshape = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+            "self_define_shard", True)
+
         # update topk-bias
         if config.moe_router_enable_expert_bias:
             if not config.num_moe_experts:
@@ -355,7 +385,7 @@ class GPTModel(nn.Cell):
         logits, _ = self.output_layer(hidden_states, output_weight)
         if logits.ndim > 2:
             logits = self.transpose(logits, (1, 0, 2))
-            logits = self.reshape(logits, (-1, logits.shape[-1]))
+            logits = self.morphed_reshape(logits)
         logits = self.cast(logits, dtype.float32)
 
         if not self.training:
@@ -368,6 +398,11 @@ class GPTModel(nn.Cell):
             numerator0, denominator0 = loss
             return numerator0, denominator0, numerator1, denominator1, extra_loss * denominator0
         return loss, mtp_loss, extra_loss
+
+    def forward_func(self, input_):
+        """Morphed forward."""
+        output = self.reshape(input_, (-1, input_.shape[-1]))
+        return output
 
     def language_model(
             self,
@@ -532,6 +567,7 @@ class GPTModel(nn.Cell):
         dp = config.data_parallel_size
         tp = config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
+
         slice_in_strategy = ((dp, 1),)
         self.slice.shard(in_strategy=slice_in_strategy)
         not_equal_in_strategy = ((dp, 1), ())
@@ -549,6 +585,14 @@ class GPTModel(nn.Cell):
                 self.output_layer.pipeline_segment = 1
             else:
                 self.output_layer.pipeline_stage = pipeline_stage - 1
+        self.morphed_reshape.shard(
+            in_strategy=(
+                layout("dp", "cp", "tp"),
+            ),
+            out_strategy=(
+                layout("dp_cp", "tp"),
+            )
+        )
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

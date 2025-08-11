@@ -24,16 +24,32 @@ from typing import List, Optional, Callable
 import copy
 
 import mindspore._checkparam as Validator
-from mindspore import nn, Tensor
+from mindspore import nn, Tensor, ops
 from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
+from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
+from mindspore.ops.operations import Morph
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
+from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
+from mindformers.parallel_core.training_graph.device_matrix import layout
+
+
+def func_infer_dtype(*args):
+    """infer_dtype for Morph."""
+    return args[0]
+
+
+def func_infer_shape(*args):
+    """infer_shape for Morph."""
+    output_shape = args[0][:-1] + [args[1][0]]
+    return output_shape
 
 
 class VocabParallelEmbedding(nn.Cell):
@@ -179,6 +195,7 @@ class ColumnParallelLinear(nn.Cell):
         self.has_bias = bias
         self.params_dtype = config.params_dtype
         self.compute_dtype = config.compute_dtype
+        self.shape = P.Shape()
 
         # use_cpu_initialization configuration is not supported for now.
         if skip_weight_param_allocation:
@@ -201,11 +218,19 @@ class ColumnParallelLinear(nn.Cell):
             self.add = AddExt()
         self.reshape = Reshape()
 
+        # init morphed layer
+        self.morphed_forward_with_bias = Morph(self.forward_func_with_bias,
+                                               func_infer_shape,
+                                               func_infer_dtype).add_prim_attr("self_define_shard", True)
+        self.morphed_forward = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+            "self_define_shard", True)
+
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
-            else:
-                self.shard(config)
+
+            if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+                self.shard()
 
     def construct(self, input_: Tensor, weight: Tensor = None) -> tuple[Tensor, Tensor]:
         """Forward of ColumnParallelLinear.
@@ -218,15 +243,31 @@ class ColumnParallelLinear(nn.Cell):
             - output (Tensor): The output tensor.
             - bias (Tensor): The bias
         """
-        output_shape = input_.shape[:-1] + (self.output_size,)
-        input_ = self.reshape(input_, (-1, self.input_size))
-
-        ori_dtype = input_.dtype
         if weight is None:
             if self.skip_weight_param_allocation:
                 raise ValueError("For ColumnParallelLinear, when `skip_weight_param_allocation` is enabled,"
                                  " `weight` is required, but got None")
             weight = self.weight
+        weight = self.cast(weight, self.compute_dtype)
+
+        if not self.skip_bias_add and self.has_bias:
+            bias = self.cast(self.bias, self.compute_dtype)
+            output = self.morphed_forward_with_bias(input_, weight, bias)
+            bias = None
+        else:
+            output = self.morphed_forward(input_, weight)
+            bias = self.bias
+
+        return output, bias
+
+    def forward_func_with_bias(self, input_, weight, bias):
+        """Morphed forward."""
+        output_size = int(self.shape(weight)[0] if self.transpose_b else self.shape(weight)[-1])
+        output_shape = input_.shape[:-1] + (output_size,)
+        input_ = self.reshape(input_, (-1, self.input_size))
+
+        ori_dtype = input_.dtype
+
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
@@ -234,33 +275,56 @@ class ColumnParallelLinear(nn.Cell):
             weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
 
-        if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias, self.compute_dtype)
-            input_ = self.add(input_, bias)
-            bias = None
-        else:
-            bias = self.bias
+        bias = self.cast(bias, self.compute_dtype)
+        input_ = self.add(input_, bias)
 
         input_ = self.cast(input_, ori_dtype)
         output = self.reshape(input_, output_shape)
-        return output, bias
+        return output
 
-    def shard(self, config: TransformerConfig) -> None:
+    def forward_func(self, input_, weight):
+        """Morphed forward."""
+        output_size = int(self.shape(weight)[0] if self.transpose_b else self.shape(weight)[-1])
+        output_shape = input_.shape[:-1] + (output_size,)
+        input_ = self.reshape(input_, (-1, self.input_size))
+
+        ori_dtype = input_.dtype
+
+        weight = self.cast(weight, self.compute_dtype)
+        input_ = self.cast(input_, self.compute_dtype)
+
+        if self.transpose_b:
+            weight = self.transpose(weight, (1, 0))
+        input_ = self.matmul(input_, weight)
+
+        input_ = self.cast(input_, ori_dtype)
+        output = self.reshape(input_, output_shape)
+        return output
+
+    def shard(self) -> None:
         """Shard the operators in ColumnParallelLinear.
-
-        Args:
-            config (TransformerConfig): The config of the transformer model.
         """
-        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
-        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
-        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+        self.morphed_forward_with_bias.shard(
+            in_strategy=(
+                layout("cp", "dp", "None"),        # input_       [S, B, h]
+                layout("tp", "None"),              # weight       [H, h]
+                layout("tp"),                      # bias         [H]
+            ),
+            out_strategy=(
+                layout("cp", "dp", "tp"),          # output       [S, B, H]
+            )
+        )
 
-        matmul_in_strategy = ((dp * cp, 1), (1, tp))
-        self.matmul.shard(in_strategy=matmul_in_strategy)
+        self.morphed_forward.shard(
+            in_strategy=(
+                layout("cp", "dp", "None"),        # input_       [S, B, h]
+                layout("tp", "None"),              # weight       [H, h]
+            ),
+            out_strategy=(
+                layout("cp", "dp", "tp"),          # output       [S, B, H]
+            )
+        )
 
-        if not self.skip_bias_add:
-            add_in_strategy = ((dp * cp, tp), (tp,))
-            self.add.shard(in_strategy=add_in_strategy)
 
     def sharding_propagation(self, config: TransformerConfig) -> None:
         """Shard the operators in ColumnParallelLinear in sharding propagation mode.
@@ -340,6 +404,14 @@ class RowParallelLinear(nn.Cell):
         self.params_dtype = config.params_dtype
         self.has_bias = bias
         self.sequence_parallel = config.sequence_parallel
+        self.tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        if self.tp != 1:
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
+            self.tp_group = self.model_comm_pgs.tp
+            self.reduce_scatter = ops.ReduceScatter(group=self.tp_group.group)
+            self.all_reduce = ops.AllReduce(group=self.tp_group.group)
+        self.input_size_per_partition = divide(input_size, self.tp)
+        self.shape = P.Shape()
 
         # use_cpu_initialization configuration is not supported for now.
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
@@ -360,11 +432,19 @@ class RowParallelLinear(nn.Cell):
             self.add = AddExt()
         self.reshape = Reshape()
 
+        # init morphed layer
+        self.morphed_forward_with_bias = Morph(self.forward_func_with_bias,
+                                               func_infer_shape,
+                                               func_infer_dtype).add_prim_attr("self_define_shard", True)
+        self.morphed_forward = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+            "self_define_shard", True)
+
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
-            else:
-                self.shard(config)
+
+            if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+                self.shard()
 
     def construct(self, input_: Tensor) -> tuple[Tensor, Tensor]:
         """Forward of RowParallelLinear.
@@ -376,47 +456,114 @@ class RowParallelLinear(nn.Cell):
             - output (Tensor): The output tensor.
             - bias (Tensor): The bias
         """
-        output_shape = input_.shape[:-1] + (self.output_size,)
-        input_ = self.reshape(input_, (-1, self.input_size))
+        weight = self.cast(self.weight, self.compute_dtype)
+        if not self.skip_bias_add and self.has_bias:
+            bias = self.cast(self.bias, self.compute_dtype)
+            output = self.morphed_forward_with_bias(input_, weight, bias)
+            bias = None
+        else:
+            output = self.morphed_forward(input_, weight)
+            bias = self.bias
+        return output, bias
+
+    def forward_func_with_bias(self, input_, weight, bias):
+        """Morphed forward."""
+        output_size = int(self.shape(weight)[0] if self.transpose_b else self.shape(weight)[-1])
+        output_shape = input_.shape[:-1] + (output_size,)
+        if self.sequence_parallel:
+            output_shape = (output_shape[0] // self.tp,) + output_shape[1:]
+        input_ = self.reshape(input_, (-1, self.input_size_per_partition))
 
         ori_dtype = input_.dtype
-        weight = self.cast(self.weight, self.compute_dtype)
+        weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
         if self.transpose_b:
             weight = self.transpose(weight, (1, 0))
-
         input_ = self.matmul(input_, weight)
+        if self.tp != 1:
+            if self.sequence_parallel:
+                input_ = self.reduce_scatter(input_)
+            else:
+                input_ = self.all_reduce(input_)
 
         if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias, self.compute_dtype)
+            bias = self.cast(bias, self.compute_dtype)
             input_ = self.add(input_, bias)
-            bias = None
-        else:
-            bias = self.bias
 
         input_ = self.cast(input_, ori_dtype)
         output = self.reshape(input_, output_shape)
-        return output, bias
+        return output
 
-    def shard(self, config: TransformerConfig) -> None:
-        """Shard the operators in RowParallelLinear.
+    def forward_func(self, input_, weight):
+        """Morphed forward."""
+        output_size = int(self.shape(weight)[0] if self.transpose_b else self.shape(weight)[-1])
+        output_shape = input_.shape[:-1] + (output_size,)
+        if self.sequence_parallel:
+            output_shape = (output_shape[0] // self.tp,) + output_shape[1:]
+        input_ = self.reshape(input_, (-1, self.input_size_per_partition))
 
-        Args:
-            config (TransformerConfig): The config of the transformer model.
-        """
-        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
-        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
-        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        ori_dtype = input_.dtype
+        weight = self.cast(weight, self.compute_dtype)
+        input_ = self.cast(input_, self.compute_dtype)
 
-        matmul_in_strategy = ((dp * cp, tp), (tp, 1))
-        self.matmul.shard(in_strategy=matmul_in_strategy)
         if self.transpose_b:
-            self.transpose.shard(((1, tp),))
+            weight = self.transpose(weight, (1, 0))
+        input_ = self.matmul(input_, weight)
+        if self.tp != 1:
+            if self.sequence_parallel:
+                input_ = self.reduce_scatter(input_)
+            else:
+                input_ = self.all_reduce(input_)
 
-        if not self.skip_bias_add:
-            add_in_strategy = ((dp * cp, 1), (1,))
-            self.add.shard(in_strategy=add_in_strategy)
+        input_ = self.cast(input_, ori_dtype)
+        output = self.reshape(input_, output_shape)
+        return output
+
+    def shard(self) -> None:
+        """Shard the operators in RowParallelLinear.
+        """
+        if self.sequence_parallel:
+            self.morphed_forward_with_bias.shard(
+                in_strategy=(
+                    layout("cp", "dp", "tp"),            # input_,      [S, B, h]
+                    layout("None", "tp"),                # weight       [H, h]
+                    layout("None"),                      # bias         [H]
+                ),
+                out_strategy=(
+                    layout("cp_tp", "dp", "None"),  # output       [S, B, H]
+                )
+            )
+            self.morphed_forward.shard(
+                in_strategy=(
+                    layout("cp", "dp", "tp"),            # input_,      [S, B, h]
+                    layout("None", "tp"),                # weight       [H, h]
+                ),
+                out_strategy=(
+                    layout("cp_tp", "dp", "None"),  # output       [S, B, H]
+                )
+            )
+        else:
+            self.morphed_forward_with_bias.shard(
+                in_strategy=(
+                    layout("cp", "dp", "tp"),            # input_,      [S, B, h]
+                    layout("None", "tp"),                # weight       [H, h]
+                    layout("None"),                      # bias         [H]
+                ),
+                out_strategy=(
+                    layout("cp", "dp", "None"),          # output       [S, B, H]
+                )
+            )
+            self.morphed_forward.shard(
+                in_strategy=(
+                    layout("cp", "dp", "tp"),            # input_,      [S, B, h]
+                    layout("None", "tp"),                # weight       [H, h]
+                ),
+                out_strategy=(
+                    layout("cp", "dp", "None"),          # output       [S, B, H]
+                )
+            )
+
 
     def sharding_propagation(self, config: TransformerConfig) -> None:
         """Shard the operators in RowParallelLinear in sharding propagation mode.

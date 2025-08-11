@@ -15,6 +15,7 @@
 """Test module for testing FlashAttention used for mindformers."""
 import pytest
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from tests.utils.double_benchmark import DoubleBenchmarkComparator
 from .data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
@@ -30,6 +31,7 @@ class TestFlashAttention:
                                            num_attention_heads=2,
                                            num_layers=1
                                            )
+        layout.init_layout(self.config)
         self.inputs = get_init_params(self.config)
 
     def run_test(self, attention_dropout=0.0, soft_max_scale=None, accuracy=True):

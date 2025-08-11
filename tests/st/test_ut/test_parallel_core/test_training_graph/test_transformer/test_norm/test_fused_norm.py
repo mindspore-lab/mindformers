@@ -17,6 +17,7 @@ import pytest
 import mindspore as ms
 from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 from .data_gen_utils import get_init_params, GOLDEN_DATA, GPU_DATA
 
@@ -34,6 +35,7 @@ class TestFusedNorm:
         """Helper function to run test and check results"""
         self.config = TransformerConfig(normalization=normalization, params_dtype='float32',
                                         layernorm_compute_dtype='float32', num_layers=1, num_attention_heads=2)
+        layout.init_layout(self.config)
         self.norm = FusedNorm(config=self.config, dim=hidden_size)
         output = self.norm.construct(self.inputs)
         npu_output = output.asnumpy()

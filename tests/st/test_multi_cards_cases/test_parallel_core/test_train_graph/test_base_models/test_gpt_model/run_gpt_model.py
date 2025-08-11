@@ -71,8 +71,7 @@ class TransformerLayerRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         rank_id_str = os.environ.get("RANK_ID")
-        if rank_id_str is not None:
-            self.rank_id = int(rank_id_str)
+        self.rank_id = int(rank_id_str) if rank_id_str is not None else None
 
         if self.rank_id is not None:
             ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)

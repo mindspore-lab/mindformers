@@ -14,12 +14,16 @@
 # ============================================================================
 """Test module for testing SharedExpertMLP used for mindformers."""
 import argparse
+import os
 
 import mindspore as ms
 from mindspore import nn
+from mindspore.communication import init
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.moe.shared_experts import SharedExpertMLP, MLPSubmodules
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.parallel_core.training_graph.device_matrix import layout
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from tests.st.test_ut.test_parallel_core.test_training_graph.test_transformer.test_moe.test_shared_experts.data_gen_utils import get_init_params, get_golden_datas, get_gpu_datas
 from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 
@@ -49,6 +53,24 @@ class TestModel(nn.Cell):
     def __init__(self, config: TransformerConfig):
         super(TestModel, self).__init__()
         self.config = config
+        rank_id_str = os.environ.get("RANK_ID")
+        self.rank_id = int(rank_id_str) if rank_id_str is not None else None
+
+        if self.rank_id is not None:
+            ms.set_auto_parallel_context(
+                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True,
+                # device_num=self.worker_num # device_num is often set by environment
+            )
+            init()  # Initialize communication
+            self.tp = self.config.tensor_model_parallel_size \
+                if self.config.tensor_model_parallel_size is not None else 1
+            self.dp = self.config.data_parallel_size if self.config.data_parallel_size is not None else 1
+            self.pp = self.config.pipeline_model_parallel_size \
+                if self.config.pipeline_model_parallel_size is not None else 1
+            initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                      pipeline_model_parallel_size=self.pp)
+
+        layout.init_layout(self.config)
         self.mlp = SharedExpertMLP(config=config, submodules=MLPSubmodules(linear_fc1=ColumnParallelLinear,
                                                                            linear_fc2=RowParallelLinear))
 

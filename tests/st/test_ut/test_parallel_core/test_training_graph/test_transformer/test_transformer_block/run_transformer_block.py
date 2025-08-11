@@ -32,7 +32,9 @@ from mindformers.parallel_core.training_graph.transformer.attention import SelfA
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.core.context.build_context import build_context
 
 from data_gen_utils import get_init_params, DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
@@ -73,14 +75,7 @@ class TransformerLayerRunner:
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
         rank_id_str = os.environ.get("RANK_ID")
-        if rank_id_str is not None:
-            self.rank_id = int(rank_id_str)
-
-        if self.rank_id is not None:
-            ms.set_auto_parallel_context(
-                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
-            )
-            init()  # Initialize communication
+        self.rank_id = int(rank_id_str) if rank_id_str is not None else None
 
         self.data_parallel = self.worker_num // self.tensor_parallel
         if self.worker_num % self.tensor_parallel != 0:
@@ -102,6 +97,23 @@ class TransformerLayerRunner:
             num_layers=self.num_layers,
             params_dtype='fp32'
         )
+
+        if self.rank_id is not None:
+            ms.set_auto_parallel_context(
+                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
+            )
+            init()  # Initialize communication
+            if self.config.tensor_model_parallel_size is not None:
+                self.tp = self.config.tensor_model_parallel_size
+            else:
+                self.tp = 1
+            self.dp = self.config.data_parallel_size if self.config.data_parallel_size is not None else 1
+            self.pp = self.config.pipeline_model_parallel_size \
+                if self.config.pipeline_model_parallel_size is not None else 1
+            initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                      pipeline_model_parallel_size=self.pp)
+
+        layout.init_layout(self.config)
 
         # Submodules
         submodules = TransformerLayerSubmodules(

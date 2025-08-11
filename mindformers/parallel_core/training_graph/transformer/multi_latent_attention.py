@@ -18,8 +18,8 @@ from typing import Union
 import math
 
 from mindspore import nn, Tensor
-from mindspore.mint import unsqueeze
-from mindspore.ops.auto_generate import Cast, Shape, Reshape, Transpose, Tile, Concat, StridedSlice, SplitWithSize
+from mindspore.ops.auto_generate import Cast, Shape, Reshape, Transpose, Tile, Concat, StridedSlice, SplitWithSize, \
+    ExpandDims
 from mindspore.ops import functional as F
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
@@ -30,7 +30,7 @@ from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
     _yarn_get_mscale)
-from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 @dataclass
@@ -374,11 +374,13 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         )
         self.use_tnd = config.input_layout == "TND"
         self.use_seq_parallel = config.sequence_parallel
-        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split = SplitWithSize()
+        self.split_3d = SplitWithSize()
         self.tile_kv = Tile()
         self.pe_concat = Concat(axis=3)
         self.pe_tnd_concat = Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
+        self.apply_rotary_emb2 = ApplyRotaryPosEmb(config, for_k_pos_emb=True)
         self.reshape = Reshape()
 
         if self.config.q_lora_rank is None:
@@ -463,13 +465,15 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         tp = self.config.tensor_model_parallel_size
         cp = self.config.context_parallel_size
 
-        self.tile_kv.shard(((cp, dp, tp, 1),))
+        self.tile_kv.shard((layout("cp", "dp", "None", "None"),))
         self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
-        if self.use_seq_parallel:
-            if self.q_layernorm is not None and not isinstance(self.q_layernorm, IdentityOp):
-                self.q_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
-            if self.k_layernorm is not None and not isinstance(self.k_layernorm, IdentityOp):
-                self.k_layernorm.shard(self.config, in_strategy=(dp * tp * cp, 1))
+        self.split.shard((layout("cp", "dp", "tp", "None"),))
+        self.split_3d.shard((layout("cp", "dp", "None"),))
+
+        if self.q_layernorm is not None:
+            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+        if self.k_layernorm is not None:
+            self.k_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
 
     def get_query_key_value_tensors(self,
                                     hidden_states,
@@ -488,7 +492,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
 
         qkv_combo = self.linear_qkv(hidden_states)[0]
 
-        q_a, compressed_kv, k_pe = self.split(
+        q_a, compressed_kv, k_pe = self.split_3d(
             qkv_combo,
             [
                 self.q_rank,
@@ -499,13 +503,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         )
 
         if self.q_layernorm is not None:
-            if self.use_seq_parallel:
-                input_q_a_shape = self.shape(q_a)
-                q_a = self.reshape(q_a, (-1, q_a.shape[-1]))
-                q_a = self.q_layernorm(q_a)
-                q_a = self.reshape(q_a, input_q_a_shape)
-            else:
-                q_a = self.q_layernorm(q_a)
+            q_a = self.q_layernorm(q_a)
             q = self.linear_qb(q_a)[0]
             q = self.reshape(q, (seq_len, bs, self.num_attention_heads, -1))
 
@@ -520,13 +518,7 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
             )
 
         k_pe = self.reshape(k_pe, (seq_len, bs, 1, self.qk_pos_emb_head_dim))
-        if self.use_seq_parallel:
-            compressed_kv_shape = self.shape(compressed_kv)
-            compressed_kv = self.reshape(compressed_kv, (-1, compressed_kv.shape[-1]))
-            compressed_kv_norm = self.k_layernorm(compressed_kv)
-            compressed_kv_norm = self.reshape(compressed_kv_norm, compressed_kv_shape)
-        else:
-            compressed_kv_norm = self.k_layernorm(compressed_kv)
+        compressed_kv_norm = self.k_layernorm(compressed_kv)
 
         kv = self.linear_kvb(compressed_kv_norm)[0]
         kv = self.reshape(kv, (
@@ -545,12 +537,11 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
                 rotary_interleaved=self.config.rotary_interleaved,
                 multi_latent_attention=self.config.multi_latent_attention
             )
-            k_pe = self.apply_rotary_emb(
+            k_pe = self.apply_rotary_emb2(
                 k_pe,
                 rotary_pos_emb,
                 rotary_interleaved=self.config.rotary_interleaved,
-                multi_latent_attention=self.config.multi_latent_attention,
-                input_is_parallel=True
+                multi_latent_attention=self.config.multi_latent_attention
             )
 
         query = self.pe_concat([q_nope, q_pe])
@@ -584,12 +575,15 @@ class MLASelfAttention(MultiLatentAttention):
         )
 
         self.use_tnd = config.input_layout == "TND"
-        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split = SplitWithSize()
+        self.split_3d = SplitWithSize()
         self.tile_kv = Tile()
         self.pe_concat = Concat(axis=3)
         self.pe_tnd_concat = Concat(axis=3)
         self.apply_rotary_emb = ApplyRotaryPosEmb(config)
+        self.apply_rotary_emb2 = ApplyRotaryPosEmb(config, for_k_pos_emb=True)
         self.reshape = Reshape()
+        self.expand_dims = ExpandDims()
 
         if self.config.q_lora_rank is None:
             # Not projecting query
@@ -678,13 +672,16 @@ class MLASelfAttention(MultiLatentAttention):
         tp = self.config.tensor_model_parallel_size
         cp = self.config.context_parallel_size
 
-        self.tile_kv.shard(((cp, dp, tp, 1),))
+        self.tile_kv.shard((layout("cp", "dp", "None", "None"),))
         self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
-        if self.use_seq_parallel:
-            if self.q_layernorm is not None and not isinstance(self.q_layernorm, IdentityOp):
-                self.q_layernorm.shard(self.config, in_strategy=(cp * tp, dp, 1))
-            if self.kv_layernorm is not None and not isinstance(self.kv_layernorm, IdentityOp):
-                self.kv_layernorm.shard(self.config, in_strategy=(cp * tp, dp, 1))
+        self.split.shard((layout("cp", "dp", "tp", "None"),))
+        self.split_3d.shard((layout("cp", "dp", "None"),))
+        self.expand_dims.shard((layout("cp", "dp", "None"),))
+
+        if self.q_layernorm is not None:
+            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+        if self.kv_layernorm is not None:
+            self.kv_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
 
     def qkv_up_proj_and_rope_apply(self, q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
         """
@@ -703,7 +700,7 @@ class MLASelfAttention(MultiLatentAttention):
 
         kv = self.reshape(kv, (q_len, bs, self.num_attention_heads, self.config.qk_head_dim + self.config.v_head_dim))
 
-        k_pos_emb = unsqueeze(k_pos_emb, 2)
+        k_pos_emb = self.expand_dims(k_pos_emb, 2)
 
         q_no_pe, q_pos_emb = self.split(
             q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
@@ -720,12 +717,11 @@ class MLASelfAttention(MultiLatentAttention):
                 rotary_interleaved=self.config.rotary_interleaved,
                 multi_latent_attention=self.config.multi_latent_attention
             )
-            k_pos_emb = self.apply_rotary_emb(
+            k_pos_emb = self.apply_rotary_emb2(
                 k_pos_emb,
                 rotary_pos_emb,
                 rotary_interleaved=self.config.rotary_interleaved,
-                multi_latent_attention=self.config.multi_latent_attention,
-                input_is_parallel=True
+                multi_latent_attention=self.config.multi_latent_attention
             )
 
         query = self.pe_concat([q_no_pe, q_pos_emb])
@@ -762,7 +758,7 @@ class MLASelfAttention(MultiLatentAttention):
 
         kv_combined, _ = self.linear_kv_down_proj(hidden_states)
 
-        kv_compressed, k_pos_emb = self.split(
+        kv_compressed, k_pos_emb = self.split_3d(
             kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
         )
 

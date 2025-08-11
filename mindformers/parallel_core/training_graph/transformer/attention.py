@@ -19,14 +19,16 @@ from dataclasses import dataclass
 from typing import Union
 from mindspore.ops import auto_generate as aclnn_ops
 from mindspore.ops import functional as F
-from mindspore.parallel.shard import Layout
 from mindspore import nn
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 @dataclass
@@ -191,7 +193,7 @@ class Attention(nn.Cell):
         if self.cp_ds > 1:
             self._ulysses_initial()
 
-        self.split_qkv = aclnn_ops.SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split_qkv = aclnn_ops.SplitWithSize()
         self.shape = aclnn_ops.Shape()
         self.cast = aclnn_ops.Cast()
         self.reshape = aclnn_ops.Reshape()
@@ -215,7 +217,6 @@ class Attention(nn.Cell):
         cp = self.cp
 
         self.linear_proj.matmul.shard(in_strategy=((dp * cp, tp), (1, tp)), out_strategy=((dp * cp * tp, 1),))
-        layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
         layout_transpose_back = (layout("dp", "tp", "cp", "None"),)
         self.transpose_back.shard(in_strategy=layout_transpose_back)
         self.transpose_ulysses.shard(((dp, cp, tp, 1, 1, 1),))
@@ -460,9 +461,6 @@ class Attention(nn.Cell):
         self.tile_kv.shard(((dp, tp, 1, cp),))
         self.cat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
 
-        if config.sequence_parallel and cp == 1:
-            self.linear_proj.matmul.shard(in_strategy=((dp, tp), (tp, 1)), out_strategy=((dp * tp, 1),))
-
 
 class SelfAttentionContiguous(Attention):
     """
@@ -534,7 +532,9 @@ class SelfAttentionContiguous(Attention):
             self.k_layernorm = None
 
         self.reshape_concat = aclnn_ops.Reshape()
-        self.shard_self_attention(self.config)
+        self.split_qkv.add_prim_attr("skip_redistribution", True)
+        if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+            self.shard_self_attention(self.config)
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
         """
@@ -553,31 +553,27 @@ class SelfAttentionContiguous(Attention):
         key = self.reshape_concat(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
         value = self.reshape_concat(value, (seq_len, bs, self.kv_num_heads, self.head_dim))
 
-
         if self.q_layernorm is not None:
-            orig_query_shape = query.shape
+            orig_query_shape = self.shape(query)
             query = self.q_layernorm(query.reshape(hidden_states.shape[:-1] +
                                                    (-1, self.head_dim,)))
             query = query.reshape(orig_query_shape)
 
         if self.k_layernorm is not None:
-            orig_query_shape = key.shape
+            orig_key_shape = self.shape(key)
             key = self.k_layernorm(key.reshape(hidden_states.shape[:-1] +
                                                (-1, self.head_dim,)))
-            key = key.reshape(orig_query_shape)
+            key = key.reshape(orig_key_shape)
 
         return query, key, value
 
     def shard_self_attention(self, config: TransformerConfig):
         """Set sharding strategies."""
-        dp = 1 if config is None else config.data_parallel_size
-        tp = 1 if config is None else config.tensor_model_parallel_size
-        cp = 1 if config is None else config.context_parallel_size
-        self.split_qkv.shard(((cp, dp, tp),))
+        self.split_qkv.shard((layout("cp", "dp", "tp"),))
         if self.q_layernorm is not None:
-            self.q_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "tp", "None"), layout("None",)))
         if self.k_layernorm is not None:
-            self.k_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+            self.k_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "tp", "None"), layout("None",)))
 
 
 class SelfAttention(Attention):
@@ -649,7 +645,8 @@ class SelfAttention(Attention):
             self.k_layernorm = None
 
         self.reshape_concat = aclnn_ops.Reshape()
-        self.shard_self_attention(self.config)
+        if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
+            self.shard_self_attention(self.config)
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
         """
@@ -680,14 +677,11 @@ class SelfAttention(Attention):
 
     def shard_self_attention(self, config: TransformerConfig):
         """Set sharding strategies."""
-        dp = 1 if config is None else config.data_parallel_size
-        tp = 1 if config is None else config.tensor_model_parallel_size
-        cp = 1 if config is None else config.context_parallel_size
-        self.split_qkv.shard(((cp, dp, tp, 1),))
+        self.split_qkv.shard((layout("cp", "dp", "tp", "None"),))
         if self.q_layernorm is not None:
-            self.q_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "tp", "None"), layout("None",)))
         if self.k_layernorm is not None:
-            self.k_layernorm.shard(self.config, in_strategy=(cp, dp, 1, 1))
+            self.k_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "tp", "None"), layout("None",)))
 
 
 class CrossAttention(Attention):
@@ -757,7 +751,7 @@ class CrossAttention(Attention):
             # Other similar invocations should follow this same interpretation.
         )
 
-        self.split_kv = aclnn_ops.SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split_kv = aclnn_ops.SplitWithSize()
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states):
         """
