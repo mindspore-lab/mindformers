@@ -13,13 +13,23 @@
 # limitations under the License.
 # ============================================================================
 """ utils """
-__all__ = ["get_attn_mask_func", "generate_state_dict"]
+__all__ = [
+    "get_attn_mask_func",
+    "generate_state_dict",
+    "generate_padding_index",
+    "update_comm_config",
+]
 
 from contextlib import contextmanager
+import numpy as np
 
+import mindspore as ms
 from mindspore import Tensor, ops, Parameter, mint
-from mindspore.communication import get_group_size
-from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
+from mindspore.communication import get_group_size, get_rank
+
+from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.inference.parallel_state import (get_data_parallel_group,
+                                                                get_tensor_model_parallel_world_size,
                                                                 get_data_parallel_world_size,
                                                                 get_moe_expert_parallel_world_size,
                                                                 get_moe_tensor_parallel_world_size)
@@ -242,3 +252,78 @@ def save_strategy_file(state_dict, strategy_file_name):
             f"the permission to write files, or the disk space is insufficient and so on."
         )
         raise e
+
+
+def generate_padding_index(q_seq_lens: Tensor):
+    """generate padding index parameter in TP Region."""
+    tp_group_size = get_tensor_model_parallel_world_size()
+    tokens_len_per_dp = q_seq_lens.sum().reshape(-1)
+    tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group().group)(tokens_len_per_dp)
+    tokens_len_per_dp = tokens_len_per_dp.asnumpy()
+    padding_size = (tokens_len_per_dp.max() + tp_group_size - 1) // tp_group_size * tp_group_size
+    current_dp_rank = get_rank() // tp_group_size
+    attn_padding_idx = None
+    attn_unpadding_idx = None
+    ffn_padding_idx = None
+    ffn_unpadding_idx = None
+    last_arange_index = 0
+
+    for dp_rank, tokens_length in enumerate(tokens_len_per_dp):
+        arange_data = np.arange(0, int(tokens_length), dtype=np.int32)
+        if dp_rank == current_dp_rank:
+            ffn_unpadding_idx = arange_data
+            pad = np.zeros(padding_size - arange_data.shape[0], dtype=np.int32)
+            attn_padding_idx = np.concatenate((arange_data, pad), axis=0)
+        if dp_rank == 0:
+            attn_unpadding_idx = arange_data
+            last_arange_index = arange_data[-1]
+            pad = np.zeros(padding_size - attn_unpadding_idx.shape[0], dtype=np.int32)
+            ffn_padding_idx = np.concatenate((attn_unpadding_idx, pad), axis=0)
+        else:
+            attn_offset_idx = arange_data + padding_size * dp_rank
+            attn_unpadding_idx = np.concatenate((attn_unpadding_idx, attn_offset_idx), axis=0)
+            ffn_offset_idx = arange_data + last_arange_index + 1
+            last_arange_index = ffn_offset_idx[-1]
+            pad = np.zeros(padding_size - ffn_offset_idx.shape[0], dtype=np.int32)
+            ffn_padding_idx = np.concatenate((ffn_padding_idx, ffn_offset_idx, pad), axis=0)
+
+    attn_padding_idx = ms.from_numpy(attn_padding_idx)
+    attn_unpadding_idx = ms.from_numpy(attn_unpadding_idx)
+    ffn_padding_idx = ms.from_numpy(ffn_padding_idx)
+    ffn_unpadding_idx = ms.from_numpy(ffn_unpadding_idx)
+    return attn_padding_idx, attn_unpadding_idx, ffn_padding_idx, ffn_unpadding_idx
+
+
+def update_comm_config(config: TransformerConfig):
+    """update communication config"""
+    global_group_size = get_group_size()
+    tp_group_size = config.tensor_model_parallel_size
+    dp_group_size = global_group_size // tp_group_size
+    ep_group_size = config.expert_model_parallel_size
+    moe_tp_group_size = global_group_size // ep_group_size
+
+    if dp_group_size > 1 and tp_group_size == 1:
+        if moe_tp_group_size == 1:
+            config.attn_allreduce = False
+            config.ffn_allreduce = False
+            config.use_alltoall = True
+        else:
+            config.attn_allgather = True
+            config.attn_allreduce = False
+            config.ffn_reduce_scatter = True
+            config.ffn_allreduce = False
+    elif dp_group_size > 1:
+        if moe_tp_group_size == 1:
+            config.attn_reduce_scatter = True
+            config.attn_allreduce = False
+            config.ffn_allgather = True
+            config.ffn_allreduce = False
+            config.use_alltoall = True
+        else:
+            config.attn_reduce_scatter = True
+            config.attn_allgather = True
+            config.attn_allreduce = False
+            config.ffn_reduce_scatter = True
+            config.ffn_allgather = True
+            config.ffn_allreduce = False
+    return config

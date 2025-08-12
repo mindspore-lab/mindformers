@@ -71,6 +71,7 @@ class MultiLatentAttention(Attention):
             attn_mask_type: str = None,
             attention_type: str = None,
             cp_comm_type: str = None,
+            delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(
@@ -168,6 +169,7 @@ class MultiLatentAttention(Attention):
             bias=self.config.add_bias_linear,
             input_is_parallel=True,
             skip_bias_add=False,
+            delay_allreduce=delay_allreduce,
             is_expert=False,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
@@ -251,6 +253,7 @@ class MLASelfAttention(MultiLatentAttention):
             layer_number: int,
             attn_mask_type=None,
             cp_comm_type: str = None,
+            delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
         super().__init__(
             config=config,
@@ -258,6 +261,7 @@ class MLASelfAttention(MultiLatentAttention):
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
             cp_comm_type=cp_comm_type,
+            delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
         )
 

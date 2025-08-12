@@ -3003,7 +3003,7 @@
         "signature": "(self, output_ids, **kwargs)"
     },
     "mindformers.models.qwen2.InferenceQwen2ForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen2.configuration_qwen2.Qwen2Config)"
     },
     "mindformers.models.qwen2.InferenceQwen2ForCausalLM.construct": {
         "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
@@ -3027,13 +3027,13 @@
         "signature": "(config)"
     },
     "mindformers.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen2.configuration_qwen2.Qwen2Config)"
     },
     "mindformers.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.construct": {
         "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3.InferenceQwen3ForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen3.configuration_qwen3.Qwen3Config)"
     },
     "mindformers.models.qwen3.InferenceQwen3ForCausalLM.construct": {
         "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
@@ -3063,16 +3063,16 @@
         "signature": "(config)"
     },
     "mindformers.models.qwen3.modeling_qwen3_infer.InferenceQwen3ForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen3.configuration_qwen3.Qwen3Config)"
     },
     "mindformers.models.qwen3.modeling_qwen3_infer.InferenceQwen3ForCausalLM.construct": {
         "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3_moe.InferenceQwen3MoeForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen3_moe.configuration_qwen3_moe.Qwen3MoeConfig)"
     },
     "mindformers.models.qwen3_moe.InferenceQwen3MoeForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3_moe.Qwen3MoeConfig": {
         "signature": "(vocab_size=151936, hidden_size=2048, intermediate_size=6144, num_hidden_layers=24, num_attention_heads=32, num_key_value_heads=4, hidden_act='silu', max_position_embeddings=32768, initializer_range=0.02, rms_norm_eps=1e-06, use_cache=True, tie_word_embeddings=False, rope_theta=10000.0, rope_scaling=None, attention_bias=False, use_sliding_window=False, sliding_window=4096, attention_dropout=0.0, decoder_sparse_step=1, moe_intermediate_size=768, num_experts_per_tok=8, num_experts=128, norm_topk_prob=False, output_router_logits=False, router_aux_loss_coef=0.001, mlp_only_layers=None, **kwargs)"
@@ -3099,10 +3099,10 @@
         "signature": "(config)"
     },
     "mindformers.models.qwen3_moe.modeling_qwen3_moe_infer.InferenceQwen3MoeForCausalLM": {
-        "signature": "(config)"
+        "signature": "(config: mindformers.models.qwen3_moe.configuration_qwen3_moe.Qwen3MoeConfig)"
     },
     "mindformers.models.qwen3_moe.modeling_qwen3_moe_infer.InferenceQwen3MoeForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3_moe.modeling_qwen3_moe_train.TrainingQwen3MoeForCausalLM": {
         "signature": "(config)"
@@ -3825,7 +3825,7 @@
         "signature": "(self) -> Tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear": {
-        "signature": "(num_experts: int, input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = False, gather_output: bool = False, stride: int = 1, skip_bias_add: bool = False, weight: mindspore.common.tensor.Tensor = None, is_expert: bool = True, tp_comm_buffer_name: str = None, compute_dtype: mindspore.common.dtype = mindspore.bfloat16, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
+        "signature": "(num_local_experts: int, input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, bias: bool = False, gather_output: bool = False, stride: int = 1, skip_bias_add: bool = False, weight: mindspore.common.tensor.Tensor = None, is_expert: bool = True, tp_comm_buffer_name: str = None, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear.construct": {
         "signature": "(self, input_parallel, weight=None, group_list=None)"
@@ -3837,7 +3837,7 @@
         "signature": "(self, param, loaded_weight, shard_id, expert_id) -> None"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.RowParallelGroupedLinear": {
-        "signature": "(num_experts: int, input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = False, input_is_parallel: bool = True, skip_bias_add: bool = False, weight: mindspore.common.tensor.Tensor = None, stride: int = 1, delay_allreduce: bool = True, is_expert: bool = True, tp_comm_buffer_name: str = None, compute_dtype: mindspore.common.dtype = mindspore.bfloat16, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
+        "signature": "(num_local_experts: int, input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, bias: bool = False, input_is_parallel: bool = True, skip_bias_add: bool = False, weight: mindspore.common.tensor.Tensor = None, stride: int = 1, delay_allreduce: bool = True, is_expert: bool = True, tp_comm_buffer_name: str = None, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.RowParallelGroupedLinear.construct": {
         "signature": "(self, input_, weight=None, group_list=None)"
@@ -3852,7 +3852,7 @@
         "signature": "()"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.UnquantizedGroupedLinearMethod.create_weights": {
-        "signature": "(self, layer: mindspore.nn.cell.Cell, num_experts: int, input_size_per_partition: int, output_size_per_partition: int, params_dtype, **extra_weight_attrs)"
+        "signature": "(self, layer: mindspore.nn.cell.Cell, num_local_experts: int, input_size_per_partition: int, output_size_per_partition: int, params_dtype, **extra_weight_attrs)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.UnquantizedGroupedLinearMethod.apply": {
         "signature": "(self, layer: mindspore.nn.cell.Cell, x: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor, bias: mindspore.common.parameter.Parameter = None, group_list: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"
@@ -3885,7 +3885,7 @@
         "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.RowParallelLinear": {
-        "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, input_is_parallel: bool = True, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.bfloat16, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
+        "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, input_is_parallel: bool = True, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, delay_allreduce: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.bfloat16, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.RowParallelLinear.construct": {
         "signature": "(self, input_)"
@@ -3954,7 +3954,7 @@
         "signature": "(activation_type, *args, **kwargs)"
     },
     "mindformers.parallel_core.inference.transformer.attention.Attention": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.attention.SelfAttentionSubmodules, layer_number: int, attn_mask_type: mindformers.parallel_core.inference.transformer.enums.AttnMaskType = None, attention_type: str = None, cp_comm_type: str = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.attention.SelfAttentionSubmodules, layer_number: int, attn_mask_type: mindformers.parallel_core.inference.transformer.enums.AttnMaskType = None, attention_type: str = None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.attention.Attention._check_gqa_valid": {
         "signature": "(self)"
@@ -3966,7 +3966,7 @@
         "signature": "(self, hidden_states)"
     },
     "mindformers.parallel_core.inference.transformer.attention.SelfAttention": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.attention.SelfAttentionSubmodules, layer_number: int, attn_mask_type: mindformers.parallel_core.inference.transformer.enums.AttnMaskType = None, cp_comm_type: str = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.attention.SelfAttentionSubmodules, layer_number: int, attn_mask_type: mindformers.parallel_core.inference.transformer.enums.AttnMaskType = None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.attention.SelfAttention.get_query_key_value_tensors": {
         "signature": "(self, hidden_states)"
@@ -4002,7 +4002,7 @@
         "signature": "(self, positions)"
     },
     "mindformers.parallel_core.inference.transformer.mlp.MLP": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, is_expert: bool = False, input_size: Optional[int] = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, is_expert: bool = False, input_size: Optional[int] = None, delay_allreduce: bool = False, tp_group: Optional[mindformers.parallel_core.inference.parallel_state.ProcessGroup] = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)"
     },
     "mindformers.parallel_core.inference.transformer.mlp.MLP.construct": {
         "signature": "(self, hidden_states)"
@@ -4011,7 +4011,7 @@
         "signature": "(linear_fc1: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_fc2: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
     "mindformers.parallel_core.inference.transformer.moe.experts.GroupedMLP": {
-        "signature": "(num_experts: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(num_local_experts: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.mlp.MLPSubmodules, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.moe.experts.GroupedMLP.construct": {
         "signature": "(self, hidden_states, group_list=None)"
@@ -4022,17 +4022,20 @@
     "mindformers.parallel_core.inference.transformer.moe.moe_layer.BaseMoELayer": {
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, layer_number: int = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
+    "mindformers.parallel_core.inference.transformer.moe.moe_layer.BaseMoELayer.construct": {
+        "signature": "(self, hidden_states, attn_unpadding_idx=None, ffn_padding_idx=None)"
+    },
     "mindformers.parallel_core.inference.transformer.moe.moe_layer.MoELayer": {
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.moe.moe_layer.MoESubmodules = None, layer_number: int = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.moe.moe_layer.MoELayer.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor)"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, attn_unpadding_idx: mindspore.common.tensor.Tensor = None, ffn_padding_idx: mindspore.common.tensor.Tensor = None)"
     },
     "mindformers.parallel_core.inference.transformer.moe.moe_layer.MoESubmodules": {
-        "signature": "(experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, shared_experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None)"
+        "signature": "(experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, shared_experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, token_dispatcher: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
     "mindformers.parallel_core.inference.transformer.moe.router.Router": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)) -> None"
     },
     "mindformers.parallel_core.inference.transformer.moe.router.Router.gating": {
         "signature": "(self, input_tensor: mindspore.common.tensor.Tensor)"
@@ -4040,11 +4043,14 @@
     "mindformers.parallel_core.inference.transformer.moe.router.Router.routing": {
         "signature": "(self, logits: mindspore.common.tensor.Tensor)"
     },
+    "mindformers.parallel_core.inference.transformer.moe.router.Router.weight_loader": {
+        "signature": "(self, param, loaded_weight)"
+    },
     "mindformers.parallel_core.inference.transformer.moe.router.Router.construct": {
         "signature": "(self, input_tensor: mindspore.common.tensor.Tensor)"
     },
     "mindformers.parallel_core.inference.transformer.moe.router.TopKRouter": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)) -> None"
     },
     "mindformers.parallel_core.inference.transformer.moe.router.TopKRouter.routing": {
         "signature": "(self, logits: mindspore.common.tensor.Tensor)"
@@ -4058,8 +4064,32 @@
     "mindformers.parallel_core.inference.transformer.moe.shared_experts.SharedExpertMLP.construct": {
         "signature": "(self, hidden_states)"
     },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAllGatherTokenDispatcher": {
+        "signature": "(num_local_experts: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)) -> None"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAllGatherTokenDispatcher.dispatch_preprocess": {
+        "signature": "(self, expert_weight, routing_map)"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAllGatherTokenDispatcher.token_dispatch": {
+        "signature": "(self, hidden_states, routing_map)"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAllGatherTokenDispatcher.token_combine": {
+        "signature": "(self, hidden_states, expert_weight, *args)"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher": {
+        "signature": "(num_local_experts: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)) -> None"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.dispatch_preprocess": {
+        "signature": "(self, expert_weight, routing_map)"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_dispatch": {
+        "signature": "(self, hidden_states, routing_map)"
+    },
+    "mindformers.parallel_core.inference.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_combine": {
+        "signature": "(self, hidden_states, expert_weight, *args)"
+    },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttention": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type=None, cp_comm_type: str = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type=None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttention.get_query_key_value_tensors": {
         "signature": "(self, hidden_states, batch_valid_length=None, rotary_pos_cos=None, rotary_pos_sin=None, slot_mapping=None, key_cache=None)"
@@ -4068,7 +4098,7 @@
         "signature": "(linear_q_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_qkv_down_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_q_up_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_kv_down_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_kv_up_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, core_attention: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, q_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, kv_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MultiLatentAttention": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type: str = None, attention_type: str = None, cp_comm_type: str = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
+        "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type: str = None, attention_type: str = None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MultiLatentAttention.construct": {
         "signature": "(self, hidden_states, attention_mask, key_value_states=None, rotary_pos_cos=None, rotary_pos_sin=None, position_ids=None, batch_valid_length=None, block_tables=None, slot_mapping=None, q_seq_lens=None, actual_seq_qlen=None, actual_seq_kvlen=None, context_lens_tensor=None, key_cache=None, value_cache=None)"
@@ -4086,7 +4116,7 @@
         "signature": "(self, layer_number)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_block.TransformerBlock.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, attention_mask: mindspore.common.tensor.Tensor, context: mindspore.common.tensor.Tensor = None, context_mask: mindspore.common.tensor.Tensor = None, rotary_pos_cos: mindspore.common.tensor.Tensor = None, rotary_pos_sin: mindspore.common.tensor.Tensor = None, attention_bias: mindspore.common.tensor.Tensor = None, packed_seq_params: mindspore.common.tensor.Tensor = None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, key_cache=None, value_cache=None)"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, attention_mask: mindspore.common.tensor.Tensor, context: mindspore.common.tensor.Tensor = None, context_mask: mindspore.common.tensor.Tensor = None, rotary_pos_cos: mindspore.common.tensor.Tensor = None, rotary_pos_sin: mindspore.common.tensor.Tensor = None, attention_bias: mindspore.common.tensor.Tensor = None, packed_seq_params: mindspore.common.tensor.Tensor = None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_block.TransformerBlockSubmodules": {
         "signature": "(layer_specs: List[mindformers.parallel_core.utils.spec_utils.ModuleSpec] = None, layer_norm: Union[NoneType, mindformers.parallel_core.utils.spec_utils.ModuleSpec, mindspore.nn.cell.Cell] = None) -> None"
@@ -4098,13 +4128,13 @@
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayerSubmodules, layer_number: int = 1, hidden_dropout: float = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>))"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayer.construct": {
-        "signature": "(self, hidden_states, attention_mask, context=None, context_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, attention_bias=None, packed_seq_params=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, key_cache=None, value_cache=None)"
+        "signature": "(self, hidden_states, attention_mask, context=None, context_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, attention_bias=None, packed_seq_params=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayer._construct_attention": {
-        "signature": "(self, hidden_states, attention_mask, context=None, context_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, attention_bias=None, packed_seq_params=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, key_cache=None, value_cache=None)"
+        "signature": "(self, hidden_states, attention_mask, context=None, context_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, attention_bias=None, packed_seq_params=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attn_padding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayer._construct_mlp": {
-        "signature": "(self, pre_mlp_layernorm_output, residual)"
+        "signature": "(self, pre_mlp_layernorm_output, residual, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayerSubmodules": {
         "signature": "(input_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, self_attention: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, post_self_attn_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, pre_cross_attn_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, cross_attention: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, pre_mlp_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, mlp: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>, post_mlp_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = <class 'mindformers.parallel_core.inference.transformer.identity_op.IdentityOp'>) -> None"
@@ -4133,11 +4163,17 @@
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayerSubmodules.post_mlp_layernorm": {
         "signature": "(*args, **kwargs)"
     },
+    "mindformers.parallel_core.inference.utils.generate_padding_index": {
+        "signature": "(q_seq_lens: mindspore.common.tensor.Tensor)"
+    },
     "mindformers.parallel_core.inference.utils.generate_state_dict": {
         "signature": "(network)"
     },
     "mindformers.parallel_core.inference.utils.get_attn_mask_func": {
         "signature": "(mask_func_type)"
+    },
+    "mindformers.parallel_core.inference.utils.update_comm_config": {
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.activation.GELU": {
         "signature": "(config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig = None, approximate: bool = True)"
@@ -4254,7 +4290,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = True, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
@@ -4266,7 +4302,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = True, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
@@ -4278,7 +4314,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4293,7 +4329,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4317,7 +4353,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA.shard_lora": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4326,7 +4362,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA.shard_lora": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4374,7 +4410,7 @@
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.training_graph.transformer.mlp.MLPSubmodules, is_expert: bool = False, input_size: int = None)"
     },
     "mindformers.parallel_core.training_graph.transformer.mlp.MLP.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, per_token_scale=None, extra_loss=0.0) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor, float]"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, per_token_scale=None, extra_loss=0.0) -> tuple"
     },
     "mindformers.parallel_core.training_graph.transformer.mlp.MLP.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
@@ -4389,7 +4425,7 @@
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.training_graph.transformer.mlp.MLPSubmodules)"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.expert_gate_shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
@@ -5014,45 +5050,6 @@
     },
     "mindformers.trainer.TrainingArguments._adapt_hub_config": {
         "signature": "(self, task_config)"
-    },
-    "mindformers.trainer.config_args.BaseArgsConfig": {
-        "signature": "(**kwargs)"
-    },
-    "mindformers.trainer.config_args.BaseArgsConfig.get_supported_kwargs": {
-        "signature": "()"
-    },
-    "mindformers.trainer.config_args.BaseArgsConfig.filter_kwargs": {
-        "signature": "(**kwargs)"
-    },
-    "mindformers.trainer.config_args.CheckpointConfig": {
-        "signature": "(prefix: str = 'mindformers', directory: str = None, save_checkpoint_steps: int = 1, keep_checkpoint_max: int = 1, integrated_save: bool = True, async_save: bool = False, saved_network: bool = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.ConfigArguments": {
-        "signature": "(output_dir: str = './output', profile: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, seed: int = None, train_dataset: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, eval_dataset: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, runner_config: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, optimizer: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, runner_wrapper: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, lr_schedule: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, save_checkpoint: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, cloud_config: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None)"
-    },
-    "mindformers.trainer.config_args.ContextConfig": {
-        "signature": "(mode: Union[int, str] = 0, device_target: str = 'Ascend', device_id: int = 0, save_graphs: bool = False, save_graphs_path: str = '.', **kwargs)"
-    },
-    "mindformers.trainer.config_args.DataLoaderConfig": {
-        "signature": "(dataloader_type: str = None, dataset_dir: str = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.DatasetConfig": {
-        "signature": "(data_loader: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, input_columns: Union[NoneType, list, str] = None, output_columns: Union[NoneType, list, str] = None, column_order: Union[NoneType, list, str] = None, drop_remainder: bool = True, repeat: int = 1, batch_size: int = None, image_size: Union[NoneType, int, list, tuple] = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.LRConfig": {
-        "signature": "(lr_type: str = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.OptimizerConfig": {
-        "signature": "(optim_type: str = None, learning_rate: Union[NoneType, float, mindformers.trainer.config_args.BaseArgsConfig] = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.ParallelContextConfig": {
-        "signature": "(parallel_mode: str = 'STAND_ALONE', device_num: int = 1, gradients_mean: bool = False, auto_pipeline: bool = False, **kwargs)"
-    },
-    "mindformers.trainer.config_args.RunnerConfig": {
-        "signature": "(epochs: int = None, batch_size: int = None, sink_mode: bool = None, sink_size: int = None, initial_epoch: int = None, has_trained_epoches: int = None, has_trained_steps: int = None, **kwargs)"
-    },
-    "mindformers.trainer.config_args.WrapperConfig": {
-        "signature": "(wrapper_type: str = None, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer": {
         "signature": "(model_name: str = None)"

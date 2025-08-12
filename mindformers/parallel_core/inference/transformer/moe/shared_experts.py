@@ -20,7 +20,6 @@ from typing import Optional
 
 from mindspore import mint
 
-
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
@@ -50,7 +49,12 @@ class SharedExpertMLP(MLP):
 
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
 
-        super().__init__(config=config, submodules=submodules, model_comm_pgs=model_comm_pgs)
+        # In AlltoAll communication, shared expert will not be split in parallel
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            delay_allreduce=True,
+            tp_group=model_comm_pgs.globals if not config.use_alltoall else None)
 
         self.use_shared_expert_gate = gate
         if self.use_shared_expert_gate:

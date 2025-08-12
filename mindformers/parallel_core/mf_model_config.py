@@ -348,6 +348,31 @@ class MFModelConfig:
 
     post_process: bool = True
     """When using pipeline parallel, indicate whether it's the last stage."""
+
+    dispatch_global_max_bs: int = 0
+    """Maximum global batch size in MoE dispatch with AlltoAll"""
+
+    attn_reduce_scatter: bool = False
+    """Whether to enable attn_reduce_scatter"""
+
+    attn_allgather: bool = False
+    """Whether to enable attn_allgather"""
+
+    attn_allreduce: bool = True
+    """Whether to enable attn_allreduce"""
+
+    ffn_reduce_scatter: bool = False
+    """Whether to enable ffn_reduce_scatter"""
+
+    ffn_allgather: bool = False
+    """Whether to enable ffn_allgather"""
+
+    ffn_allreduce: bool = True
+    """Whether to enable ffn_allreduce"""
+
+    use_alltoall: bool = False
+    """Whether to enable use_alltoall"""
+
     def __post_init__(self):
         self.parallel_config = default_transformer_config
 

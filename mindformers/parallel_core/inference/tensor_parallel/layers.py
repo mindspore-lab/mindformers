@@ -583,6 +583,7 @@ class RowParallelLinear(LinearBase):
         input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
         skip_bias_add: This was added to enable performance optimizations where bias can be fused with other
             element-wise operations. We skip adding bias but instead return it. Default: False.
+        delay_allreduce (bool): Whether to delay allreduce during forward function. Default: False
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
@@ -611,6 +612,7 @@ class RowParallelLinear(LinearBase):
             skip_bias_add: bool = False,
             stride: int = 1,
             keep_master_weight_for_test: bool = False,
+            delay_allreduce: bool = False,
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
@@ -630,6 +632,11 @@ class RowParallelLinear(LinearBase):
             raise NotImplementedError("For RowParallelLinear, `is_expert` is not supported for now")
         if tp_comm_buffer_name:
             raise NotImplementedError("For RowParallelLinear, `tp_comm_buffer_name` is not supported for now.")
+        if delay_allreduce and bias:
+            raise RuntimeError(
+                "In RowParallelLinear, `delay_allreduce` and `has_bias` cannot be enabled simultaneously, "
+                "otherwise the accuracy will be incorrect."
+            )
 
         self.input_size = input_size
         self.output_size = output_size
@@ -644,6 +651,7 @@ class RowParallelLinear(LinearBase):
         self.output_size_per_partition = output_size
         self.output_partition_sizes = [output_size]
         self.compute_dtype = compute_dtype
+        self.delay_allreduce = delay_allreduce
         self.transpose_b = transpose_b
         self.params_dtype = config.params_dtype
         self.cast = P.Cast()
@@ -687,7 +695,10 @@ class RowParallelLinear(LinearBase):
             input_parallel = scatter_to_model_parallel_region(input_, self.tp_group)
         bias_ = None if self.tp_group.rank > 0 else self.bias
         output_parallel = self.quant_method.apply(self, input_parallel, self.weight, bias_)
-        output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
+        if self.delay_allreduce or self.skip_bias_add:
+            output = output_parallel
+        else:
+            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
 
     def sharded_state_dict(self):
@@ -877,6 +888,12 @@ class ReplicatedLinear(LinearBase):
                 offset = self.config.q_lora_rank
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight, self.config)
+            if loaded_shard_id == 'gate':
+                offset = 0
+                size = self.config.moe_shared_expert_intermediate_size
+            if loaded_shard_id == 'hidden':
+                offset = self.config.moe_shared_expert_intermediate_size
+                size = self.config.moe_shared_expert_intermediate_size
             if loaded_weight.shape != (size, param.shape[1]):
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
@@ -921,7 +938,6 @@ class VocabParallelEmbedding(nn.Cell):
             raise NotImplementedError("For VocabParallelEmbedding, reduce_scatter_embeddings is not supported for now")
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-        self.sequence_parallel = config.sequence_parallel
 
         quant_method = None
         # Currently does not support quantization, only use UnquantizedEmbeddingMethod.

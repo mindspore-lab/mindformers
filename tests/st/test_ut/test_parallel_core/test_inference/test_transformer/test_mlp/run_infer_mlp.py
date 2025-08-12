@@ -97,7 +97,7 @@ class MLPRunner:
             get_mlp_module_spec(gated_linear_unit=self.config.gated_linear_unit),
             config=self.config,
             input_size=self.input_size,
-            model_comm_pgs=self.model_comm_pgs,
+            tp_group=self.model_comm_pgs.tp,
         )
         param_dict = {
             "linear_fc1.weight": self.fc1_weight,
