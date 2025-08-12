@@ -362,6 +362,8 @@ class _BaseAutoModelClass:
             config_args.model.pretrained_model_dir = config_args.pretrained_model_dir
         if config_args.get("generation_config", None):
             config_args.model.generation_config = config_args.generation_config
+        if config_args.get("parallel_config", None):
+            config_args.model.model_config.parallel_config = config_args.parallel_config
         model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
