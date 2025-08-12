@@ -18,7 +18,7 @@ import os
 import json
 import tempfile
 from time import time
-from typing import Callable, Union
+from typing import Callable, Union, List, Dict
 from dataclasses import dataclass
 
 import threading
@@ -43,8 +43,11 @@ from mindformers.checkpoint.utils import (
     get_checkpoint_name,
     get_checkpoint_tracker_filename,
     get_common_filename,
-    check_checkpoints_dir_max_num
+    check_checkpoints_dir_max_num,
+    get_metadata_filename
 )
+from mindformers.checkpoint.sharded_tensor import get_sharded_tensor_list_from_strategy_metadata
+from mindformers.checkpoint.metadata import save_metadata
 
 
 @dataclass
@@ -241,7 +244,8 @@ class AsyncSaveManager:
 
 def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
                     async_save_manager: AsyncSaveManager = None, common_info: CommonInfo = None,
-                    keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None):
+                    keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None,
+                    global_strategy_info: List[Dict] = None):
     """
     Saves the current state of the training process,
         including the model, optimizer, and learning rate scheduler, to a checkpoint file.
@@ -257,6 +261,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         save_checkpoint_path (str): The user can specify the path to save the weights.
             If None, the default path is 'output_dir/checkpoint'.
             And 'output_dir' is configured in yaml and defaults to './output' in the execution script path.
+        global_strategy_info (List[Dict]): The strategy info of this network.
     """
     logger.info('....... Start to save checkpoint as new format .......')
 
@@ -354,6 +359,19 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         logger.info(f"The 'common.json' is saved at '{common_filename}'.")
         logger.info(f"Save common info cost time: {time() - start_save_common_info_time:.3f}s.")
 
+    # Save 'metadata.json'.
+    if global_strategy_info is not None:
+        metadata_file_path = get_metadata_filename(checkpoints_root_path, iteration)
+        save_metadata_json(
+            global_strategy_info=global_strategy_info,
+            model_keys=model_keys if optimizer is None else None,
+            user_prefix=user_prefix,
+            metadata_file_path=metadata_file_path,
+            save_optimizer=optimizer is not None
+        )
+    else:
+        logger.info("No need to save metadata.json for single card.")
+
     # Save tracker file in sync save process.
     if not use_async_save:
         barrier_world("All ranks for sync save checkpoint.")
@@ -361,3 +379,46 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         if get_rank() == 0:
             iter_finalize_func()
         logger.info(f"Save checkpoint cost time: {time() - start_save_ckpt_time:.3f}s.")
+
+
+def save_metadata_json(global_strategy_info, model_keys, user_prefix, metadata_file_path, save_optimizer):
+    """Saving metadata.json used `get_strategy_metadata` API."""
+    logger.info("...... Start saving metadata ......")
+
+    if get_rank() == 0:
+        npu_nums = get_group_size()
+        sharded_tensor_metas = list()
+        param_file_mappings = list()
+
+        for cur_npu_rank in range(0, npu_nums):
+            org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
+            cur_rank_strategy_layout = [
+                dict([item])
+                for item in org_cur_rank_strategy_layout.items()
+            ]
+
+            # Get Sharded tensors from strategy metadata of current rank.
+            cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
+                param_infos=cur_rank_strategy_layout,
+                model_keys=model_keys,
+                cur_npu_rank=cur_npu_rank,
+                save_optimizer=save_optimizer
+            )
+
+            # Get mappings of parameter file of current rank.
+            for sharded_tensor in cur_rank_sharded_tensors:
+                if model_keys and sharded_tensor.key not in list(model_keys):
+                    ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Optimizer')
+                else:
+                    ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Model')
+                param_file_mappings.append(
+                    (ckpt_name + '.safetensors', cur_npu_rank, (sharded_tensor.key, sharded_tensor.global_offset))
+                )
+
+            sharded_tensor_metas.append(cur_rank_sharded_tensors)
+
+        save_metadata(sharded_tensor_metas, param_file_mappings, metadata_file_path)
+
+    # Barrier here to ensure 'metadata.json' saved, then continue training.
+    barrier_world("Rank_0 is saving 'metadata.json' ...")
+    logger.info(f"The 'metadata.json' saved successfully at '{metadata_file_path}'.")

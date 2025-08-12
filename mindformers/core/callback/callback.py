@@ -80,8 +80,7 @@ from mindformers.parallel_core.training_graph.loss_func import (
     reset_device_local_loss,
     check_device_local_loss
 )
-from mindformers.checkpoint.checkpoint import AsyncSaveManager, CommonInfo
-from mindformers.checkpoint.checkpoint import save_checkpoint
+from mindformers.checkpoint.checkpoint import AsyncSaveManager, CommonInfo, save_checkpoint
 
 __all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -1737,6 +1736,10 @@ class CheckpointMonitor(ModelCheckpoint):
             self.common_info.loss_scale = float(cb_params.net_outputs[2])
         self.common_info.global_batch_size = self.global_batch_size
 
+        from mindspore.parallel.strategy import get_strategy_metadata
+        # Get all strategy info of this network to save 'metadata.json'
+        global_strategy_info = get_strategy_metadata(network=cb_params.network)
+
         save_checkpoint(
             iteration=iteration,
             network=cb_params.network.network,
@@ -1745,7 +1748,8 @@ class CheckpointMonitor(ModelCheckpoint):
             common_info=self.common_info,
             keep_max_num=self._config.keep_checkpoint_max,
             user_prefix=self.origin_prefix,
-            save_checkpoint_path=self.save_checkpoint_path
+            save_checkpoint_path=self.save_checkpoint_path,
+            global_strategy_info=global_strategy_info
         )
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
