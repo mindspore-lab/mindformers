@@ -16,20 +16,24 @@
 import os
 import json
 import tempfile
+from glob import glob
+from safetensors import safe_open
 
 from mindspore.communication.management import get_group_size
 from mindspore.common.dtype import all_types
 from mindspore.parallel import Layout
 
+from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
-from mindformers.checkpoint.sharded_tensor import ShardedTensor, get_sharded_tensor_list_from_strategy_metadata
+from mindformers.checkpoint.sharded_tensor import build_sharded_tensor, get_sharded_tensor_list_from_strategy_metadata
 from mindformers.checkpoint.utils import (
     get_checkpoint_name,
     get_sharded_tensor_shard_id,
+    numpy_dtype_to_mindspore,
     FileType
 )
 
-tensor_to_ms_type = {str(dtype): dtype for dtype in all_types}
+tensor_to_ms_type = {str(dtype).lower(): dtype for dtype in all_types}
 
 
 def _serialize_sharded_tensor_layout(layout):
@@ -178,7 +182,7 @@ def load_metadata(metadata_file: str):
 
     Returns:
         A tuple containing two dictionaries:
-          - First dictionary: Maps (parameter_name, global_offset) tuples to ShardedTensor instances.
+          - First dictionary: Maps parameter_name to ShardedTensor instances.
             Each ShardedTensor contains complete metadata about a tensor chunk
             including its shape, layout, and positioning information.
 
@@ -188,54 +192,148 @@ def load_metadata(metadata_file: str):
               - "storage_rank": Rank of the device that stored this parameter.
 
     Raises:
-        FileNotFoundError: If the metadata.json file cannot be found at the specified path.
-
-        FormatError: If the metadata file contains invalid JSON format or cannot be parsed properly.
-
+        RuntimeError: If metadata file has invalid JSON format or cannot be parsed.
         KeyError: If required metadata fields are missing from the JSON structure.
     """
+    logger.info("..........Load Metadata from Metadata Json..........")
+
+    # Load and parse metadata JSON file
     try:
         with open(metadata_file, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
     except json.JSONDecodeError as e:
-        raise FormatError(f"Invalid JSON format in metadata file: {metadata_file}") from e
+        raise RuntimeError(f"Invalid JSON format in metadata file: {metadata_file}") from e
 
+    # Extract required metadata components
     state_dict_metadata = metadata.get("state_dict_metadata")
     storage_data = metadata.get("storage_data")
 
     sharded_tensor_metas = {}
-    for param_name, meta in state_dict_metadata.items():
-        properties = meta.get("properties")
 
+    # Process each parameter's metadata
+    for param_name, meta in state_dict_metadata.items():
+        # Extract core metadata properties
+        properties = meta.get("properties")
         global_shape = meta.get("global_shape")
         axis_fragmentations = meta.get("axis_fragmentations")
         layout = _deserialize_sharded_tensor_layout(meta.get("layout"))
-        dtype_str = properties.get("dtype")
-        dtype = tensor_to_ms_type.get(dtype_str)
 
-        chunks = meta.get("chunk")
-        for chunk in chunks:
+        # Convert dtype string to appropriate type
+        dtype_str = properties.get("dtype")
+        dtype = tensor_to_ms_type.get(dtype_str.lower())
+
+        # Process each chunk of the sharded tensor
+        for chunk in meta.get("chunk"):
             global_offset = chunk.get("global_offset")
             local_shape = chunk.get("local_shape")
 
-            sharded_tensor = ShardedTensor(
-                key=param_name,
-                dtype=dtype,
-                local_shape=tuple(local_shape),
-                global_shape=tuple(global_shape),
-                global_offset=tuple(global_offset),
-                axis_fragmentations=tuple(axis_fragmentations),
+            # Create ShardedTensor instance with chunk-specific metadata
+            sharded_tensor = build_sharded_tensor(
+                param_name=param_name,
+                param_dtype=dtype,
+                local_shape=local_shape,
+                global_shape=global_shape,
+                global_offset=global_offset,
+                axis_fragmentations=axis_fragmentations,
                 replica_id=properties.get("replica_id"),
                 allow_shape_mismatch=properties.get("allow_shape_mismatch"),
                 allow_to_save=properties.get("allow_to_save"),
                 layout=layout
             )
 
-            sharded_tensor_metas[(param_name, tuple(global_offset))] = sharded_tensor
+            # Add to collection (initialize list if first entry)
+            if param_name in sharded_tensor_metas:
+                sharded_tensor_metas[param_name].append(sharded_tensor)
+            else:
+                sharded_tensor_metas[param_name] = [sharded_tensor]
 
-    param_file_mappings = {}
-    for param_id, data in storage_data.items():
-        param_file_mappings[param_id] = data
+    return sharded_tensor_metas, storage_data
+
+
+def generate_default_metadata_from_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
+    """
+    Loads metadata from safetensors checkpoint files in the specified directory.
+
+    Extracts tensor information from all .safetensors files in the checkpoint directory
+    and constructs metadata objects for each tensor, including shape, dtype, and
+    storage information.
+
+    Args:
+        checkpoint_dir: Path to the directory containing checkpoint files
+
+    Returns:
+        A tuple containing two dictionaries:
+        - sharded_tensor_metas: Maps parameter names to lists of ShardedTensor objects
+        - param_file_mappings: Maps parameter names with storage rank to file information
+
+    Raises:
+        NotADirectoryError: If the specified checkpoint directory does not exist
+        FileNotFoundError: If no safetensors files are found in the directory
+        RuntimeError: If there are duplicate parameter names or tensor loading fails
+    """
+    if not os.path.isdir(checkpoint_dir):
+        raise NotADirectoryError(
+            f"Checkpoint directory '{checkpoint_dir}' does not exist or is not a directory.")
+
+    logger.info(f"..........Load Metadata from Checkpoint Files..........")
+
+    # Find all safetensor files in the checkpoint directory
+    safetensor_pattern = os.path.join(checkpoint_dir, "*.safetensors")
+    safetensor_files = glob(safetensor_pattern)
+
+    # Verify we found safetensor files
+    if not safetensor_files:
+        raise FileNotFoundError(
+            f"No Safetensors files found in directory '{checkpoint_dir}'. "
+            f"Ensure files match pattern: {safetensor_pattern}."
+        )
+
+    # Initialize metadata storage structures
+    sharded_tensor_metas: dict = {}
+    param_file_mappings: dict = {}
+
+    # Process each safetensor file
+    for safetensor_file in safetensor_files:
+        file_basename = os.path.basename(safetensor_file)
+        logger.info(f"Extracting metadata from Safetensors file: {file_basename}")
+
+        # Open the safetensor file and process each tensor
+        with safe_open(safetensor_file, framework="np", device="cpu") as f:
+            for param_name in f.keys():
+                try:
+                    # Load the tensor to extract its properties
+                    tensor = f.get_tensor(param_name)  # Load as numpy tensor
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Failed to load tensor '{param_name}' from file '{file_basename}'"
+                    ) from e
+
+                # Extract tensor properties
+                tensor_shape = tensor.shape
+                ms_dtype = numpy_dtype_to_mindspore(tensor.dtype)
+                global_offset = (0,)
+                axis_fragmentations = [1] * len(tensor_shape)
+
+                # Create sharded tensor metadata object
+                sharded_tensor = build_sharded_tensor(
+                    param_name=param_name,
+                    param_dtype=ms_dtype,
+                    local_shape=tensor_shape,
+                    global_shape=tensor_shape,
+                    global_offset=global_offset,
+                    axis_fragmentations=axis_fragmentations,
+                    layout=None
+                )
+
+                # Check for duplicate parameters
+                if param_name in sharded_tensor_metas:
+                    raise RuntimeError(f"Duplicate parameter_name found: {param_name}.")
+
+                # Store metadata with fixed storage rank 0
+                sharded_tensor_metas[param_name] = [sharded_tensor]
+                param_file_mappings[str((param_name, (0,)))] = [
+                    {"file_name": file_basename, "storage_rank": 0}
+                ]
 
     return sharded_tensor_metas, param_file_mappings
 

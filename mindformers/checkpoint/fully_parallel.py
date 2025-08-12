@@ -240,7 +240,7 @@ class BalancedSaveStrategy():
             if os.path.exists(origin_metadata_file):
                 origin_shard_metadata, origin_param_file_mapping = load_metadata(
                     get_metadata_filename(self.checkpoint_path, iteration))
-                shard_to_metadata.append(list(origin_shard_metadata.values()))
+                shard_to_metadata.extend(list(origin_shard_metadata.values()))
                 for param_id, storage in origin_param_file_mapping.items():
                     for storage_item in storage:
                         param_file_mapping.append(

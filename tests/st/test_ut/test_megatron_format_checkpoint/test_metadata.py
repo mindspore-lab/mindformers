@@ -136,20 +136,13 @@ def test_save_and_load_metadata_case():
         get_metadata_filename(CHECKPOINT_ROOT_DIR, ITERATION_WITH_OPTIMIZER)
     )
 
-    decoder_input_0 = has_optimizer_sharded_tensors[('decoder.layers.0.input_layernorm.weight', (0,))]
-    assert decoder_input_0.local_shape == (1792,)
-    assert decoder_input_0.global_shape == (3584,)
-    assert decoder_input_0.global_offset == (0,)
+    for sharded_tensor in has_optimizer_sharded_tensors['decoder.layers.0.input_layernorm.weight']:
+        assert sharded_tensor.local_shape == (1792,)
+        assert sharded_tensor.global_shape == (3584,)
+        assert sharded_tensor.global_offset in [(0,), (1,)]
 
-    decoder_input_1 = has_optimizer_sharded_tensors[('decoder.layers.0.input_layernorm.weight', (1,))]
-    assert decoder_input_1.local_shape == (1792,)
-    assert decoder_input_1.global_shape == (3584,)
-    assert decoder_input_1.global_offset == (1,)
-
-    adam_input_layernorm_0 = has_optimizer_sharded_tensors[('adam_m.decoder.layers.0.input_layernorm.weight', (0,))]
-    assert adam_input_layernorm_0 is not None
-    adam_input_layernorm_1 = has_optimizer_sharded_tensors[('adam_m.decoder.layers.0.input_layernorm.weight', (1,))]
-    assert adam_input_layernorm_1 is not None
+    adam_input_layernorm = has_optimizer_sharded_tensors['adam_m.decoder.layers.0.input_layernorm.weight']
+    assert adam_input_layernorm is not None
 
     adam_mapping_0 = has_optimizer_param_file_mappings["('adam_m.decoder.layers.0.input_layernorm.weight', (0,))"][0]
     assert adam_mapping_0["storage_rank"] == 0
@@ -161,12 +154,12 @@ def test_save_and_load_metadata_case():
     )
 
     for k in no_optimizer_sharded_tensors.keys():
-        assert "adam" not in k[0]
+        assert "adam" not in k
 
-    decoder_input_1_no_op = no_optimizer_sharded_tensors[('decoder.layers.0.input_layernorm.weight', (1,))]
-    assert decoder_input_1_no_op.local_shape == (1792,)
-    assert decoder_input_1_no_op.global_shape == (3584,)
-    assert decoder_input_1_no_op.global_offset == (1,)
+    for sharded_tensor_no_op in no_optimizer_sharded_tensors['decoder.layers.0.input_layernorm.weight']:
+        assert sharded_tensor_no_op.local_shape == (1792,)
+        assert sharded_tensor_no_op.global_shape == (3584,)
+        assert sharded_tensor_no_op.global_offset in [(0,), (1,)]
 
     decoder_mapping_1 = no_optimizer_param_file_mappings["('decoder.layers.0.input_layernorm.weight', (1,))"][0]
     assert decoder_mapping_1["storage_rank"] == 1
