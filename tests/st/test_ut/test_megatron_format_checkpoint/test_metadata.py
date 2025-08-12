@@ -25,7 +25,8 @@ from mindformers.checkpoint.metadata import save_metadata, load_metadata
 from mindformers.checkpoint.utils import (
     get_checkpoint_iter_dir,
     get_metadata_filename,
-    get_checkpoint_name
+    get_checkpoint_name,
+    FileType
 )
 
 AA = ms.parallel.Layout((2, 2, 2), ("dp", "sp", "mp"))
@@ -73,9 +74,9 @@ def save_metadata_without_npu(global_strategy_info, model_keys, user_prefix, met
         # Get mappings of parameter file of current rank.
         for sharded_tensor in cur_rank_sharded_tensors:
             if save_optimizer and sharded_tensor.key not in list(model_keys):
-                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Optimizer')
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.OPTIMIZER)
             else:
-                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Model')
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.MODEL)
             param_file_mappings.append(
                 (
                     ckpt_name + '.safetensors',
@@ -132,8 +133,7 @@ def test_save_and_load_metadata_case():
 
     # 3. Test load 'metadata.json' with optimizer info.
     has_optimizer_sharded_tensors, has_optimizer_param_file_mappings = load_metadata(
-        checkpoints_path=CHECKPOINT_ROOT_DIR,
-        iteration=ITERATION_WITH_OPTIMIZER
+        get_metadata_filename(CHECKPOINT_ROOT_DIR, ITERATION_WITH_OPTIMIZER)
     )
 
     decoder_input_0 = has_optimizer_sharded_tensors[('decoder.layers.0.input_layernorm.weight', (0,))]
@@ -157,8 +157,7 @@ def test_save_and_load_metadata_case():
 
     # 4. Test load 'metadata.json' without optimizer info.
     no_optimizer_sharded_tensors, no_optimizer_param_file_mappings = load_metadata(
-        checkpoints_path=CHECKPOINT_ROOT_DIR,
-        iteration=ITERATION_WITHOUT_OPTIMIZER
+        get_metadata_filename(CHECKPOINT_ROOT_DIR, ITERATION_WITHOUT_OPTIMIZER)
     )
 
     for k in no_optimizer_sharded_tensors.keys():

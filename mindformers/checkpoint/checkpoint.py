@@ -45,7 +45,8 @@ from mindformers.checkpoint.utils import (
     get_checkpoint_tracker_filename,
     get_common_filename,
     check_checkpoints_dir_max_num,
-    get_metadata_filename
+    get_metadata_filename,
+    FileType
 )
 from mindformers.checkpoint.fully_parallel import BalancedSaveStrategy
 from mindformers.checkpoint.metadata import (
@@ -336,12 +337,12 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
             user_prefix=user_prefix,
             checkpoint_path=checkpoints_root_path,
             filter_func=lambda x: x in list(model_keys),
-            file_type='Model'
+            file_type=FileType.MODEL
         )
         remove_model_redundancy.save(iteration)
     else:
         model_ckpt_filename = get_checkpoint_name(
-            cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Model'
+            cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), FileType.MODEL
         )
         ms_save_checkpoint(
             network,
@@ -360,14 +361,14 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
                 user_prefix=user_prefix,
                 checkpoint_path=checkpoints_root_path,
                 filter_func=lambda x: x not in list(model_keys),
-                file_type='Optimizer'
+                file_type=FileType.OPTIMIZER
             )
             remove_optimizer_redundancy.save(iteration)
         else:
             # Optimizer weight has redundancy.
             logger.warning("....... Start to save optimizer weight .......")
             optimizer_ckpt_filename = get_checkpoint_name(
-                cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Optimizer'
+                cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), FileType.OPTIMIZER
             )
             ms_save_checkpoint(
                 optimizer,

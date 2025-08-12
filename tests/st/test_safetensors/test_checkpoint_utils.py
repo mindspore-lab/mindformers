@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from mindformers.tools.register import MindFormerConfig
-from mindformers.trainer.utils import compile_model
+from mindformers.checkpoint.utils import compile_model
 from mindformers.utils.load_checkpoint_utils import CkptFormat, _get_checkpoint_mode, CheckpointFileMode, \
     _check_checkpoint_path
 

@@ -15,10 +15,19 @@
 """APIs of checkpoint utils."""
 
 import os
-import shutil
 import re
+import json
+import time
+import shutil
+from enum import Enum
+from glob import glob
 from pathlib import Path
+from typing import Optional
+import numpy as np
 
+import mindspore as ms
+from mindspore import context
+from mindspore.common import dtype as mstype
 from mindformers.tools.logger import logger
 
 
@@ -40,6 +49,11 @@ MS_TYPE_TO_SIZE = {
     "BFloat16": 16,
     "Int4": 4
 }
+
+
+class FileType(Enum):
+    MODEL = "model"
+    OPTIMIZER = "opt"
 
 
 def check_checkpoints_dir_max_num(max_keep_num: int, checkpoints_root_path: str = None):
@@ -193,7 +207,7 @@ def get_latest_iteration_from_tracker(checkpoints_path: str) -> bool:
 
 
 def get_checkpoint_name(cur_iter_checkpoint_dir: str, user_prefix: str, file_idx: int, total_file_num: int,
-                        file_type: str) -> str:
+                        file_type: FileType) -> str:
     """
     Generate a checkpoint name for model parameters or optimizer parameters.
 
@@ -207,12 +221,7 @@ def get_checkpoint_name(cur_iter_checkpoint_dir: str, user_prefix: str, file_idx
     Returns:
         str: The generated checkpoint file name.
     """
-    if file_type == "Model":
-        type_prefix = 'model'
-    elif file_type == "Optimizer":
-        type_prefix = 'opt'
-    else:
-        raise TypeError(f"The type of safetensors file must be 'Model' or 'Optimizer', but got '{file_type}'.")
+    type_prefix = file_type.value
 
     if user_prefix is None:
         file_name = f'{type_prefix}-{file_idx:07d}-{total_file_num:07d}'
@@ -300,3 +309,189 @@ def _get_shard_size(local_shape, dtype):
     for size in local_shape:
         element_count *= size
     return element_count * type_size
+
+
+def numpy_dtype_to_mindspore(numpy_dtype):
+    """
+    Convert NumPy dtype to MindSpore dtype
+
+    Args:
+        numpy_dtype: NumPy data type (e.g., np.float32, np.int64)
+
+    Returns:
+        mindspore.dtype: Corresponding MindSpore data type
+    """
+    # Mapping table for basic data types
+    dtype_mapping = {
+        np.bool_: mstype.bool_,
+        np.int8: mstype.int8,
+        np.int16: mstype.int16,
+        np.int32: mstype.int32,
+        np.int64: mstype.int64,
+        np.uint8: mstype.uint8,
+        np.uint16: mstype.uint16,
+        np.uint32: mstype.uint32,
+        np.uint64: mstype.uint64,
+        np.float16: mstype.float16,
+        np.float32: mstype.float32,
+        np.float64: mstype.float64,
+        np.complex64: mstype.complex64,
+        np.complex128: mstype.complex128,
+    }
+
+    # Handle both dtype objects and direct type references
+    if isinstance(numpy_dtype, np.dtype):
+        numpy_dtype = numpy_dtype.type
+
+    # Look up mapping and raise error if not found
+    if numpy_dtype in dtype_mapping:
+        return dtype_mapping[numpy_dtype]
+
+    raise ValueError(f"Unsupported NumPy data type: {numpy_dtype}")
+
+
+def verify_ckpt_valid(checkpoint_dir: str) -> Optional[str]:
+    """
+    Validates the integrity of a checkpoint directory by checking metadata and Safetensors file existence.
+
+    Ensures the checkpoint directory contains a valid `metadata.json` (with intact storage data) and that
+    all Safetensors files referenced in the metadata actually exist in the directory. If no metadata file
+    exists, it falls back to checking for at least one Safetensors file (to support single-card checkpoints).
+
+    Args:
+        checkpoint_dir: Path to the checkpoint directory to validate.
+
+    Returns:
+        Optional[str]: `None` if validation passes..
+
+    Raises:
+        NotADirectoryError: If `checkpoint_dir` does not exist or is not a directory.
+        FileNotFoundError: If:
+            1. No `metadata.json` exists AND no Safetensors files (*.safetensors) are found in the directory.
+            2. A Safetensors file referenced in `metadata.json` is missing from the directory.
+        RuntimeError: If `metadata.json` exists but is not valid JSON, or if its "storage_data" is malformed.
+    """
+    if not os.path.isdir(checkpoint_dir):
+        raise NotADirectoryError(
+            f"Checkpoint directory validation failed: '{checkpoint_dir}' is not a valid directory."
+        )
+
+    metadata_path = os.path.join(checkpoint_dir, "metadata.json")
+    # Find all Safetensors files in the directory (for fallback check)
+    safetensor_files = glob(os.path.join(checkpoint_dir, "*.safetensors"))
+
+    if not os.path.exists(metadata_path):
+        # No metadata → at least one Safetensors file must exist (single-card checkpoint case)
+        if not safetensor_files:
+            raise FileNotFoundError(
+                f"Checkpoint directory validation failed: No Safetensors files "
+                f"found in '{checkpoint_dir}'. Ensure the directory contains valid checkpoint files."
+            )
+        return None
+
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            f"Checkpoint metadata validation failed: 'metadata.json' in '{checkpoint_dir}' has invalid JSON format. "
+            f"Error details: {str(e)}"
+        ) from e
+
+    storage_data = metadata["storage_data"]
+    for param_name, storage_info_list in storage_data.items():
+        for storage_dict in storage_info_list:
+            # Get full path to the referenced Safetensors file
+            file_name = storage_dict["file_name"]
+            file_path = os.path.join(checkpoint_dir, file_name)
+
+            # Verify the file exists
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(
+                    f"Checkpoint file validation failed: Safetensors file '{file_name}' "
+                    f"(referenced in metadata for parameter '{param_name}') is missing from "
+                    f"checkpoint directory '{checkpoint_dir}'. Full expected path: '{file_path}'."
+                )
+    return None
+
+
+def compile_model(model, dataset, mode, sink_mode, epoch=1, sink_size=1, do_eval=False, do_predict=False):
+    """
+    Compiles the MindSpore model, generates parallel strategy files (if applicable), and validates runtime context.
+
+    This function ensures the model is built with the correct parallel strategy for distributed training or inference.
+
+    Args:
+        model: MindSpore Model object to compile.
+        dataset: Input dataset for model compilation.
+        mode: MindSpore runtime mode (either `ms.GRAPH_MODE` or `ms.PYNATIVE_MODE`). Strategy files are only
+            generated in `GRAPH_MODE`.
+        sink_mode: Whether to enable data sinking.
+        epoch: Number of training epochs for model compilation (used in `model.build()`). Defaults to 1.
+        sink_size: Batch size for data sinking (controls how many batches are sunk at once). Defaults to 1.
+        do_eval: Whether to compile the model for evaluation (uses `infer_predict_layout()`). Defaults to `False`.
+        do_predict: Whether to compile the model for prediction (uses `infer_predict_layout()`). Defaults to `False`.
+
+    Returns:
+        None.
+
+    Raises:
+        ValueError: If `sink_mode` is `False`.
+        RuntimeError: If `dataset` is `None`.
+        AttributeError: If `model` lacks required methods (`build()` or `infer_predict_layout()`).
+    """
+    # Validate mutually exclusive flags (eval and predict cannot both be True)
+    if do_eval and do_predict:
+        raise ValueError("'do_eval' and 'do_predict' cannot both be True; choose one or neither.")
+
+    # Get current parallel mode from MindSpore context
+    parallel_mode = context.get_auto_parallel_context('parallel_mode')
+    supported_parallel_modes = ('semi_auto_parallel', 'auto_parallel', 'hybrid_parallel')
+
+    # Skip compilation if in PyNative mode (no strategy files generated)
+    if mode == ms.PYNATIVE_MODE:
+        logger.warning(
+            "Current runtime mode is PyNative. The `compile_model` function will not generate strategy files."
+        )
+        return
+
+    # Skip compilation if parallel mode is unsupported (no strategy files generated)
+    if parallel_mode not in supported_parallel_modes:
+        logger.warning(
+            f"Current parallel mode '{parallel_mode}' is unsupported. "
+            f"Strategy files are only generated for: {supported_parallel_modes}. Compilation skipped."
+        )
+        return
+
+    # Enforce sink_mode=True for distributed sliced weight loading
+    if not sink_mode:
+        raise ValueError(
+            "When loading distributed sliced weights, 'sink_mode' must be set to True. "
+            "Please enable sink_mode and retry."
+        )
+
+    # Validate dataset exists for compilation
+    if not dataset:
+        raise RuntimeError("Dataset cannot be None when compiling.")
+
+    # Compile model and measure build time
+    build_time_start = time.time()
+    try:
+        logger.info(".........Compiling model.........")
+        if do_eval or do_predict:
+            # Compile for evaluation/prediction (infer layout)
+            model.infer_predict_layout(*dataset)  # Unpack dataset if it's a tuple (e.g., (data, label))
+        else:
+            # Compile for training (build model with dataset/epoch/sink settings)
+            model.build(train_dataset=dataset, epoch=epoch, sink_size=sink_size)
+    except AttributeError as e:
+        raise AttributeError(
+            f"Model is missing a required method: {str(e)}. "
+            "Ensure the model has 'build()' (for training) and 'infer_predict_layout()' (for eval/predict)."
+        ) from e
+    except Exception as e:
+        raise RuntimeError(f"Failed to compile model: {str(e)}") from e
+
+    build_time_end = time.time()
+    build_duration = build_time_end - build_time_start
+    logger.info(f"Time spent compiling the model: {build_duration:.2f} seconds")
