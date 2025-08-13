@@ -16,12 +16,12 @@ Based on MindSpore's built-in parallel technology and component-based design, th
 - Support for configurable development of task components. Any module can be enabled by unified configuration, including model network, optimizer, learning rate policy, etc.;
 - Provide real-time visualization of training accuracy/performance monitoring indicators.
 
-For details about MindSpore Transformers tutorials and API documents, see **[MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/index.html)**. The following are quick jump links to some of the key content:
+For details about MindSpore Transformers tutorials and API documents, see **[MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/index.html)**. The following are quick jump links to some of the key content:
 
-- 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/dev/guide/pre_training.html)
-- 📝 [Supervised Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/dev/guide/supervised_fine_tuning.html)
-- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/dev/feature/evaluation.html)
-- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/dev/guide/deployment.html)
+- 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/pre_training.html)
+- 📝 [Supervised Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/supervised_fine_tuning.html)
+- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/feature/evaluation.html)
+- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/deployment.html)
 
 If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
 
@@ -95,7 +95,7 @@ Python 3.11.4 is recommended for the current suite.
 
 | MindSpore Transformers | MindSpore |  CANN   | Driver/Firmware |
 |:----------------------:|:---------:|:-------:|:---------------:|
-|         1.6.0          | 2.7.0-rc1 | 8.2.RC1 |     25.2.0      |
+|         1.6.0          |   2.7.0   | 8.2.RC1 |     25.2.0      |
 
 Historical Version Supporting Relationships:
 
@@ -118,9 +118,9 @@ bash build.sh
 
 ## 3. User Guide
 
-MindSpore Transformers supports distributed [pre-training](https://www.mindspore.cn/mindformers/docs/en/dev/guide/pre_training.html), [supervised fine-tuning](https://www.mindspore.cn/mindformers/docs/en/dev/guide/supervised_fine_tuning.html), and [inference](https://www.mindspore.cn/mindformers/docs/en/dev/guide/inference.html) tasks for large models with one click. You can click the link of each model in [Model List](#models-list) to see the corresponding documentation.
+MindSpore Transformers supports distributed [pre-training](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/pre_training.html), [supervised fine-tuning](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/supervised_fine_tuning.html), and [inference](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/guide/inference.html) tasks for large models with one click. You can click the link of each model in [Model List](#models-list) to see the corresponding documentation.
 
-For more information about the functions of MindSpore Transformers, please refer to [MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/dev/index.html).
+For more information about the functions of MindSpore Transformers, please refer to [MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/index.html).
 
 ## 4. Life Cycle And Version Matching Strategy
 
@@ -155,7 +155,7 @@ MindSpore Transformers released version preservation policy:
 
 ## 6. Contribution
 
-We welcome contributions to the community. For details, see [MindSpore Transformers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/dev/contribution/mindformers_contribution.html).
+We welcome contributions to the community. For details, see [MindSpore Transformers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/r1.6.0/contribution/mindformers_contribution.html).
 
 ## 7. License
 

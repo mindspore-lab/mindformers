@@ -16,12 +16,12 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 - 支持任务组件配置化开发。任意模块可通过统一配置进行使能，包括模型网络、优化器、学习率策略等；
 - 提供训练精度/性能监控指标实时可视化能力等。
 
-欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindSpore Transformers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)，以下提供部分内容的快速跳转链接：
+欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindSpore Transformers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/index.html)，以下提供部分内容的快速跳转链接：
 
-- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)
-- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)
-- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/evaluation.html)
-- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)
+- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/pre_training.html)
+- 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/supervised_fine_tuning.html)
+- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/evaluation.html)
+- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/deployment.html)
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
@@ -95,7 +95,7 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 
 | MindSpore Transformers | MindSpore |  CANN   | 固件与驱动  |
 |:----------------------:|:---------:|:-------:|:------:|
-|         1.6.0          | 2.7.0-rc1 | 8.2.RC1 | 25.2.0 |
+|         1.6.0          |   2.7.0   | 8.2.RC1 | 25.2.0 |
 
 历史版本配套关系：
 
@@ -118,9 +118,9 @@ bash build.sh
 
 ## 三、使用指南
 
-MindSpore Transformers支持一键启动大模型的分布式[预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/pre_training.html)、[SFT 微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/supervised_fine_tuning.html)、[推理](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/inference.html)任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档。
+MindSpore Transformers支持一键启动大模型的分布式[预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/pre_training.html)、[SFT 微调](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/supervised_fine_tuning.html)、[推理](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/inference.html)任务，可点击[模型列表](#模型列表)中各模型的链接查看对应使用文档。
 
-关于MindSpore Transformers的更多功能说明可参阅[MindSpore Transformers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)。
+关于MindSpore Transformers的更多功能说明可参阅[MindSpore Transformers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/index.html)。
 
 ## 四、生命周期及版本配套策略
 
@@ -155,7 +155,7 @@ MindSpore Transformers已发布版本维护策略：
 
 ## 六、贡献
 
-欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/contribution/mindformers_contribution.html)。
+欢迎参与社区贡献，可参考[MindSpore Transformers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/contribution/mindformers_contribution.html)。
 
 ## 七、许可证
 
