@@ -38,8 +38,9 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import lazy_inline, LayerSetting, check_fine_grain_interleave_valid, predict_lazy_inline,\
+from mindformers.models.utils import lazy_inline, check_fine_grain_interleave_valid, predict_lazy_inline,\
     jit
+from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.modules.layers import Linear, FreqsMgr, _check_input_dtype, _yarn_get_mscale
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic

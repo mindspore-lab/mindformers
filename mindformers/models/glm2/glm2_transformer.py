@@ -25,7 +25,8 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
 from mindformers.modules.flash_attention import FlashAttention
-from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
+from mindformers.models.utils import check_fine_grain_interleave_valid
+from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout, check_seqpp_fa_opt_support
 from mindformers.tools.logger import logger
