@@ -16,7 +16,7 @@ Based on MindSpore's built-in parallel technology and component-based design, th
 - Support for configurable development of task components. Any module can be enabled by unified configuration, including model network, optimizer, learning rate policy, etc.;
 - Provide real-time visualization of training accuracy/performance monitoring indicators.
 
-For details about MindSpore Transformers tutorials and API documents, see **[MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/index.html)**. The following are quick jump links to some of the key content:
+For details about MindSpore Transformers tutorials and API documents, see **[MindSpore Transformers Documentation](https://www.mindspore.cn/mindformers/docs/en/master/index.html)**. The following are quick jump links to some of the key content:
 
 - 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/master/guide/pre_training.html)
 - 📝 [Supervised Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/master/guide/supervised_fine_tuning.html)
@@ -29,59 +29,59 @@ If you have any suggestions on MindSpore Transformers, contact us through an iss
 
 The following table lists models supported by MindSpore Transformers.
 
-| Model                                                                                                   | Specifications                |    Model Type    |        Latest Version         |
-|:--------------------------------------------------------------------------------------------------------|:------------------------------|:----------------:|:-----------------------------:|
-| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/tree/master/research/deepseek3)                      | 671B                          |    Sparse LLM    | In-development version, 1.5.0 |
-| [GLM4](https://gitee.com/mindspore/mindformers/blob/master/docs/model_cards/glm4.md)                       | 9B                            |    Dense LLM     | In-development version, 1.5.0 |
-| [Llama3.1](https://gitee.com/mindspore/mindformers/tree/master/research/llama3_1)                          | 8B/70B                        |    Dense LLM     | In-development version, 1.5.0 |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/tree/master/research/qwen2_5)                            | 0.5B/1.5B/7B/14B/32B/72B      |    Dense LLM     | In-development version, 1.5.0 |
-| [TeleChat2](https://gitee.com/mindspore/mindformers/tree/master/research/telechat2)                        | 7B/35B/115B                   |    Dense LLM     | In-development version, 1.5.0 |
-| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md)          | 34B                           |    Dense LLM     |             1.5.0             |
-| [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md)  | 19B                           |        MM        |             1.5.0             |
-| [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md)  | 13B                           |        MM        |             1.5.0             |
-| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek2)                   | 236B                          |    Sparse LLM    |             1.5.0             |
-| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek1_5)         | 7B                            |    Dense LLM     |             1.5.0             |
-| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/deepseek)                 | 33B                           |    Dense LLM     |             1.5.0             |
-| [GLM3-32K](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/glm32k)                         | 6B                            |    Dense LLM     |             1.5.0             |
-| [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md)                    | 6B                            |    Dense LLM     |             1.5.0             |
-| [InternLM2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/internlm2)                     | 7B/20B                        |    Dense LLM     |             1.5.0             |
-| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)            | 3B                            |    Dense LLM     |             1.5.0             |
-| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md)       | 11B                           |        MM        |             1.5.0             |
-| [Llama3](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/llama3)                           | 8B/70B                        |    Dense LLM     |             1.5.0             |
-| [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md)                | 7B/13B/70B                    |    Dense LLM     |             1.5.0             |
-| [Mixtral](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/mixtral)                         | 8x7B                          |    Sparse LLM    |             1.5.0             |
-| [Qwen2](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense/Sparse LLM |             1.5.0             |
-| [Qwen1.5](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |    Dense LLM     |             1.5.0             |
-| [Qwen-VL](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/qwenvl)                          | 9.6B                          |        MM        |             1.5.0             |
-| [TeleChat](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/telechat)                       | 7B/12B/52B                    |    Dense LLM     |             1.5.0             |
-| [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |        MM        |             1.5.0             |
-| [Yi](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yi)                                   | 6B/34B                        |    Dense LLM     |             1.5.0             |
-| [YiZhao](https://gitee.com/mindspore/mindformers/tree/r1.5.0/research/yizhao)                           | 12B                           |    Dense LLM     |             1.5.0             |
-| [Baichuan2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/baichuan2/baichuan2.md)        | 7B/13B                        |    Dense LLM     |             1.3.2             |
-| [GLM2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/glm2.md)                    | 6B                            |    Dense LLM     |             1.3.2             |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/gpt2.md)                    | 124M/13B                      |    Dense LLM     |             1.3.2             |
-| [InternLM](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/internlm/internlm.md)           | 7B/20B                        |    Dense LLM     |             1.3.2             |
-| [Qwen](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/qwen/qwen.md)                       | 7B/14B                        |    Dense LLM     |             1.3.2             |
-| [CodeGeex2](https://gitee.com/mindspore/mindformers/blob/r1.1.0/docs/model_cards/codegeex2.md)          | 6B                            |    Dense LLM     |             1.1.0             |
-| [WizardCoder](https://gitee.com/mindspore/mindformers/blob/r1.1.0/research/wizardcoder/wizardcoder.md)  | 15B                           |    Dense LLM     |             1.1.0             |
-| [Baichuan](https://gitee.com/mindspore/mindformers/blob/r1.0/research/baichuan/baichuan.md)             | 7B/13B                        |    Dense LLM     |              1.0              |
-| [Blip2](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/blip2.md)                    | 8.1B                          |        MM        |              1.0              |
-| [Bloom](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/bloom.md)                    | 560M/7.1B/65B/176B            |    Dense LLM     |              1.0              |
-| [Clip](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/clip.md)                      | 149M/428M                     |        MM        |              1.0              |
-| [CodeGeex](https://gitee.com/mindspore/mindformers/blob/r1.0/research/codegeex/codegeex.md)             | 13B                           |    Dense LLM     |              1.0              |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/glm.md)                        | 6B                            |    Dense LLM     |              1.0              |
-| [iFlytekSpark](https://gitee.com/mindspore/mindformers/blob/r1.0/research/iflytekspark/iflytekspark.md) | 13B                           |    Dense LLM     |              1.0              |
-| [Llama](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/llama.md)                    | 7B/13B                        |    Dense LLM     |              1.0              |
-| [MAE](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/mae.md)                        | 86M                           |        MM        |              1.0              |
-| [Mengzi3](https://gitee.com/mindspore/mindformers/blob/r1.0/research/mengzi3/mengzi3.md)                | 13B                           |    Dense LLM     |              1.0              |
-| [PanguAlpha](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/pangualpha.md)          | 2.6B/13B                      |    Dense LLM     |              1.0              |
-| [SAM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/sam.md)                        | 91M/308M/636M                 |        MM        |              1.0              |
-| [Skywork](https://gitee.com/mindspore/mindformers/blob/r1.0/research/skywork/skywork.md)                | 13B                           |    Dense LLM     |              1.0              |
-| [Swin](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/swin.md)                      | 88M                           |        MM        |              1.0              |
-| [T5](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/t5.md)                          | 14M/60M                       |    Dense LLM     |              1.0              |
-| [VisualGLM](https://gitee.com/mindspore/mindformers/blob/r1.0/research/visualglm/visualglm.md)          | 6B                            |        MM        |              1.0              |
-| [Ziya](https://gitee.com/mindspore/mindformers/blob/r1.0/research/ziya/ziya.md)                         | 13B                           |    Dense LLM     |              1.0              |
-| [Bert](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/bert.md)                      | 4M/110M                       |    Dense LLM     |              0.8              |
+| Model                                                                                                   | Specifications                |    Model Type    | Latest Version |
+|:--------------------------------------------------------------------------------------------------------|:------------------------------|:----------------:|:--------------:|
+| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/deepseek3)                   | 671B                          |    Sparse LLM    |     1.6.0      |
+| [GLM4](https://gitee.com/mindspore/mindformers/blob/r1.6.0/docs/model_cards/glm4.md)                    | 9B                            |    Dense LLM     |     1.6.0      |
+| [Llama3.1](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/llama3_1)                       | 8B/70B                        |    Dense LLM     |     1.6.0      |
+| [Mixtral](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/mixtral)                         | 8x7B                          |    Sparse LLM    |     1.6.0      |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/qwen2_5)                         | 0.5B/1.5B/7B/14B/32B/72B      |    Dense LLM     |     1.6.0      |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/telechat2)                     | 7B/35B/115B                   |    Dense LLM     |     1.6.0      |
+| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md)          | 34B                           |    Dense LLM     |     1.5.0      |
+| [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md)  | 19B                           |        MM        |     1.5.0      |
+| [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md)  | 13B                           |        MM        |     1.5.0      |
+| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek2)                   | 236B                          |    Sparse LLM    |     1.5.0      |
+| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek1_5)         | 7B                            |    Dense LLM     |     1.5.0      |
+| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek)                 | 33B                           |    Dense LLM     |     1.5.0      |
+| [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k)                         | 6B                            |    Dense LLM     |     1.5.0      |
+| [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md)                    | 6B                            |    Dense LLM     |     1.5.0      |
+| [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2)                     | 7B/20B                        |    Dense LLM     |     1.5.0      |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)            | 3B                            |    Dense LLM     |     1.5.0      |
+| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md)       | 11B                           |        MM        |     1.5.0      |
+| [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3)                           | 8B/70B                        |    Dense LLM     |     1.5.0      |
+| [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md)                | 7B/13B/70B                    |    Dense LLM     |     1.5.0      |
+| [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense/Sparse LLM |     1.5.0      |
+| [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |    Dense LLM     |     1.5.0      |
+| [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl)                          | 9.6B                          |        MM        |     1.5.0      |
+| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat)                       | 7B/12B/52B                    |    Dense LLM     |     1.5.0      |
+| [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |        MM        |     1.5.0      |
+| [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi)                                   | 6B/34B                        |    Dense LLM     |     1.5.0      |
+| [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao)                           | 12B                           |    Dense LLM     |     1.5.0      |
+| [Baichuan2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/baichuan2/baichuan2.md)        | 7B/13B                        |    Dense LLM     |     1.3.2      |
+| [GLM2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/glm2.md)                    | 6B                            |    Dense LLM     |     1.3.2      |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/gpt2.md)                    | 124M/13B                      |    Dense LLM     |     1.3.2      |
+| [InternLM](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/internlm/internlm.md)           | 7B/20B                        |    Dense LLM     |     1.3.2      |
+| [Qwen](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/qwen/qwen.md)                       | 7B/14B                        |    Dense LLM     |     1.3.2      |
+| [CodeGeex2](https://gitee.com/mindspore/mindformers/blob/r1.1.0/docs/model_cards/codegeex2.md)          | 6B                            |    Dense LLM     |     1.1.0      |
+| [WizardCoder](https://gitee.com/mindspore/mindformers/blob/r1.1.0/research/wizardcoder/wizardcoder.md)  | 15B                           |    Dense LLM     |     1.1.0      |
+| [Baichuan](https://gitee.com/mindspore/mindformers/blob/r1.0/research/baichuan/baichuan.md)             | 7B/13B                        |    Dense LLM     |      1.0       |
+| [Blip2](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/blip2.md)                    | 8.1B                          |        MM        |      1.0       |
+| [Bloom](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/bloom.md)                    | 560M/7.1B/65B/176B            |    Dense LLM     |      1.0       |
+| [Clip](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/clip.md)                      | 149M/428M                     |        MM        |      1.0       |
+| [CodeGeex](https://gitee.com/mindspore/mindformers/blob/r1.0/research/codegeex/codegeex.md)             | 13B                           |    Dense LLM     |      1.0       |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/glm.md)                        | 6B                            |    Dense LLM     |      1.0       |
+| [iFlytekSpark](https://gitee.com/mindspore/mindformers/blob/r1.0/research/iflytekspark/iflytekspark.md) | 13B                           |    Dense LLM     |      1.0       |
+| [Llama](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/llama.md)                    | 7B/13B                        |    Dense LLM     |      1.0       |
+| [MAE](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/mae.md)                        | 86M                           |        MM        |      1.0       |
+| [Mengzi3](https://gitee.com/mindspore/mindformers/blob/r1.0/research/mengzi3/mengzi3.md)                | 13B                           |    Dense LLM     |      1.0       |
+| [PanguAlpha](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/pangualpha.md)          | 2.6B/13B                      |    Dense LLM     |      1.0       |
+| [SAM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/sam.md)                        | 91M/308M/636M                 |        MM        |      1.0       |
+| [Skywork](https://gitee.com/mindspore/mindformers/blob/r1.0/research/skywork/skywork.md)                | 13B                           |    Dense LLM     |      1.0       |
+| [Swin](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/swin.md)                      | 88M                           |        MM        |      1.0       |
+| [T5](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/t5.md)                          | 14M/60M                       |    Dense LLM     |      1.0       |
+| [VisualGLM](https://gitee.com/mindspore/mindformers/blob/r1.0/research/visualglm/visualglm.md)          | 6B                            |        MM        |      1.0       |
+| [Ziya](https://gitee.com/mindspore/mindformers/blob/r1.0/research/ziya/ziya.md)                         | 13B                           |    Dense LLM     |      1.0       |
+| [Bert](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/bert.md)                      | 4M/110M                       |    Dense LLM     |      0.8       |
 
 The model maintenance strategy follows the [Life Cycle And Version Matching Strategy](#4-life-cycle-and-version-matching-strategy) of the corresponding latest supported version.
 
@@ -89,7 +89,7 @@ The model maintenance strategy follows the [Life Cycle And Version Matching Stra
 
 ### Version Mapping
 
-Currently, the [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2) training server is supported.
+Currently supported hardware includes Atlas 800T A2, Atlas 800I A2, and Atlas 900 A3 SuperPoD.
 
 Python 3.11.4 is recommended for the current suite.
 
@@ -101,6 +101,7 @@ Historical Version Supporting Relationships:
 
 | MindSpore Transformers |                   MindSpore                   |                                                      CANN                                                      |                                                 Driver/Firmware                                                 |
 |:----------------------:|:---------------------------------------------:|:--------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------:|
+|         1.6.0          |   [2.7.0](https://www.mindspore.cn/install)   | [8.2.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/82RC1/softwareinst/instg/instg_0000.html) |  [25.2.0](https://www.hiascend.com/document/detail/zh/canncommercial/82RC1/softwareinst/instg/instg_0000.html)  |
 |         1.5.0          | [2.6.0-rc1](https://www.mindspore.cn/install) | [8.1.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html) | [25.0.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html) |
 |         1.3.2          |  [2.4.10](https://www.mindspore.cn/versions)  |   [8.0.0](https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html)   |   [24.1.0](https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html)   |
 |         1.3.0          |  [2.4.0](https://www.mindspore.cn/versions)   | [8.0.RC3](https://www.hiascend.com/document/detail/zh/canncommercial/80RC3/softwareinst/instg/instg_0000.html) | [24.1.RC3](https://www.hiascend.com/document/detail/zh/canncommercial/80RC3/softwareinst/instg/instg_0000.html) |
@@ -111,7 +112,7 @@ Historical Version Supporting Relationships:
 Currently, MindSpore Transformers can be compiled and installed using the source code. You can run the following commands to install MindSpore Transformers:
 
 ```shell
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b master https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
