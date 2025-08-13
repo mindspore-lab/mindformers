@@ -210,7 +210,7 @@ class GPTModel(nn.Cell):
         r"""
         Update the model input and add the related parameters of padding_index.
         """
-        if (
+        if not (
                 self.model_comm_pgs is not default_model_comm_pgs and
                 getattr(self.model_comm_pgs, 'dp', None) and
                 getattr(self.model_comm_pgs, 'moe_ep', None)
