@@ -310,7 +310,7 @@ class SelfAttention(Attention):
             self.config.hidden_size,
             self.hidden_size_per_attention_head,
             self.num_heads,
-            self.num_query_groups,
+            self.config.num_query_groups,
             config=self.config,
             bias=self.config.add_qkv_bias,
             gather_output=False,
