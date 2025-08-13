@@ -669,11 +669,13 @@ class RoutedParallelMLP(nn.Cell):
             x_scale = x_scale.reshape(-1, 1)
             if self.ffn_concat:
                 gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+                weight_scale = self.w_gate_hidden.weight_scale
             else:
                 gate = self.w1(x, group_list=group_list)
                 hidden = self.w3(x, group_list=group_list)
-                gate_hidden_out = mint.cat((gate, hidden), axis=1)
-            hidden, scale = self.act_func(gate_hidden_out, self.w_gate_hidden.weight_scale, x_scale,
+                gate_hidden_out = mint.cat((gate, hidden), dim=1)
+                weight_scale = mint.cat((self.w1.weight_scale, self.w3.weight_scale), dim=1)
+            hidden, scale = self.act_func(gate_hidden_out, weight_scale, x_scale,
                                           group_index=group_list, activate_left=True, quant_mode='dynamic')
             output = self.w2(hidden, group_list, x_scale=scale)
             return output
