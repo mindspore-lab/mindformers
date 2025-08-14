@@ -178,7 +178,7 @@ class GenerationMixin:
             context_len = batch_valid_length[i]
             input_ids_list.append(input_ids[i][:context_len])
         input_ids = np.concatenate(input_ids_list, 0)
-        input_ids = input_ids.reshape((-1))
+        input_ids = input_ids.reshape((1, -1))
         slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
         model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
@@ -423,6 +423,8 @@ class GenerationMixin:
             if self._exec_add_flags:
                 self.add_flags_custom(is_first_iteration=True)
             self.detailed_latency.start_predict_timer()
+            if need_flatten:
+                model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
             # pylint: disable=E1102
             res = self(
@@ -1296,8 +1298,14 @@ class GenerationMixin:
                 current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
                                                                           step=real_input_ids.shape[-1])
             if use_past:
+                need_flatten = False
+                if "need_flatten" in model_inputs:
+                    need_flatten = model_inputs["need_flatten"]
+                    model_inputs.pop("need_flatten")
                 if "batch_valid_length" not in model_inputs:
-                    model_inputs["batch_valid_length"] = np.array(valid_length_each_example, dtype=np.int32)
+                    model_inputs["batch_valid_length"] = np.array(valid_length_each_example, dtype=np.int32) \
+                                                         if need_flatten else \
+                                                         np.array([valid_length_each_example], dtype=np.int32)
                 if block_tables is not None and "block_tables" not in model_inputs:
                     model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
                 if slot_mapping is not None and "slot_mapping" not in model_inputs:
@@ -1305,10 +1313,6 @@ class GenerationMixin:
 
                 model_inputs = self.update_padding_index_to_inputs(model_inputs)
 
-                need_flatten = False
-                if "need_flatten" in model_inputs:
-                    need_flatten = model_inputs["need_flatten"]
-                    model_inputs.pop("need_flatten")
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
