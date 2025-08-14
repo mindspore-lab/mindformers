@@ -34,13 +34,16 @@ NOT_EXISTS = False
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
-def test_save_common_info_case():
+def test_save_and_load_common_info_case():
     """
-    Feature: Test save common info.
+    Feature: Test save common info, then load them.
     Description: Simulate saving common.json twice in succession
         to ensure that the paths and contents of both accesses are normal.
+        Then load the saved commonInfo twice to check whether the load function can obtain the value normally.
     Expectation: The first save is normal, and the second save can save the updated CommonInfo content.
+        And no error is reported during the two loads, and the content is as expected.
     """
+    # Test save common info part.
     base_common_info = CommonInfo(
         epoch_num=1,
         step_num=FIRST_ITER,
@@ -83,17 +86,7 @@ def test_save_common_info_case():
         assert '"loss_scale": 1.0' in data
         assert '"global_batch_size": 256' in data
 
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_load_common_info_case():
-    """
-    Feature: Test load common info.
-    Description: Load the saved commonInfo twice
-        to check whether the load function can obtain the value normally.
-    Expectation: No error is reported during the two loads, and the content is as expected.
-    """
+    # Test load common info part.
     # First load
     first_common_info_path = get_common_filename(CHECKPOINT_ROOT_DIR, FIRST_ITER)
     assert os.path.isfile(first_common_info_path)
