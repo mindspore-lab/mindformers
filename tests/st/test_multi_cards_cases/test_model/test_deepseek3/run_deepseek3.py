@@ -75,6 +75,7 @@ def parallel_train_dp2_mp2_ep2():
 
 def parallel_train_dp2_pp2_ep2_tnd():
     """test mcore deepseekv3 train in dp=pp=ep=2 with TND layout."""
+    ms.set_seed(0)
     config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
@@ -95,10 +96,10 @@ def parallel_train_dp2_pp2_ep2_tnd():
         batch_size=4, step_num=20
     )
 
-    loss_std = [13.549505, 13.548901, 13.554827, 13.550955, 13.550215,
-                13.560290, 13.554025, 13.556352, 13.549892, 13.551298,
-                13.547314, 13.552792, 13.549354, 13.550882, 13.553068,
-                13.549754, 13.550379, 13.556471, 13.551868, 13.548780]
+    loss_std = [13.554257, 13.549513, 13.548465, 13.554536, 13.552298,
+                13.552842, 13.552392, 13.553581, 13.547605, 13.551052,
+                13.548526, 13.552496, 13.551827, 13.549056, 13.551335,
+                13.552711, 13.549592, 13.547492, 13.549212, 13.548845]
     checker_config = {
         'loss_list_std': loss_std,
         'experiment_mode': False,
