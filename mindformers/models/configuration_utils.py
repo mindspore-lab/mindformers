@@ -223,6 +223,10 @@ class PretrainedConfig(PushToHubMixin):
         # generation config
         self.is_sample_acceleration = kwargs.pop("is_sample_acceleration", None)
 
+        # quantization config
+        self.quantization_config = kwargs.pop("quantization_config", None)
+        self.quantization = kwargs.pop("quantization", None)
+
         for key, value in kwargs.items():
             try:
                 setattr(self, key, value)
