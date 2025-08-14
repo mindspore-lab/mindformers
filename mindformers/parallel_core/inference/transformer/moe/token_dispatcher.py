@@ -202,7 +202,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             ep_world_size=self.ep_size,
             ep_rank_id=self.ep_rank,
             moe_expert_num=self.num_experts,
-            group_ep=self.ep_group,
+            group_ep=self.ep_group.group,
             tp_world_size=self.dispatch_tp_world_size,
             shared_expert_num=self.dispatch_shared_expert_num,
             global_bs=self.dispatch_global_max_bs * self.ep_size,
@@ -223,7 +223,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             ep_rank_id=self.ep_rank,
             moe_expert_num=self.num_experts,
             tp_senc_counts=tp_recv_counts,
-            group_ep=self.ep_group,
+            group_ep=self.ep_group.group,
             tp_world_size=self.dispatch_tp_world_size,
             shared_expert_num=self.dispatch_shared_expert_num,
             global_bs=self.dispatch_global_max_bs * self.ep_size)
