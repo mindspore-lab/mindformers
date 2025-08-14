@@ -13,7 +13,7 @@
 # limitations under the License.
 # ======================
 """mapping"""
-from mindspore import Tensor, mint, nn, ops
+from mindspore import Tensor, nn, ops
 
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup
 
@@ -30,13 +30,16 @@ class GatherFromModelParallelRegion(nn.Cell):
             self.all_gather_into_tensor = ops.AllGather(group=self.group)
 
     def construct(self, input_: Tensor) -> Tensor:
+        """ construct for GatherFromModelParallelRegion. """
         if self.group_size == 1:
             return input_
         if self.dim == 0:
             return self.all_gather_into_tensor(input_)
-        input_ = mint.transpose(input_, 0, self.dim)
+        perm = list(range(input_.ndim))
+        perm[0], perm[self.dim] = self.dim, 0
+        input_ = input_.transpose(*perm)
         output = self.all_gather_into_tensor(input_)
-        output = mint.transpose(output, 0, self.dim)
+        output = output.transpose(*perm)
         return output
 
 
