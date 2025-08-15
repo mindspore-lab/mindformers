@@ -226,62 +226,15 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
     def construct(self, *inputs):
         """forward and backward."""
-        weights = self.weights
         scaling_sens = self.scale_sense
         if self.dump_device_local_norm:
             _ = F.assign(self.squared_device_local_norm, Tensor(0.0, mstype.float32))
             scaling_sens = F.depend(self.scale_sense, _)
 
         if self.use_legacy:
-            if self.calculate_per_token_loss:
-                numerator, denominator = self.network(*inputs)
-                loss = numerator / denominator
-
-                scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
-                scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
-                grads = self.grad(self.network, weights)(*inputs,
-                                                         (self.cast(scaling_sens_filled, mstype.float32),
-                                                          self.cast(scaling_sens_filled2, mstype.float32)))
-                grad_scale_factor = denominator
-            else:
-                loss = self.network(*inputs)
-                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-                grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
-                grad_scale_factor = self.grad_scale_factor
+            loss, grads, grad_scale_factor = self.grads_for_legacy(scaling_sens, *inputs)
         else:
-            if self.calculate_per_token_loss:
-                numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
-                lm_loss = numerator0 / denominator0
-                mtp_loss = numerator1 / denominator0
-                aux_loss = aux_loss / denominator0
-                loss = lm_loss + aux_loss
-                loss = loss + mtp_loss
-
-                scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
-                scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
-                grads = self.grad(self.network, weights)(*inputs,
-                                                         (self.cast(scaling_sens_filled, mstype.float32),
-                                                          self.cast(scaling_sens_filled_zero, mstype.float32),
-                                                          self.cast(scaling_sens_filled, mstype.float32),
-                                                          self.cast(scaling_sens_filled_zero, mstype.float32),
-                                                          self.cast(scaling_sens_filled, mstype.float32),
-                                                          ))
-                grad_scale_factor = denominator0
-            else:
-                lm_loss, mtp_loss, aux_loss = self.network(*inputs)
-                loss = lm_loss + aux_loss
-                loss = loss + mtp_loss
-
-                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-                grads = self.grad(self.network, weights)(*inputs, (scaling_sens_filled,
-                                                                   scaling_sens_filled,
-                                                                   scaling_sens_filled))
-                grad_scale_factor = self.grad_scale_factor
-
-            if self.print_separate_loss:
-                F.assign_add(self.aux_loss_parameter, aux_loss)
-                F.assign_add(self.mtp_loss_parameter, mtp_loss)
-                F.assign_add(self.lm_loss_parameter, lm_loss)
+            loss, grads, grad_scale_factor = self.grads_for_mcore(scaling_sens, *inputs)
 
         status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
         grads = self.hyper_map(F.partial(_grad_scale, scaling_sens * grad_scale_factor), grads)
@@ -329,6 +282,62 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         if self.local_norm:
             return loss, overflow, scaling_sens, learning_rate, global_norm, local_norm, size
         return loss, overflow, scaling_sens, learning_rate, global_norm
+
+    def grads_for_legacy(self, scaling_sens, *inputs):
+        """calculate grad for legacy model"""
+        if self.calculate_per_token_loss:
+            numerator, denominator = self.network(*inputs)
+            loss = numerator / denominator
+
+            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          (self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled2, mstype.float32)))
+            grad_scale_factor = denominator
+        else:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, self.weights)(*inputs, scaling_sens_filled)
+            grad_scale_factor = self.grad_scale_factor
+        return loss, grads, grad_scale_factor
+
+    def grads_for_mcore(self, scaling_sens, *inputs):
+        """calculate grad for mcore model"""
+        if self.calculate_per_token_loss:
+            numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
+            lm_loss = numerator0 / denominator0
+            mtp_loss = numerator1 / denominator0
+            aux_loss = aux_loss / denominator0
+            loss = lm_loss + aux_loss
+            loss = loss + mtp_loss
+
+            scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
+            scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          (self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                           self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                           self.cast(scaling_sens_filled, mstype.float32),
+                                                           ))
+            grad_scale_factor = denominator0
+        else:
+            lm_loss, mtp_loss, aux_loss = self.network(*inputs)
+            loss = lm_loss + aux_loss
+            loss = loss + mtp_loss
+
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, self.weights)(*inputs, (scaling_sens_filled,
+                                                                    scaling_sens_filled,
+                                                                    scaling_sens_filled))
+            grad_scale_factor = self.grad_scale_factor
+
+        if self.print_separate_loss:
+            F.assign_add(self.aux_loss_parameter, aux_loss)
+            F.assign_add(self.mtp_loss_parameter, mtp_loss)
+            F.assign_add(self.lm_loss_parameter, lm_loss)
+        return loss, grads, grad_scale_factor
 
 
 class DataOrderWrapperCell(nn.Cell):
@@ -855,60 +864,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             scaling_sens = F.depend(self.scale_sense, _)
 
         if self.use_legacy:
-            if self.calculate_per_token_loss:
-                numerator, denominator = self.network(*inputs)
-                denominator = self.allreduce2(denominator)
-                loss = numerator / denominator
-                scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
-                scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
-
-                grads = self.grad(self.network, self.weights)(*inputs,
-                                                              (self.cast(scaling_sens_filled, mstype.float32),
-                                                               self.cast(scaling_sens_filled2, mstype.float32)))
-                grad_scale_factor = denominator
-            else:
-                loss = self.network(*inputs)
-                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-                grads = self.grad(self.network, self.weights)(*inputs,
-                                                              self.cast(scaling_sens_filled / self.micro_size,
-                                                                        mstype.float32))
-                grad_scale_factor = self.grad_scale_factor
+            loss, grads, grad_scale_factor = self.grads_for_legacy(scaling_sens, *inputs)
         else:
-            if self.calculate_per_token_loss:
-                numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
-                denominator0 = self.allreduce2(denominator0)
-                lm_loss = numerator0 / denominator0
-                mtp_loss = numerator1 / denominator0
-                aux_loss = aux_loss / denominator0
-                loss = lm_loss + aux_loss
-                loss = loss + mtp_loss
-
-                scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
-                scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
-                grads = self.grad(self.network, self.weights)(*inputs,
-                                                              (self.cast(scaling_sens_filled, mstype.float32),
-                                                               self.cast(scaling_sens_filled_zero, mstype.float32),
-                                                               self.cast(scaling_sens_filled, mstype.float32),
-                                                               self.cast(scaling_sens_filled_zero, mstype.float32),
-                                                               self.cast(scaling_sens_filled / self.micro_size,
-                                                                         mstype.float32),
-                                                               ))
-                grad_scale_factor = denominator0
-            else:
-                lm_loss, mtp_loss, aux_loss = self.network(*inputs)
-                loss = lm_loss + aux_loss
-                loss = loss + mtp_loss
-                scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-                scaling_sens_filled = self.cast(scaling_sens_filled / self.micro_size, mstype.float32)
-                grads = self.grad(self.network, self.weights)(*inputs, (scaling_sens_filled,
-                                                                        scaling_sens_filled,
-                                                                        scaling_sens_filled))
-                grad_scale_factor = self.grad_scale_factor
-
-            if self.print_separate_loss:
-                F.assign_add(self.aux_loss_parameter, aux_loss)
-                F.assign_add(self.mtp_loss_parameter, mtp_loss)
-                F.assign_add(self.lm_loss_parameter, lm_loss)
+            loss, grads, grad_scale_factor = self.grads_for_mcore(scaling_sens, *inputs)
 
         if self.local_norm:
             local_norm, size = self.localnorm(grads)
@@ -960,3 +918,64 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         if self.local_norm:
             return loss, overflow, scaling_sens.value(), learning_rate, global_norm, local_norm, size
         return loss, overflow, scaling_sens.value(), learning_rate, global_norm
+
+    def grads_for_legacy(self, scaling_sens, *inputs):
+        """calculate grad for legacy model"""
+        if self.calculate_per_token_loss:
+            numerator, denominator = self.network(*inputs)
+            denominator = self.allreduce2(denominator)
+            loss = numerator / denominator
+            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
+
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          (self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled2, mstype.float32)))
+            grad_scale_factor = denominator
+        else:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          self.cast(scaling_sens_filled / self.micro_size,
+                                                                    mstype.float32))
+            grad_scale_factor = self.grad_scale_factor
+        return loss, grads, grad_scale_factor
+
+    def grads_for_mcore(self, scaling_sens, *inputs):
+        """calculate grad for mcore model"""
+        if self.calculate_per_token_loss:
+            numerator0, denominator0, numerator1, _, aux_loss = self.network(*inputs)
+            denominator0 = self.allreduce2(denominator0)
+            lm_loss = numerator0 / denominator0
+            mtp_loss = numerator1 / denominator0
+            aux_loss = aux_loss / denominator0
+            loss = lm_loss + aux_loss
+            loss = loss + mtp_loss
+
+            scaling_sens_filled = C.ones_like(numerator0) * F.cast(scaling_sens, F.dtype(numerator0))
+            scaling_sens_filled_zero = self.zero_t * F.cast(scaling_sens, F.dtype(denominator0))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          (self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                           self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled_zero, mstype.float32),
+                                                           self.cast(scaling_sens_filled / self.micro_size,
+                                                                     mstype.float32),
+                                                           ))
+            grad_scale_factor = denominator0
+        else:
+            lm_loss, mtp_loss, aux_loss = self.network(*inputs)
+            loss = lm_loss + aux_loss
+            loss = loss + mtp_loss
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            scaling_sens_filled = self.cast(scaling_sens_filled / self.micro_size, mstype.float32)
+            grads = self.grad(self.network, self.weights)(*inputs, (scaling_sens_filled,
+                                                                    scaling_sens_filled,
+                                                                    scaling_sens_filled))
+            grad_scale_factor = self.grad_scale_factor
+
+        if self.print_separate_loss:
+            F.assign_add(self.aux_loss_parameter, aux_loss)
+            F.assign_add(self.mtp_loss_parameter, mtp_loss)
+            F.assign_add(self.lm_loss_parameter, lm_loss)
+        return loss, grads, grad_scale_factor
