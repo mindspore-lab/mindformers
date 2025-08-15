@@ -84,7 +84,7 @@ class MLP(nn.Cell):
 
         self.input_size = input_size if input_size is not None else self.config.hidden_size
         self.tp_group = tp_group
-        self.tp_group_size = self.tp_group.size
+        self.tp_group_size = tp_group.size if tp_group is not None else 1
 
         if is_expert and self.config.moe_ffn_hidden_size is not None:
             ffn_hidden_size = self.config.moe_ffn_hidden_size
