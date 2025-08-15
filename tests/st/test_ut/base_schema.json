@@ -255,7 +255,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False, **kwargs)"
     },
     "mindformers.core.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -486,7 +486,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False, **kwargs)"
     },
     "mindformers.core.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -666,7 +666,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, print_separate_loss: bool = False, **kwargs)"
     },
     "mindformers.core.callback.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"

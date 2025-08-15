@@ -22,7 +22,6 @@ from mindspore.communication._comm_helper import _is_initialized as mindspore_co
 from mindformers.models.utils import jit
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
 from mindformers.parallel_core.inference.utils import update_comm_config
@@ -50,7 +49,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
     def __init__(self, config: Qwen3MoeConfig):
         super().__init__(config, auto_prefix=False)
         self.config = config
-        config: TransformerConfig = convert_to_transformer_config(self.config)
+        config: TransformerConfig = self.convert_to_transformer_config(self.config)
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(
                 data_parallel_size=config.data_parallel_size,

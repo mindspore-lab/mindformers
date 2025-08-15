@@ -49,6 +49,7 @@ def parallel_train_dp2_mp2_ep2():
     """test mcore deepseekv3 train in dp=mp=ep=2."""
     ms.set_seed(0)
     config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = False
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
     config.runner_config.sink_mode = False
@@ -77,6 +78,7 @@ def parallel_train_dp2_pp2_ep2_tnd():
     """test mcore deepseekv3 train in dp=pp=ep=2 with TND layout."""
     ms.set_seed(0)
     config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = False
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
     config.runner_config.sink_mode = True

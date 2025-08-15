@@ -679,7 +679,7 @@ class BaseTrainer:
         logger.info(".........Build Model Wrapper for Train From Config..........")
         calculate_per_token_loss = getattr(self.config, "calculate_per_token_loss", False)
         use_skip_data_by_global_norm = getattr(self.config, "use_skip_data_by_global_norm", False)
-        print_separate_loss = getattr(self.config, "print_separate_loss", False)
+        print_separate_loss = getattr(self.config, "print_separate_loss", True)
         global_norm_spike_threshold = 1.0
         if self.config.get('monitor_config') is not None:
             global_norm_spike_threshold = getattr(self.config.monitor_config, "global_norm_spike_threshold", 1.0)
@@ -1014,6 +1014,12 @@ class BaseTrainer:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
+        is_moe_model = False
+        is_mtp_model = False
+        if not is_legacy_model():
+            is_moe_model = network.is_moe_model()
+            is_mtp_model = network.is_mtp_model()
+
         config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
@@ -1089,7 +1095,9 @@ class BaseTrainer:
                     "global_batch_size": self.global_batch_size,
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps,
                     "calculate_per_token_loss": getattr(config, "calculate_per_token_loss", False),
-                    "print_separate_loss": getattr(config, "print_separate_loss", False)
+                    "print_separate_loss": getattr(config, "print_separate_loss", True),
+                    "is_moe_model": is_moe_model,
+                    "is_mtp_model": is_mtp_model
                 }
             if "type" in callback and callback["type"] == "TrainingStateMonitor":
                 default_args = {

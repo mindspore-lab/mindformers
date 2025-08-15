@@ -19,7 +19,6 @@ from mindspore import Tensor
 
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
 
 
@@ -43,9 +42,7 @@ class TrainingQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, TrainModelMixin):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=False)
-        self.config = config
-        config: TransformerConfig = convert_to_transformer_config(self.config)
-        self.compute_dtype = config.compute_dtype
+        config: TransformerConfig = self.convert_to_transformer_config(self.config)
 
         self.model = GPTModel(
             config=config,

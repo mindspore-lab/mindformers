@@ -222,7 +222,8 @@ class MFLossMonitor(Callback):
                  gradient_accumulation_steps: int = 1,
                  check_for_nan_in_loss_and_grad: bool = False,
                  calculate_per_token_loss: bool = False,
-                 print_separate_loss: bool = False):
+                 print_separate_loss: bool = False,
+                 **kwargs):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -252,8 +253,12 @@ class MFLossMonitor(Callback):
         self.mstx_range_id = None
         self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and _check_mspti_is_on()
         self.print_separate_loss = print_separate_loss
+        self.is_moe_model = kwargs.get("is_moe_model", False)
+        self.is_mtp_model = kwargs.get("is_mtp_model", False)
         if self.print_separate_loss and is_legacy_model():
             logger.warning("print_separate_loss = True, is not supported when use_legacy = True.")
+            self.print_separate_loss = False
+        if self.print_separate_loss and not self.is_moe_model and not self.is_mtp_model:
             self.print_separate_loss = False
 
     def on_train_epoch_begin(self, run_context):
@@ -513,69 +518,39 @@ class MFLossMonitor(Callback):
         else:
             throughput_info = ''
 
+        if cb_params.dataset_sink_mode:
+            loss = "loss: %5.3f, " % loss
+        else:
+            loss = "loss:[%5.3f/%5.3f], " % (loss, np.mean(self.loss_list))
+        if self.print_separate_loss:
+            separate_loss = "lm_loss: %5.3f, " % main_loss
+            if self.is_moe_model:
+                separate_loss += "aux_loss: %5.3f, " % extra_loss
+            if self.is_mtp_model:
+                separate_loss += "mtp_loss: %5.3f, " % mtp_loss
+        else:
+            separate_loss = ""
         if current_lr is not None:
-            if cb_params.dataset_sink_mode:
-                if self.print_separate_loss:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                                "lm_loss: %5.4f, extra_loss: %5.4f, mtp_loss: %5.4f, "
-                                "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                main_loss, extra_loss, mtp_loss,
-                                int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
-                else:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                                "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
-            else:
-                if self.print_separate_loss:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                                "lm_loss: %5.4f, extra_loss: %5.4f, mtp_loss: %5.4f,  "
-                                "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                np.mean(self.loss_list), main_loss, extra_loss, mtp_loss,
-                                int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
-                else:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                                "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                np.mean(self.loss_list),
-                                int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
+            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss + separate_loss +
+                        "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
+                        cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch,
+                        int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
             if self.tensor_writer is not None:
                 self.tensor_writer.add_scalar('learning-rate', float(current_lr), global_step=global_step)
                 self.tensor_writer.add_scalar('learning-rate vs samples', float(current_lr),
                                               global_step=global_step * self.global_batch_size)
         else:
-            if cb_params.dataset_sink_mode:
-                if self.print_separate_loss:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                                "lm_loss: %5.4f, extra_loss: %5.4f, mtp_loss: %5.4f,  "
-                                "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                main_loss, extra_loss, mtp_loss,
-                                int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
-                else:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                                "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
-            else:
-                if self.print_separate_loss:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                                "lm_loss: %5.4f, extra_loss: %5.4f, mtp_loss: %5.4f,  "
-                                "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                np.mean(self.loss_list), main_loss, extra_loss, mtp_loss,
-                                int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
-                else:
-                    logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                                "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
-                                cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                                np.mean(self.loss_list),
-                                int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
+            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss + separate_loss +
+                        "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
+                        cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch,
+                        int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
+
+        # print progress bar
         show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
         logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                     timedelta(seconds=int(time_remain)))
+
+        # write tensorboard
         if self.tensor_writer is not None:
             self.tensor_writer.add_scalar('batch-size', self.global_batch_size, global_step=global_step)
             self.tensor_writer.add_scalar('batch-size vs samples', self.global_batch_size,
@@ -603,8 +578,10 @@ class MFLossMonitor(Callback):
                                               global_step=global_step * self.global_batch_size)
             if self.print_separate_loss:
                 self.tensor_writer.add_scalar('lm-loss', main_loss, global_step=global_step)
-                self.tensor_writer.add_scalar('mtp-loss', mtp_loss, global_step=global_step)
-                self.tensor_writer.add_scalar('aux-loss', extra_loss, global_step=global_step)
+                if self.is_mtp_model:
+                    self.tensor_writer.add_scalar('mtp-loss', mtp_loss, global_step=global_step)
+                if self.is_moe_model:
+                    self.tensor_writer.add_scalar('aux-loss', extra_loss, global_step=global_step)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

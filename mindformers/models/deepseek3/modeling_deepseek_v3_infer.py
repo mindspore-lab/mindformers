@@ -19,7 +19,6 @@ from mindspore.communication._comm_helper import _is_initialized as mindspore_co
 
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
     is_initialized,
@@ -49,7 +48,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
         self.config = config
-        config: MLATransformerConfig = convert_to_transformer_config(
+        config: MLATransformerConfig = self.convert_to_transformer_config(
             self.config,
             is_mla_model=True,
         )
