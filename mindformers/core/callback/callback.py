@@ -361,9 +361,13 @@ class MFLossMonitor(Callback):
     def _fix_loss_for_parallel(self, loss, print_warning=True):
         """Fix loss value in pipeline or double parallel mode."""
         pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
-        if pipeline_stages > 1 and self.print_warning_flag and print_warning:
-            logger.warning("pipeline stages: %s > 1, the loss on the last card is valid.",
-                           pipeline_stages)
+        self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
+        if self.is_zbv and self.print_warning_flag and print_warning:
+            logger.warning("When zero_bubble_v is enabled, loss is valid only on rank 0")
+        else:
+            if pipeline_stages > 1 and self.print_warning_flag and print_warning:
+                logger.warning("pipeline stages: %s > 1, the loss on the last card is valid.",
+                               pipeline_stages)
 
         if self.micro_batch_interleave_num > 1 and self.print_warning_flag and print_warning:
             logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.",

@@ -125,6 +125,7 @@ class GPTModel(nn.Cell):
         self.fp16_lm_cross_entropy = fp16_lm_cross_entropy
         self.parallel_output = parallel_output
         self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
+        self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
 
         if hasattr(self.config, 'position_embedding_type'):
             # By default, use the position_embedding_type configuration in TransformerConfig.
@@ -542,7 +543,12 @@ class GPTModel(nn.Cell):
         pipeline_stage = config.pipeline_model_parallel_size
         if pipeline_stage > 1:
             self.embedding.pipeline_stage = 0
-            self.output_layer.pipeline_stage = pipeline_stage - 1
+            self.embedding.pipeline_segment = 0
+            if self.is_zbv:
+                self.output_layer.pipeline_stage = 0
+                self.output_layer.pipeline_segment = 1
+            else:
+                self.output_layer.pipeline_stage = pipeline_stage - 1
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
