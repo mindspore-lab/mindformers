@@ -706,7 +706,8 @@ class DeepseekV3MoE(Cell):
             self.routed_experts = ParallelMoEV2(ffn, self.config.hidden_size, self.moe_config)
         else:
             self.routed_experts = ExpertParallelMoE(ffn, self.config.hidden_size,
-                                                    self.moe_config, self.config.parallel_config.use_alltoall)
+                                                    self.moe_config, self.config.parallel_config.use_alltoall,
+                                                    self.config.compute_dtype)
 
         self.attn_reduce_scatter = config.parallel_config.attn_reduce_scatter
         self.attn_allgather = config.parallel_config.attn_allgather
@@ -1603,7 +1604,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
 
         from mindformers.parallel_core.inference.parallel_state import get_data_parallel_group
         tokens_len_per_dp = q_seq_len.sum().reshape(-1)
-        tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group())(tokens_len_per_dp)
+        tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group().group)(tokens_len_per_dp)
         tokens_len_per_dp = tokens_len_per_dp.asnumpy()
         padding_size = (tokens_len_per_dp.max() + tp_size - 1) // tp_size * tp_size
         dp_rank_id = get_rank() // tp_size
