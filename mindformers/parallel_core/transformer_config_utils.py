@@ -244,17 +244,17 @@ COMMON_CONFIG_MAPPING = {
     # Model Architecture
     ("mtp_depth", "num_nextn_predict_layers", "mtp_num_layers"): "mtp_num_layers",
     ("mtp_loss_factor", "mtp_loss_scaling_factor"): "mtp_loss_scaling_factor",
-    ("num_heads", "num_attention_heads"): "num_attention_heads",
+    ("num_heads", "num_attention_heads", "n_head"): "num_attention_heads",
     ("n_kv_heads", "num_key_value_heads", "num_query_groups"): "num_query_groups",
     ("intermediate_size", "ffn_hidden_size"): "ffn_hidden_size",
     ("head_dim", "kv_channels"): "kv_channels",
     ("residual_dtype", "fp32_residual_connection"): (
         "fp32_residual_connection", is_float_32
     ),
-    ("rms_norm_eps", "layernorm_epsilon"): "layernorm_epsilon",
+    ("rms_norm_eps", "layernorm_epsilon", "layer_norm_epsilon"): "layernorm_epsilon",
     ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
-    ("num_layers", "num_hidden_layers"): "num_layers",
+    ("num_layers", "num_hidden_layers", "n_layer"): "num_layers",
     ("rope_interleave", "rotary_interleaved"): "rotary_interleaved",
     # not changes
     "hidden_size": "hidden_size",
@@ -280,6 +280,7 @@ COMMON_CONFIG_MAPPING = {
     "use_eod_reset": "use_eod_reset",
     "use_contiguous_weight_layout": "use_contiguous_weight_layout",
     "post_process": "post_process",
+    "mlp_linear_fc1_bias": "mlp_linear_fc1_bias",
 
     # Flash Attention
     # not changes

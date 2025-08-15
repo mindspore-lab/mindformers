@@ -218,6 +218,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     select_comm_recompute_exclude: Optional[Union[bool, list]] = False
     """Disable communication recomputation for the specified operator, valid only for the Primitive operators."""
 
+    softmax_compute_dtype: str = 'float32'
+    """Data type for computing softmax during attention computation."""
+
     ####################
     # MoE
     ####################

@@ -140,7 +140,6 @@ class DeepseekV3Config(PretrainedConfig):
         seq_length=4096,
         compute_dtype='bf16',
         layernorm_compute_dtype="fp32",
-        softmax_compute_dtype="fp32",
         rotary_dtype="fp32",
         hidden_dropout=0.0,
         use_flash_attention=True,
