@@ -196,6 +196,8 @@ class Attention(nn.Cell):
         self.cast = aclnn_ops.Cast()
         self.reshape = aclnn_ops.Reshape()
         self.merge_head_transpose = aclnn_ops.Transpose()
+        self.bs_transpose = aclnn_ops.Transpose()
+        self.tnd_transpose = aclnn_ops.Transpose()
         self.tile_kv = aclnn_ops.Tile()
         self.cat = aclnn_ops.Concat(2)
         self.shard(self.config)
@@ -228,6 +230,23 @@ class Attention(nn.Cell):
         is "self-attn" or "cross-attn".
         """
 
+    def sbh2tnd(self, x, num_heads):
+        """
+        Convert a input tensor from SBH/SBND layout to TND layout.
+
+        Inputs:
+            x: input tensor
+            num_head: the attention head number of x
+
+        Output:
+            x_merge: the TND output tensor
+        """
+        seq_len, bs = x.shape[:2]
+        x = self.reshape(x, (seq_len, bs, num_heads, -1))
+        x = self.tnd_transpose(x, (1, 0, 2, 3))
+        x = self.reshape(x, (bs * seq_len, num_heads, -1))
+        return x
+
     def construct(
             self,
             hidden_states,
@@ -256,11 +275,7 @@ class Attention(nn.Cell):
             key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
 
         # with ulysses context parallel, insert all to all before FA
-        if self.input_layout == "TND":
-            query = query.reshape(query, (-1, self.num_heads, self.head_dim))
-            key = key.reshape(key, (-1, self.kv_num_heads, self.head_dim))
-            value = value.reshape(value, (-1, self.kv_num_heads, self.head_dim))
-        elif self.cp > 1 and self.cp_ds > 1:
+        if self.cp > 1 and self.cp_ds > 1:
             # For query & key, transpose from [B, N, S, D] back to [B, S, N, D]
             query = self.transpose_back(query, (0, 2, 1, 3))
             query = self._ulysses_q_a2a(query)
@@ -276,6 +291,11 @@ class Attention(nn.Cell):
         else:
             value = self.reshape(value, (seq_len, bs, self.kv_num_heads, self.head_dim))
             key, value = self._cat_prefix(key, value, prefix_keys_values)
+
+        if self.input_layout == "TND":
+            query = self.sbh2tnd(query, self.num_heads)
+            key = self.sbh2tnd(key, self.kv_num_heads)
+            value = self.sbh2tnd(value, self.kv_num_heads)
 
         if not self.use_flash_attention:
             key = self._repeat_kv(key, self.n_rep)
@@ -299,7 +319,8 @@ class Attention(nn.Cell):
 
             # with ulysses context parallel, insert all to all after FA
             if self.input_layout == "TND":
-                context_layer = self.reshape(output, (seq_len, bs, -1))
+                output = self.reshape(output, (bs, seq_len, -1))
+                context_layer = self.bs_transpose(output, (1, 0, 2))
             elif self.cp > 1 and self.cp_ds > 1:
                 output = self._ulysses_context_layer_a2a(output)
                 context_layer = output
@@ -434,6 +455,8 @@ class Attention(nn.Cell):
         cp = 1 if config is None else config.context_parallel_size
 
         self.merge_head_transpose.shard(((dp, tp, cp, 1),))
+        self.bs_transpose.shard(((dp, cp, tp),))
+        self.tnd_transpose.shard(((cp, dp, tp, 1),))
         self.tile_kv.shard(((dp, tp, 1, cp),))
         self.cat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
 
