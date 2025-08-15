@@ -126,9 +126,10 @@ class GenerationMixin:
             if num_query_groups < tp_group_size:
                 num_query_groups = tp_group_size
 
-            hidden_size_per_attention_head = getattr(tansformer_config, 'kv_channels', divide(
-                tansformer_config.hidden_size, num_heads
-            ))
+            if hasattr(tansformer_config, 'kv_channels'):
+                hidden_size_per_attention_head = getattr(tansformer_config, 'kv_channels')
+            else:
+                hidden_size_per_attention_head = divide(tansformer_config.hidden_size, num_heads)
 
             if num_heads != num_query_groups:
                 num_query_groups_per_partition = divide(num_query_groups, tp_group_size)

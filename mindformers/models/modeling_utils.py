@@ -199,8 +199,20 @@ class ModelMixin:
     """
 
     def convert_name(self, weight_name):
-        """convert HuggingFace weight name to MindFormers weight name"""
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
+        r"""
+        convert HuggingFace weight name to MindFormers weight name.
+
+        Args:
+            weight_name: huggingface weight names.
+
+        Returns:
+            weight_name: converted weight names.
+
+        """
+        for hf_name, mcore_name in self.weight_mapping:
+            if hf_name in weight_name:
+                weight_name = weight_name.replace(hf_name, mcore_name)
+        return weight_name
 
     def set_dynamic_inputs(self, **kwargs):
         """

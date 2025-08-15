@@ -36,6 +36,7 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import (
     RowParallelLinear,
     QKVParallelLinear,
     ReplicatedLinear,
+    MergedColumnParallelLinear
 )
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
@@ -192,6 +193,7 @@ def get_gpt_decoder_block_spec(
 
 def get_mlp_module_spec(
         num_experts: Optional[int] = None,
+        gated_linear_unit: Optional[bool] = True, # Whether to use gated linear unit in MLP.
 ) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE."""
     if num_experts is None:
@@ -199,7 +201,7 @@ def get_mlp_module_spec(
         return ModuleSpec(
             module=MLP,
             submodules=MLPSubmodules(
-                linear_fc1=ColumnParallelLinear,
+                linear_fc1=MergedColumnParallelLinear if gated_linear_unit else ColumnParallelLinear,
                 linear_fc2=RowParallelLinear,
             ),
         )

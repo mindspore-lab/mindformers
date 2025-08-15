@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Qwen2 models' utils."""
-from mindformers.tools.logger import logger
 from mindformers.models.qwen2.configuration_qwen2 import Qwen2Config
 from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
 
@@ -27,31 +26,17 @@ class Qwen2PreTrainedModel(PreTrainedModel, ModelMixin):
     config_class = Qwen2Config
     base_model_prefix = "Qwen2"
 
-    def convert_name(self, weight_name):
-        r"""
-        convert HuggingFace weight name to MindFormers weight name.
-
-        Args:
-            weight_name: huggingface weight names.
-
-        Returns:
-            weight_name: converted weight names.
-
-        """
-        origin_name = weight_name
-        weight_name = weight_name.replace('model.embed_tokens.', 'embedding.word_embeddings.')
-        weight_name = weight_name.replace('.self_attn.q_proj.', '.self_attention.linear_q.')
-        weight_name = weight_name.replace('.self_attn.k_proj.', '.self_attention.linear_k.')
-        weight_name = weight_name.replace('.self_attn.v_proj.', '.self_attention.linear_v.')
-        weight_name = weight_name.replace('.self_attn.o_proj.', '.self_attention.linear_proj.')
-        weight_name = weight_name.replace('.mlp.gate_proj.', '.mlp.gating.')
-        weight_name = weight_name.replace('.mlp.down_proj.', '.mlp.linear_fc2.')
-        weight_name = weight_name.replace('.mlp.up_proj.', '.mlp.linear_fc1.')
-        weight_name = weight_name.replace('.post_attention_layernorm.', '.pre_mlp_layernorm.')
-        weight_name = weight_name.replace('model.norm.', 'decoder.final_layernorm.')
-        weight_name = weight_name.replace('lm_head.', 'output_layer.')
-        weight_name = weight_name.replace('model.layers.', 'decoder.layers.')
-        if weight_name == origin_name:
-            logger.warning(f"weight name '{weight_name}' does not change after conversion. "
-                           f"Please check if it is as expected.")
-        return weight_name
+    weight_mapping = [
+        ('model.embed_tokens.', 'embedding.word_embeddings.'),
+        ('.self_attn.q_proj.', '.self_attention.linear_q.'),
+        ('.self_attn.k_proj.', '.self_attention.linear_k.'),
+        ('.self_attn.v_proj.', '.self_attention.linear_v.'),
+        ('.self_attn.o_proj.', '.self_attention.linear_proj.'),
+        ('.mlp.gate_proj.', '.mlp.gating.'),
+        ('.mlp.down_proj.', '.mlp.linear_fc2.'),
+        ('.mlp.up_proj.', '.mlp.hidden.'),
+        ('.post_attention_layernorm.', '.pre_mlp_layernorm.'),
+        ('model.norm.', 'decoder.final_layernorm.'),
+        ('lm_head.', 'output_layer.'),
+        ('model.layers.', 'decoder.layers.')
+    ]

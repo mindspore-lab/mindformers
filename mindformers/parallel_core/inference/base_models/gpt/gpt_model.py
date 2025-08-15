@@ -13,13 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """GPT Transformer language model"""
-from typing import Literal, Optional
-import gc
-import re
-from tqdm import tqdm
+from typing import Dict, Iterable, Optional, Set, Tuple, Literal
 
-import mindspore as ms
-from mindspore import nn, ops, mint
+from mindspore import nn, ops, mint, Tensor
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -32,32 +28,8 @@ from mindformers.parallel_core.inference.transformer.transformer_block import Tr
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.weights_utils import default_weight_loader, make_expert_params_mapping
 from mindformers.tools.logger import logger
-
-
-_convert_map = {
-    ("embedding.word_embeddings", "output_layer", "self_attention.linear_q_proj"): "split_by_tp_rank_columns",
-
-    ("self_attention.linear_qkv", "linear_qkv.bias",
-     "mlp.linear_fc1", "shared_experts.linear_fc1"): "add_qkv_ffn_weight_into_dict",
-
-    ("self_attention.linear_proj", "mlp.linear_fc2", "shared_experts.linear_fc2"): "split_by_tp_rank_rows",
-
-    ("input_layernorm", "pre_mlp_layernorm", "decoder.final_layernorm",
-     "self_attention.q_layernorm", "self_attention.k_layernorm",
-     "router.weight.weight", "self_attention.kv_layernorm",
-     "router.expert_bias"): "not_split",
-
-    ("experts.weight1",): "add_router_expert_weight1_into_dict",
-
-    ("experts.weight2",): "add_router_expert_weight2_into_dict",
-
-    ("self_attention.linear_qkv_down_proj", "self_attention.linear_kv_down_proj"): "add_linear_kv_down_proj_into_dict",
-
-    ("self_attention.linear_q_up_proj",): "add_linear_q_up_proj_into_dict",
-
-    ("self_attention.linear_kv_up_proj",): "add_linear_kv_up_proj_into_dict",
-}
 
 
 class GPTModel(nn.Cell):
@@ -220,6 +192,11 @@ class GPTModel(nn.Cell):
         self.cast = ops.Cast()
         self.gather = ops.Gather()
 
+        self.set_modules({"model": self})
+
+    def set_modules(self, model_dicts: Dict[str, nn.Cell]):
+        self.modules_dict = model_dicts
+
     def pre_gather_func(self, output, context_lens_tensor, seq_lens_tensor):
         """Pre gather operation in infer mode."""
         if self.is_prefill:
@@ -269,124 +246,75 @@ class GPTModel(nn.Cell):
         logits = self.cast(logits.squeeze(0), mstype.float32)
         return logits
 
-    def load_weights(self, weights_loader):
+    def get_params_dict(self):
+        params_dict = dict()
+        for _, module in self.modules_dict.items():
+            module_params = module.parameters_dict()
+            for param_name, param in module_params.items():
+                params_dict[param_name] = param
+
+        return params_dict
+
+    def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None):
         r"""
         The weight is processed in modules, and the weight is cut online and loaded.
 
         Args:
-           weights_loader: An instance of WeightsUtils.
-
+            weights: An iterable (usually a generator) yielding tuples of (parameter_name, parameter_tensor).
+                    The tensor is a sliceable object (like PySafeSlice) for memory efficiency.
+            stacked_params_mapping: A list of expert parameter mappings, where each element is a tuple of
+                                    (param_name, weight_name, shard_id).
+                                    - param_name: Prefix of the model parameter name
+                                    - weight_name: Weight name of the logical expert
+                                    - shard_id: Shard ID
         """
-        network_not_load = []
-        weights_not_load = []
+        loaded_params: Set[str] = set()
+        params_dict = self.get_params_dict()
 
-        all_weights_keys = set(weights_loader.mapping_dict.keys())
-        warned_layers = set()
-        pattern = re.compile(r'\.')
+        expert_params_mapping = []
+        if self.config.num_moe_experts:
+            expert_params_mapping = make_expert_params_mapping(
+                ckpt_gate_proj_name="gating",
+                ckpt_down_proj_name="linear_fc2",
+                ckpt_up_proj_name="hidden",
+                num_experts=self.config.num_moe_experts)
 
-        with tqdm(total=len(all_weights_keys), desc="Loading weights") as pbar:
-            while all_weights_keys:
-                weight_key = next(iter(all_weights_keys))
-                if not (weight_key.endswith("weight") or weight_key.endswith("bias")):
-                    all_weights_keys.remove(weight_key)
-                    weights_not_load.append(weight_key)
-                    pbar.update(1)
+        for name, loaded_weight in weights:
+
+            if "weight_scale_inv" in name:
+                continue
+
+            for param_name, weight_name, shard_id in stacked_params_mapping:
+                if weight_name not in name:
                     continue
-                parts = pattern.split(weight_key)
-                layer_id = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
-                if layer_id is not None:
-                    if layer_id >= self.config.num_layers:
-                        if layer_id not in warned_layers:
-                            logger.warning(f'Layer {layer_id} exceeds network depth, skipping weights.')
-                            warned_layers.add(layer_id)
-                        all_weights_keys.remove(weight_key)
-                        pbar.update(1)
+                name = name.replace(weight_name, param_name)
+                if name in params_dict:
+                    param = params_dict[name]
+                    weight_loader = param.weight_loader
+                    weight_loader(param, loaded_weight, shard_id)
+                    loaded_params.add(name)
+                    break
+            else:
+                for mapping in expert_params_mapping:
+                    param_name, weight_name, expert_id, shard_id = mapping
+                    if weight_name not in name:
                         continue
-                    layer_prefixes = (f'model.layers.{layer_id}.', f'decoder.layers.{layer_id}.')
-                    layer_keys = {k for k in all_weights_keys if k.startswith(layer_prefixes)}
-                    self._deal_weight_dict(weights_loader, layer_keys, weights_not_load)
-                    net_not_load, _ = ms.load_param_into_net(
-                        self.decoder.layers[layer_id], weights_loader.parameter_dict)
-                    if net_not_load:
-                        network_not_load.append(net_not_load)
-                    all_weights_keys -= layer_keys
-                    gc.collect()
-                    pbar.update(len(layer_keys))
-                    pbar.set_postfix({"current": f"layer_{layer_id}"})
-
+                    name = name.replace(weight_name, param_name)
+                    name = name[:name.rfind('.')]
+                    if name in params_dict:
+                        param = params_dict[name]
+                        weight_loader = param.weight_loader
+                        weight_loader(param, loaded_weight, shard_id=shard_id, expert_id=expert_id)
+                        loaded_params.add(name)
+                        break
                 else:
-                    net_name = weights_loader.mapping_dict.get(weight_key)[0]
-                    matched_key = self.find_matching_key(net_name)
-                    if matched_key == 'decoder.final_layernorm':
-                        self._update_weight_dict(matched_key, weight_key, weights_loader)
-                        net_not_load, _ = ms.load_param_into_net(
-                            self.decoder.final_layernorm, weights_loader.parameter_dict)
-                        if net_not_load:
-                            network_not_load.append(net_not_load)
-                    elif matched_key == 'output_layer':
-                        self._update_weight_dict(matched_key, weight_key, weights_loader)
-                        net_not_load, _ = ms.load_param_into_net(
-                            self.output_layer, weights_loader.parameter_dict)
-                        if net_not_load:
-                            network_not_load.append(net_not_load)
-                    elif matched_key == 'embedding.word_embeddings':
-                        self._update_weight_dict(matched_key, weight_key, weights_loader)
-                        net_not_load, _ = ms.load_param_into_net(
-                            self.embedding.word_embeddings, weights_loader.parameter_dict)
-                        if net_not_load:
-                            network_not_load.append(net_not_load)
-                    else:
-                        weights_not_load.append(weight_key)
+                    if name in params_dict:
+                        param = params_dict[name]
+                        weight_loader = getattr(param, "weight_loader",
+                                                default_weight_loader)
+                        weight_loader(param, loaded_weight)
+                        loaded_params.add(name)
 
-                    all_weights_keys.remove(weight_key)
-                    gc.collect()
-                    pbar.update(1)
-                    pbar.set_postfix({"current": matched_key or "other"})
-
-            logger.warning(f'These parameters are not loaded in the network: {network_not_load}')
-            logger.warning(f'These parameters are not loaded in the weights: {weights_not_load}')
-
-    def _update_weight_dict(self, matched_key, weight_key, weights_loader):
-        net_name = weights_loader.mapping_dict.get(weight_key)[0]
-        file = weights_loader.mapping_dict.get(weight_key)[1]
-        src_keys_dict = {weight_key: file}
-        func = next((v for k, v in _convert_map.items() if matched_key in k), None)
-        getattr(weights_loader, func)(src_keys_dict, net_name, self.config)
-
-    def _deal_weight_dict(self, weights_loader, keys, weights_not_load):
-        """Process weight dictionary and load matching weights into the model.
-
-        Args:
-            weights_loader (object): Helper object that contains weight loading utilities and mapping information
-            keys (list): List of weight names to be processed
-            weights_not_load (list): Output list that will contain names of weights that failed to load
-
-        """
-        processed_weights_keys = set()
-        for weight_name in keys:
-            if weight_name not in processed_weights_keys:
-                net_name = weights_loader.mapping_dict.get(weight_name)[0]
-                matched_key = self.find_matching_key(net_name)
-                if matched_key:
-                    src_keys = [
-                        key
-                        for key in weights_loader.mapping_dict
-                        if weights_loader.mapping_dict[key][0] == net_name
-                    ]
-                    files = [weights_loader.mapping_dict[key][1] for key in src_keys]
-                    src_keys_dict = dict(zip(src_keys, files))
-                    func = next((v for k, v in _convert_map.items() if matched_key in k), None)
-                    getattr(weights_loader, func)(src_keys_dict, net_name, self.config)
-                    processed_weights_keys.update(src_keys)
-                else:
-                    weights_not_load.append(weight_name)
-
-    def find_matching_key(self, net_name):
-        matched_keys = []
-        for key_tuple in _convert_map:
-            for pattern in key_tuple:
-                if pattern in net_name:
-                    matched_keys.append(pattern)
-        if matched_keys:
-            return max(matched_keys, key=len)
-        return None
+        network_not_load = set(params_dict.keys()) - loaded_params
+        logger.warning(f'These parameters are not loaded in the network: {network_not_load}')
+        return loaded_params

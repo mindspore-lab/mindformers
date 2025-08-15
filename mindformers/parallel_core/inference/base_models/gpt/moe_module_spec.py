@@ -21,8 +21,8 @@ from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELay
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 from mindformers.parallel_core.inference.transformer.moe.shared_experts import SharedExpertMLP
 from mindformers.parallel_core.inference.tensor_parallel.layers import (
-    ColumnParallelLinear,
-    RowParallelLinear
+    RowParallelLinear,
+    MergedColumnParallelLinear
 )
 from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import (
     ColumnParallelGroupedLinear,
@@ -38,7 +38,7 @@ def get_moe_module_spec(
         raise ValueError(f"Using MoE module, num_experts must be int, but num_experts get {num_experts}.")
 
     mlp = MLPSubmodules(
-        linear_fc1=ColumnParallelLinear,
+        linear_fc1=MergedColumnParallelLinear,
         linear_fc2=RowParallelLinear,
     )
 
