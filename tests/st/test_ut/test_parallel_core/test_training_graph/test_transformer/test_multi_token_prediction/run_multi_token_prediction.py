@@ -34,6 +34,7 @@ from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSub
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
+from mindformers.core.context.build_context import build_context
 from tests.st.test_ut.test_parallel_core.test_training_graph.test_transformer.test_multi_token_prediction.data_gen_utils import \
     get_init_params
 
@@ -181,6 +182,7 @@ def main():
     parser.add_argument("--tp", type=int, default=1, help='tensor_parallel')
     args = parser.parse_args()
 
+    build_context({"use_legacy": False})
     set_context(deterministic="ON")
     set_context(mode=ms.GRAPH_MODE)
     set_seed(42)

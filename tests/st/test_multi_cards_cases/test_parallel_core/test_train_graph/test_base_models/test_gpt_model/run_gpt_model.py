@@ -33,6 +33,7 @@ from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import G
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+from mindformers.core.context.build_context import build_context
 
 from data_gen_utils import get_init_params, DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
     DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS
@@ -184,6 +185,7 @@ def main():
     parser.add_argument("--tensor_parallel", type=int, default=1)
     args = parser.parse_args()
 
+    build_context({"use_legacy": False})
     ms.context.set_context(deterministic="ON")
     ms.set_context(mode=ms.GRAPH_MODE)  # GRAPH_MODE is typical for MindSpore model execution
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL)

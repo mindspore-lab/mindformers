@@ -23,7 +23,7 @@ import mindspore
 import pytest
 
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
-from mindformers.models.utils import LayerSetting
+from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.modules.transformer.transformer import TransformerOpParallelConfig
 
 mindspore.set_context(device_target='CPU', mode=0)

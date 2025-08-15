@@ -24,7 +24,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import LayerSetting, lazy_inline, check_fine_grain_interleave_valid
+from mindformers.models.utils import lazy_inline, check_fine_grain_interleave_valid
+from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from mindformers.modules.layers import Linear, FreqsMgr, Dropout
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic

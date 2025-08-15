@@ -33,6 +33,7 @@ from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSub
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+from mindformers.core.context.build_context import build_context
 
 from data_gen_utils import get_init_params, DEFAULT_SEQ_LENGTH, DEFAULT_BATCH_SIZE, DEFAULT_HIDDEN_SIZE, \
     DEFAULT_FFN_HIDDEN_SIZE, DEFAULT_NUM_HEADS, DEFAULT_POST_LAYER_NORM
@@ -203,6 +204,7 @@ def main():
 
     args = parser.parse_args()
 
+    build_context({"use_legacy": False})
     ms.context.set_context(deterministic="ON")
     ms.set_context(mode=ms.GRAPH_MODE)  # GRAPH_MODE is typical for MindSpore model execution
     ms.set_seed(42)
