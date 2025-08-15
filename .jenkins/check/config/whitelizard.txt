@@ -16,3 +16,5 @@ mindformers/mindformers/generation/text_generator.py:generate
 mindformers/mindformers/generation/text_generator.py:postprocess
 mindformers/mindformers/models/modeling_utils.py:from_pretrained_experimental_mode
 mindformers/mindformers/models/modeling_utils.py:_load_pretrained_model
+mindformers/research/deepseek3/deepseek2_model.py:__init__
+mindformers/research/telechat2/telechat.py:__init__
