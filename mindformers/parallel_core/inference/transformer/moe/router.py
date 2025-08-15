@@ -13,15 +13,18 @@
 # limitations under the License.
 # ============================================================================
 """Expert Router."""
+from typing import Optional
 import numpy as np
 
+import mindspore as ms
 from mindspore import Tensor, nn, Parameter, ops, mint
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import FusedAddTopKDiv
 
-from mindformers.models.utils import convert_mstype
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 
 
 __all__ = [
@@ -33,7 +36,9 @@ __all__ = [
 class Router(nn.Cell):
     """Base Router class"""
 
-    def __init__(self, config: TransformerConfig) -> None:
+    def __init__(
+            self, config: TransformerConfig, model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs
+    ) -> None:
         """
         Initialize the Router module.
 
@@ -42,13 +47,17 @@ class Router(nn.Cell):
         """
         super(Router, self).__init__()
         self.config = config
-        self.hidden = config.hidden_size
-        self.router_dense_type = convert_mstype(config.moe_router_dtype)
         self.num_experts = self.config.num_moe_experts
-        self.weight = nn.Dense(in_channels=self.hidden,
+        self.router_dense_type = self.config.moe_router_dtype
+        self.ep_group = model_comm_pgs.moe_ep
+        self.ep_group_size = self.ep_group.size
+        self.ep_rank = self.ep_group.rank
+        self.weight = nn.Dense(in_channels=self.config.hidden_size,
                                out_channels=self.num_experts,
                                has_bias=False,
                                dtype=self.router_dense_type)
+        set_weight_attrs(self.weight.weight, {"weight_loader": self.weight_loader})
+
         self.cast = ops.Cast()
 
     def gating(self, input_tensor: Tensor):
@@ -75,6 +84,28 @@ class Router(nn.Cell):
         """
         raise NotImplementedError("For Router, routing function not implemented.")
 
+    def weight_loader(self, param, loaded_weight):
+        """
+        Load weights into the parameter, supporting both full tensor loading and re-layout loading
+
+        Args:
+            param: The target parameter to load weights into.
+            loaded_weight: The weight tensor to be loaded.
+        """
+        loaded_weight = loaded_weight[:]
+        if self.ep_group_size > 1 and not self.config.use_alltoall:
+            expert_idx_list = [idx for idx in range(self.num_experts)]
+            start_idx = self.num_experts // self.ep_group_size * self.ep_rank
+            expert_idx_list = expert_idx_list[start_idx:] + expert_idx_list[:start_idx]
+            loaded_weight = loaded_weight[expert_idx_list]
+
+        if param.shape != loaded_weight.shape:
+            raise ValueError(
+                f"'param.data.shape' should be equal to 'loaded_weight.shape',"
+                f" but got the shape of param is {param.shape} "
+                f"and the shape of weight is{loaded_weight.shape}")
+        param.set_data(ms.from_numpy(loaded_weight).astype(param.dtype))
+
     def construct(self, input_tensor: Tensor):
         """
         Forward pass of the router.
@@ -88,13 +119,15 @@ class Router(nn.Cell):
 class TopKRouter(Router):
     """Route each token to the top-k experts."""
 
-    def __init__(self, config: TransformerConfig) -> None:
+    def __init__(
+            self, config: TransformerConfig, model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs
+    ) -> None:
         """Initialize the zero token dropping router.
 
         Args:
             config (TransformerConfig): The configuration for the transformer model.
         """
-        super().__init__(config=config)
+        super().__init__(config=config, model_comm_pgs=model_comm_pgs)
         self.config = config
         self.n_group = config.moe_router_num_groups
         self.topk_group = config.moe_router_group_topk
@@ -102,12 +135,11 @@ class TopKRouter(Router):
         self.num_experts_chosen = config.moe_router_topk
         self.moe_router_topk_scaling_factor = 1.0 if config.moe_router_topk_scaling_factor is None else \
             config.moe_router_topk_scaling_factor
-        self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
-
-        self.group_topk = GroupTopkCell()
         self.moe_router_enable_expert_bias = config.moe_router_enable_expert_bias
 
+        self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
         self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
+        set_weight_attrs(self.expert_bias, {"weight_loader": self.weight_loader})
 
         self.fused_add_topk_div = FusedAddTopKDiv()
 
@@ -123,10 +155,9 @@ class TopKRouter(Router):
                 with shape [num_tokens, num_experts].
             origin_probs (Tensor): The probabilities of token to experts assignment before add bias.
         """
-        input_dtype = logits.dtype
         gating_logits = self.gating(self.cast(logits, self.router_dense_type))
         gating_logits = self.cast(gating_logits, mstype.float32)
-        if self.config.moe_router_group_topk > 1:
+        if self.config.moe_router_group_topk:
             expert_weight, expert_index = \
                 self.fused_add_topk_div(
                     gating_logits,
@@ -146,7 +177,7 @@ class TopKRouter(Router):
             expert_index = self.cast(expert_index, mstype.int32)
             expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
             expert_weight = mint.mul(self.moe_router_topk_scaling_factor, expert_weight)
-        expert_weight = expert_weight.astype(input_dtype)
+
         return expert_weight, expert_index
 
     def construct(self, input_tensor: Tensor):
@@ -159,22 +190,3 @@ class TopKRouter(Router):
         expert_weight, expert_index = self.routing(input_tensor)
 
         return expert_weight, expert_index
-
-
-class GroupTopkCell(nn.Cell):
-    r"""
-        GroupTopkCell.
-
-        Inputs:
-            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-
-        Outputs:
-            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
-    """
-    def __init__(self):
-        super().__init__()
-        self.group_topk = ops.GroupTopk()
-
-    def construct(self, token, idx_arr, group_num, k, k_inner):
-        self.group_topk(token, idx_arr, group_num, k, k_inner)
-        return token

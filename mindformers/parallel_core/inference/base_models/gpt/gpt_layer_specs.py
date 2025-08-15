@@ -47,26 +47,30 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 
 def get_gpt_layer_local_spec(
         num_experts: Optional[int] = None,
-        moe_grouped_gemm: Optional[bool] = False,
+        moe_grouped_gemm: Optional[bool] = True,
         qk_layernorm: Optional[bool] = False,
+        gated_linear_unit: Optional[bool] = True,
         multi_latent_attention: Optional[bool] = False,
         normalization: Optional[str] = None,
         qk_l2_norm: Optional[bool] = False,
         use_flash_attention: Optional[bool] = True,
         sandwich_norm: Optional[bool] = False,
+        use_alltoall: Optional[bool] = False,
 ) -> ModuleSpec:
     """Use this spec for an implementation using only modules in Mcore Inference.
 
 
     Args:
         num_experts (int, optional): Number of experts. Defaults to None.
-        moe_grouped_gemm (bool, optional): To use Grouped GEMM. Defaults to False.
+        moe_grouped_gemm (bool, optional): To use Grouped GEMM. Defaults to True.
         qk_layernorm (bool, optional): To use layernorm for queries/keys. Defaults to False.
+        gated_linear_unit (bool, optional): Whether to include a gated linear unit. Defaults to True.
         multi_latent_attention (bool, optional): To use multi latent attention. Defaults to False.
         normalization (str, optional): The type of normalization. Defaults to None.
         qk_l2_norm (bool, optional): To use l2 norm for queries/keys. Defaults to False.
         use_flash_attention (bool, optional): To use flash attention. Defaults to True.
         sandwich_norm (bool, optional): To use sandwich norm in the transformer layer. Defaults to False.
+        use_alltoall (bool, optional): To use alltoall communication. Defaults to False.
 
     Returns:
         ModuleSpec: Module specification with MCore modules
@@ -78,6 +82,9 @@ def get_gpt_layer_local_spec(
 
     mlp = get_mlp_module_spec(
         num_experts=num_experts,
+        gated_linear_unit=gated_linear_unit,
+        moe_grouped_gemm=moe_grouped_gemm,
+        use_alltoall=use_alltoall,
     )
 
     if multi_latent_attention:
@@ -130,7 +137,7 @@ def get_gpt_layer_local_spec(
 def get_gpt_decoder_block_spec(
         config: TransformerConfig,
         normalization: Optional[str] = None,
-        qk_l2_norm: Optional[bool] = None,
+        qk_l2_norm: Optional[bool] = False,
 ) -> TransformerLayerSubmodules:
     """GPT block spec."""
     # layer specs.
@@ -138,18 +145,24 @@ def get_gpt_decoder_block_spec(
         num_experts=None,
         moe_grouped_gemm=False,
         qk_layernorm=config.qk_layernorm,
+        gated_linear_unit=config.gated_linear_unit,
         multi_latent_attention=config.multi_latent_attention,
         normalization=normalization,
         use_flash_attention=config.use_flash_attention,
+        qk_l2_norm=qk_l2_norm,
+        use_alltoall=config.use_alltoall,
     )
 
     moe_layer_spec = get_gpt_layer_local_spec(
         num_experts=config.num_moe_experts,
         moe_grouped_gemm=True,
         qk_layernorm=config.qk_layernorm,
+        gated_linear_unit=config.gated_linear_unit,
         multi_latent_attention=config.multi_latent_attention,
         normalization=normalization,
         use_flash_attention=config.use_flash_attention,
+        qk_l2_norm=qk_l2_norm,
+        use_alltoall=config.use_alltoall,
     )
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
@@ -194,6 +207,8 @@ def get_gpt_decoder_block_spec(
 def get_mlp_module_spec(
         num_experts: Optional[int] = None,
         gated_linear_unit: Optional[bool] = True, # Whether to use gated linear unit in MLP.
+        moe_grouped_gemm: Optional[bool] = True,
+        use_alltoall: Optional[bool] = False,
 ) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE."""
     if num_experts is None:
@@ -208,4 +223,6 @@ def get_mlp_module_spec(
     # Mixture of experts with modules.
     return get_moe_module_spec(
         num_experts=num_experts,
+        moe_grouped_gemm=moe_grouped_gemm,
+        use_alltoall=use_alltoall,
     )

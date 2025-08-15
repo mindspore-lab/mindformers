@@ -15,20 +15,21 @@
 """Deepseek-V3 models' APIs."""
 from typing import Dict
 
-from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.utils import jit
+from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
     is_initialized,
     initialize_model_parallel
 )
+from mindformers.parallel_core.inference.utils import update_comm_config
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 from .configuration_deepseek_v3 import DeepseekV3Config
 
@@ -47,17 +48,26 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
-        if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(get_group_size(), order='tp')
-        if is_initialized():
-            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
-        else:
-            model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         self.config = config
-        config = convert_to_transformer_config(
+        config: MLATransformerConfig = convert_to_transformer_config(
             self.config,
             is_mla_model=True,
         )
+        if not is_initialized() and mindspore_comm_has_init():
+            initialize_model_parallel(
+                data_parallel_size=config.data_parallel_size,
+                tensor_model_parallel_size=config.tensor_model_parallel_size,
+                expert_model_parallel_size=config.expert_model_parallel_size,
+                order='tp-ep-dp',
+            )
+        if is_initialized():
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
+                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+        else:
+            self.model_comm_pgs = default_model_comm_pgs
+
+        # update communication-related configuration in TransformerConfig
+        config = update_comm_config(config)
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
@@ -79,7 +89,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             max_sequence_length=self.max_position_embeddings,
             position_embedding_type=config.position_embedding_type,
             rotary_base=config.rotary_base,
-            model_comm_pgs=model_comm_pgs,
+            model_comm_pgs=self.model_comm_pgs,
         )
 
     def add_flags_custom_mcore(self, is_prefill):
@@ -95,7 +105,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         self.add_flags(is_prefill=is_prefill)
         self.model.add_flags(is_prefill=is_prefill)
         self.model.decoder.add_flags(is_prefill=is_prefill)
-        self.model.casual_mask.add_flags(is_prefill=is_prefill)
         for layer in self.model.decoder.layers:
             layer.self_attention.add_flags(is_prefill=is_prefill)
             layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
@@ -112,6 +121,10 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             slot_mapping=None,
             attention_mask=None,
             attn_metadata=None,
+            attn_padding_idx=None,
+            attn_unpadding_idx=None,
+            ffn_padding_idx=None,
+            ffn_unpadding_idx=None,
             key_cache=None,
             value_cache=None
     ):
@@ -123,11 +136,19 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             positions: position ids.
             batch_valid_length: actual seq length.
             context_lens_tensor: computed key value length.
+            q_seq_lens: query sequence lengths.
             block_tables: Store mapping tables for each sequence.
             slot_mapping : Token cache physical slot index.
-            kv_cache: key cache and value cache.
             attention_mask: attentino mask used for fa or pa.
             attn_metadata: attention metadata.
+            attn_padding_idx: Indices mapping positions in attention output sequence to original token positions,
+                used for padding attention output to fixed size.
+            attn_unpadding_idx: Indices mapping valid tokens in padded attention output sequence to
+                their original positions, used for removing padding in attention output.
+            ffn_padding_idx: Indices mapping positions in MoE output sequence to flattened valid token positions,
+                used for padding MoE output to fixed size.
+            ffn_unpadding_idx: Indices mapping valid tokens in padded MoE output sequence to their original positions,
+                used for removing padding in MoE output.
             key_cache: key cache for incremental inference.
             value_cache: value cache for incremental inference.
 
@@ -145,6 +166,10 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             slot_mapping=slot_mapping,
             attention_mask=attention_mask,
             attn_metadata=attn_metadata,
+            attn_padding_idx=attn_padding_idx,
+            attn_unpadding_idx=attn_unpadding_idx,
+            ffn_padding_idx=ffn_padding_idx,
+            ffn_unpadding_idx=ffn_unpadding_idx,
             key_cache=key_cache,
             value_cache=value_cache,
         )

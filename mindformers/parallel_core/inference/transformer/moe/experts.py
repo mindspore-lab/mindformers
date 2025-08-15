@@ -39,16 +39,17 @@ class GroupedMLP(nn.Cell):
 
     def __init__(
             self,
-            num_experts: int,
+            num_local_experts: int,
             config: TransformerConfig,
             submodules: MLPSubmodules,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__()
         self.config: TransformerConfig = config
-        self.num_experts = num_experts
+        self.num_local_experts = num_local_experts
         self.input_size = self.config.hidden_size
-        self.tp_group = model_comm_pgs.tp
+        # use model_comm_pgs.moe_tp_group as tensor parallel group in this module.
+        self.tp_group = model_comm_pgs.moe_tp
         self.tp_group_size = self.tp_group.size
 
         ffn_hidden_size = self.config.moe_ffn_hidden_size
@@ -63,14 +64,14 @@ class GroupedMLP(nn.Cell):
         self.quant_method: Optional[QuantizeMethodBase] = UnquantizedGroupedLinearMethod()
         self.weight1 = self.quant_method.create_weights(
             layer=None,
-            num_experts=num_experts,
+            num_local_experts=self.num_local_experts,
             input_size_per_partition=self.input_size,
             output_size_per_partition=divide(ffn_hidden_size, self.tp_group_size),
             params_dtype=self.config.params_dtype,
         )
         self.weight2 = self.quant_method.create_weights(
             layer=None,
-            num_experts=num_experts,
+            num_local_experts=self.num_local_experts,
             input_size_per_partition=self.ffn_hidden_size_per_partition,
             output_size_per_partition=self.input_size,
             params_dtype=self.config.params_dtype,
@@ -79,7 +80,7 @@ class GroupedMLP(nn.Cell):
         # linear fc1
         self.linear_fc1 = build_module(
             submodules.linear_fc1,
-            self.num_experts,
+            self.num_local_experts,
             self.input_size,
             ffn_hidden_size,
             config=self.config,
@@ -87,7 +88,6 @@ class GroupedMLP(nn.Cell):
             gather_output=False,
             weight=self.weight1, # Skip creating weights and use weight1 for gemm linear calculation
             is_expert=True,
-            compute_dtype=self.config.compute_dtype,
             tp_group=self.tp_group,
         )
 
@@ -99,14 +99,13 @@ class GroupedMLP(nn.Cell):
         # linear fc2
         self.linear_fc2 = build_module(
             submodules.linear_fc2,
-            self.num_experts,
+            self.num_local_experts,
             self.config.moe_ffn_hidden_size,
             self.input_size,
             config=self.config,
             bias=self.config.add_bias_linear,
             weight=self.weight2, # Skip creating weights and use weight2 for gemm linear calculation
             is_expert=True,
-            compute_dtype=self.config.compute_dtype,
             tp_group=self.tp_group,
         )
 
@@ -134,8 +133,9 @@ class GroupedMLP(nn.Cell):
 
     def sharded_state_dict(self):
         """Provide the sharded state dict."""
-        w1_shard = (1, 1, self.tensor_parallel_group_size)
-        w2_shard = (1, self.tensor_parallel_group_size, 1)
+        expert_parallel_group_size = self.config.num_moe_experts // self.num_local_experts
+        w1_shard = (expert_parallel_group_size, 1, self.tensor_parallel_group_size)
+        w2_shard = (expert_parallel_group_size, self.tensor_parallel_group_size, 1)
 
         state_dict = {}
         state_dict[self.weight1.name] = {'shape': self.weight1.shape,

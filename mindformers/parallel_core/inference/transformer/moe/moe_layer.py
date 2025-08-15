@@ -20,20 +20,23 @@ __all__ = [
     'MoELayer'
 ]
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Optional, Union
 
 from mindspore import Tensor, nn, mint, ops
-import mindspore.common.dtype as mstype
-from mindspore.ops.auto_generate import (MoeInitRoutingV2,
-                                         MoeTokenUnpermute)
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
-from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
+from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
+                                                                          reduce_from_model_parallel_region,
+                                                                          reduce_scatter_to_model_parallel_region,)
+from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
+@dataclass
 class MoESubmodules:
     """
     MoE Layer Submodule spec:
@@ -43,19 +46,23 @@ class MoESubmodules:
             Defaults to None.
         shared_experts (Union[ModuleSpec, type], optional): The module definition for shared_experts.
             Defaults to None.
+        token_dispatcher (Union[ModuleSpec, type], optional): The module definition for token dispatcher.
+            Defaults to None.
     """
 
-    def __init__(self, experts: Union[ModuleSpec, type] = None, shared_experts: Union[ModuleSpec, type] = None):
-        self.experts = experts
-        self.shared_experts = shared_experts
+    experts: Union[ModuleSpec, type] = None
+    shared_experts: Union[ModuleSpec, type] = None
+    token_dispatcher: Union[ModuleSpec, type] = None
 
 
-class BaseMoELayer(nn.Cell):
+class BaseMoELayer(nn.Cell, ABC):
     """Base class for a mixture of experts layer.
 
     Args:
         config (TransformerConfig): Configuration object for the transformer model.
         layer_number (int): Number which indicates the index of this moe layer.
+        model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
+            Default: default_model_comm_pgs.
     """
 
     def __init__(
@@ -67,19 +74,26 @@ class BaseMoELayer(nn.Cell):
         super().__init__()
         self.config = config
         self.layer_number = layer_number
-        self.tp_group = model_comm_pgs.tp
+        self.global_group = model_comm_pgs.globals
+        self.ep_group = model_comm_pgs.moe_ep
+        ep_size = self.ep_group.size
 
-        if self.config.expert_model_parallel_size > 1:
-            raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
+        if self.config.num_moe_experts % ep_size != 0:
+            raise ValueError(f"The number of moe experts must be divisible by ep size, "
+                             f"but got num experts: {self.config.num_moe_experts} and ep size: {ep_size}")
+        self.num_local_experts = divide(self.config.num_moe_experts, ep_size)
 
         self.use_shared_expert = self.config.moe_shared_expert_intermediate_size is not None
 
-        self.num_experts = config.num_moe_experts
-
-        self.router = None
+        self.router: TopKRouter = None
         self.experts = None
         self.shared_experts = None
         self.token_dispatcher = None
+
+    @abstractmethod
+    def construct(self, hidden_states, attn_unpadding_idx=None, ffn_padding_idx=None):
+        """Forward method for the MoE layer."""
+        raise NotImplementedError("MoELayer construct function not implemented.")
 
 
 class MoELayer(BaseMoELayer):
@@ -108,19 +122,21 @@ class MoELayer(BaseMoELayer):
             config=config, layer_number=layer_number, model_comm_pgs=model_comm_pgs
         )
 
-        if self.config.expert_model_parallel_size > 1:
-            raise NotImplementedError("For MoELayer, `expert_model_parallel_size` is not supported for now.")
-
         # Initialize router
-        self.router = TopKRouter(config=self.config)
+        self.router = TopKRouter(config=self.config, model_comm_pgs=model_comm_pgs)
 
         # Initialize token dispatcher
-        # Note: It is not supported to initialize token dispatch currently.
+        self.token_dispatcher = build_module(
+            self.submodules.token_dispatcher,
+            self.num_local_experts,
+            config=self.config,
+            model_comm_pgs=model_comm_pgs,
+        )
 
         # Initialize experts
         self.experts = build_module(
             self.submodules.experts,
-            self.num_experts,
+            self.num_local_experts,
             self.config,
             model_comm_pgs=model_comm_pgs,
         )
@@ -131,40 +147,37 @@ class MoELayer(BaseMoELayer):
                 self.submodules.shared_experts, config=self.config, model_comm_pgs=model_comm_pgs,
             )
 
-        self.cast = ops.Cast()
-        self.moe_init_routing_v2 = MoeInitRoutingV2()
-        self.moe_token_unpermute = MoeTokenUnpermute()
-
-    def construct(self, hidden_states: Tensor):
+    def construct(self, hidden_states: Tensor, attn_unpadding_idx: Tensor = None, ffn_padding_idx: Tensor = None):
         """Construct MoELayer."""
+        if self.config.attn_allgather:
+            hidden_states = gather_from_model_parallel_region(hidden_states, self.global_group, dim=0)
+            hidden_states = ops.gather(hidden_states, attn_unpadding_idx, 0)
+
         # router
         expert_weight, routing_map = self.router(hidden_states)
 
-        # token_permutation
-        dispatched_input, tokens_per_expert, group_list, _ = \
-            self.moe_init_routing_v2(
-                hidden_states,
-                routing_map,
-                active_num=0,
-                expert_capacity=0,
-                expert_num=self.config.num_moe_experts,
-                drop_pad_mode=0,
-                expert_tokens_count_or_cumsum_flag=2,
-                expert_tokens_before_capacity_flag=True
-            )
+        # token dispatch
+        expert_weight, routing_map = self.token_dispatcher.dispatch_preprocess(expert_weight, routing_map)
+        (
+            dispatched_input,
+            group_list,
+            dispatched_outputs
+        ) = self.token_dispatcher.token_dispatch(hidden_states, routing_map)
 
-        group_list = self.cast(group_list, mstype.int64)
+        # experts compute
         expert_output = self.experts(dispatched_input, group_list)
 
-        moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
-                                              sorted_indices=tokens_per_expert,
-                                              probs=expert_weight,
-                                              padded_mode=False,
-                                              restore_shape=None)
-
-        output = reduce_from_model_parallel_region(moe_output, self.tp_group)
+        # token combine
+        output = self.token_dispatcher.token_combine(expert_output, expert_weight, *dispatched_outputs)
 
         if self.use_shared_expert:
-            output = mint.add(output, self.shared_experts(hidden_states))
+            shared_expert_output = self.shared_experts(hidden_states)
+            output = mint.add(output, shared_expert_output)
+
+        if self.config.ffn_allreduce:
+            output = reduce_from_model_parallel_region(output, self.global_group)
+        elif self.config.ffn_reduce_scatter:
+            output = ops.gather(output, ffn_padding_idx, 0)
+            output = reduce_scatter_to_model_parallel_region(output, self.global_group)
 
         return output

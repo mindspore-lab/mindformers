@@ -21,12 +21,11 @@ import mindspore.common.dtype as mstype
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.parallel_core.inference.transformer.lower_triangular_mask import LowerTriangularMaskWithDynamic
 from mindformers.parallel_core.inference.base_models.common.embeddings.language_model_embedding import \
     LanguageModelEmbedding
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
-from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.inference.utils import divide, generate_padding_index
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import default_weight_loader, make_expert_params_mapping
 from mindformers.tools.logger import logger
@@ -70,6 +69,14 @@ class GPTModel(nn.Cell):
         - **slot_mapping** (Tensor, optional) - Slot mapping for KV cache
         - **attention_mask** (Tensor, optional) - Tensor of attention mask
         - **attn_metadata** (dict, optional) - Additional attention metadata
+        - **attn_padding_idx** (Tensor) - Indices mapping positions in attention output sequence to
+            original token positions, used for padding attention output to fixed size.
+        - **attn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded attention output sequence to
+            their original positions, used for removing padding in attention output.
+        - **ffn_padding_idx** (Tensor) - Indices mapping positions in MoE output sequence to
+            flattened valid token positions, used for padding MoE output to fixed size.
+        - **ffn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded MoE output sequence to
+            their original positions, used for removing padding in MoE output.
         - **key_cache** (Tensor, optional) - Key cache for incremental inference.
         - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
@@ -117,7 +124,7 @@ class GPTModel(nn.Cell):
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length
         self.pre_process = pre_process
-        self.post_process = post_process
+        self.post_process = getattr(config, "post_process", post_process)
         self.parallel_output = parallel_output
         self.compute_dtype = self.config.compute_dtype
 
@@ -131,12 +138,16 @@ class GPTModel(nn.Cell):
             self.head_dim = config.qk_pos_emb_head_dim
         self.rotary_percent = rotary_percent
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
+        self.model_comm_pgs = model_comm_pgs
         self.tp = model_comm_pgs.tp
         self.tp_group_size = self.tp.size
         self.tp_rank = self.tp.rank
         self.is_prefill = True
 
-        self.position_embedding_type = position_embedding_type
+        if hasattr(self.config, 'position_embedding_type'):
+            self.position_embedding_type = self.config.position_embedding_type
+        else:
+            self.position_embedding_type = position_embedding_type
 
         if hasattr(self.config, 'rotary_base'):
             self.rotary_base = self.config.rotary_base
@@ -150,13 +161,6 @@ class GPTModel(nn.Cell):
                 max_sequence_length=self.max_sequence_length,
                 model_comm_pgs=model_comm_pgs,
             )
-
-        # Note: Declare the attn mask class for vLLM-MS startup
-        self.casual_mask = LowerTriangularMaskWithDynamic(
-            seq_length=self.config.seq_length,
-            compute_type=self.config.compute_dtype,
-            pad_token_id=self.config.pad_token_id,
-        )
 
         self.rotary_pos_emb = get_rope(
             config,
@@ -205,9 +209,44 @@ class GPTModel(nn.Cell):
             output = self.gather(output, gather_index, 0)
         return output
 
+    def update_padding_index_to_inputs(self, model_inputs: Dict):
+        r"""
+        Update the model input and add the related parameters of padding_index.
+        """
+        if not (
+                self.model_comm_pgs is not default_model_comm_pgs and
+                getattr(self.model_comm_pgs, 'dp', None) and
+                getattr(self.model_comm_pgs, 'moe_ep', None)
+        ):
+            return model_inputs
+
+        tp_group_size = self.model_comm_pgs.tp.size
+        dp_group_size = self.model_comm_pgs.dp.size
+        ep_group_size = self.model_comm_pgs.moe_ep.size
+        q_seq_lens = model_inputs.get("q_seq_lens", None)
+
+        if dp_group_size == 1 or q_seq_lens is None or (dp_group_size == ep_group_size and tp_group_size == 1):
+            return model_inputs
+
+        (
+            attn_padding_idx,
+            attn_unpadding_idx,
+            ffn_padding_idx,
+            ffn_unpadding_idx,
+        ) = generate_padding_index(q_seq_lens)
+
+        model_inputs.update({
+            "attn_padding_idx": attn_padding_idx,
+            "attn_unpadding_idx": attn_unpadding_idx,
+            "ffn_padding_idx": ffn_padding_idx,
+            "ffn_unpadding_idx": ffn_unpadding_idx,
+        })
+        return model_inputs
+
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
                   q_seq_lens=None, block_tables=None, slot_mapping=None,
-                  attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None):
+                  attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None,
+                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         """ Construct function of GPTModel. """
 
         # Generate cos and sin for RoPE.
@@ -232,6 +271,10 @@ class GPTModel(nn.Cell):
             q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
+            attn_padding_idx=attn_padding_idx,
+            attn_unpadding_idx=attn_unpadding_idx,
+            ffn_padding_idx=ffn_padding_idx,
+            ffn_unpadding_idx=ffn_unpadding_idx,
             key_cache=key_cache,
             value_cache=value_cache
         )
@@ -254,6 +297,41 @@ class GPTModel(nn.Cell):
                 params_dict[param_name] = param
 
         return params_dict
+
+    def map_global_expert_id_to_local_expert_id(self, global_expert_id: int) -> int:
+        r"""
+        Map global expert_id to local ID on current ep_rank.
+        Each rank except the last rank get base number of experts, remaining experts go to the last rank.
+
+        Args:
+            global_expert_id (int): Global expert ID
+
+        Returns:
+            local_expert_id (int): Local expert ID, returns -1 if not belonging to current rank
+        """
+        if not getattr(self.model_comm_pgs, 'moe_ep', None):
+            raise RuntimeError("ep communication domain not found.")
+        ep_group_size = self.model_comm_pgs.moe_ep.size
+        ep_rank = self.model_comm_pgs.moe_ep.rank
+        num_experts = self.config.num_moe_experts
+        num_local_experts = num_experts // ep_group_size
+
+        # Check if current ep rank is responsible for this global expert ID
+        if ep_rank < ep_group_size - 1:
+            start_idx = ep_rank * num_local_experts
+            end_idx = start_idx + num_local_experts
+
+            if start_idx <= global_expert_id < end_idx:
+                return global_expert_id - start_idx
+        else:
+            # Last ep rank is responsible for all remaining experts
+            start_idx = (ep_group_size - 1) * num_local_experts
+
+            if global_expert_id >= start_idx:
+                return global_expert_id - start_idx
+
+        # Not belong to current ep rank
+        return -1
 
     def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None):
         r"""
@@ -297,6 +375,9 @@ class GPTModel(nn.Cell):
             else:
                 for mapping in expert_params_mapping:
                     param_name, weight_name, expert_id, shard_id = mapping
+                    expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
+                    if expert_id == -1:
+                        continue
                     if weight_name not in name:
                         continue
                     name = name.replace(weight_name, param_name)

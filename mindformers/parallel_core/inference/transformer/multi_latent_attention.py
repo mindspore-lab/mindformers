@@ -71,6 +71,7 @@ class MultiLatentAttention(Attention):
             attn_mask_type: str = None,
             attention_type: str = None,
             cp_comm_type: str = None,
+            delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
     ):
         super().__init__(
@@ -96,19 +97,13 @@ class MultiLatentAttention(Attention):
             )
 
         self.config = config
-        self.use_flash_attention = self.config.use_flash_attention
         self.query_projection_size = self.config.v_head_dim * self.config.num_attention_heads
         self.q_head_dim = self.config.qk_head_dim + self.config.qk_pos_emb_head_dim
         # Overwrite the base class kv shape to support MLA inference
         self.key_hidden_size = self.q_head_dim
         self.val_hidden_size = self.config.v_head_dim
-
         self.num_attention_heads = self.config.num_attention_heads
         self.compute_dtype = self.config.compute_dtype
-        self.cast = P.Cast()
-        self.depend = P.Depend()
-        self.dim_slice_3d = P.Slice()
-
         mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
 
@@ -133,19 +128,17 @@ class MultiLatentAttention(Attention):
             )
         else:
             raise ValueError(
-                f"Unsupported RoPE type: {self.config.rope_type}, supported types are "
-                "'rope' and 'yarn'"
+                f"Unsupported RoPE type: {self.config.rope_type}, supported types are  'rope' and 'yarn'"
             )
 
         self.tp_group_size = get_tp_world_size()
-        self.num_attention_heads_per_partition = divide(self.num_attention_heads,
-                                                        self.tp_group_size)
+        self.num_attention_heads_per_partition = divide(self.num_attention_heads, self.tp_group_size)
         self.hidden_size_per_attention_head = getattr(config, 'kv_channels', divide(
             self.config.hidden_size, self.num_attention_heads
         ))
         self.kv_num_heads_per_partition = self.num_attention_heads_per_partition
 
-        if self.use_flash_attention:
+        if self.config.use_flash_attention:
             self.core_attention = build_module(
                 submodules.core_attention,
                 head_num=self.num_attention_heads_per_partition,
@@ -168,11 +161,16 @@ class MultiLatentAttention(Attention):
             bias=self.config.add_bias_linear,
             input_is_parallel=True,
             skip_bias_add=False,
+            delay_allreduce=delay_allreduce,
             is_expert=False,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
             tp_group=self.tp
         )
+
+        self.cast = P.Cast()
+        self.depend = P.Depend()
+        self.dim_slice_3d = P.Slice()
 
     def construct(
             self,
@@ -251,6 +249,7 @@ class MLASelfAttention(MultiLatentAttention):
             layer_number: int,
             attn_mask_type=None,
             cp_comm_type: str = None,
+            delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
         super().__init__(
             config=config,
@@ -258,6 +257,7 @@ class MLASelfAttention(MultiLatentAttention):
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
             cp_comm_type=cp_comm_type,
+            delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
         )
 
@@ -393,6 +393,8 @@ class MLASelfAttention(MultiLatentAttention):
         # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition * self.config.qk_pos_emb_head_dim)
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
+            q_pos_emb = q_pos_emb.contiguous()
+            k_pos_emb = k_pos_emb.contiguous()
             q_pos_emb, k_pos_emb = self.rotary_pos_emb(q_pos_emb, k_pos_emb,
                                                        rotary_pos_cos, rotary_pos_sin,
                                                        batch_valid_length)
