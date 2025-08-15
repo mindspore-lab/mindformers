@@ -23,6 +23,7 @@ from mindformers.modules.transformer.transformer import (
     TransformerOpParallelConfig,
     default_transformer_config
 )
+from mindformers.version_control import is_310p
 
 ms_dtype_mapping = {
     # Common floating point numbers types
@@ -375,6 +376,9 @@ class MFModelConfig:
 
     def __post_init__(self):
         self.parallel_config = default_transformer_config
+
+        if is_310p() and self.compute_dtype == "bfloat16":
+            self.compute_dtype = "float16"
 
         if self.residual_dtype is None:
             self.residual_dtype = self.compute_dtype
