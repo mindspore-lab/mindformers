@@ -26,6 +26,7 @@ from typing import Optional, Union
 
 from mindspore import Tensor, nn, mint, ops
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
@@ -116,6 +117,8 @@ class MoELayer(BaseMoELayer):
             submodules: MoESubmodules = None,
             layer_number: int = None,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         self.submodules = submodules
         super().__init__(
@@ -139,12 +142,16 @@ class MoELayer(BaseMoELayer):
             self.num_local_experts,
             self.config,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
+            prefix=f"{prefix}.experts",
         )
 
         # Initialize shared experts
         if self.use_shared_expert:
             self.shared_experts = build_module(
                 self.submodules.shared_experts, config=self.config, model_comm_pgs=model_comm_pgs,
+                quant_config=quant_config,
+                prefix=f"{prefix}.shared_experts",
             )
 
     def construct(self, hidden_states: Tensor, attn_unpadding_idx: Tensor = None, ffn_padding_idx: Tensor = None):

@@ -29,6 +29,7 @@ import mindspore.ops.operations as P
 from mindspore import Tensor, Parameter, nn, ops, mint
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
@@ -83,14 +84,14 @@ class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
         self.matmul = ops.auto_generate.GroupedMatmulV4()
 
     def create_weights(self, layer: nn.Cell, num_local_experts: int,
-                       input_size_per_partition: int, output_size_per_partition: int,
+                       input_size_per_partition: int, output_partition_sizes: list[int],
                        params_dtype, **extra_weight_attrs):
 
         weight = Parameter(
             mint.zeros(
                 (num_local_experts,
                  input_size_per_partition,
-                 output_size_per_partition),
+                 sum(output_partition_sizes)),
                 dtype=params_dtype,
             ),
             requires_grad=False,
@@ -131,6 +132,8 @@ class GroupedLinearBase(nn.Cell):
         output_size (int): output dimension of the linear layer.
         skip_bias_add (bool): If true, skip adding bias but instead return it. Default: False.
         params_dtype (mstype): Data type for the parameters. Default: mstype.float32
+        quant_config (QuantizationConfig): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(
@@ -140,6 +143,8 @@ class GroupedLinearBase(nn.Cell):
             output_size: int,
             skip_bias_add: bool = False,
             params_dtype: mstype = mstype.float32,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super().__init__()
 
@@ -149,9 +154,11 @@ class GroupedLinearBase(nn.Cell):
         self.output_size = output_size
         self.skip_bias_add = skip_bias_add
         self.params_dtype = params_dtype
-        # Currently does not support quantization, only use UnquantizedGroupedLinearMethod.
+        self.quant_config = quant_config
         self.quant_method: Optional[
             QuantizeMethodBase] = UnquantizedGroupedLinearMethod()
+        if quant_config is not None:
+            self.quant_method = self.quant_config.get_quant_method(self, prefix=prefix)
 
     def construct(self, x: Tensor, weight: Tensor, group_list: Tensor) -> Tensor:
         raise NotImplementedError
@@ -182,6 +189,8 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         is_expert (bool): Specifies whether this linear layer is an expert. Default: True.
         tp_comm_buffer_name (str): Tensor-parallel communication buffer name, currently unsupported. Default: None.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -212,12 +221,16 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             is_expert: bool = True,
             tp_comm_buffer_name: str = None,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super(ColumnParallelGroupedLinear, self).__init__(num_local_experts,
                                                           input_size,
                                                           output_size,
                                                           skip_bias_add,
-                                                          config.params_dtype)
+                                                          config.params_dtype,
+                                                          quant_config=quant_config,
+                                                          prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
                 "For ColumnParallelGroupedLinear, `stride > 1` is not supported for now, "
@@ -244,18 +257,20 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
+        self.quant_config = quant_config
+        self.prefix = prefix
         if self.quant_method is None:
             raise ValueError("`quant_method` is not initialized in ColumnParallelGroupedLinear.")
-
-        if not self.skip_weight_param_allocation:
-            self.quant_method.create_weights(
-                layer=self,
-                num_local_experts=self.num_local_experts,
-                input_size_per_partition=self.input_size,
-                output_size_per_partition=self.output_size_per_partition,
-                params_dtype=self.config.params_dtype,
-            )
-        else:
+        self.quant_method.create_weights(
+            layer=self,
+            input_size_per_partition=self.input_size,
+            output_partition_sizes=[self.output_size_per_partition],
+            num_local_experts=self.num_local_experts,
+            params_dtype=self.config.params_dtype,
+            skip_weight_param_allocation=self.skip_weight_param_allocation,
+            weight_loader=self.weight_loader
+        )
+        if self.skip_weight_param_allocation:
             self.weight = weight
 
         if self.has_bias:
@@ -300,7 +315,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                                           'shard': (expert_parallel_group_size, self.tensor_parallel_group_size)}
         return state_dict
 
-    def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:
+    def weight_loader(self, param, loaded_weight, shard_id, expert_id, weight_name=None) -> None:
         """
         Args:
             param: The parameter tensor in the model, used to store the loaded weights.
@@ -313,42 +328,64 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         Returns:
             None. This function directly modifies the input `param` parameter.
         """
-        # Fetch the dim to shard the parameter/loaded weight
-        # based on the shard id. This will be whatever
-        # dimension intermediate_size_per_partition is used.
-        shard_id_to_sharded_dim = {"w1": 1, "w3": 1}
-        shard_dim = shard_id_to_sharded_dim[shard_id]
-        loaded_weight_dim = len(loaded_weight.get_shape())
-        full_load = loaded_weight_dim == 3
-        if full_load:
-            shard_dim += 1
+        # Experts weight may be saved in 2-dimensional (saperately for each expert) or 3-dimensional (all experts are
+        # merged along the first axis). For the 3-dimensional case, expert_id is None.
+        # For each expert's weight, the shape can be saved in transposed way or original way, but the shape of param in
+        # the network is always (n_experts, in_channel, out_channel). A flag is used here to indicate whether an extra
+        # transpose is needed to convert the loaded weight to the shape of param.
 
-        expert_data = param.data if full_load else param.data[expert_id]
+        weight_is_3d = expert_id is None # Cannot check by loaded_weight.get_shape(), because quant params may be vectors.
+        weight_needs_transpose = True # TODO: Add a flag
+        if (weight_is_3d and len(loaded_weight.get_shape()) == 2) or \
+            (not weight_is_3d and len(loaded_weight.get_shape()) == 1):
+            # If the loaded weight is a vector...
+            weight_needs_transpose = False
 
-        # Case model weights
-        shard_size = expert_data.shape[shard_dim] // 2
-        # Because this weight shape is two-dimensional,
-        # but the dimension splitting in the network is defined based on three dimensions,
-        # so the splitting dimension needs to be subtracted by 1.
-        output_dim = getattr(param, "input_dim", None) - 1
+        # No need to shard w1/w3, weight must be 3-dimensional. We can directly load the weight.
+        if shard_id is None:
+            if not weight_is_3d or loaded_weight.get_shape() != param.shape:
+                raise ValueError(
+                    f"Expected loaded weight to be 3-dimensional with shape {param.shape}, "
+                    f"but got {loaded_weight.get_shape()}."
+                )
+            param.set_data(ms.from_numpy(loaded_weight))
+            return
+
+        # Shard w1/w3
+        param_output_dim = getattr(param, "output_dim", None)
+        shard_size = param.shape[param_output_dim] // 2 # Half w1, half w3.
+        shard_dim = getattr(param, "input_dim", None) if weight_needs_transpose else param_output_dim
+        if not weight_is_3d:
+            shard_dim -= 1 # Remove the expert dimension for 2D weights.
         tp_rank = self.tp_group.rank
         start_idx = tp_rank * shard_size
+        loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
         # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
         # The shape of param is [moe_ffn_hidden_size, hidden_size]
         # So must be transposed.
-        loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size).T
-        if len(loaded_weight.shape) == ():
-            loaded_weight = loaded_weight.reshape(1)
-        if loaded_weight.shape == (param.shape[1], shard_size):
-            if shard_id == "w1":
-                param[expert_id][:, :shard_size] = ms.from_numpy(loaded_weight)
-            elif shard_id == "w3":
-                param[expert_id][:, shard_size:shard_size + shard_size] = ms.from_numpy(loaded_weight)
-        else:
+        if weight_needs_transpose:
+            loaded_weight = loaded_weight.T
+
+        expected_shape = list(param.shape)
+        expected_shape[param_output_dim] = shard_size
+        if not weight_is_3d:
+            expected_shape = expected_shape[1:] # Remove the expert dimension for 2D weights.
+        expected_shape = tuple(expected_shape)
+        if loaded_weight.shape != expected_shape:
             raise ValueError(
-                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                f" but got the shape of param is {(param.shape[1], shard_size)} and "
+                f"'param.data.shape' should be equal to 'loaded_weight.get_shape()',"
+                f" but got the shape of param is {expected_shape} and "
                 f"the shape of weight is{loaded_weight.shape}")
+
+        update_indices = [slice(None)] * len(param.shape)
+        if not weight_is_3d:
+            update_indices[0] = expert_id  # Update only the specific expert's weight.
+        if shard_id == "w1":
+            update_indices[param_output_dim] = slice(None, shard_size)
+        elif shard_id == "w3":
+            update_indices[param_output_dim] = slice(shard_size, 2 * shard_size)
+        param.init_data()
+        param[tuple(update_indices)] = ms.from_numpy(loaded_weight)
 
 
 class RowParallelGroupedLinear(GroupedLinearBase):
@@ -378,6 +415,8 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         is_expert (bool): Specifies whether this linear layer is an expert. Default: True.
         tp_comm_buffer_name (str): Tensor-parallel communication buffer name, currently unsupported. Default: None.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -406,12 +445,16 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             is_expert: bool = True,
             tp_comm_buffer_name: str = None,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super(RowParallelGroupedLinear, self).__init__(num_local_experts,
                                                        input_size,
                                                        output_size,
                                                        skip_bias_add,
-                                                       config.params_dtype)
+                                                       config.params_dtype,
+                                                       quant_config=quant_config,
+                                                       prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
                 "For RowParallelGroupedLinear, `stride > 1` is not supported for now, "
@@ -438,18 +481,21 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
+        self.tensor_parallel_group_size = self.tp_group.size
+        self.quant_config = quant_config
         if self.quant_method is None:
             raise ValueError("`quant_method` is not initialized in RowParallelGroupedLinear.")
 
-        if not self.skip_weight_param_allocation:
-            self.quant_method.create_weights(
-                layer=self,
-                num_local_experts=self.num_local_experts,
-                input_size_per_partition=self.input_size_per_partition,
-                output_size_per_partition=self.output_size,
-                params_dtype=self.config.params_dtype,
-            )
-        else:
+        self.quant_method.create_weights(
+            layer=self,
+            input_size_per_partition=self.input_size_per_partition,
+            output_partition_sizes=[self.output_size],
+            num_local_experts=self.num_local_experts,
+            params_dtype=self.config.params_dtype,
+            skip_weight_param_allocation=self.skip_weight_param_allocation,
+            weight_loader=self.weight_loader
+        )
+        if self.skip_weight_param_allocation:
             self.weight = weight
 
         if self.has_bias:
@@ -501,7 +547,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                                           'shard': (expert_parallel_group_size, 1)}
         return state_dict
 
-    def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:
+    def weight_loader(self, param, loaded_weight, shard_id, expert_id, weight_name=None) -> None:
         """
         Load and process weights for RowParallelGroupedLinear layer.
 
@@ -523,12 +569,18 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         # Fetch the dim to shard the parameter/loaded weight
         # based on the shard id. This will be whatever
         # dimension intermediate_size_per_partition is used.
+        shard_dim = getattr(param, "input_dim", None)
+        if not param.name.endswith("weight") and shard_dim is None:
+            param.init_data()
+            param[expert_id] = ms.from_numpy(loaded_weight[:])
+            return
         shard_id_to_sharded_dim = {"w2": 0}
         shard_dim = shard_id_to_sharded_dim[shard_id]
         full_load = len(loaded_weight.get_shape()) == 3
         if full_load:
             shard_dim += 1
 
+        param.init_data()
         expert_data = param.data if full_load else param.data[expert_id]
 
         # Case model weights
@@ -543,12 +595,13 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         # The shape of param is [moe_ffn_hidden_size, hidden_size]
         # So must be transposed.
         loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size).T
-        if len(loaded_weight.shape) == ():
+        if not loaded_weight.shape:
             loaded_weight = loaded_weight.reshape(1)
         if loaded_weight.shape == (shard_size, param.shape[2]):
+            param.init_data()
             param[expert_id] = ms.from_numpy(loaded_weight)
         else:
             raise ValueError(
-                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                f"'param.data.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[2])} and "
                 f"the shape of weight is{loaded_weight.shape}")

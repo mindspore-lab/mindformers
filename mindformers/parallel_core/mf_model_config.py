@@ -376,6 +376,8 @@ class MFModelConfig:
     use_alltoall: bool = False
     """Whether to enable use_alltoall"""
 
+    quantization_config: dict = None
+
     def __post_init__(self):
         self.parallel_config = default_transformer_config
 

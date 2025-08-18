@@ -18,6 +18,7 @@ from typing import Dict, Iterable, Optional, Set, Tuple, Literal
 from mindspore import nn, ops, mint, Tensor
 import mindspore.common.dtype as mstype
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
@@ -107,6 +108,7 @@ class GPTModel(nn.Cell):
             seq_len_interpolation_factor: Optional[float] = None,
             mtp_block_spec: Optional[ModuleSpec] = None,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
     ):
         super(GPTModel, self).__init__()
         if not pre_process:
@@ -175,6 +177,7 @@ class GPTModel(nn.Cell):
             config=self.config,
             spec=transformer_layer_spec,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
         )
 
         # Output
@@ -345,9 +348,9 @@ class GPTModel(nn.Cell):
         loaded_params: Set[str] = set()
         params_dict = self.get_params_dict()
 
-        expert_params_mapping = []
+        weight_params_mapping, other_params_mapping = [], []
         if self.config.num_moe_experts:
-            expert_params_mapping = make_expert_params_mapping(
+            weight_params_mapping, other_params_mapping = make_expert_params_mapping(
                 ckpt_gate_proj_name="gating",
                 ckpt_down_proj_name="linear_fc2",
                 ckpt_up_proj_name="hidden",
@@ -369,7 +372,7 @@ class GPTModel(nn.Cell):
                     loaded_params.add(name)
                     break
             else:
-                for mapping in expert_params_mapping:
+                for mapping in weight_params_mapping:
                     param_name, weight_name, expert_id, shard_id = mapping
                     expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
                     if expert_id == -1:
@@ -385,12 +388,24 @@ class GPTModel(nn.Cell):
                         loaded_params.add(name)
                         break
                 else:
-                    if name in params_dict:
-                        param = params_dict[name]
-                        weight_loader = getattr(param, "weight_loader",
-                                                default_weight_loader)
-                        weight_loader(param, loaded_weight)
-                        loaded_params.add(name)
+                    for mapping in other_params_mapping:
+                        param_name, weight_name, expert_id, shard_id = mapping
+                        if weight_name not in name:
+                            continue
+                        name = name.replace(weight_name, param_name)
+                        if name in params_dict:
+                            param = params_dict[name]
+                            weight_loader = param.weight_loader
+                            weight_loader(param, loaded_weight, shard_id=shard_id, expert_id=expert_id)
+                            loaded_params.add(name)
+                            break
+                    else:
+                        if name in params_dict:
+                            param = params_dict[name]
+                            weight_loader = getattr(param, "weight_loader",
+                                                    default_weight_loader)
+                            weight_loader(param, loaded_weight)
+                            loaded_params.add(name)
 
         network_not_load = set(params_dict.keys()) - loaded_params
         logger.warning(f'These parameters are not loaded in the network: {network_not_load}')

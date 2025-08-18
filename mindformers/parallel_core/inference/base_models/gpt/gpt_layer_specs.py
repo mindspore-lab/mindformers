@@ -206,7 +206,7 @@ def get_gpt_decoder_block_spec(
 
 def get_mlp_module_spec(
         num_experts: Optional[int] = None,
-        gated_linear_unit: Optional[bool] = True, # Whether to use gated linear unit in MLP.
+        gated_linear_unit: Optional[bool] = True,
         moe_grouped_gemm: Optional[bool] = True,
         use_alltoall: Optional[bool] = False,
 ) -> ModuleSpec:
