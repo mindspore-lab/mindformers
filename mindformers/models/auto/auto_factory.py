@@ -14,30 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ auto factory """
-import os
 import copy
-import shutil
-import importlib
-from collections import OrderedDict
 import functools
+import importlib
+import os
+import shutil
 import types
+from collections import OrderedDict
 
-from mindformers.tools.register.config import MindFormerConfig
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import try_sync_file
-from mindformers.tools.hub import (
-    get_class_from_dynamic_module,
-    resolve_trust_remote_code,
-    cached_file,
-    extract_commit_hash,
-)
-from mindformers.tools.generic import experimental_mode_func_checker
 from mindformers.models.auto.configuration_auto import (
     AutoConfig,
     replace_list_option_in_docstrings,
 )
-from mindformers.models.utils import CONFIG_NAME
 from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.models.utils import CONFIG_NAME
+from mindformers.modules.transformer import TransformerOpParallelConfig
+from mindformers.tools.generic import experimental_mode_func_checker
+from mindformers.tools.hub import (
+    cached_file,
+    extract_commit_hash,
+    get_class_from_dynamic_module,
+    resolve_trust_remote_code,
+)
+from mindformers.tools.logger import logger
+from mindformers.tools.register.config import MindFormerConfig
+from mindformers.tools.utils import try_sync_file
+
 from ...mindformer_book import MindFormerBook, print_dict
 from ..build_model import build_network
 
@@ -346,6 +348,9 @@ class _BaseAutoModelClass:
 
         if isinstance(config, MindFormerConfig):
             config_args = config
+            if isinstance(config_args.parallel_config, dict):
+                config_args.parallel_config = TransformerOpParallelConfig(
+                    **config_args.parallel_config)
         elif isinstance(config, str) and os.path.exists(config) and config.endswith(".yaml"):
             config_args = MindFormerConfig(config)
         elif isinstance(config, PretrainedConfig):
