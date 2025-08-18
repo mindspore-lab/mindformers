@@ -24,7 +24,7 @@ import mindspore.mint as mint
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.auto_generate import AddExt, CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast
+from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -334,6 +334,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.use_pad_tokens = config.use_pad_tokens
         self.moe_permute_fusion = config.moe_permute_fusion
         self.hidden_size = config.hidden_size
+        self.moe_router_topk = config.moe_router_topk
 
         self.ep = config.expert_model_parallel_size
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
@@ -342,7 +343,9 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.on_value = Tensor(1.0, dtype=ms.int32)
         self.off_value = Tensor(0.0, dtype=ms.int32)
         self.pad_tokens = Tensor(np.zeros((1, self.expert_num, self.hidden_size)), dtype=ms.bfloat16)
-        self.pad_routing_map = Tensor(np.tile(np.arange(self.expert_num), (1, 1)), dtype=ms.int32)
+        self.pad_routing_map = Tensor(np.arange(self.expert_num * self.moe_router_topk).reshape(
+            1, self.expert_num, self.moe_router_topk) % self.expert_num, ms.int32)
+        self.pad_probs = Tensor(np.zeros((1, self.expert_num, self.moe_router_topk)), dtype=ms.bfloat16)
 
         self.cumsum = CumsumExt()
         self.sort = SortExt()
@@ -378,25 +381,20 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         return tokens_per_expert, input_splits, output_splits
 
-    def _process_pad_tokens(self, tokens, routing_map, num_tokens_per_expert):
+    def _process_pad_tokens(self, tokens, routing_map, probs):
         """
         Prepares the input tensors by padding them with special tokens.
         These tokens are designed to ensure stable training computation,
         especially in distributed or parallel computing environments
         where data might need to be padded to fit certain dimensions.
         """
+        # Ensure each expert has token.
         tokens = ops.concat((self.pad_tokens.astype(tokens.dtype), tokens), axis=1)
         routing_map = ops.concat(
             (self.pad_routing_map.astype(routing_map.dtype), routing_map), axis=1)
+        probs = ops.concat((self.pad_probs.astype(probs.dtype), probs), axis=1)
 
-        num_tokens_per_expert = AddExt()(num_tokens_per_expert, 1)
-        # sort [safe_tokens, x] together
-        # (dp, E+kN)fp32 <-- (dp, E+kN)fp32
-        routing_map, sort_map = self.sort(routing_map.astype(ms.float32), dim=1)
-        _, unsort_pad_map = self.sort(sort_map.astype(ms.float32), dim=1)
-        index = mint.reshape(sort_map, (sort_map.shape[0]*sort_map.shape[1],))
-        tokens = IndexSelect()(tokens, 1, index)
-        return tokens, routing_map, num_tokens_per_expert, unsort_pad_map
+        return tokens, routing_map, probs
 
     def token_permutation(
             self,
@@ -411,19 +409,20 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             probs (torch.Tensor): The routing probability tensor [num_tokens, num_experts].
             routing_map (torch.Tensor): Token to expert mapping tensor.
         """
+        # Whether to pad tokens for each expert.
+        if self.use_pad_tokens:
+            tokens, routing_map, probs = self._process_pad_tokens(tokens, routing_map, probs)
+
         # Permutation 1: input to AlltoAll input
         permuted_input, routing_map, reshaped_map, outer_unsort_map = permute(
             tokens,
             routing_map,
+            self.moe_permute_fusion,
         )
 
         num_tokens_per_expert = ops.sum(OneHotExt()(
             reshaped_map.astype(ms.int32), self.expert_num, self.on_value, self.off_value), 1)
         num_tokens_per_expert = Cast()(num_tokens_per_expert, ms.float32)
-        unsort_pad_map = 0
-        if self.use_pad_tokens:
-            permuted_input, routing_map, num_tokens_per_expert, unsort_pad_map = self._process_pad_tokens(
-                permuted_input, routing_map, num_tokens_per_expert)
 
         tokens_per_expert, input_splits, output_splits = self.preprocess(num_tokens_per_expert)
 
@@ -456,7 +455,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         ctx = (
             probs, unsort_map, outer_unsort_map, input_splits,
-            output_splits, original_shape, unsort_pad_map
+            output_splits, original_shape
         )
         return global_input_tokens, tokens_per_expert, ctx
 
@@ -474,7 +473,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         3. Unpermute tokens to restore the original order.
         """
         probs, unsort_map, outer_unsort_map, input_splits, \
-            output_splits, original_shape, unsort_pad_map = ctx
+            output_splits, original_shape = ctx
         tokens = tokens.reshape((1, -1, self.hidden_size))
 
         # Unpermutation 2: Unsort tokens by local expert.
@@ -494,29 +493,30 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             tokens.reshape(-1), output_splits, input_splits).reshape(1, -1, self.hidden_size)
         permutated_local_input_tokens = permutated_local_input_tokens.reshape(original_shape)
 
-        if self.use_pad_tokens:
-            tokens_shape = permutated_local_input_tokens.shape
-            index = mint.reshape(unsort_pad_map, (unsort_pad_map.shape[0]*unsort_pad_map.shape[1],))
-            permutated_local_input_tokens = IndexSelect()(permutated_local_input_tokens, 1, index)
-            permutated_local_input_tokens = ops.strided_slice(
-                permutated_local_input_tokens,
-                (0, self.pad_routing_map.shape[1], 0),
-                (tokens_shape[0], tokens_shape[1], tokens_shape[2]),
-                (1, 1, 1)
-            )
-
         # Unpermutation 1: AlltoAll output to output
         output = unpermute(
             permutated_local_input_tokens,
             outer_unsort_map,
             probs,
+            self.moe_permute_fusion
         )
+
+        # remove pad tokens
+        if self.use_pad_tokens:
+            output = ops.strided_slice(
+                output,
+                (0, self.pad_routing_map.shape[1], 0),
+                (output.shape[0], output.shape[1], output.shape[2]),
+                (1, 1, 1)
+            )
+
         return output
 
 
 def permute(
         tokens,
-        routing_map
+        routing_map,
+        moe_permute_fusion: bool
 ):
     """Permute the tokens and probs based on the mask.
     Tokens with the same designated expert will be grouped together.
@@ -529,6 +529,21 @@ def permute(
     """
     # preprocess routing_shape
     routing_shape = routing_map.shape
+
+    if moe_permute_fusion:
+        # preprocess routing_shape
+        routing_map_kn = ops.transpose(routing_map, (0, 2, 1))
+        routing_map_kn = ops.reshape(routing_map_kn, (1, -1))
+        sorted_routing_map, _ = SortExt()(ops.cast(routing_map_kn, ms.float32), dim=1)
+
+        tokens = ops.reshape(tokens, (-1, tokens.shape[-1]))
+        routing_map = ops.reshape(routing_map, (-1, routing_map.shape[-1]))
+        permuted_input, unsort_map = ops.moe_token_permute(tokens, routing_map.astype(ms.int32))
+        permuted_input = permuted_input.reshape(1, permuted_input.shape[0], permuted_input.shape[1])
+        unsort_map = unsort_map.reshape(routing_shape[0], routing_shape[1], routing_shape[2])
+
+        return permuted_input, sorted_routing_map, routing_map_kn, unsort_map
+
     # (dp, k, N)int32  <-- (dp, N, k)int32
     routing_map = ops.transpose(routing_map, (0, 2, 1))
     # (dp, kN)int32    <-- (dp, k, N)int32
@@ -558,7 +573,8 @@ def permute(
 def unpermute(
         permuted_tokens: Tensor,
         unsort_map: Tensor,
-        probs: Tensor
+        probs: Tensor,
+        moe_permute_fusion: bool
 ):
     """
     Restore the original order of tokens after permutation. If probs are provided, it
@@ -572,9 +588,16 @@ def unpermute(
     Returns:
         Tensor: The tokens restored to their original order.
     """
-    index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1]*unsort_map.shape[2],))
-    output_tokens = IndexSelect()(permuted_tokens, 1, index)
-    output_tokens = mint.reshape(output_tokens, (unsort_map.shape[0], unsort_map.shape[1], unsort_map.shape[2], -1))
+    if moe_permute_fusion:
+        unsort_map_shape = unsort_map.shape
+        permuted_tokens = permuted_tokens.reshape(-1, permuted_tokens.shape[-1])
+        unsort_map = unsort_map.reshape(-1,)
+        output_tokens = ops.moe_token_unpermute(permuted_tokens, unsort_map.astype(ms.int32))
+        output_tokens = output_tokens.reshape(unsort_map_shape[0], unsort_map_shape[1], unsort_map_shape[2], -1)
+    else:
+        index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1]*unsort_map.shape[2],))
+        output_tokens = IndexSelect()(permuted_tokens, 1, index)
+        output_tokens = mint.reshape(output_tokens, (unsort_map.shape[0], unsort_map.shape[1], unsort_map.shape[2], -1))
     # (dp, N, k, 1)fp32 <-- (dp, N, k)fp32
     probs = ops.reshape(probs, (probs.shape[0], probs.shape[1], probs.shape[2], 1))
     # (dp, N, k, h)bf16 <-- (dp, N, k, h)bf16, (dp, N, k, 1)bf16
