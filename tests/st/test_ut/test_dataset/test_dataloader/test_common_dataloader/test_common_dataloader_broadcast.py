@@ -57,7 +57,7 @@ GLOBAL_CONFIG = MindFormerConfig(**DATASET_CONFIG)
 
 @MindFormerRegister.register(MindFormerModuleType.DATA_HANDLER)
 class MockHandler(BaseInstructDataHandler):
-
+    """MockHandler"""
     def handle(self, dataset):
         """mock handle func"""
         return dataset
@@ -65,6 +65,9 @@ class MockHandler(BaseInstructDataHandler):
     def format_func(self, example):
         """mock format func"""
         return example
+
+    def __call__(self, *args, **kwargs):
+        """pass"""
 
 
 def generate_dataset():
@@ -97,7 +100,6 @@ def mock_broadcast_received(data):
 @patch('mindformers.dataset.dataloader.common_dataloader.skip_barrier_controller', return_value=None)
 @patch('mindformers.dataset.dataloader.common_dataloader.is_dataset_built_on_rank', return_value=True)
 @patch('mindformers.dataset.dataloader.common_dataloader.ops.Broadcast', return_value=mock_broadcast)
-@pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_broadcast_main_rank(
@@ -124,7 +126,6 @@ def test_broadcast_main_rank(
 @patch('mindformers.dataset.dataloader.common_dataloader.skip_barrier_controller', return_value=None)
 @patch('mindformers.dataset.dataloader.common_dataloader.is_dataset_built_on_rank', return_value=False)
 @patch('mindformers.dataset.dataloader.common_dataloader.ops.Broadcast', return_value=mock_broadcast_received)
-@pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_broadcast_received_rank(
@@ -162,7 +163,6 @@ def generate_invalid_dataset():
 @patch('mindformers.dataset.dataloader.common_dataloader.skip_barrier_controller', return_value=None)
 @patch('mindformers.dataset.dataloader.common_dataloader.is_dataset_built_on_rank', return_value=True)
 @patch('mindformers.dataset.dataloader.common_dataloader.ops.Broadcast', return_value=mock_broadcast)
-@pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_broadcast_invalid_dataset(

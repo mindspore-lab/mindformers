@@ -263,7 +263,7 @@ class GPTModel(nn.Cell):
         self.mul = aclnn_ops.Mul()
         self.add = aclnn_ops.AddExt()
         self.transpose = aclnn_ops.Transpose()
-        self.assign = aclnn_ops.InplaceCopy()
+        self.assign = aclnn_ops.Assign()
 
         # update topk-bias
         if config.moe_router_enable_expert_bias:
@@ -353,9 +353,9 @@ class GPTModel(nn.Cell):
         # logits origin shape is [s b h], transform it to [b*s h].
         logits, _ = self.output_layer(hidden_states, output_weight)
         if logits.ndim > 2:
+            logits = self.transpose(logits, (1, 0, 2))
             logits = self.reshape(logits, (-1, logits.shape[-1]))
         logits = self.cast(logits, dtype.float32)
-        logits = self.transpose(logits, (0, 1))
 
         if not self.training:
             return logits.contiguous()
@@ -529,6 +529,7 @@ class GPTModel(nn.Cell):
     def shard(self, config: TransformerConfig):
         """parallel shard."""
         dp = config.data_parallel_size
+        tp = config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
         slice_in_strategy = ((dp, 1),)
         self.slice.shard(in_strategy=slice_in_strategy)
@@ -537,7 +538,7 @@ class GPTModel(nn.Cell):
         mul_in_strategy = ((dp, 1), (dp, 1))
         self.mul.shard(in_strategy=mul_in_strategy)
         self.concat_prefix.shard(((dp, 1, cp, 1), (dp, 1, cp, 1)))
-        self.transpose.shard(((cp, dp),))
+        self.transpose.shard(((cp, dp, tp),))
         pipeline_stage = config.pipeline_model_parallel_size
         if pipeline_stage > 1:
             self.embedding.pipeline_stage = 0
