@@ -70,8 +70,8 @@ class Ptuning2Model(PreTrainedModel):
         slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
 
-    def slice_incremental_inputs(self, model_inputs: dict, current_index):
-        return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
+    def slice_incremental_inputs(self, model_inputs: dict, current_index, need_flatten: bool = False):
+        return self.pet_model.slice_incremental_inputs(model_inputs, current_index, need_flatten)
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
