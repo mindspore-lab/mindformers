@@ -14,11 +14,18 @@
 # ============================================================================
 """Base class for quantization"""
 
-__all__ = ["QuantizeMethodBase"]
+__all__ = ["QuantizeMethodBase", "QuantizationConfig"]
 
 from abc import ABC, abstractmethod
+from typing import List, Any, Optional, TYPE_CHECKING
 
+import mindspore
 from mindspore import nn, Tensor
+
+if TYPE_CHECKING:
+    from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationBackends
+else:
+    QuantizationBackends = str
 
 
 class QuantizeMethodBase(ABC):
@@ -58,3 +65,76 @@ class QuantizeMethodBase(ABC):
         """
 
         return
+
+
+class QuantizationConfig(ABC):
+    """Base class for quantization configs."""
+
+    def __init__(self):
+        super().__init__()
+        # mapping is updated by models as they initialize
+        self.packed_modules_mapping: dict[str, list[str]] = dict()
+
+    @abstractmethod
+    def get_name(self) -> QuantizationBackends:
+        """Name of the quantization method."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_supported_act_dtypes(self) -> List[str]:
+        """List of supported activation dtypes."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def get_min_capability(cls) -> int:
+        """Minimum capability to support the quantization method.
+
+        This requirement is due to the custom kernels used by the
+        quantization method.
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def get_config_filenames() -> list[str]:
+        """List of filenames to search for in the model directory."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config: dict[str, Any]) -> "QuantizationConfig":
+        """Create a config class from the model's quantization config."""
+        raise NotImplementedError
+
+    @staticmethod
+    def get_from_keys(config: dict[str, Any], keys: list[str]) -> Any:
+        """Get a value from the model's quantization config."""
+        for key in keys:
+            if key in config:
+                return config[key]
+        raise ValueError(f"Cannot find any of {keys} in the model's "
+                         "quantization config.")
+
+    @staticmethod
+    def get_from_keys_or(config: dict[str, Any], keys: list[str],
+                         default: Any) -> Any:
+        """Get an optional value from the model's quantization config."""
+        try:
+            return QuantizationConfig.get_from_keys(config, keys)
+        except ValueError:
+            return default
+
+    @abstractmethod
+    def get_quant_method(self, layer: mindspore.nn.Cell,
+                         prefix: str) -> Optional[QuantizeMethodBase]:
+        """Get the quantize method to use for the quantized layer.
+
+        Args:
+            layer: The layer for the quant method.
+            prefix: The full name of the layer in the state dict
+        Returns:
+            The quantize method. None if the given layer doesn't support quant
+            method.
+        """
+        raise NotImplementedError

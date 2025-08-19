@@ -1,0 +1,41 @@
+seed: 0
+output_dir: './output' # path to save checkpoint/strategy
+load_checkpoint: ''
+use_parallel: True
+run_mode: 'predict'
+use_legacy: False
+load_ckpt_format: "safetensors"
+
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: deepseek_v3
+
+# default parallel of device num = 8 for Atlas 800T A2
+parallel_config:
+  data_parallel: 1
+  model_parallel: 32
+
+# HuggingFace file directory
+pretrained_model_dir: '/path/hf_dir'
+model:
+  model_config:
+    compute_dtype: "bfloat16"
+    layernorm_compute_dtype: "bfloat16"
+    softmax_compute_dtype: "float32"
+    rotary_dtype: "bfloat16"
+    params_dtype: "bfloat16"
+    block_size: 128
+    num_blocks: 512
+
+# mindspore context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  max_device_memory: "27GB"
+  device_id: 0
+  device_target: "Ascend"
+  affinity_cpu_list: None
+
+# parallel context config
+parallel:
+  parallel_mode: "MANUAL_PARALLEL"
+  full_batch: False

@@ -110,6 +110,9 @@ def get_model_config(
             model_config = merged_model_config
         else:
             model_config = config.model_config
+        if model_config.get("quantization_config", None):
+            quant_config = model_config.get("quantization_config")
+            config.model_config.quantization_config = quant_config
         return MindFormerRegister.get_instance_from_cfg(
             model_config, MindFormerModuleType.CONFIG, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

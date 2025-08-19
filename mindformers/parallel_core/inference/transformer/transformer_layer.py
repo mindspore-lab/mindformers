@@ -24,6 +24,7 @@ from typing import Union, Optional
 
 from mindspore import nn, ops
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.mlp import MLP
@@ -143,6 +144,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
                  layer_number: int = 1,
                  hidden_dropout: float = None,
                  model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+                 quant_config: Optional[QuantizationConfig] = None,
+                 prefix: str = "",
                  ):
         super().__init__()
         if hidden_dropout and hidden_dropout != 0:
@@ -196,6 +199,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             layer_number=layer_number,
             model_comm_pgs=model_comm_pgs,
             **attention_optional_kwargs,
+            quant_config=quant_config,
+            prefix=f"{prefix}.self_attention",
         )
 
         self.post_self_attn_layernorm = build_module(
@@ -230,7 +235,9 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             eps=config.layernorm_epsilon
         )
 
-        self.mlp = build_module(submodules.mlp, config=self.config, **additional_mlp_kwargs)
+        self.mlp = build_module(submodules.mlp, config=self.config,
+                                quant_config=quant_config,
+                                prefix=f"{prefix}.mlp", **additional_mlp_kwargs)
 
         self.post_mlp_layernorm = build_module(
             submodules.post_mlp_layernorm,

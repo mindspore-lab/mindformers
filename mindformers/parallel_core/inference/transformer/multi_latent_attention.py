@@ -27,6 +27,7 @@ from typing import Union, Optional
 from mindspore import mint
 from mindspore.ops import operations as P
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
@@ -73,6 +74,8 @@ class MultiLatentAttention(Attention):
             cp_comm_type: str = None,
             delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         super().__init__(
             config=config,
@@ -114,12 +117,9 @@ class MultiLatentAttention(Attention):
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
 
         if self.config.rope_type == "rope":
-            self.rotary_pos_emb = RotaryEmbedding(
-                self.config.qk_pos_emb_head_dim,
-                rotary_percent=self.config.rotary_percent,
-                rotary_base=self.config.rotary_base,
-                rotary_cos_format=2
-            )
+            self.rotary_pos_emb = RotaryEmbedding(self.config.qk_pos_emb_head_dim,
+                                                  rotary_percent=self.config.rotary_percent,
+                                                  rotary_base=self.config.rotary_base, rotary_cos_format=2)
         elif self.config.rope_type == "yarn":
             self.rotary_pos_emb = YaRNScalingRotaryEmbedding(
                 self.config.qk_pos_emb_head_dim,
@@ -147,34 +147,20 @@ class MultiLatentAttention(Attention):
         self.kv_num_heads_per_partition = self.num_attention_heads_per_partition
 
         if self.use_flash_attention:
-            self.core_attention = build_module(
-                submodules.core_attention,
-                head_num=self.num_attention_heads_per_partition,
-                head_dim=self.q_head_dim,
-                kv_head_num=self.kv_num_heads_per_partition,
-                scale_value=self.softmax_scale,
-                next_tokens=0,
-                pa_kv_head_num=1,
-                pa_mla_v_dim=512
-                )
+            self.core_attention = build_module(submodules.core_attention,
+                                               head_num=self.num_attention_heads_per_partition,
+                                               head_dim=self.q_head_dim, kv_head_num=self.kv_num_heads_per_partition,
+                                               scale_value=self.softmax_scale, next_tokens=0, pa_kv_head_num=1,
+                                               pa_mla_v_dim=512)
         else:
             raise NotImplementedError("For MLA, only `use_flash_attention=True` is supported")
 
         # RowParallelLinear
-        self.linear_proj = build_module(
-            submodules.linear_proj,
-            self.query_projection_size,
-            self.config.hidden_size,
-            config=self.config,
-            bias=self.config.add_bias_linear,
-            input_is_parallel=True,
-            skip_bias_add=False,
-            delay_allreduce=delay_allreduce,
-            is_expert=False,
-            transpose_b=True,
-            compute_dtype=self.compute_dtype,
-            tp_group=self.tp
-        )
+        self.linear_proj = build_module(submodules.linear_proj, self.query_projection_size, self.config.hidden_size,
+                                        config=self.config, bias=self.config.add_bias_linear, input_is_parallel=True,
+                                        skip_bias_add=False, delay_allreduce=delay_allreduce, is_expert=False,
+                                        transpose_b=True, compute_dtype=self.compute_dtype, tp_group=self.tp,
+                                        quant_config=quant_config, prefix=f"{prefix}.linear_proj")
 
     def construct(
             self,
@@ -254,7 +240,10 @@ class MLASelfAttention(MultiLatentAttention):
             attn_mask_type=None,
             cp_comm_type: str = None,
             delay_allreduce: bool = False,
-            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
+        ):
         super().__init__(
             config=config,
             submodules=submodules,
@@ -263,6 +252,8 @@ class MLASelfAttention(MultiLatentAttention):
             cp_comm_type=cp_comm_type,
             delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
+            prefix=prefix
         )
 
         if self.config.q_lora_rank is None:
@@ -278,6 +269,8 @@ class MLASelfAttention(MultiLatentAttention):
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
                 tp_group=self.tp,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_q_proj",
             )
 
             self.linear_kv_down_proj = build_module(
@@ -290,7 +283,9 @@ class MLASelfAttention(MultiLatentAttention):
                 gather_output=False,
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
-                is_expert=False
+                is_expert=False,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_kv_down_proj",
             )
 
         else:
@@ -301,7 +296,9 @@ class MLASelfAttention(MultiLatentAttention):
                 config=self.config,
                 bias=False,
                 transpose_b=True,
-                compute_dtype=self.config.compute_dtype
+                compute_dtype=self.config.compute_dtype,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_qkv_down_proj",
             )
 
             self.linear_q_up_proj = build_module(
@@ -316,6 +313,8 @@ class MLASelfAttention(MultiLatentAttention):
                 compute_dtype=self.config.compute_dtype,
                 is_expert=False,
                 tp_group=self.tp,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_q_up_proj",
             )
 
         self.linear_kv_up_proj = build_module(
@@ -328,22 +327,16 @@ class MLASelfAttention(MultiLatentAttention):
             compute_dtype=self.config.compute_dtype,
             is_expert=False,
             tp_group=self.tp,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_kv_up_proj",
         )
 
         if self.config.q_lora_rank is not None:
-            self.q_layernorm = build_module(
-                submodules.q_layernorm,
-                hidden_size=self.config.q_lora_rank,
-                config=self.config,
-                eps=self.config.layernorm_epsilon
-            )
+            self.q_layernorm = build_module(submodules.q_layernorm, hidden_size=self.config.q_lora_rank,
+                                            config=self.config, eps=self.config.layernorm_epsilon)
 
-        self.kv_layernorm = build_module(
-            submodules.kv_layernorm,
-            hidden_size=self.config.kv_lora_rank,
-            config=self.config,
-            eps=self.config.layernorm_epsilon
-        )
+        self.kv_layernorm = build_module(submodules.kv_layernorm, hidden_size=self.config.kv_lora_rank,
+                                         config=self.config, eps=self.config.layernorm_epsilon)
 
     def get_query_key_value_tensors(
             self,
