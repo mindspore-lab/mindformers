@@ -25,6 +25,7 @@ from mindformers.parallel_core.inference.transformer.dot_product_attention impor
 from mindformers.parallel_core.inference.transformer.multi_latent_attention import (
     MLASelfAttention,
     MLASelfAttentionSubmodules,
+    FusedMLASelfAttention,
 )
 from mindformers.parallel_core.inference.transformer.attention import (
     SelfAttention,
@@ -56,6 +57,7 @@ def get_gpt_layer_local_spec(
         use_flash_attention: Optional[bool] = True,
         sandwich_norm: Optional[bool] = False,
         use_alltoall: Optional[bool] = False,
+        use_fused_mla: Optional[bool] = False,
 ) -> ModuleSpec:
     """Use this spec for an implementation using only modules in Mcore Inference.
 
@@ -91,10 +93,11 @@ def get_gpt_layer_local_spec(
         return ModuleSpec(
             module=TransformerLayer,
             submodules=TransformerLayerSubmodules(
-                input_layernorm=get_norm_cls(normalization),
+                input_layernorm=get_norm_cls(normalization) if not use_fused_mla else IdentityOp,
                 self_attention=ModuleSpec(
-                    module=MLASelfAttention,
+                    module=MLASelfAttention if not use_fused_mla else FusedMLASelfAttention,
                     submodules=MLASelfAttentionSubmodules(
+                        input_layernorm=get_norm_cls(normalization) if use_fused_mla else IdentityOp,
                         linear_q_proj=ColumnParallelLinear,
                         linear_qkv_down_proj=ReplicatedLinear,
                         linear_q_up_proj=ColumnParallelLinear,
@@ -151,6 +154,7 @@ def get_gpt_decoder_block_spec(
         use_flash_attention=config.use_flash_attention,
         qk_l2_norm=qk_l2_norm,
         use_alltoall=config.use_alltoall,
+        use_fused_mla=config.use_fused_mla,
     )
 
     moe_layer_spec = get_gpt_layer_local_spec(
@@ -163,6 +167,7 @@ def get_gpt_decoder_block_spec(
         use_flash_attention=config.use_flash_attention,
         qk_l2_norm=qk_l2_norm,
         use_alltoall=config.use_alltoall,
+        use_fused_mla=config.use_fused_mla,
     )
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.

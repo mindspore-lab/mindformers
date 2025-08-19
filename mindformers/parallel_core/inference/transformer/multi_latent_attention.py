@@ -17,14 +17,16 @@
 __all__ = [
     'MLASelfAttentionSubmodules',
     'MultiLatentAttention',
-    'MLASelfAttention'
+    'MLASelfAttention',
+    "FusedMLASelfAttention"
 ]
 
 import math
 from dataclasses import dataclass
 from typing import Union, Optional
 
-from mindspore import mint
+from mindspore import mint, ops, Tensor, dtype
+from mindspore.common.initializer import Zero
 from mindspore.ops import operations as P
 
 from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
@@ -45,6 +47,7 @@ from mindformers.parallel_core.process_group_config import ModelCommProcessGroup
 class MLASelfAttentionSubmodules:
     """Submodules for the MLA self-attention layer."""
 
+    input_layernorm: Union[ModuleSpec, type] = None
     linear_q_proj: Union[ModuleSpec, type] = None
     linear_qkv_down_proj: Union[ModuleSpec, type] = None
     linear_q_up_proj: Union[ModuleSpec, type] = None
@@ -100,6 +103,12 @@ class MultiLatentAttention(Attention):
             )
 
         self.config = config
+        self.input_layernorm = build_module(
+            submodules.input_layernorm,
+            config=config,
+            hidden_size=config.hidden_size,
+            eps=config.layernorm_epsilon
+        )
         self.use_flash_attention = self.config.use_flash_attention
         self.query_projection_size = self.config.v_head_dim * self.config.num_attention_heads
         self.q_head_dim = self.config.qk_head_dim + self.config.qk_pos_emb_head_dim
@@ -353,11 +362,13 @@ class MLASelfAttention(MultiLatentAttention):
         # =========================================
         # QKV down projection and layernorm
         # =========================================
+        hidden_states = self.input_layernorm(hidden_states)
         if self.config.q_lora_rank is not None:
             qkv = self.linear_qkv_down_proj(hidden_states)
-            q_compressed, kv_compressed, k_pos_emb = mint.split(qkv,
-                                                                [self.config.q_lora_rank, self.config.kv_lora_rank,
-                                                                 self.config.qk_pos_emb_head_dim],
+            kv_compressed, k_pos_emb, q_compressed = mint.split(qkv,
+                                                                [self.config.kv_lora_rank,
+                                                                 self.config.qk_pos_emb_head_dim,
+                                                                 self.config.q_lora_rank],
                                                                 dim=-1)
 
             if q_compressed.shape[-1] != self.config.q_lora_rank:
@@ -438,6 +449,109 @@ class MLASelfAttention(MultiLatentAttention):
 
         q_no_pe = mint.transpose(mint.matmul(mint.transpose(q_no_pe, -3, -2), q_absorb), -3, -2)
         query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
+        query = query_states.reshape(-1,
+                                     self.num_attention_heads_per_partition *
+                                     (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
+
+        return query, None, None, out_absorb
+
+class FusedMLASelfAttention(MLASelfAttention):
+    """MLA Self-attention layer class use fused op
+
+    Self-attention layer takes input with size [s, b, h]
+    and returns output of the same size.
+    """
+    def __init__(
+            self,
+            config: MLATransformerConfig,
+            submodules: MLASelfAttentionSubmodules,
+            layer_number: int,
+            attn_mask_type=None,
+            cp_comm_type: str = None,
+            delay_allreduce: bool = False,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
+        ):
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            attn_mask_type=attn_mask_type,
+            cp_comm_type=cp_comm_type,
+            delay_allreduce=delay_allreduce,
+            model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
+            prefix=prefix
+        )
+        self.mla_preprocess = ops.auto_generate.MlaPreprocess()
+        self.ctkv_scale = Tensor([0], dtype=dtype.bfloat16)
+        self.qnope_scale = Tensor([0], dtype=dtype.bfloat16)
+        self.qkv_down_beta = Tensor(shape=(self.config.hidden_size,), dtype=dtype.bfloat16, init=Zero())
+        self.q_up_beta = Tensor(shape=(self.config.q_lora_rank,), dtype=dtype.bfloat16, init=Zero())
+        # Temporary, to be deleted upon completion of weight conversion.
+        self.input_scale = Tensor([1], dtype=dtype.bfloat16)
+
+    def get_query_key_value_tensors(
+            self,
+            hidden_states,
+            batch_valid_length=None,
+            rotary_pos_cos=None,
+            rotary_pos_sin=None,
+            slot_mapping=None,
+            key_cache=None
+    ):
+        """
+        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        """
+        if self.is_prefill:
+            return super().get_query_key_value_tensors(
+                hidden_states,
+                batch_valid_length=batch_valid_length,
+                rotary_pos_cos=rotary_pos_cos,
+                rotary_pos_sin=rotary_pos_sin,
+                slot_mapping=slot_mapping,
+                key_cache=key_cache
+            )
+
+        # only decode use fused op
+        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
+                                          [self.num_attention_heads_per_partition * self.config.qk_head_dim,
+                                           self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
+        q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,
+                                    self.config.qk_head_dim, self.config.kv_lora_rank)
+        out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
+                                        self.config.v_head_dim, self.config.kv_lora_rank)
+        # Temporary, the div operation should be deleted and the input_scale should be replaced.
+        states = self.mla_preprocess(
+            hidden_states,
+            self.input_layernorm.weight / self.linear_qkv_down_proj.input_scale,
+            self.qkv_down_beta,
+            self.input_scale,
+            self.linear_qkv_down_proj.input_offset,
+            self.linear_qkv_down_proj.weight,
+            self.linear_qkv_down_proj.quant_bias,
+            self.q_layernorm.weight / self.linear_q_up_proj.input_scale,
+            self.q_up_beta,
+            self.input_scale,
+            self.linear_q_up_proj.input_offset,
+            self.kv_layernorm.weight,
+            rotary_pos_sin,
+            rotary_pos_cos,
+            rotary_pos_sin,
+            rotary_pos_cos,
+            key_cache,
+            slot_mapping,
+            self.linear_q_up_proj.weight,
+            self.linear_q_up_proj.quant_bias,
+            q_absorb,
+            self.linear_qkv_down_proj.deq_scale,
+            self.linear_q_up_proj.deq_scale,
+            self.ctkv_scale,
+            self.qnope_scale,
+            key_cache,
+            0)
+        query_states = states[0]
         query = query_states.reshape(-1,
                                      self.num_attention_heads_per_partition *
                                      (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
