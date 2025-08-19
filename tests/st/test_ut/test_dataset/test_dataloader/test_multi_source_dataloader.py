@@ -109,7 +109,7 @@ class TestMuitiSourceDataLoader:
                                                      data_source_type=data_source_type,
                                                      shuffle=self.__class__.shuffle_strategy)
         assert multi_access_dataset.get_dataset_size() == data_size * data_num
-        for item in multi_access_dataset.create_dict_iterator():
+        for item in multi_access_dataset.create_dict_iterator(do_copy=False):
             assert item["input_ids"].shape == (seq_length,)
 
     @pytest.mark.run(order=3)
@@ -178,7 +178,7 @@ class TestMuitiSourceDataLoader:
         start_time = time.time()
         # skip 80% of the whole dataset
         multi_access_dataset.set_init_step(int(data_size * data_num * 0.8))
-        iter_dataset = multi_access_dataset.create_dict_iterator(num_epochs=1)
+        iter_dataset = multi_access_dataset.create_dict_iterator(num_epochs=1, do_copy=False)
         next(iter_dataset)
         skip_time = time.time() - start_time
         assert skip_time < 2        # less than 2 seconds.

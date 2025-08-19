@@ -92,6 +92,6 @@ def test_indexed_dataloader():
 
     assert len(datasets) == len(source_data)
 
-    for item in datasets.create_dict_iterator():
+    for item in datasets.create_dict_iterator(do_copy=False):
         assert source_data[0].all() == item['input_ids'].value().asnumpy()[0].all()
         break
