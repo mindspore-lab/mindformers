@@ -53,7 +53,7 @@ class InferModelMixin(ModelMixin):
             return mutable(cache_list)
 
         key_cache = get_input()
-        value_cache = get_input()
+        value_cache = get_input() if not self.transformer_config.multi_latent_attention else None
 
         # Check whether model needs padding index parameters
         if (
@@ -67,7 +67,11 @@ class InferModelMixin(ModelMixin):
             dynamic_ffn_padding_idx = None
             dynamic_ffn_unpadding_idx = None
 
-            if self.model_comm_pgs.dp.size > 1 and self.model_comm_pgs.dp.size != self.model_comm_pgs.moe_ep.size:
+            tp_group_size = self.model_comm_pgs.tp.size
+            dp_group_size = self.model_comm_pgs.dp.size
+            ep_group_size = self.model_comm_pgs.moe_ep.size
+
+            if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
                 dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
                 dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
                 dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)

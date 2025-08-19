@@ -167,7 +167,7 @@ class GenerationMixin:
                 key_cache.append(k_cache)
                 value_cache.append(v_cache)
             self.key_cache = mutable(key_cache)
-            self.value_cache = mutable(value_cache)
+            self.value_cache = mutable(value_cache) if not tansformer_config.multi_latent_attention else None
 
     def _set_lower_triangle_mask(self):
         """Initial attention mask."""

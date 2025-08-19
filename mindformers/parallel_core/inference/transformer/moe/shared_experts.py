@@ -55,6 +55,7 @@ class SharedExpertMLP(MLP):
         super().__init__(
             config=config,
             submodules=submodules,
+            is_expert=True,
             delay_allreduce=True,
             tp_group=model_comm_pgs.globals if not config.use_alltoall else None,
             quant_config=quant_config,

@@ -126,7 +126,7 @@ class GPTModel(nn.Cell):
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length
         self.pre_process = pre_process
-        self.post_process = post_process
+        self.post_process = config.post_process
         self.parallel_output = parallel_output
         self.compute_dtype = self.config.compute_dtype
 
@@ -220,11 +220,12 @@ class GPTModel(nn.Cell):
         ):
             return model_inputs
 
+        tp_group_size = self.model_comm_pgs.tp.size
         dp_group_size = self.model_comm_pgs.dp.size
         ep_group_size = self.model_comm_pgs.moe_ep.size
         q_seq_lens = model_inputs.get("q_seq_lens", None)
 
-        if dp_group_size == 1 or q_seq_lens is None or dp_group_size == ep_group_size:
+        if dp_group_size == 1 or q_seq_lens is None or (dp_group_size == ep_group_size and tp_group_size == 1):
             return model_inputs
 
         (

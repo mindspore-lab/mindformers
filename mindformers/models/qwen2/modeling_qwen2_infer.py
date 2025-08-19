@@ -50,6 +50,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
         super().__init__(config, auto_prefix=False)
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
+        self.transformer_config = config
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(config.tensor_model_parallel_size, order='tp')
         if is_initialized():
