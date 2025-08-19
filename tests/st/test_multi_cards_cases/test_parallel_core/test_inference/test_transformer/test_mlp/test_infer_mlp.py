@@ -41,11 +41,11 @@ TWO_CARD_TEST_CASES = [
         2
     ),
     (
-        # 并行策略: 双卡tp=2, has_bias: FALSE, gated_linear_unit: FALSE, is_expert: FALSE, input_size: 32, ffn_hidden_size: 32
+        # 并行策略: 双卡tp=2, has_bias: True, gated_linear_unit: True, is_expert: FALSE, input_size: 32, ffn_hidden_size: 32
         # expected result: 功能跑通, 精度对齐。
-        {"has_bias": False, "gated_linear_unit": False, "is_expert": False,
+        {"has_bias": True, "gated_linear_unit": True, "is_expert": False,
          "input_size": INPUT_SIZE, "ffn_hidden_size": FFN_HIDDEN_SIZE},
-        {"output": "output_only"},
+        {"output": "has_bias_gate_output"},
         False,
         2
     ),
