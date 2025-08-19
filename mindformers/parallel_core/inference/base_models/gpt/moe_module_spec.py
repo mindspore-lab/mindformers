@@ -20,9 +20,14 @@ from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
 from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer, MoESubmodules
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 from mindformers.parallel_core.inference.transformer.moe.shared_experts import SharedExpertMLP
+from mindformers.parallel_core.inference.transformer.moe.token_dispatcher import (
+    MoEAllGatherTokenDispatcher,
+    MoEAlltoAllTokenDispatcher,
+)
 from mindformers.parallel_core.inference.tensor_parallel.layers import (
+    MergedColumnParallelLinear,
     RowParallelLinear,
-    MergedColumnParallelLinear
+    ReplicatedLinear,
 )
 from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import (
     ColumnParallelGroupedLinear,
@@ -32,15 +37,15 @@ from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import (
 
 def get_moe_module_spec(
         num_experts: Optional[int] = None,
+        moe_grouped_gemm: Optional[bool] = True,
+        use_alltoall: Optional[bool] = False,
 ) -> ModuleSpec:
     """Helper function to get module spec for MoE"""
     if not num_experts:
         raise ValueError(f"Using MoE module, num_experts must be int, but num_experts get {num_experts}.")
 
-    mlp = MLPSubmodules(
-        linear_fc1=MergedColumnParallelLinear,
-        linear_fc2=RowParallelLinear,
-    )
+    if not moe_grouped_gemm:
+        raise NotImplementedError("moe_grouped_gemm = 'False' is not supported now.")
 
     # experts spec
     ## use legacy GroupedMLP
@@ -53,11 +58,22 @@ def get_moe_module_spec(
     experts = ModuleSpec(module=expert_module, submodules=expert_submodule)
 
     # shared experts spec
-    shared_experts = ModuleSpec(module=SharedExpertMLP, params={"gate": False}, submodules=mlp)
+    shared_expert_module = SharedExpertMLP
+    shared_expert_submodule = MLPSubmodules(
+        # When using AlltoAll, shared experts use unsplit linear
+        linear_fc1=ReplicatedLinear if use_alltoall else MergedColumnParallelLinear,
+        linear_fc2=ReplicatedLinear if use_alltoall else RowParallelLinear,
+    )
+    shared_experts = ModuleSpec(module=shared_expert_module, params={"gate": False}, submodules=shared_expert_submodule)
 
     # MoE module spec
     moe_module_spec = ModuleSpec(
-        module=MoELayer, submodules=MoESubmodules(experts=experts, shared_experts=shared_experts)
+        module=MoELayer,
+        submodules=MoESubmodules(
+            experts=experts,
+            shared_experts=shared_experts,
+            token_dispatcher=MoEAlltoAllTokenDispatcher if use_alltoall else MoEAllGatherTokenDispatcher,
+        )
     )
 
     return moe_module_spec

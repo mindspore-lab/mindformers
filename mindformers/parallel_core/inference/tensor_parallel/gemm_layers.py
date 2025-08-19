@@ -20,7 +20,7 @@ __all__ = [
     'RowParallelGroupedLinear',
 ]
 
-from typing import Callable, Optional
+from typing import Optional
 from abc import abstractmethod
 
 import mindspore as ms
@@ -45,7 +45,7 @@ class GroupedLinearMethodBase(QuantizeMethodBase):
     """Base class for different (maybe quantized) grouped linear methods."""
 
     @abstractmethod
-    def create_weights(self, layer: nn.Cell, num_experts: int,
+    def create_weights(self, layer: nn.Cell, num_local_experts: int,
                        input_size_per_partition: int, output_size_per_partition: int,
                        params_dtype, **extra_weight_attrs):
         """Create weights for a grouped linear layer.
@@ -53,7 +53,7 @@ class GroupedLinearMethodBase(QuantizeMethodBase):
 
         Args:
             layer: The layer that is using the GroupedLinearMethodBase factory.
-            num_experts: The number of experts.
+            num_local_experts: The number of local experts.
             input_size_per_partition: Sizes of the input dim on rank X.
             output_size_per_partition: Sizes of the output dim on rank X.
             params_dtype: Datatype of the parameters.
@@ -78,13 +78,17 @@ class GroupedLinearMethodBase(QuantizeMethodBase):
 class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
     """Grouped linear method without quantization."""
 
-    def create_weights(self, layer: nn.Cell, num_experts: int,
+    def __init__(self):
+        self.cast = P.Cast()
+        self.matmul = ops.auto_generate.GroupedMatmulV4()
+
+    def create_weights(self, layer: nn.Cell, num_local_experts: int,
                        input_size_per_partition: int, output_size_per_partition: int,
                        params_dtype, **extra_weight_attrs):
 
         weight = Parameter(
             mint.zeros(
-                (num_experts,
+                (num_local_experts,
                  input_size_per_partition,
                  output_size_per_partition),
                 dtype=params_dtype,
@@ -105,21 +109,16 @@ class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
               bias: Parameter = None,
               group_list: Tensor = None) -> Tensor:
         origin_dtype = x.dtype
-        x = layer.cast(x, layer.compute_dtype)
-        weight = layer.cast(weight, layer.compute_dtype)
-        output_parallel = layer.matmul([x], [weight], None, None, None,
-                                       None, None, None,
-                                       group_list, split_item=3, group_type=0, group_list_type=1)[0]
-
-        if hasattr(layer, 'delay_allreduce'):
-            if not layer.delay_allreduce and not layer.skip_bias_add:
-                output_parallel = reduce_from_model_parallel_region(output_parallel, layer.tp_group)
+        x = self.cast(x, layer.compute_dtype)
+        weight = self.cast(weight, layer.compute_dtype)
+        output_parallel = self.matmul([x], [weight], None, None, None, None, None, None,
+                                      group_list, split_item=3, group_type=0, group_list_type=1)[0]
 
         if bias is not None:
-            bias = layer.cast(bias, layer.compute_dtype)
+            bias = self.cast(bias, layer.compute_dtype)
             output_parallel = mint.add(output_parallel, bias)
 
-        output_parallel = layer.cast(output_parallel, origin_dtype)
+        output_parallel = self.cast(output_parallel, origin_dtype)
         return output_parallel
 
 
@@ -127,7 +126,7 @@ class GroupedLinearBase(nn.Cell):
     """Base grouped linear layer.
 
     Args:
-        num_experts (int): The number of expert.
+        num_local_experts (int): The number of local expert.
         input_size (int): input dimension of the linear layer.
         output_size (int): output dimension of the linear layer.
         skip_bias_add (bool): If true, skip adding bias but instead return it. Default: False.
@@ -136,7 +135,7 @@ class GroupedLinearBase(nn.Cell):
 
     def __init__(
             self,
-            num_experts: int,
+            num_local_experts: int,
             input_size: int,
             output_size: int,
             skip_bias_add: bool = False,
@@ -145,7 +144,7 @@ class GroupedLinearBase(nn.Cell):
         super().__init__()
 
         # Keep input parameters
-        self.num_experts = num_experts
+        self.num_local_experts = num_local_experts
         self.input_size = input_size
         self.output_size = output_size
         self.skip_bias_add = skip_bias_add
@@ -170,22 +169,18 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
     and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
 
     Args:
-        num_experts (int): The number of expert.
+        num_local_experts (int): The number of local expert.
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
         config (TransformerConfig): Transformer configuration.
-        init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable init_method parameter. The values
-            of str refer to the function `initializer`. Default: 'normal'.
         bias (bool): Specifies whether the layer uses a bias vector. Default: False.
         gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
         stride (int): Stride parameter, currently unsupported for `stride > 1`. Default: 1.
         skip_bias_add (bool): This was added to enable performance optimizations where bias can be fused with other
             element-wise operations. We skip adding bias but instead return it. Default: False.
-        skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
-            When set True, a weight tensor should be passed to construct function. Default: False.
+        weight (Tensor): Use externally passed weights to skip the process of creating initial weights. Default: None.
         is_expert (bool): Specifies whether this linear layer is an expert. Default: True.
         tp_comm_buffer_name (str): Tensor-parallel communication buffer name, currently unsupported. Default: None.
-        compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
@@ -204,12 +199,11 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
 
     def __init__(
             self,
-            num_experts: int,
+            num_local_experts: int,
             input_size: int,
             output_size: int,
             *,
             config: TransformerConfig,
-            init_method: Callable = "normal",
             bias: bool = False,
             gather_output: bool = False,
             stride: int = 1,
@@ -217,10 +211,9 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             weight: Tensor = None,
             is_expert: bool = True,
             tp_comm_buffer_name: str = None,
-            compute_dtype: mstype = mstype.bfloat16,
             tp_group: ProcessGroup = default_pgs,
     ):
-        super(ColumnParallelGroupedLinear, self).__init__(num_experts,
+        super(ColumnParallelGroupedLinear, self).__init__(num_local_experts,
                                                           input_size,
                                                           output_size,
                                                           skip_bias_add,
@@ -245,8 +238,9 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         self.has_bias = bias
         self.gather_output = gather_output
         self.skip_weight_param_allocation = weight is not None
-        self.compute_dtype = compute_dtype
+        self.compute_dtype = config.compute_dtype
 
+        # tp_group passed in here is model_comm_pgs.moe_tp
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
@@ -254,19 +248,18 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             raise ValueError("`quant_method` is not initialized in ColumnParallelGroupedLinear.")
 
         if not self.skip_weight_param_allocation:
-            self.quant_method: Optional[UnquantizedGroupedLinearMethod] = UnquantizedGroupedLinearMethod()
             self.quant_method.create_weights(
                 layer=self,
-                num_experts=self.num_experts,
+                num_local_experts=self.num_local_experts,
                 input_size_per_partition=self.input_size,
                 output_size_per_partition=self.output_size_per_partition,
-                params_dtype=self.config.params_dytpe,
+                params_dtype=self.config.params_dtype,
             )
         else:
             self.weight = weight
 
         if self.has_bias:
-            bias_shape = (self.num_experts, self.output_size_per_partition)
+            bias_shape = (self.num_local_experts, self.output_size_per_partition)
             self.bias = Parameter(
                 mint.empty(bias_shape, dtype=self.params_dtype),
                 name="bias"
@@ -274,20 +267,17 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
-        self.cast = P.Cast()
-        self.matmul = ops.auto_generate.GroupedMatmulV4()
-
     def construct(self, input_parallel, weight=None, group_list=None):
         """Forward of ColumnParallelGroupedLinear."""
         if weight is None:
             weight = self.weight
         else:
             # Check the weight passed in is the correct shape.
-            experted_shape = (self.num_experts,) + (self.input_size, self.output_size_per_partition)
-            if weight.shape != experted_shape:
+            expected_shape = (self.num_local_experts, self.input_size, self.output_size_per_partition)
+            if weight.shape != expected_shape:
                 raise ValueError(
                     f"supplied weight's shape is {tuple(weight.shape)}, "
-                    f"not {experted_shape} as expected."
+                    f"not {expected_shape} as expected."
                 )
         output_parallel = self.quant_method.apply(self, input_parallel, weight, self.bias, group_list)
         if self.gather_output:
@@ -298,7 +288,8 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
 
     def sharded_state_dict(self):
         """Provide the sharded state dict."""
-        w_shard = (1, 1, self.tensor_parallel_group_size)
+        expert_parallel_group_size = self.config.num_moe_experts // self.num_local_experts
+        w_shard = (expert_parallel_group_size, 1, self.tensor_parallel_group_size)
 
         state_dict = {}
         if not self.skip_weight_param_allocation:
@@ -306,7 +297,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                                             'shard': w_shard}
         if self.has_bias:
             state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (1, self.tensor_parallel_group_size)}
+                                          'shard': (expert_parallel_group_size, self.tensor_parallel_group_size)}
         return state_dict
 
     def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:
@@ -372,24 +363,20 @@ class RowParallelGroupedLinear(GroupedLinearBase):
     and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
 
     Args:
-        num_experts (int): The number of expert.
+        num_local_experts (int): The number of local expert.
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
         config (TransformerConfig): Transformer configuration.
-        init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable init_method parameter. The values
-            of str refer to the function `initializer`. Default: 'normal'.
         bias (bool): Specifies whether the layer uses a bias vector. Default: False.
         input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
             Default: True
         skip_bias_add (bool): This was added to enable performance optimizations where bias can be fused with other
             element-wise operations. We skip adding bias but instead return it. Default: False.
-        skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
-            When set True, a weight tensor should be passed to construct function. Default: False.
+        weight (Tensor): Use externally passed weights to skip the process of creating initial weights. Default: None.
         stride (int): Stride parameter, currently unsupported for `stride > 1`. Default: 1.
         delay_allreduce (bool): Whether to delay allreduce during forward function. Default: True
         is_expert (bool): Specifies whether this linear layer is an expert. Default: True.
         tp_comm_buffer_name (str): Tensor-parallel communication buffer name, currently unsupported. Default: None.
-        compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
 
     Inputs:
@@ -405,12 +392,11 @@ class RowParallelGroupedLinear(GroupedLinearBase):
 
     def __init__(
             self,
-            num_experts: int,
+            num_local_experts: int,
             input_size: int,
             output_size: int,
             *,
             config: TransformerConfig,
-            init_method: Callable = "normal",
             bias: bool = False,
             input_is_parallel: bool = True,
             skip_bias_add: bool = False,
@@ -419,10 +405,9 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             delay_allreduce: bool = True,
             is_expert: bool = True,
             tp_comm_buffer_name: str = None,
-            compute_dtype: mstype = mstype.bfloat16,
             tp_group: ProcessGroup = default_pgs,
     ):
-        super(RowParallelGroupedLinear, self).__init__(num_experts,
+        super(RowParallelGroupedLinear, self).__init__(num_local_experts,
                                                        input_size,
                                                        output_size,
                                                        skip_bias_add,
@@ -447,8 +432,9 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         self.input_is_parallel = input_is_parallel
         self.delay_allreduce = delay_allreduce
         self.skip_weight_param_allocation = weight is not None
-        self.compute_dtype = compute_dtype
+        self.compute_dtype = config.compute_dtype
 
+        # tp_group passed in here is model_comm_pgs.moe_tp
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
@@ -456,19 +442,18 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             raise ValueError("`quant_method` is not initialized in RowParallelGroupedLinear.")
 
         if not self.skip_weight_param_allocation:
-            self.quant_method: Optional[UnquantizedGroupedLinearMethod] = UnquantizedGroupedLinearMethod()
             self.quant_method.create_weights(
                 layer=self,
-                num_experts=self.num_experts,
+                num_local_experts=self.num_local_experts,
                 input_size_per_partition=self.input_size_per_partition,
                 output_size_per_partition=self.output_size,
-                params_dtype=self.config.params_dytpe,
+                params_dtype=self.config.params_dtype,
             )
         else:
             self.weight = weight
 
         if self.has_bias:
-            bias_shape = (self.num_experts, self.output_size)
+            bias_shape = (self.num_local_experts, self.output_size)
             self.bias = Parameter(
                 mint.empty(bias_shape, dtype=self.params_dtype),
                 name="bias"
@@ -476,20 +461,17 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
-        self.cast = P.Cast()
-        self.matmul = ops.auto_generate.GroupedMatmulV4()
-
     def construct(self, input_, weight=None, group_list=None):
         """Forward of RowParallelGroupedLinear."""
         if weight is None:
             weight = self.weight
         else:
             # Check the weight passed in is the correct shape.
-            experted_shape = (self.num_experts,) + (self.input_size_per_partition, self.output_size)
-            if weight.shape != experted_shape:
+            expected_shape = (self.num_local_experts, self.input_size_per_partition, self.output_size)
+            if weight.shape != expected_shape:
                 raise ValueError(
                     f"supplied weight's shape is {tuple(weight.shape)}, "
-                    f"not {experted_shape} as expected."
+                    f"not {expected_shape} as expected."
                 )
 
         if self.input_is_parallel:
@@ -497,12 +479,18 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         else:
             input_parallel = scatter_to_model_parallel_region(input_, self.tp_group)
 
-        output = self.quant_method.apply(self, input_parallel, weight, self.bias, group_list)
+        bias_ = None if self.tp_group.rank > 0 else self.bias
+        output_parallel = self.quant_method.apply(self, input_parallel, weight, bias_, group_list)
+        if self.delay_allreduce or self.skip_bias_add:
+            output = output_parallel
+        else:
+            output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
 
     def sharded_state_dict(self):
         """Provide the sharded state dict."""
-        w_shard = (1, self.tensor_parallel_group_size, 1)
+        expert_parallel_group_size = self.config.num_moe_experts // self.num_local_experts
+        w_shard = (expert_parallel_group_size, self.tensor_parallel_group_size, 1)
 
         state_dict = {}
         if not self.skip_weight_param_allocation:
@@ -510,7 +498,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                                             'shard': w_shard}
         if self.has_bias:
             state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (1, 1)}
+                                          'shard': (expert_parallel_group_size, 1)}
         return state_dict
 
     def weight_loader(self, param, loaded_weight, shard_id, expert_id) -> None:

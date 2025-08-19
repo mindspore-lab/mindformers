@@ -26,8 +26,15 @@ from mindspore import nn, ops
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
+from mindformers.parallel_core.inference.transformer.mlp import MLP
+from mindformers.parallel_core.inference.transformer.moe.moe_layer import MoELayer
+from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
+from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
+                                                                          reduce_scatter_to_model_parallel_region,
+                                                                          scatter_to_model_parallel_region)
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.tools.logger import logger
 
 
 @dataclass
@@ -112,6 +119,14 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         - **q_seq_lens** (Tensor) - Tensor of query lengths.
         - **block_tables** (Tensor) - Block tables for memory optimization.
         - **slot_mapping** (Tensor) - Slot mapping for memory optimization.
+        - **attn_padding_idx** (Tensor) - Indices mapping positions in attention output sequence to
+            original token positions, used for padding attention output to fixed size.
+        - **attn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded attention output sequence to
+            their original positions, used for removing padding in attention output.
+        - **ffn_padding_idx** (Tensor) - Indices mapping positions in MoE output sequence to
+            flattened valid token positions, used for padding MoE output to fixed size.
+        - **ffn_unpadding_idx** (Tensor) - Indices mapping valid tokens in padded MoE output sequence to
+            their original positions, used for removing padding in MoE output.
         - **key_cache** (Tensor, optional) - Key cache for incremental inference.
         - **value_cache** (Tensor, optional) - Value cache for incremental inference.
 
@@ -142,6 +157,30 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.submodules_config = submodules
         self.layer_number = layer_number
         self.apply_residual_connection_post_norm = config.apply_residual_connection_post_layernorm
+        self.moe_layer = False
+
+        attention_optional_kwargs = {}
+        additional_mlp_kwargs = {}
+
+        if isinstance(submodules.mlp, ModuleSpec):
+            mlp_module = submodules.mlp.module
+            if mlp_module in (MoELayer, GroupedMLP):
+                self.moe_layer = True
+                # MoELayer expects model_comm_pgs to be passed in.
+                additional_mlp_kwargs["model_comm_pgs"] = model_comm_pgs
+            elif mlp_module == MLP:
+                # MLP expects tp_group to be passed in.
+                additional_mlp_kwargs["tp_group"] = model_comm_pgs.tp
+            else:
+                logger.warning(f"Current MLP module uses type: {type(submodules.mlp)}, "
+                               f"which is not the type we recommend(MLP, GroupedMLP and MoELayer).")
+        self.attn_delay_allreduce = not self.config.attn_allreduce and self.moe_layer
+        self.attn_reduce_scatter = self.config.attn_reduce_scatter and self.moe_layer
+        self.ffn_allgather = self.config.ffn_allgather and self.moe_layer
+        self.need_padding = self.attn_reduce_scatter or (
+            self.attn_delay_allreduce and not self.attn_reduce_scatter and not self.config.use_alltoall)
+
+        self.tp_group = model_comm_pgs.tp
 
         self.input_layernorm = build_module(
             submodules.input_layernorm,
@@ -150,7 +189,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             eps=config.layernorm_epsilon
         )
 
-        attention_optional_kwargs = {}
+        attention_optional_kwargs["delay_allreduce"] = self.attn_delay_allreduce
         self.self_attention = build_module(
             submodules.self_attention,
             config=self.config,
@@ -191,7 +230,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             eps=config.layernorm_epsilon
         )
 
-        self.mlp = build_module(submodules.mlp, config=self.config, model_comm_pgs=model_comm_pgs)
+        self.mlp = build_module(submodules.mlp, config=self.config, **additional_mlp_kwargs)
 
         self.post_mlp_layernorm = build_module(
             submodules.post_mlp_layernorm,
@@ -217,6 +256,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
+            attn_padding_idx=None,
+            attn_unpadding_idx=None,
+            ffn_padding_idx=None,
+            ffn_unpadding_idx=None,
             key_cache=None,
             value_cache=None
     ):
@@ -240,10 +283,17 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
+            attn_padding_idx=attn_padding_idx,
             key_cache=key_cache,
             value_cache=value_cache
         )
-        output = self._construct_mlp(pre_mlp_layernorm_output, residual)
+        output = self._construct_mlp(
+            pre_mlp_layernorm_output,
+            residual=residual,
+            attn_unpadding_idx=attn_unpadding_idx,
+            ffn_padding_idx=ffn_padding_idx,
+            ffn_unpadding_idx=ffn_unpadding_idx
+        )
         return output
 
     def _construct_attention(
@@ -261,36 +311,13 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             q_seq_lens=None,
             block_tables=None,
             slot_mapping=None,
+            attn_padding_idx=None,
             key_cache=None,
             value_cache=None
     ):
         """
         Perform a forward pass through the attention layer and the layernorms before and after
         the attention operations (optional).
-
-        Args:
-            hidden_states (Tensor): Input tensor.
-            attention_mask (Tensor): Tensor of attention mask.
-            context (Tensor): Context tensor for cross-attention.
-                Reserved parameter, is not currently supported. Default: None.
-            context_mask (Tensor, optional): Mask tensor for cross-attention.
-            rotary_pos_cos (Tensor): The cos of rotary positional embeddings.
-            rotary_pos_sin (Tensor): The sin of Rotary positional embeddings.
-            attention_bias (Tensor): Bias tensor for Q * K.T.
-                Reserved parameter, is not currently supported. Default: None.
-            packed_seq_params (Tensor): Reserved parameter, is not currently supported. Default: None.
-            batch_valid_length (Tensor): Tensor of shape [batch_size] for valid seq length.
-            context_lens_tensor (Tensor): Tensor of context lengths.
-            q_seq_lens (Tensor): Tensor of query lengths.
-            block_tables (Tensor): Block tables for memory optimization.
-            slot_mapping (Tensor): Slot mapping for memory optimization.
-            key_cache (Tensor, optional): Key cache for incremental inference.
-            value_cache (Tensor, optional): Value cache cache for incremental inference.
-
-        Returns:
-            Tuple[Tensor, Tensor, Tensor]: A tuple containing:
-                pre_mlp_layernorm_output (Tensor): Transformed hidden states before the MLP.
-                residual (Tensor): Residual connection.
         """
         # Layer norm at the beginning
         input_layernorm_output = self.input_layernorm(hidden_states)
@@ -315,6 +342,13 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # Optional Layer norm after self-attention
         attention_output = self.post_self_attn_layernorm(attention_output)
 
+        if self.need_padding:
+            attention_output = ops.gather(attention_output, attn_padding_idx, 0)
+            hidden_states = ops.gather(hidden_states, attn_padding_idx, 0)
+            if self.attn_reduce_scatter:
+                attention_output = reduce_scatter_to_model_parallel_region(attention_output, self.tp_group)
+                hidden_states = scatter_to_model_parallel_region(hidden_states, self.tp_group, dim=0)
+
         # Residual connection
         if self.apply_residual_connection_post_norm:
             residual = input_layernorm_output
@@ -328,19 +362,25 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
 
         return pre_mlp_layernorm_output, residual
 
-    def _construct_mlp(self, pre_mlp_layernorm_output, residual):
+    def _construct_mlp(
+            self,
+            pre_mlp_layernorm_output,
+            residual,
+            attn_unpadding_idx=None,
+            ffn_padding_idx=None,
+            ffn_unpadding_idx=None,
+    ):
         """
         Perform a forward pass through the feed-forward layer.
-
-        Args:
-            pre_mlp_layernorm_output (Tensor): Transformed hidden states before the MLP.
-            residual (Tensor): Residual connection.
-
-        Returns:
-            output (Tensor): Transformed hidden states.
         """
         # MLP
-        mlp_output = self.mlp(pre_mlp_layernorm_output)
+        mlp_extra_kwargs = {}
+        if self.moe_layer:
+            mlp_extra_kwargs = {
+                "attn_unpadding_idx": attn_unpadding_idx,
+                "ffn_padding_idx": ffn_padding_idx,
+            }
+        mlp_output = self.mlp(pre_mlp_layernorm_output, **mlp_extra_kwargs)
 
         # Optional Layer norm after MLP
         mlp_output = self.post_mlp_layernorm(mlp_output)
@@ -352,4 +392,9 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             residual = residual
 
         output = self.add(residual, mlp_output)
+
+        if self.ffn_allgather:
+            output = gather_from_model_parallel_region(output, self.tp_group, dim=0)
+        if self.attn_reduce_scatter:
+            output = ops.gather(output, ffn_unpadding_idx, 0)
         return output
