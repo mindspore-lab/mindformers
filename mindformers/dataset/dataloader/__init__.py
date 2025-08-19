@@ -14,6 +14,7 @@
 # ============================================================================
 """MindFormers DataLoader."""
 from .build_dataloader import build_dataset_loader
+from .hf_dataloader import HFDataLoader
 from .common_dataloader import CommonDataLoader
 from .multi_source_dataloader import MultiSourceDataLoader
 from .adgen_dataloader import ADGenDataLoader

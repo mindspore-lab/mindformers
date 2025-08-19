@@ -78,7 +78,6 @@ from mindformers.core import (
 )
 from mindformers.dataset import (
     ADGenDataLoader,
-    AdgenInstructDataHandler,
     AlpacaInstructDataHandler,
     BCHW2BHWC,
     BaseDataset,

@@ -308,8 +308,7 @@ class CausalLanguageModelDataset(BaseDataset):
         dataset_config.num_shards = num_shards
 
         if isinstance(dataset_config.data_loader, dict):
-            if dataset_config.data_loader.type != "MindDataset" and \
-                    dataset_config.data_loader.type != "TFRecordDataset":
+            if dataset_config.data_loader.type not in ["MindDataset", "TFRecordDataset"]:
                 dataset = cls._process_raw_text_data(dataset_config)
             else:
                 dataset = cls._process_mindrecord_data(dataset_config)
@@ -379,13 +378,16 @@ class CausalLanguageModelDataset(BaseDataset):
     @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
-        dataset_dir = dataset_config.data_loader.pop("dataset_dir", None)
-        dataset = build_dataset_loader(
-            dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
-                                                      'num_shards': dataset_config.num_shards,
-                                                      'column_names': dataset_config.input_columns,
-                                                      'shard_id': dataset_config.shard_id})
-        return dataset
+        custom_dataloader_args = {
+            'num_shards': dataset_config.num_shards,
+            'shard_id': dataset_config.shard_id,
+            'python_multiprocessing': dataset_config.get('python_multiprocessing', False),
+            'num_parallel_workers': dataset_config.get('num_parallel_workers', 1),
+            'column_names': dataset_config.input_columns,
+            'dataset_dir': dataset_config.data_loader.pop("dataset_dir", None),
+        }
+        dataloader = build_dataset_loader(dataset_config.data_loader, default_args=custom_dataloader_args)
+        return dataloader
 
     @classmethod
     def _process_mindrecord_data(cls, dataset_config):
@@ -460,6 +462,7 @@ class TokenCounter:
     Raises:
         ValueError: If `top_n` is not a positive integer.
     """
+
     def __init__(self, top_n=10, min_token_id=0, max_token_id=np.inf, save_path="output/token_counts_output_csv/"):
         self.top_n = top_n
         if not isinstance(self.top_n, int) or self.top_n <= 0:
@@ -520,8 +523,8 @@ class TokenCounter:
                 if not self.token_count_pairs_header_written:
                     header = ['step_num', 'min_id', 'max_id']
                     for i in range(len(token_count_pairs)):
-                        header.append(f'token_id_{i+1}')
-                        header.append(f'count_{i+1}')
+                        header.append(f'token_id_{i + 1}')
+                        header.append(f'count_{i + 1}')
                     csv_writer.writerow(header)
                     self.token_count_pairs_header_written = True
 

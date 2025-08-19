@@ -13,16 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """Dataset Packing Handler."""
+
 from dataclasses import dataclass
 import numpy as np
-
-from mindformers.dataset.handler.base_handler import BaseInstructDataHandler
-from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from .base_handler import BaseInstructDataHandler
 
 
 @dataclass
 class PackingConfig:
-
     """
     Configuration object for Packing Processing
 
@@ -31,8 +29,6 @@ class PackingConfig:
         pad_token (int, optional): Option to set pad token in input text. Default: ``0``.
         ignore_token (int, optional): Option to set ignored token in input label,
             ignored token will work in training. Default: ``-100``.
-        seed (int, optional): Option to set random seed in dataset shuffle. Default: ``42``.
-        dataset_shuffle (bool, optional): Option to shuffle total dataset before packing. Default: ``42``.
     """
 
     seq_length: int = None
@@ -41,9 +37,7 @@ class PackingConfig:
     pad_token: int = 0
     ignore_token: int = -100
 
-    # randomness setting
-    seed: int = 42
-    dataset_shuffle: bool = False
+    output_columns: list = None
 
     def __post_init__(self) -> None:
         """Do asserts and set fields post init"""
@@ -119,7 +113,7 @@ def pack_examples(dataset, config: PackingConfig):
     from datasets import Dataset
     from tqdm import tqdm
 
-    data_names = ['input_ids', 'labels', 'actual_seq_len']
+    data_names = config.output_columns
     cur_dataset = {k: [] for k in data_names}
 
     tmp_data = _init_data(data_names)
@@ -172,55 +166,56 @@ def truncate_examples(examples, config: PackingConfig):
     return examples
 
 
-@MindFormerRegister.register(MindFormerModuleType.DATA_HANDLER)
 class PackingHandler(BaseInstructDataHandler):
-    """Dataset Packing Handler"""
+    """
+    Dataset Packing Handler.
 
-    support_pack_mode = ['pack', 'truncate']
+    This handler is used to preprocess datasets for training by either truncating
+    sequences to a fixed length or packing multiple sequences into a single sequence
+    for efficiency in transformer models.
+    """
 
-    def __init__(self, config, **kwargs):
-        super().__init__(config, **kwargs)
+    support_pack_strategy = ['pack', 'truncate']
+    output_columns = ['input_ids', 'labels', 'actual_seq_len']
 
-        # init packing config
-        self.packing_config = PackingConfig(
+    def __init__(self, seq_length, pack_strategy='pack', **kwargs):
+        self.seq_length = seq_length
+        self.pack_strategy = pack_strategy
+
+        if self.pack_strategy not in self.support_pack_strategy:
+            raise ValueError(f"Support pack strategy {self.support_pack_strategy}, but got {self.pack_strategy}.")
+
+        super().__init__(**kwargs)
+
+        self.config = PackingConfig(
             seq_length=self.seq_length,
-            pad_token=config.get('pad_token', 0),
-            ignore_token=config.get('ignore_token', -100),
-            seed=config.get('seed', 42),
-            dataset_shuffle=config.get('dataset_shuffle', False),
+            pad_token=self.pad_token_id,
+            ignore_token=self.ignore_token_id,
+            output_columns=self.output_columns,
         )
 
-        if self.packing not in self.support_pack_mode:
+    def __call__(self, dataset):
+        """
+        Process a dataset by packing or truncating sequences.
+
+        Args:
+            dataset (Dataset): Hugging Face dataset to process.
+
+        Returns:
+            Dataset: Processed dataset with sequences packed or truncated and unwanted columns removed.
+        """
+        columns = list(next(iter(dataset)).keys())
+        if 'input_ids' not in columns or 'labels' not in columns:
             raise ValueError(
-                f"Unsupported packing mode {self.packing}, please set packing in {self.support_pack_mode}.")
+                f"'input_ids' or 'labels' not in dataset columns while packing.")
 
-    def handle(self, dataset):
-        _check_input_columns(dataset)
+        if self.pack_strategy == 'truncate':
+            dataset = dataset.map(truncate_examples, batched=True, desc="Packing")
 
-        if self.packing_config.dataset_shuffle:
-            dataset = dataset.shuffle(seed=self.packing_config.seed)
+        elif self.pack_strategy == 'pack':
+            dataset = pack_examples(dataset, self.config)
 
-        map_args = dict(batched=True, desc="Packing")
-        fn_kwargs = dict(config=self.packing_config)
-        if self.packing == 'truncate':
-            return dataset.map(truncate_examples,
-                               fn_kwargs=fn_kwargs,
-                               **map_args)
-        if self.packing == 'pack':
-            return pack_examples(dataset, **fn_kwargs)
-
-        if self.output_columns:
-            dataset = self._post_process(dataset)
+        columns = list(next(iter(dataset)).keys())
+        remove_columns = list(set(columns) - set(self.output_columns))
+        dataset = dataset.remove_columns(remove_columns)
         return dataset
-
-    def format_func(self, example):
-        """format_func is not necessary in packing handler"""
-        raise NotImplementedError
-
-
-def _check_input_columns(dataset):
-    """check column names in dataset"""
-    columns = dataset.column_names
-    if 'input_ids' not in columns or 'labels' not in columns:
-        raise ValueError(
-            f"'input_ids' or 'labels' not in dataset columns.")

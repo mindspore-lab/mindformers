@@ -13,131 +13,61 @@
 # limitations under the License.
 # ============================================================================
 """Base Dataset Handler."""
-import abc
-from dataclasses import dataclass
 
-from mindformers.core.context import is_legacy_model
-from mindformers.models.build_tokenizer import build_tokenizer
+from abc import ABC, abstractmethod
+
 from mindformers.tools.logger import logger
+from mindformers.models.build_tokenizer import build_tokenizer
+from mindformers.core.context import is_legacy_model
 
 
-@dataclass
-class BaseTemplate:
-    """Base Conv Template."""
-    system_token = ""
-    user_token = "### Instruction:"
-    input_token = ""
-    assistant_token = "### Response:"
-    end_token = ""
-    system = "Below is an instruction that describes a task, paired with an input that provides further context. " \
-             "Write a response that appropriately completes the request. " \
-             "Please note that you need to think through your response logically and step by step."
-    sep = " "
-    sep2 = "</s>"
+class BaseInstructDataHandler(ABC):
+    """
+    Base class for instruction-based data handlers.
 
+    This class provides common utilities for handling and tokenizing
+    instruction-style datasets. It manages tokenizer initialization,
+    padding, and ignore token IDs used for label masking during training.
+    """
 
-class BaseInstructDataHandler:
-    """Base class for instruct data handler"""
-    # keys
-    instruction_key = "instruction"
-    input_key = "input"
-    output_key = "output"
-    # roles
-    user_role = "user"
-    assistant_role = "assistant"
-    # columns after preprocess
-    output_columns = ["input_ids", "labels"]
-    ignore_token_id = -100
-    template = None
-
-    def __init__(self, config, **kwargs):
-        self.seq_length = config.seq_length
-        self.packing = kwargs.get('packing', None)
-        self.is_dynamic = config.get('is_dynamic', False)
+    def __init__(self, **kwargs):
         self.use_legacy = is_legacy_model()
+        tokenize_args = kwargs.get('tokenizer')
+        self.tokenizer = self.build_tokenizer(tokenize_args)
 
-        self.tokenizer = self.get_tokenizer(config)
-        self.config = config
-        if config.prompt_key:
-            self.prompt_key = config.prompt_key
-        if config.output_columns:
-            self.output_columns = config.output_columns
-        self.template = BaseTemplate()
+        if self.tokenizer is not None and getattr(self.tokenizer, 'pad_token_id', None) is not None:
+            self.pad_token_id = self.tokenizer.pad_token_id
+        else:
+            logger.info(f"tokenizer not set or it have no pad_token_id, set 0 as `pad_token_id`.")
+            self.pad_token_id = kwargs.get('pad_token_id', 0)
 
-    @property
-    def seq_length(self):
-        return self._seq_length
+        self.ignore_token_id = kwargs.get('ignore_token_id', -100)
 
-    @property
-    def tokenizer(self):
-        return self._tokenizer
-
-    @seq_length.setter
-    def seq_length(self, value):
-        self._seq_length = value
-
-    @tokenizer.setter
-    def tokenizer(self, value):
-        self._tokenizer = value
-
-    @abc.abstractmethod
-    def format_func(self, example):
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        """Process a dataset."""
         raise NotImplementedError
 
-    def tokenize_func(self, messages):
-        prompt = self.gen_prompt(messages)
-        return self.tokenizer(prompt)
+    def build_tokenizer(self, config):
+        """
+        Build a tokenizer based on the provided configuration.
 
-    def _preprocess(self, example):
-        format_example = self.format_func(example)
-        return self.tokenize_func(format_example)
+        Args:
+            config (dict or None): Tokenizer configuration. May include 'name' for pretrained tokenizers,
+                                   or parameters for building a tokenizer from scratch.
 
-    def handle(self, dataset):
-        dataset = dataset.map(self._preprocess)
-
-        if self.output_columns:
-            dataset = self._post_process(dataset)
-        return dataset
-
-    def _post_process(self, dataset):
-        remove_col_names = list(set(dataset.column_names) - set(self.output_columns))
-        dataset = dataset.remove_columns(remove_col_names)
-        return dataset
-
-    def get_tokenizer(self, config):
-        """get tokenizer"""
-        tokenizer_name = config.tokenizer_name
-        if tokenizer_name is not None and tokenizer_name.strip() != "":
-            from mindformers.auto_class import AutoTokenizer
-            word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        elif config.tokenizer:
-            tokenizer_dict = config.tokenizer
-            pretrained_model_dir = config.get("pretrained_model_dir", None)
-            trust_remote_code = config.get("trust_remote_code", False)
-            word_tokenizer = build_tokenizer(tokenizer_dict,
-                                             use_legacy=self.use_legacy,
-                                             pretrained_model_dir=pretrained_model_dir,
-                                             trust_remote_code=trust_remote_code)
-            word_tokenizer.padding_side = config.tokenizer.get("padding_side", "right")
-        else:
-            logger.warning(f"The {type(self)} dose not set Tokenizer.")
+        Returns:
+            tokenizer instance or None: Initialized tokenizer.
+        """
+        if config is None:
             return None
 
-        if hasattr(word_tokenizer, 'add_bos_token'):
-            word_tokenizer.add_bos_token = True
-        if hasattr(word_tokenizer, 'add_eos_token'):
-            word_tokenizer.add_eos_token = True
-        return word_tokenizer
-
-    def gen_prompt(self, messages):
-        """gen prompt"""
-        prompt = self.template.system_token + self.template.system_token + self.template.end_token + "\n"
-
-        for message in messages:
-            if message["from"] == self.user_role:
-                prompt += self.template.user_token + "\n" + message["value"] + self.template.end_token + "\n"
-            else:
-                prompt += self.template.assistant_token + "\n" + message["value"] \
-                          + self.template.end_token + "\n"
-
-        return prompt
+        pretrained_model_dir = config.pop("pretrained_model_dir", None)
+        trust_remote_code = config.pop("trust_remote_code", False)
+        tokenizer = build_tokenizer(config,
+                                    use_legacy=self.use_legacy,
+                                    pretrained_model_dir=pretrained_model_dir,
+                                    trust_remote_code=trust_remote_code)
+        if hasattr(tokenizer, 'padding_side'):
+            tokenizer.padding_side = config.get("padding_side", "right")
+        return tokenizer
