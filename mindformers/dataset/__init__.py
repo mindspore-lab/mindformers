@@ -17,6 +17,7 @@ from .dataloader import (
     ADGenDataLoader,
     BaseMultiModalDataLoader,
     BlendedMegatronDatasetDataLoader,
+    HFDataLoader,
     CommonDataLoader,
     IndexedDataLoader,
     MultiSourceDataLoader,
@@ -37,7 +38,6 @@ from .transforms import (
     Resize,
 )
 from .handler import (
-    AdgenInstructDataHandler,
     AlpacaInstructDataHandler,
     CodeAlpacaInstructDataHandler,
     build_data_handler

@@ -15,56 +15,75 @@
 """Alpaca Dataset Handler."""
 
 import numpy as np
-
-from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.logger import logger
-from .base_handler import BaseInstructDataHandler, BaseTemplate
+from .base_handler import BaseInstructDataHandler
 
 
-class AlpacaTemplate(BaseTemplate):
-    """Alpaca Conv Template."""
-    end_token = "\n"
-    input_token = "### Input:"
+class AlpacaInstructDataHandler(BaseInstructDataHandler):
+    """
+    Alpaca Instruct Data Handler for formatting and tokenizing instruction-based datasets.
+
+    This handler applies a conversational template to each example, distinguishing
+    between user instructions and assistant responses, then encodes the text into
+    token IDs for model training.
+
+    Attributes:
+        system (str): System prompt describing the AI assistant behavior.
+        prompt_with_input (str): Template for examples that include an additional input context.
+        prompt_without_input (str): Template for examples without extra input context.
+        output_columns (list[str]): Columns to output after processing ('input_ids', 'labels').
+    """
+
     system = (
         "A chat between a curious user and an artificial intelligence assistant. "
         "The assistant gives helpful, detailed, and polite answers to the user's questions."
     )
 
+    prompt_with_input = (
+        "Below is an instruction that describes a task, paired with an input that provides further context. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:"
+    )
 
-PROMPT_INPUT = (
-    "Below is an instruction that describes a task, paired with an input that provides further context. "
-    "Write a response that appropriately completes the request.\n\n"
-    "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:"
-)
+    prompt_without_input = (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Response:"
+    )
 
-PROMPT_NO_INPUT = (
-    "Below is an instruction that describes a task. "
-    "Write a response that appropriately completes the request.\n\n"
-    "### Instruction:\n{instruction}\n\n### Response:"
-)
+    output_columns = ['input_ids', 'labels']
 
+    def __init__(self, seq_length, padding=True, **kwargs):
+        self.seq_length = seq_length
+        self.padding = padding
+        super().__init__(**kwargs)
 
-@MindFormerRegister.register(MindFormerModuleType.DATA_HANDLER)
-class AlpacaInstructDataHandler(BaseInstructDataHandler):
-    """Alpaca Data Handler"""
+    def __call__(self, dataset):
+        """
+        Process a dataset by applying the template and tokenizing each example.
 
-    def __init__(self, config, **kwargs):
-        super().__init__(config, **kwargs)
-        self.template = AlpacaTemplate()
-        self.padding = self.packing is None and not self.is_dynamic
+        Args:
+            dataset (Dataset): Hugging Face dataset to process.
 
-        if self.tokenizer is not None and getattr(self.tokenizer, 'pad_token_id', None) is not None:
-            self.pad_token_id = self.tokenizer.pad_token_id
-        else:
-            logger.info(f"tokenizer not set or it have no pad_token_id, set 0 as `pad_token_id`.")
-            self.pad_token_id = kwargs.get('pad_token_id', 0)
+        Returns:
+            Dataset: Processed dataset with columns 'input_ids' and 'labels'.
+        """
+        columns = next(iter(dataset)).keys()
+        remove_columns = list(set(columns) - set(self.output_columns))
+        dataset = dataset.map(self.process, remove_columns=remove_columns)
+        return dataset
 
-    def format_func(self, example):
+    def process(self, example):
+        """Apply template and tokenize example"""
+        example = self.apply_template(example)
+        example = self.tokenize_example(example)
+        return example
+
+    def apply_template(self, example):
         """Apply alpaca instruct template on samples"""
         if example.get('input'):
-            usr_input = PROMPT_INPUT.format_map(example)
+            usr_input = self.prompt_with_input.format_map(example)
         else:
-            usr_input = PROMPT_NO_INPUT.format_map(example)
+            usr_input = self.prompt_without_input.format_map(example)
         assis_response = example.get('output', '')
         example = [
             {
@@ -78,15 +97,15 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
         ]
         return example
 
-    def tokenize_func(self, messages):
+    def tokenize_example(self, example):
         """Encode source text with tokenizer"""
-        text = f"{self.template.system} "
+        text = f"{self.system} "
         token = self.tokenizer(text)['input_ids']
 
         # ignore_token_id = -100 default
         labels = [self.ignore_token_id] * len(token)
 
-        for message in messages:
+        for message in example:
             role = message.get("from")
             value = message.get("value")
 
@@ -105,18 +124,27 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
 
         labels = labels[1:] + [self.ignore_token_id]
 
-        max_length = self.seq_length
-        if self.use_legacy:
-            max_length += 1
-
-        if self.padding and len(token) < max_length:
-            token += [self.pad_token_id] * (max_length - len(token))
-            labels += [self.ignore_token_id] * (max_length - len(labels))
-
-        token = token[:max_length]
-        labels = labels[:max_length]
-
+        token, labels = self._process_sequence_with_length(token, labels)
         return {
             "input_ids": np.array(token, dtype=np.int32),
             "labels": np.array(labels, dtype=np.int32)
         }
+
+    def _process_sequence_with_length(self, input_ids, labels):
+        """
+        Process input and label sequences to ensure they match the required maximum length.
+        Handles optional padding and truncation.
+        """
+        # Determine the maximum sequence length
+        max_length = self.seq_length
+        if self.use_legacy:
+            max_length += 1
+
+        if self.padding and len(input_ids) < max_length:
+            input_ids += [self.pad_token_id] * (max_length - len(input_ids))
+            labels += [self.ignore_token_id] * (max_length - len(labels))
+
+        # Truncate sequences to maximum length
+        input_ids = input_ids[:max_length]
+        labels = labels[:max_length]
+        return input_ids, labels
