@@ -197,7 +197,7 @@ def make_expert_params_mapping(
     other_params_mapping = []
     for shard_id, shard_weight_name in shard_map:
         is_linear_fc1 = shard_weight_name in [ckpt_gate_proj_name, ckpt_up_proj_name]
-        weight_param_name = f'experts.{"weight1" if is_linear_fc1 else "weight2"}.weight'
+        weight_param_name = f'experts.{"weight1" if is_linear_fc1 else "weight2"}'
         other_param_name = f'experts.{"linear_fc1" if is_linear_fc1 else "linear_fc2"}.'
         for expert_id in range(num_experts):
             weight_mapping = (
