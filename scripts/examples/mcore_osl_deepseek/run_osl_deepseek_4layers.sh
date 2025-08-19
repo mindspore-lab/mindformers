@@ -18,7 +18,7 @@
 model_dir=$1
 worker_num=${2:-4}
 basename=$(cd "$(dirname $0)"; pwd)
-mf_path=$basename/../../../..
+mf_path=$basename/../../..
 port=8919
 
 # Write yaml
