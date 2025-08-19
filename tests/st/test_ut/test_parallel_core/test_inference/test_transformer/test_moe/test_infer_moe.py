@@ -15,7 +15,6 @@
 """mcore MOE UT of inference"""
 from pathlib import Path
 import subprocess
-import random
 import pytest
 import numpy as np
 
@@ -60,17 +59,11 @@ SINGLE_CARD_TEST_CASES = [
 ]
 
 
-def generate_random_port(start, end):
-    """ Get random port."""
-    port = random.randint(start, end)
-    return port
-
-
 def build_msrun_command_list(
-        worker_num, local_worker_num, log_dir, run_script_path,
-        seq_len, batch_size, num_experts, hidden_size, moe_intermediate_size,
-        n_shared_experts, routed_scaling_factor, num_experts_per_tok, n_group, topk_group,
-        moe_shared_expert_intermediate_size, output_path_param, tensor_parallel
+        worker_num, local_worker_num, log_dir, run_script_path, seq_len, batch_size,
+        num_experts, hidden_size, moe_intermediate_size, n_shared_experts, routed_scaling_factor,
+        num_experts_per_tok, n_group, topk_group, moe_shared_expert_intermediate_size,
+        output_path_param, tensor_parallel, expert_parallel=1, port=8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -80,7 +73,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(10600, 10700)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}", # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [
@@ -96,7 +89,8 @@ def build_msrun_command_list(
         f"--n_group={n_group}",
         f"--topk_group={topk_group}",
         f"--output_path={output_path_param}",
-        f"--tensor_parallel={tensor_parallel}"
+        f"--tensor_parallel={tensor_parallel}",
+        f"--expert_parallel={expert_parallel}"
     ]
     if moe_shared_expert_intermediate_size is not None:
         cmd_list.append(f"--moe_shared_expert_intermediate_size={moe_shared_expert_intermediate_size}")
@@ -181,7 +175,9 @@ class TestInferMoE:
             data_keys,
             tmp_path,
             tensor_parallel=1,
+            expert_parallel=1,
             expect_error=False,
+            port=8118,
     ):
         """Helper function to run test and check results"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -207,6 +203,8 @@ class TestInferMoE:
             topk_group=model_args["topk_group"],
             output_path_param=output_file_path,
             tensor_parallel=tensor_parallel,
+            expert_parallel=expert_parallel,
+            port=port
         )
 
         cmd_result = subprocess.run(

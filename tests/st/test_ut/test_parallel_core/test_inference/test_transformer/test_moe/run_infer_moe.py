@@ -19,14 +19,23 @@ from pathlib import Path
 import numpy as np
 
 import mindspore as ms
-from mindspore import Parameter
+from mindspore import Parameter, Tensor
 import mindspore.common.dtype as mstype
-from mindspore.communication import init, get_rank
+from mindspore.communication import init, get_rank, get_group_size
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
-from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.inference.parallel_state import (
+    initialize_model_parallel,
+    get_world_group,
+)
 from mindformers.parallel_core.inference.base_models.gpt.moe_module_spec import get_moe_module_spec
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
+from mindformers.parallel_core.inference.utils import (
+    update_comm_config,
+    generate_padding_index
+)
+from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 
 from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.data_gen_utils import (
     get_init_params,
@@ -65,10 +74,34 @@ class MoERunner:
 
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
+        # parallel
+        self.global_group_size = get_group_size()
+        self.tp_group_size = self.args.tensor_parallel
+        self.dp_group_size = self.global_group_size // self.tp_group_size
+        self.ep_group_size = self.args.expert_parallel
+        self.moe_tp_group_size = self.global_group_size // self.ep_group_size
+        self.num_experts_per_partition = self.num_experts // self.ep_group_size
+
         # Set parallel context
+        self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
-            initialize_model_parallel(tensor_model_parallel_size=self.args.tensor_parallel)
+            initialize_model_parallel(
+                data_parallel_size=self.dp_group_size,
+                expert_model_parallel_size=self.ep_group_size,
+                tensor_model_parallel_size=self.tp_group_size,
+                order='tp-ep-dp',
+            )
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
+                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+
+        # rank info
+        self.global_rank = self.model_comm_pgs.globals.rank
+        self.tp_rank = self.model_comm_pgs.tp.rank
+        self.ep_rank = self.model_comm_pgs.moe_ep.rank
+        self.moe_tp_rank = self.model_comm_pgs.moe_tp.rank
+        self.ep_start = self.ep_rank * self.num_experts_per_partition
+        self.ep_stop = (self.ep_rank + 1) * self.num_experts_per_partition
 
         # Transformer config
         self.config = TransformerConfig(
@@ -91,13 +124,19 @@ class MoERunner:
             moe_router_dtype="bfloat16",
             moe_router_enable_expert_bias=True,
             moe_router_score_function="sigmoid",
+            expert_model_parallel_size=self.ep_group_size,
+            tensor_model_parallel_size=self.tp_group_size,
+            data_parallel_size=self.dp_group_size
         )
 
+        self.config = update_comm_config(self.config)
+
     def build_model(self):
-        """Build MLP module"""
+        """Build MoELayer module"""
         net = build_module(
-            get_moe_module_spec(num_experts=self.config.num_moe_experts),
+            get_moe_module_spec(use_alltoall=self.config.use_alltoall, num_experts=self.config.num_moe_experts),
             config=self.config,
+            model_comm_pgs=self.model_comm_pgs,
         )
 
         self._load_weights(net, self.param_dict)
@@ -160,7 +199,29 @@ class MoERunner:
         """Run the model with given inputs"""
         net = self.build_model()
 
-        output = net(self.input)
+        if self.dp_group_size > 1:
+            slice_start = self.rank_id * self.input.shape[0] // self.global_group_size
+            slice_end = slice_start + self.input.shape[0] // self.global_group_size
+            self.input = self.input[slice_start:slice_end]
+
+        q_seq_length = self.batch_size * self.seq_len // self.dp_group_size
+        q_seq_len = Tensor([q_seq_length], dtype=mstype.int32)
+        if self.global_group_size > 1:
+            (
+                _,
+                attn_unpadding_idx,
+                ffn_padding_idx,
+                _,
+            ) = generate_padding_index(q_seq_len)
+        else:
+            attn_unpadding_idx = None
+            ffn_padding_idx = None
+
+        output = net(self.input, attn_unpadding_idx, ffn_padding_idx)
+
+        if self.dp_group_size > 1:
+            output = gather_from_model_parallel_region(output, get_world_group(), dim=0)
+
         output_ms = {"output": output}
 
         if self.rank_id is None or int(self.rank_id) == 0:
@@ -170,7 +231,7 @@ class MoERunner:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run MLP test")
+    parser = argparse.ArgumentParser(description="Run MoELayer test")
     parser.add_argument("--seq_len", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--num_experts", type=int, default=8)
@@ -184,6 +245,7 @@ def main():
     parser.add_argument("--moe_shared_expert_intermediate_size", type=int, default=None)
     parser.add_argument("--output_path", type=str, default="output_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
+    parser.add_argument("--expert_parallel", type=int, default=1)
 
     args = parser.parse_args()
 
