@@ -142,7 +142,7 @@ class Pipeline(_ScikitCompat):
                 inputs = inputs.batch(batch_size)
 
             outputs = []
-            for items in tqdm(inputs.create_dict_iterator()):
+            for items in tqdm(inputs.create_dict_iterator(do_copy=False)):
                 outputs.extend(self.run_single(items, preprocess_params,
                                                forward_params, postprocess_params))
         elif is_list:

@@ -222,7 +222,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                     AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
             logger.info(".............Start load checkpoint for eval..................")
 
-            dataset_dict = next(dataset.create_dict_iterator())
+            dataset_dict = next(dataset.create_dict_iterator(do_copy=False))
             input_ids = dataset_dict['input_ids'].asnumpy()
             labels = dataset_dict['labels'].asnumpy()
             infer_data = network.prepare_inputs_for_predict_layout(input_ids, labels=labels)
@@ -244,7 +244,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         total_time = 0.0001
         pad_token_id = tokenizer.pad_token_id
         len_dataset = dataset.get_dataset_size()
-        for i, inputs in enumerate(dataset.create_dict_iterator()):
+        for i, inputs in enumerate(dataset.create_dict_iterator(do_copy=False)):
             input_ids = inputs['input_ids'].asnumpy()
             labels = inputs['labels'].asnumpy()
 
@@ -378,7 +378,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             total_time = 0.0001
             pad_token_id = self.tokenizer.pad_token_id
             len_dataset = dataset.get_dataset_size()
-            for i, inputs in enumerate(dataset.create_dict_iterator()):
+            for i, inputs in enumerate(dataset.create_dict_iterator(do_copy=False)):
                 input_ids = inputs['input_ids'].asnumpy()
                 labels = inputs['labels'].asnumpy()
 
