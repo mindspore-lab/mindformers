@@ -19,3 +19,4 @@ mindformers/mindformers/models/modeling_utils.py:_load_pretrained_model
 mindformers/research/deepseek3/deepseek2_model.py:__init__
 mindformers/research/telechat2/telechat.py:__init__
 mindformers/mindformers/parallel_core/training_graph/base_models/gpt/gpt_model.py:__init__
+mindformers/mindformers/trainer/causal_language_modeling/causal_language_modeling.py:generate_evaluate
