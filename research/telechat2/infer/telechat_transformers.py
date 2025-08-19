@@ -393,7 +393,7 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
             model_comm_pgs
         )
         # Attention.
-        self.attention = TelechatParallelAttention(config, layer_number)
+        self.attention = TelechatParallelAttention(config, layer_number, model_comm_pgs=model_comm_pgs)
         # MLP
         self.expert_num = 1 if config.moe_config is None else config.moe_config.expert_num
         self.use_moe_infer = config.use_past and self.expert_num > 1
