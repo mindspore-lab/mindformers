@@ -115,6 +115,8 @@ model:
     moe_router_bias_update_rate: 0.001
     moe_grouped_gemm: True
     use_interleaved_weight_layout_mlp: False
+    topk_group: 0
+    n_group: 0
 
 # callbacks
 callbacks:
