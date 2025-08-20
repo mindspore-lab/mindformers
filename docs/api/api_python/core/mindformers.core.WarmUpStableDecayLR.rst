@@ -43,11 +43,11 @@ mindformers.core.WarmUpStableDecayLR
         - **decay_start_steps** (int, 可选) - 衰减阶段的起始步数。若未指定，将通过 `decay_start_ratio` 计算。默认值： ``None`` 。
         - **decay_start_ratio** (float, 可选) - 衰减起始步数占总训练步数的比例（覆盖 `decay_start_steps`）。默认值： ``None`` 。
 
-    异常：
-        - **ValueError** - 如果 `lr_end` 大于或等于初始学习率 `learning_rate`。
-
     输入：
         - **global_step** (int) - 当前全局步数。
 
     输出：
         学习率。
+
+    异常：
+        - **ValueError** - 如果 `lr_end` 大于或等于初始学习率 `learning_rate`。

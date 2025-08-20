@@ -836,14 +836,14 @@ class WarmUpStableDecayLR(LearningRateSchedule):
         decay_start_steps (int, optional): The start step of decay. Default: ``None``.
         decay_start_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
 
-    Raises:
-        ValueError: If `lr_end` is greater than or equal to initial `learning_rate`.
-
     Inputs:
         - **global_step** (int) - The global step.
 
     Outputs:
         Learning rate.
+
+    Raises:
+        ValueError: If `lr_end` is greater than or equal to initial `learning_rate`.
 
     """
 
