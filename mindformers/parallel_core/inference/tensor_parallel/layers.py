@@ -486,7 +486,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[1])} and "
                 f"the shape of weight is{loaded_weight.shape}")
-        if is_310p() and param.name.endswith("weight"):
+        if (is_310p() or self.config.use_fused_mla) and param.name.endswith("weight"):
             self.format_to_nz(param, 2)
 
 
@@ -953,10 +953,10 @@ class ReplicatedLinear(LinearBase):
         loaded_weight = loaded_weight[:]
         if loaded_shard_id is not None and output_dim is not None:
             if loaded_shard_id == 'q_down':
-                offset = 0
+                offset = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
                 size = self.config.q_lora_rank
             if loaded_shard_id == 'kv_down':
-                offset = self.config.q_lora_rank
+                offset = 0
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight,
                                                            self.config,
@@ -986,6 +986,8 @@ class ReplicatedLinear(LinearBase):
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
             param.set_data(ms.from_numpy(loaded_weight))
+        if self.config.use_fused_mla and param.name.endswith("weight"):
+            self.format_to_nz(param, 2)
 
 
 class VocabParallelEmbedding(nn.Cell):

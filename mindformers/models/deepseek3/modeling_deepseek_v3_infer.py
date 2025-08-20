@@ -81,6 +81,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         quant_config = None
         if self.config.quantization_config is not None:
             quant_config = get_quant_config(self.config)
+        self.use_fused_mla = self.config.quantization_config is not None
+        config.use_fused_mla = self.use_fused_mla
         self.model = GPTModel(
             config=config,
             transformer_layer_spec=get_gpt_decoder_block_spec(
@@ -222,4 +224,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             weight_name = weight_name.replace('.dequant_scale', '.deq_scale')
             weight_name = weight_name.replace('.input_zp', '.input_offset')
             weight_name = weight_name.replace('.weight_scale', '.w_scale')
+        if self.use_fused_mla:
+            weight_name = weight_name.replace('.input_layernorm.', '.self_attention.input_layernorm.')
         return weight_name

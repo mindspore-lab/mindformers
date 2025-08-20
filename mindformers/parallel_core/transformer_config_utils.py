@@ -426,6 +426,7 @@ COMMON_CONFIG_MAPPING = {
     "dispatch_global_max_bs": "dispatch_global_max_bs",
     "sandwich_norm": "sandwich_norm",
     "quantization_config": "quantization_config",
+    "use_fused_mla": "use_fused_mla",
 
     # Pet
     "pet_config": "pet_config"
