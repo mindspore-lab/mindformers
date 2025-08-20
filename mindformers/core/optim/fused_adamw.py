@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """FusedAdamW implementation"""
-
 from mindspore import _checkparam as validator, Parameter, ParameterTuple, Tensor
 from mindspore.common import dtype as mstype
 from mindspore.ops.operations import Cast
@@ -130,6 +129,9 @@ class FusedAdamW(Optimizer):
             instead of minimizing it. This is useful in cases where the goal is to maximize
             a reward or utility function. Default is ``False``.
 
+        swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
+            storing them on NPU. Default: False.
+
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
@@ -153,10 +155,12 @@ class FusedAdamW(Optimizer):
                  eps=1e-8,
                  weight_decay=0.0,
                  amsgrad=False,
-                 maximize=False):
+                 maximize=False,
+                 swap=False):
         _check_param_value(betas, eps, weight_decay, self.cls_name)
         super().__init__(learning_rate, params, weight_decay=weight_decay)
 
+        self.swap = swap
         self.beta1 = betas[0]
         self.beta2 = betas[1]
         self.eps = eps
@@ -183,7 +187,10 @@ class FusedAdamW(Optimizer):
         parameter_tuple = self.parameters
         new = []
         for old_param in parameter_tuple:
-            new_state = Parameter(initializer(init, shape=old_param.shape, dtype=mstype.float32))
+            new_state = Parameter(
+                initializer(init, shape=old_param.shape, dtype=mstype.float32),
+                device='CPU' if self.swap else None
+            )
             new_state.param_info = old_param.param_info.clone()
             if hasattr(old_param.param_info, "cloned_obj"):
                 old_param.param_info.cloned_obj.append(new_state)

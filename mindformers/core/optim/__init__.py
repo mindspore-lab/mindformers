@@ -132,6 +132,9 @@ class AdamW:
             True; otherwise an error will be raised. If set to True, the optimizer will maximize the objective function.
             Default: False.
 
+        swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
+            storing them on NPU. Default: False.
+
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
@@ -172,6 +175,7 @@ class AdamW:
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = ms.Model(net, loss_fn=loss, optimizer=optim)
     """
+
     def __new__(cls,
                 params,
                 learning_rate=1e-3,
@@ -180,18 +184,29 @@ class AdamW:
                 weight_decay=0.0,
                 use_fused=False,
                 amsgrad=False,
-                maximize=False):
+                maximize=False,
+                swap=False):
         if use_fused:
-            return FusedAdamW(params=params,
-                              learning_rate=learning_rate,
-                              betas=betas,
-                              eps=eps,
-                              weight_decay=weight_decay,
-                              amsgrad=amsgrad,
-                              maximize=maximize)
+            return FusedAdamW(
+                params=params,
+                learning_rate=learning_rate,
+                betas=betas,
+                eps=eps,
+                weight_decay=weight_decay,
+                amsgrad=amsgrad,
+                maximize=maximize,
+                swap=swap
+            )
         if amsgrad or maximize:
             raise ValueError('amsgrad and maximize should not be set as True when use_fused is False')
-        return BasicAdamW(params=params, learning_rate=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay)
+        return BasicAdamW(
+            params=params,
+            learning_rate=learning_rate,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            swap=swap
+        )
 
     @staticmethod
     def get_actual_adamw_cls(use_fused):

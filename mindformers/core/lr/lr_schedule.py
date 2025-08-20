@@ -150,6 +150,7 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
         >>> print(linear_warmup(Tensor(45)))
         0.001
     """
+
     @args_type_check(
         learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
         keep_steps=int, decay_steps=int, decay_ratio=float, total_steps=int,
@@ -199,7 +200,7 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
 
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         elif self.greater(self.warmup_steps + self.keep_steps, global_step):
@@ -289,7 +290,7 @@ class ConstantWarmUpLR(LearningRateSchedule):
 
     def construct(self, global_step):
         """compute current step lr."""
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         else:
@@ -382,7 +383,7 @@ class LinearWithWarmUpLR(LearningRateSchedule):
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         else:
@@ -490,7 +491,7 @@ class CosineWithWarmUpLR(LearningRateSchedule):
             # Include global_step in computation to circumvent mindspore control flow issues
             return global_step - global_step + self.lr_end
 
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         else:
@@ -596,7 +597,7 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
             # Include global_step in computation to circumvent mindspore control flow issues
             return global_step - global_step + self.lr_end
 
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         else:
@@ -707,7 +708,7 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
 
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         elif self.greater(global_step, self.total_steps):
@@ -872,7 +873,7 @@ class WarmUpStableDecayLR(LearningRateSchedule):
 
     def construct(self, global_step):
         """compute current step lr."""
-        if self.greater(self.warmup_steps, global_step):
+        if self.warmup_steps != 0 and self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
         elif self.greater(self.decay_start_steps, global_step):
