@@ -224,6 +224,17 @@ class ModelMixin:
             " method in order to use `model.set_inputs()`."
         )
 
+    def get_gpt_model(self):
+        """
+        Obtain the GPT model instance.
+        """
+        if not hasattr(self, 'model'):
+            raise RuntimeError("Mcore model definition should use the fixed paradigm: "
+                               "self.model = GPTModel(*args, **kwargs) definition. "
+                               "Currently, this attribute cannot be correctly recognized. "
+                               "Please modify the GPTModel definition method.")
+        return getattr(self, 'model')
+
 
 class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
     """
