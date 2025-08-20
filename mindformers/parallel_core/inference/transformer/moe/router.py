@@ -153,7 +153,6 @@ class TopKRouter(Router):
                 with shape [num_tokens, num_experts].
             origin_probs (Tensor): The probabilities of token to experts assignment before add bias.
         """
-        input_dtype = logits.dtype
         gating_logits = self.gating(self.cast(logits, self.router_dense_type))
         gating_logits = self.cast(gating_logits, mstype.float32)
         if self.config.moe_router_group_topk:
@@ -174,7 +173,6 @@ class TopKRouter(Router):
             expert_weight, expert_index = mint.topk(score, self.config.moe_router_topk, dim=-1)
             expert_index = self.cast(expert_index, mstype.int32)
             expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
-        expert_weight = expert_weight.astype(input_dtype)
         return expert_weight, expert_index
 
     def construct(self, input_tensor: Tensor):

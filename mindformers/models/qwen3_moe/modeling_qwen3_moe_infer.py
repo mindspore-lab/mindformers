@@ -51,6 +51,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
         super().__init__(config, auto_prefix=False)
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
+        self.transformer_config = config
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(
                 data_parallel_size=config.data_parallel_size,

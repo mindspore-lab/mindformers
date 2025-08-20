@@ -258,8 +258,6 @@ class ColumnParallelLinear(LinearBase):
         if embedding_activation_buffer is not None:
             raise NotImplementedError(
                 "For ColumnParallelLinear, `embedding_activation_buffer` is not supported for now")
-        if is_expert:
-            raise NotImplementedError("For ColumnParallelLinear, `is_expert` is not supported for now")
         if tp_comm_buffer_name is not None:
             raise NotImplementedError("For ColumnParallelLinear, `tp_comm_buffer_name` is not supported for now")
 
@@ -686,8 +684,6 @@ class RowParallelLinear(LinearBase):
         if keep_master_weight_for_test:
             raise NotImplementedError("For RowParallelLinear, `keep_master_weight_for_test=True` "
                                       "is not supported for now.")
-        if is_expert:
-            raise NotImplementedError("For RowParallelLinear, `is_expert` is not supported for now")
         if tp_comm_buffer_name:
             raise NotImplementedError("For RowParallelLinear, `tp_comm_buffer_name` is not supported for now.")
         if delay_allreduce and bias:
@@ -869,8 +865,6 @@ class ReplicatedLinear(LinearBase):
         if embedding_activation_buffer is not None:
             raise NotImplementedError(
                 "For ReplicatedLinear, `embedding_activation_buffer` is not supported for now")
-        if is_expert:
-            raise NotImplementedError("For ReplicatedLinear, `is_expert` is not supported for now")
         if tp_comm_buffer_name is not None:
             raise NotImplementedError("For ReplicatedLinear, `tp_comm_buffer_name` is not supported for now")
 
@@ -961,7 +955,7 @@ class ReplicatedLinear(LinearBase):
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight,
                                                            self.config,
                                                            rope_transition=self.quant_config is None)
-            if loaded_shard_id == 'gate':
+            if loaded_shard_id == 'gating':
                 offset = 0
                 size = self.config.moe_shared_expert_intermediate_size
             if loaded_shard_id == 'hidden':

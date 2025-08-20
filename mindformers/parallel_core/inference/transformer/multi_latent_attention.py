@@ -262,8 +262,7 @@ class MLASelfAttention(MultiLatentAttention):
             delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
             quant_config=quant_config,
-            prefix=prefix
-        )
+            prefix=prefix)
 
         if self.config.q_lora_rank is None:
             self.linear_q_proj = build_module(
@@ -279,8 +278,7 @@ class MLASelfAttention(MultiLatentAttention):
                 compute_dtype=self.config.compute_dtype,
                 tp_group=self.tp,
                 quant_config=quant_config,
-                prefix=f"{prefix}.linear_q_proj",
-            )
+                prefix=f"{prefix}.linear_q_proj",)
 
             self.linear_kv_down_proj = build_module(
                 submodules.linear_kv_down_proj,
@@ -294,8 +292,7 @@ class MLASelfAttention(MultiLatentAttention):
                 compute_dtype=self.config.compute_dtype,
                 is_expert=False,
                 quant_config=quant_config,
-                prefix=f"{prefix}.linear_kv_down_proj",
-            )
+                prefix=f"{prefix}.linear_kv_down_proj",)
 
         else:
             self.linear_qkv_down_proj = build_module(
@@ -307,8 +304,7 @@ class MLASelfAttention(MultiLatentAttention):
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
                 quant_config=quant_config,
-                prefix=f"{prefix}.linear_qkv_down_proj",
-            )
+                prefix=f"{prefix}.linear_qkv_down_proj",)
 
             self.linear_q_up_proj = build_module(
                 submodules.linear_q_up_proj,
@@ -323,8 +319,7 @@ class MLASelfAttention(MultiLatentAttention):
                 is_expert=False,
                 tp_group=self.tp,
                 quant_config=quant_config,
-                prefix=f"{prefix}.linear_q_up_proj",
-            )
+                prefix=f"{prefix}.linear_q_up_proj",)
 
         self.linear_kv_up_proj = build_module(
             submodules.linear_kv_up_proj,
@@ -337,8 +332,7 @@ class MLASelfAttention(MultiLatentAttention):
             is_expert=False,
             tp_group=self.tp,
             quant_config=quant_config,
-            prefix=f"{prefix}.linear_kv_up_proj",
-        )
+            prefix=f"{prefix}.linear_kv_up_proj",)
 
         if self.config.q_lora_rank is not None:
             self.q_layernorm = build_module(submodules.q_layernorm, hidden_size=self.config.q_lora_rank,
@@ -401,6 +395,8 @@ class MLASelfAttention(MultiLatentAttention):
         # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition * self.config.qk_pos_emb_head_dim)
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
+            q_pos_emb = q_pos_emb.contiguous()
+            k_pos_emb = k_pos_emb.contiguous()
             q_pos_emb, k_pos_emb = self.rotary_pos_emb(q_pos_emb, k_pos_emb,
                                                        rotary_pos_cos, rotary_pos_sin,
                                                        batch_valid_length)

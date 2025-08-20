@@ -53,6 +53,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.config,
             is_mla_model=True,
         )
+        self.transformer_config = config
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(
                 data_parallel_size=config.data_parallel_size,

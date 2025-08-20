@@ -143,7 +143,7 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
         """Combines expert outputs."""
         (tokens_per_expert,) = args
         hidden_states = mint.nan_to_num(hidden_states, 0, 0, 0)
-
+        expert_weight = expert_weight.astype(hidden_states.dtype)
         hidden_states = self.moe_token_unpermute(
             permuted_tokens=hidden_states,
             sorted_indices=tokens_per_expert,
@@ -222,7 +222,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             ep_world_size=self.ep_size,
             ep_rank_id=self.ep_rank,
             moe_expert_num=self.num_experts,
-            tp_senc_counts=tp_recv_counts,
+            tp_send_counts=tp_recv_counts,
             group_ep=self.ep_group.group,
             tp_world_size=self.dispatch_tp_world_size,
             shared_expert_num=self.dispatch_shared_expert_num,
