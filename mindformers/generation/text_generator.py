@@ -115,7 +115,7 @@ class GenerationMixin:
     def _set_kv_cache(self):
         """Initial key cache and value cache."""
         if self.key_cache is None and self.value_cache is None:
-            tansformer_config = self.model.config
+            tansformer_config = self.get_gpt_model().config
 
             num_heads = tansformer_config.num_attention_heads
             num_query_groups = tansformer_config.num_query_groups or num_heads
@@ -164,7 +164,7 @@ class GenerationMixin:
     def _set_lower_triangle_mask(self):
         """Initial attention mask."""
         if self.lower_triangle_mask is None:
-            compute_dtype = self.model.config.compute_dtype
+            compute_dtype = self.get_gpt_model().config.compute_dtype
             mask_coeff = 1.0 if compute_dtype is mstype.bfloat16 else -10000.0
             self.lower_triangle_mask = Tensor(
                 np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_dtype
@@ -1382,7 +1382,7 @@ class GenerationMixin:
         model_inputs["attn_metadata"] = None
         model_inputs["key_cache"] = self.key_cache
         model_inputs["value_cache"] = self.value_cache
-        model_inputs = self.model.update_padding_index_to_inputs(model_inputs)
+        model_inputs = self.get_gpt_model().update_padding_index_to_inputs(model_inputs)
         return model_inputs, prefill
 
     def forward_mcore(self,
