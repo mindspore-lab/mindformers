@@ -140,11 +140,9 @@ class MLPRunner:
             w_fc2_bias = param_dict["linear_fc2.bias"]
             w_fc1_bias = w_fc1_bias.reshape(
                 self.ffn_hidden_size * 2 if self.gated_linear_unit else self.ffn_hidden_size, -1)
-            w_fc2_bias = w_fc2_bias.reshape(INPUT_SIZE, -1)
             w_fc1_bias_shard = split(w_fc1_bias)
-            w_fc2_bias_shard = split(w_fc2_bias)
             w_fc1_bias_shard = w_fc1_bias_shard.reshape(-1)
-            w_fc2_bias_shard = w_fc2_bias_shard.reshape(-1)
+            w_fc2_bias_shard = w_fc2_bias
             new_param_dict["linear_fc1.bias"] = Parameter(w_fc1_bias_shard)
             new_param_dict["linear_fc2.bias"] = Parameter(w_fc2_bias_shard)
 

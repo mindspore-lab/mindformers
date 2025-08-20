@@ -262,7 +262,7 @@ class ColumnParallelLinear(LinearBase):
                 for output_size in self.output_sizes
             ]
 
-        bias_shape = (self.output_size_per_partition,)
+        bias_shape = (sum(self.output_partition_sizes),)
         if self.has_bias:
             self.bias = Parameter(
                 mint.empty(bias_shape, dtype=self.params_dtype),
