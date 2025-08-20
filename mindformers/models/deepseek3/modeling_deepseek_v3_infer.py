@@ -197,6 +197,10 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             weight_name = weight_name.replace('model.norm_out.', 'decoder.final_layernorm.')
             weight_name = weight_name.replace('lm_head.', 'output_layer.')
 
+            weight_name = weight_name.replace('.self_attention.q_layernorm.bias',
+                                              '.attention.l2q_proj.quant_op.beta')
+            weight_name = weight_name.replace('.input_layernorm.bias',
+                                              '.attention.q2l_proj.quant_op.beta')
             weight_name = weight_name.replace('.attention_norm.', '.input_layernorm.')
             weight_name = weight_name.replace('.ffn_norm.', '.pre_mlp_layernorm.')
             weight_name = weight_name.replace('.q2l_proj.', '.linear_q_down_proj.')
@@ -225,6 +229,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             weight_name = weight_name.replace('.dequant_scale', '.deq_scale')
             weight_name = weight_name.replace('.input_zp', '.input_offset')
             weight_name = weight_name.replace('.weight_scale', '.w_scale')
+            weight_name = weight_name.replace('.weight_offset', '.w_offset')
         if self.use_fused_mla:
             weight_name = weight_name.replace('.input_layernorm.', '.self_attention.input_layernorm.')
         return weight_name

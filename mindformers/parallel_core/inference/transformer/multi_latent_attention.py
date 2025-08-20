@@ -24,10 +24,11 @@ __all__ = [
 import math
 from dataclasses import dataclass
 from typing import Union, Optional
+import numpy as np
 
 from mindspore import mint, ops, Tensor, dtype
-from mindspore.common.initializer import Zero
 from mindspore.ops import operations as P
+from mindspore.common.initializer import Zero
 
 from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
@@ -483,10 +484,43 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.mla_preprocess = ops.auto_generate.MlaPreprocess()
         self.ctkv_scale = Tensor([0], dtype=dtype.bfloat16)
         self.qnope_scale = Tensor([0], dtype=dtype.bfloat16)
-        self.qkv_down_beta = Tensor(shape=(self.config.hidden_size,), dtype=dtype.bfloat16, init=Zero())
-        self.q_up_beta = Tensor(shape=(self.config.q_lora_rank,), dtype=dtype.bfloat16, init=Zero())
-        # Temporary, to be deleted upon completion of weight conversion.
-        self.input_scale = Tensor([1], dtype=dtype.bfloat16)
+        self.is_modelslim = quant_config.is_modelslim
+        self.input_layernorm_weight = None
+        self.qkv_down_proj_input_scale = None
+        self.q_layernorm_weight = None
+        self.q_up_proj_input_scale = None
+        self.qkv_down_beta = None
+        self.q_up_beta = None
+
+    def process_weights_after_loading(self) -> None:
+        """
+        Process the weight after loading.
+        This can be used for example, to transpose weights for computation.
+        """
+        if not self.is_modelslim:
+            # Temporary, to be deleted upon completion of weight conversion.
+            qkv_down_input_scale = self.linear_qkv_down_proj.input_scale.asnumpy().astype(np.float32)
+            input_layernorm = self.input_layernorm.weight.asnumpy().astype(np.float32)
+            input_layernorm_dtype = self.input_layernorm.weight.dtype
+            input_layernorm = input_layernorm / qkv_down_input_scale
+            self.input_layernorm_weight = Tensor(input_layernorm, dtype=input_layernorm_dtype)
+            self.qkv_down_proj_input_scale = Tensor([1], dtype=dtype.bfloat16)
+
+            q_up_input_scale = self.linear_q_up_proj.input_scale.asnumpy().astype(np.float32)
+            q_layernorm = self.q_layernorm.weight.asnumpy().astype(np.float32)
+            q_layernorm_dtype = self.q_layernorm.weight.dtype
+            q_layernorm = q_layernorm / q_up_input_scale
+            self.q_layernorm_weight = Tensor(q_layernorm, dtype=q_layernorm_dtype)
+            self.q_up_proj_input_scale = Tensor([1], dtype=dtype.bfloat16)
+            self.qkv_down_beta = Tensor(shape=(self.config.hidden_size,), dtype=dtype.bfloat16, init=Zero())
+            self.q_up_beta = Tensor(shape=(self.config.q_lora_rank,), dtype=dtype.bfloat16, init=Zero())
+        else:
+            self.input_layernorm_weight = self.input_layernorm.weight
+            self.qkv_down_proj_input_scale = self.linear_qkv_down_proj.input_scale
+            self.q_layernorm_weight = self.q_layernorm.weight
+            self.q_up_proj_input_scale = self.linear_q_up_proj.input_scale
+            self.qkv_down_beta = self.linear_qkv_down_proj.beta
+            self.q_up_beta = self.linear_q_up_proj.beta
 
     def get_query_key_value_tensors(
             self,
@@ -518,18 +552,18 @@ class FusedMLASelfAttention(MLASelfAttention):
                                     self.config.qk_head_dim, self.config.kv_lora_rank)
         out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
                                         self.config.v_head_dim, self.config.kv_lora_rank)
-        # Temporary, the div operation should be deleted and the input_scale should be replaced.
+
         states = self.mla_preprocess(
             hidden_states,
-            self.input_layernorm.weight / self.linear_qkv_down_proj.input_scale,
+            self.input_layernorm_weight,
             self.qkv_down_beta,
-            self.input_scale,
+            self.qkv_down_proj_input_scale,
             self.linear_qkv_down_proj.input_offset,
             self.linear_qkv_down_proj.weight,
             self.linear_qkv_down_proj.quant_bias,
-            self.q_layernorm.weight / self.linear_q_up_proj.input_scale,
+            self.q_layernorm_weight,
             self.q_up_beta,
-            self.input_scale,
+            self.q_up_proj_input_scale,
             self.linear_q_up_proj.input_offset,
             self.kv_layernorm.weight,
             rotary_pos_sin,

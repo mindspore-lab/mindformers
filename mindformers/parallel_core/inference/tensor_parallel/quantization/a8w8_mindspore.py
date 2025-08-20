@@ -15,7 +15,7 @@
 """A8W8 quantization method."""
 
 import mindspore
-from mindspore import Tensor, Parameter, ops
+from mindspore import Tensor, Parameter, ops, nn
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import QuantBatchMatmul, QuantV2
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
@@ -30,7 +30,7 @@ class A8W8LinearMethod(LinearMethodBase):
         self.quant_config = quant_config
         self.quant = QuantV2()
         self.bias_add = ops.Add()
-
+        self.is_modelslim = self.quant_config.is_modelslim
 
     def create_weights(self,
                        layer: mindspore.nn.Cell,
@@ -51,22 +51,33 @@ class A8W8LinearMethod(LinearMethodBase):
         deq_scale_shape = self.output_size_per_partition
         scale_dtype = mindspore.float32
         deq_scale = Parameter(initializer('ones', deq_scale_shape, scale_dtype), name="deq_scale")
-        input_scale_shape = (input_size_per_partition,)
-        input_scale = Parameter(initializer('ones', input_scale_shape, self.params_dtype), name="input_scale")
-        input_offset = Parameter(initializer('zeros', input_scale_shape, mindspore.dtype.int8), name="input_offset")
         shape = (self.output_size_per_partition,)
         quant_bias = Parameter(initializer('zeros', shape, mindspore.int32), name="quant_bias")
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
         set_weight_attrs(deq_scale, {"output_dim": 0})
         set_weight_attrs(quant_bias, {"output_dim": 0})
-        set_weight_attrs(input_offset, {"input_dim": 0})
-        set_weight_attrs(input_scale, {"input_dim": 0})
 
         set_weight_attrs(weight, extra_weight_attrs)
         set_weight_attrs(deq_scale, extra_weight_attrs)
+        set_weight_attrs(quant_bias, extra_weight_attrs)
+
+        if not self.is_modelslim:
+            input_scale_shape = (input_size_per_partition,)
+            input_scale = Parameter(initializer('ones', input_scale_shape, self.params_dtype), name="input_scale")
+            input_offset = Parameter(initializer('zeros', input_scale_shape, mindspore.int8), name="input_offset")
+            set_weight_attrs(input_offset, {"input_dim": 0})
+            set_weight_attrs(input_scale, {"input_dim": 0})
+        else:
+            input_scale_shape = (1,)
+            input_scale = Parameter(initializer('ones', input_scale_shape, self.params_dtype), name="input_scale")
+            input_offset = Parameter(initializer('zeros', input_scale_shape, self.params_dtype), name="input_offset")
+            beta_shape = (input_size_per_partition,)
+            beta = Parameter(initializer('zeros', beta_shape, self.params_dtype), name="beta")
+            set_weight_attrs(beta, {"input_dim": 0})
+            set_weight_attrs(beta, extra_weight_attrs)
+
         set_weight_attrs(input_scale, extra_weight_attrs)
         set_weight_attrs(input_offset, extra_weight_attrs)
-        set_weight_attrs(quant_bias, extra_weight_attrs)
 
         if layer is not None:
             layer.insert_param_to_cell("weight", weight)
@@ -74,7 +85,19 @@ class A8W8LinearMethod(LinearMethodBase):
             layer.insert_param_to_cell("input_scale", input_scale)
             layer.insert_param_to_cell("input_offset", input_offset)
             layer.insert_param_to_cell("quant_bias", quant_bias)
+            if self.is_modelslim:
+                layer.insert_param_to_cell("beta", beta)
         return weight
+
+    def process_weights_after_loading(self, layer: nn.Cell) -> None:
+        """
+        Process the weight after loading.
+        This can be used for example, to transpose weights for computation.
+        """
+        if not self.is_modelslim:
+            return
+        input_offset = layer.input_offset.asnumpy()
+        layer.input_offset = Parameter(Tensor(input_offset, dtype=mindspore.int8), name=layer.input_offset.name)
 
     def apply(self,
               layer: mindspore.nn.Cell,
@@ -87,6 +110,9 @@ class A8W8LinearMethod(LinearMethodBase):
         input_scale = layer.input_scale
         input_offset = layer.input_offset
         quant_bias = layer.quant_bias
+        if self.is_modelslim:
+            beta = layer.beta
+            x = ops.add(x, beta)
         qx = self.quant(x, input_scale, input_offset, False, "ROUND", mindspore.dtype.int8)
         output_shape = qx.shape[:-1] + (self.output_size_per_partition,)
         qx = qx.reshape(-1, self.input_size_per_partition)
