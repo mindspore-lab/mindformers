@@ -91,7 +91,6 @@ from mindformers.dataset import (
     CodeAlpacaInstructDataHandler,
     CommonDataLoader,
     GeneralDataset,
-    IndexedDataLoader,
     KeyWordGenDataset,
     ModalToTextSFTDataset,
     MultiSourceDataLoader,

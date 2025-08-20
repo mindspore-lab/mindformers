@@ -19,7 +19,6 @@ from .dataloader import (
     BlendedMegatronDatasetDataLoader,
     HFDataLoader,
     CommonDataLoader,
-    IndexedDataLoader,
     MultiSourceDataLoader,
     SFTDataLoader,
     ToolAlpacaDataLoader,
