@@ -66,9 +66,8 @@ def save_metadata_without_npu(global_strategy_info, model_keys, user_prefix, met
         # Get Sharded tensors from strategy metadata of current rank.
         cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
             param_infos=cur_rank_strategy_layout,
-            model_keys=model_keys,
             cur_npu_rank=cur_npu_rank,
-            save_optimizer=save_optimizer
+            filter_func=(lambda x: x in list(model_keys)) if not save_optimizer else None
         )
 
         # Get mappings of parameter file of current rank.

@@ -17,12 +17,17 @@ import os
 import json
 import tempfile
 
+from mindspore.communication.management import get_group_size
 from mindspore.common.dtype import all_types
 from mindspore.parallel import Layout
 
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
-from mindformers.checkpoint.sharded_tensor import ShardedTensor
-from mindformers.checkpoint.utils import get_metadata_filename, get_sharded_tensor_shard_id
+from mindformers.checkpoint.sharded_tensor import ShardedTensor, get_sharded_tensor_list_from_strategy_metadata
+from mindformers.checkpoint.utils import (
+    get_checkpoint_name,
+    get_metadata_filename,
+    get_sharded_tensor_shard_id
+)
 
 tensor_to_ms_type = {str(dtype): dtype for dtype in all_types}
 
@@ -240,3 +245,49 @@ def load_metadata(checkpoints_path, iteration):
         param_file_mappings[param_id] = data
 
     return sharded_tensor_metas, param_file_mappings
+
+
+def get_total_shard_metadata(global_strategy_info, filter_func):
+    """Get all shard metadata."""
+    npu_nums = get_group_size()
+    sharded_tensor_metas = list()
+
+    for cur_npu_rank in range(0, npu_nums):
+        org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
+        cur_rank_strategy_layout = [
+            dict([item])
+            for item in org_cur_rank_strategy_layout.items()
+        ]
+
+        # Get Sharded tensors from strategy metadata of current rank.
+        cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
+            param_infos=cur_rank_strategy_layout,
+            cur_npu_rank=cur_npu_rank,
+            filter_func=filter_func
+        )
+
+        sharded_tensor_metas.append(cur_rank_sharded_tensors)
+
+    return sharded_tensor_metas
+
+
+def get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_keys):
+    """Get all shard metadata file mappings list."""
+    if sharded_tensor_metas is None:
+        return None
+
+    npu_nums = get_group_size()
+    param_file_mappings = list()
+    for cur_rank_sharded_tensor_list in sharded_tensor_metas:
+        # Get mappings of parameter file of current rank.
+        for cur_npu_rank, sharded_tensor in enumerate(cur_rank_sharded_tensor_list):
+            if model_keys and sharded_tensor.key not in list(model_keys):
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Optimizer')
+            else:
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Model')
+
+            param_file_mappings.append(
+                (ckpt_name + '.safetensors', cur_npu_rank, (sharded_tensor.key, sharded_tensor.global_offset))
+            )
+
+    return param_file_mappings

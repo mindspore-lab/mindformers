@@ -16,7 +16,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union, Callable
 
 import mindspore as ms
 from mindspore.parallel.shard import _DistributedTensorInfo
@@ -304,15 +304,16 @@ def get_replica_id_from_layout(param_infos: List[Dict]) -> List[List[int]]:
     return replica_ids
 
 
-def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], model_keys: List, cur_npu_rank: int,
-                                                   save_optimizer: bool) -> Optional[List[ShardedTensor]]:
+def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_npu_rank: int,
+                                                   filter_func: Callable[[str], bool]) -> Optional[List[ShardedTensor]]:
     """
     Transform distributed strategy of a network to a list of ShardedTensor.
 
     Args:
-        param_infos (List[Dict]): The distributed strategy of a network.
-        model_keys (List): The keys of model of network.
+        param_infos (List[Dict]): The distributed strategy of a rank of network.
         cur_npu_rank (int): Current Rank ID of NPUs.
+        filter_func (Callable[[str], bool]): A filter function
+            that decide whether to save metadata info of optimizer weight.
 
     Returns:
         A list of ShardedTensor or None: A list containing sharded tensor metadata, or None if no param_infos.
@@ -332,7 +333,7 @@ def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], mode
 
     for idx, param_name in enumerate(cur_param_name_list):
         # If not save optimizer weight, the metadata will also not save the optimizer part.
-        if not save_optimizer and param_name not in list(model_keys):
+        if filter_func and not filter_func(param_name):
             continue
 
         org_global_offset = cur_global_offset_list[idx]

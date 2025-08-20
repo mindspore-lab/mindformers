@@ -1288,6 +1288,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.save_optimizer = save_optimizer if not use_legacy_format else None
         self.origin_prefix = prefix
         self.save_checkpoint_path = save_checkpoint_path
+        self.need_remove_redundancy = remove_redundancy
 
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
@@ -1749,7 +1750,8 @@ class CheckpointMonitor(ModelCheckpoint):
             keep_max_num=self._config.keep_checkpoint_max,
             user_prefix=self.origin_prefix,
             save_checkpoint_path=self.save_checkpoint_path,
-            global_strategy_info=global_strategy_info
+            global_strategy_info=global_strategy_info,
+            remove_redundancy=self.need_remove_redundancy
         )
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
