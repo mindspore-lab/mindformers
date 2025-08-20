@@ -111,20 +111,41 @@ class MFModelConfig:
     """If True, Multi Latent Attention computes q_compressed, k, kv_compressed in a single linear transformation;
     if False, computes them separately."""
 
-    use_contiguous_weight_layout: bool = True
+    use_contiguous_weight_layout_attention: bool = False
     """
     Determines the weight arrangement in SelfAttention's QKV linear projection. Only affects SelfAttention layers.
 
-    When True (default):
+    When True:
         Uses contiguous layout: [Q_weights, K_weights, V_weights]
         - Computation: linear(input) -> split into Q, K, V tensors
 
-    When False:
+    When False (default):
         Uses interleaved head layout: [Q_head0, K_head0, V_head0, Q_head1, ...]
         - Matches Megatron-LM's weight arrangement
         - Computation: linear(input)
                     -> reshape
                     -> split into Q, K, V tensors grouped by attention heads
+
+    Note: This affects tensor memory layout but not mathematical equivalence.
+    """
+
+    use_interleaved_weight_layout_mlp: bool = True
+    """
+    Determines the weight arrangement in MLP's linear_fc1 projection. Only affects MLP layers.
+
+    When True (default):
+        Uses interleaved layout: [Gate_weights[0], Hidden_weights[0], Gate_weights[1], Hidden_weights[1], ...]
+        - Computation:
+            -> linear_fc1(input)
+            -> reshape to (batch_size, ffn_hidden_size // 2, 2)
+            -> split into Gate and Hidden along the last dimension, each with shape (batch_size, ffn_hidden_size // 2)
+
+    When False:
+        Uses contiguous layout: [Gate_weights, Hidden_weights]
+        - Matches Megatron-LM's weight arrangement
+        - Computation:
+            -> linear_fc1(input)
+            -> split into Gate and Hidden along the feature dimension (dim=1)
 
     Note: This affects tensor memory layout but not mathematical equivalence.
     """

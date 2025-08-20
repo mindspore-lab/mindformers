@@ -114,6 +114,7 @@ model:
     moe_router_enable_expert_bias: True
     moe_router_bias_update_rate: 0.001
     moe_grouped_gemm: True
+    use_interleaved_weight_layout_mlp: False
 
 # callbacks
 callbacks:

@@ -153,7 +153,7 @@ model:
     untie_embeddings_and_output_weights: True
     position_embedding_type: "rope"
     qk_layernorm: True
-    use_contiguous_weight_layout: False
+    use_contiguous_weight_layout_attention: False
     qkv_concat: True
     offset: [-1, -1, 1, 1]
     params_dtype: "float32"

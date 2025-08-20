@@ -121,7 +121,7 @@ class MLP(nn.Cell):
             init_method=self.output_layer_init_method
         )
 
-        self.split = SplitWithSize()
+        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
         self.reshape = Reshape()
         self.add = AddExt()
 
@@ -158,15 +158,85 @@ class MLP(nn.Cell):
 
     def shard(self, config: TransformerConfig):
         """ shard function of mlp block. """
+        self.add.shard((layout("cp", "dp", "tp"), layout("tp",)))
         if self.gated_linear_unit:
-            dp = config.data_parallel_size if config.data_parallel_size is not None else 1
-            cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+            self.split.shard((layout("cp", "dp", "tp"),))
+            self.mul.shard((layout("cp", "dp", "tp"), layout("cp", "dp", "tp")))
+            if self.activation_type == 'swiglu':
+                self.activation_func.split.add_prim_attr("skip_redistribution", True)
+                self.activation_func.split.shard((layout("cp", "dp", "tp"),))
+            if self.activation_type == 'fusedswiglu':
+                self.activation_func.swiglu.add_prim_attr("skip_redistribution", True)
+                self.activation_func.swiglu.shard((layout("cp", "dp", "tp"),))
 
-            self.mul.shard((layout("cp", "dp", "tp"),
-                            layout("cp", "dp", "tp")))
-            self.add.shard((layout("cp", "dp", "tp"),
-                            layout("tp",)))
-            self.split.shard(((cp, dp, 1),))
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
+
+
+class MLPInterleaved(MLP):
+    r"""
+    Parallel feedforward block implementation, with interleaved weight layout.
+
+    Args:
+        config (TransformerConfig): Configuration for the transformer model.
+        submodules (MLPSubmodules): The submodules used to construct the MLP, such as activation and linear layers.
+        is_expert (bool, optional): Whether this block is used as an expert in MoE. Default: False.
+        input_size (int, optional): Input hidden size. If None, will use config.hidden_size. Default: None.
+
+    Inputs:
+        - **hidden_states** (Tensor) - Input tensor with shape :math:`(S, B, H)`, where
+          :math:`S` is the sequence length, :math:`B` is the batch size, and :math:`H` is the hidden size.
+
+    Outputs:
+        - **output** (Tensor) - Output tensor of shape :math:`(S, B, H)`.
+        - **output_bias** (Tensor) - Bias output tensor of shape :math:`(S, B, H)`.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def construct(self, hidden_states: Tensor, per_token_scale=None, extra_loss=0.) -> tuple[Tensor, Tensor, float]:
+        """ Construct function of mlp block. """
+        if per_token_scale is not None:
+            # bias_activation_fusion and per_token_scale configuration is currently not supported .
+            raise NotImplementedError("For MLP, 'per_token_scale' is currently not supported.")
+
+        # [seq_len, bs, hidden_size] -> [seq_len, bs, ffn_hidden_size]
+        intermediate_parallel, bias_parallel = self.linear_fc1(hidden_states)
+
+        if bias_parallel is not None:
+            intermediate_parallel = self.add(intermediate_parallel, bias_parallel)
+        if self.gated_linear_unit:
+            seq, bs, ffn_hidden_size = intermediate_parallel.shape
+            intermediate_parallel = self.reshape(intermediate_parallel, (seq, bs, ffn_hidden_size // 2, 2))
+            if self.activation_type == 'swiglu' or self.activation_type == 'fusedswiglu':
+                intermediate_parallel = self.activation_func(intermediate_parallel)
+                intermediate_parallel = self.reshape(intermediate_parallel, (seq, bs, ffn_hidden_size // 2))
+            else:
+                x0, x1 = self.split(intermediate_parallel, (1, 1), -1)
+                x0 = self.reshape(x0, (seq, bs, ffn_hidden_size // 2))
+                x1 = self.reshape(x1, (seq, bs, ffn_hidden_size // 2))
+                act_out = self.activation_func(x0) if self.activation_func else x0
+                intermediate_parallel = self.mul(act_out, x1)
+        else:
+            intermediate_parallel = self.activation_func(
+                intermediate_parallel) if self.activation_type else intermediate_parallel
+        # [seq_len, bs, hidden_size] -> [seq_len, bs, ffn_hidden_size]
+        output, output_bias = self.linear_fc2(intermediate_parallel)
+        return output, output_bias, extra_loss
+
+    def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
+        self.add.shard((layout("cp", "dp", "tp"), layout("tp",)))
+        if self.gated_linear_unit:
+            self.mul.shard((layout("cp", "dp", "tp"), layout("cp", "dp", "tp")))
+            self.split.shard((layout("cp", "dp", "tp", "None"),))
+            if self.activation_type == 'fusedswiglu':
+                self.activation_func.swiglu.shard((layout("cp", "dp", "tp", "None"),))
+            if self.activation_type == 'swiglu':
+                self.activation_func.silu.shard((layout("cp", "dp", "tp", "None"),))
+                self.activation_func.split.shard((layout("cp", "dp", "tp", "None"),))
+                self.activation_func.mul.shard((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

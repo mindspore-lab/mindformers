@@ -35,21 +35,25 @@ class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
         output: Tensor, the output of qwen3 decoderlayer
 
     """
+
     def __init__(self, config: Qwen3Config):
         super().__init__(config, auto_prefix=False)
         config: TransformerConfig = convert_to_transformer_config(self.config)
 
-        self.model = GPTModel(config=config,
-                              transformer_layer_spec=get_gpt_layer_local_spec(
-                                  qk_layernorm=True,
-                                  use_contiguous_weight_layout=config.use_contiguous_weight_layout
-                              ),
-                              vocab_size=config.vocab_size,
-                              max_sequence_length=config.max_position_embeddings,
-                              position_embedding_type=config.position_embedding_type,
-                              rotary_base=self.config.rope_theta,
-                              share_embeddings_and_output_weights=self.config.tie_word_embeddings,
-                              post_process=self.config.post_process)
+        self.model = GPTModel(
+            config=config,
+            transformer_layer_spec=get_gpt_layer_local_spec(
+                qk_layernorm=True,
+                use_contiguous_weight_layout_attention=config.use_contiguous_weight_layout_attention,
+                use_interleaved_weight_layout_mlp=config.use_interleaved_weight_layout_mlp
+            ),
+            vocab_size=config.vocab_size,
+            max_sequence_length=config.max_position_embeddings,
+            position_embedding_type=config.position_embedding_type,
+            rotary_base=self.config.rope_theta,
+            share_embeddings_and_output_weights=self.config.tie_word_embeddings,
+            post_process=self.config.post_process
+        )
 
     def construct(
             self,

@@ -19,7 +19,7 @@ from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs im
     get_gpt_decoder_block_spec, get_gpt_mtp_block_spec
 from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionContiguous, SelfAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
-from mindformers.parallel_core.training_graph.transformer.mlp import MLP
+from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPInterleaved
 from mindformers.parallel_core.training_graph.transformer.moe.moe_layer import MoELayer
 from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import MLASelfAttention, \
     MLASelfAttentionConcatenated
@@ -40,39 +40,53 @@ class TestLayerSpec:
         Output: Returns spec with correct submodules for dense MLP and attention.
         Expected: MLP module is used, q/k layernorm is IdentityOp or FusedNorm as specified, MLA module if enabled.
         """
-        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=False)
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=False,
+                                        use_interleaved_weight_layout_mlp=False,
+                                        use_contiguous_weight_layout_attention=True)
         assert spec.submodules.mlp.module == MLP
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
         assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
-        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True)
-        assert spec.submodules.mlp.module == MLP
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=False,
+                                        use_contiguous_weight_layout_attention=True)
+        assert spec.submodules.mlp.module == MLPInterleaved
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
         assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
-        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, qk_layernorm=True)
-        assert spec.submodules.mlp.module == MLP
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True,
+                                        use_contiguous_weight_layout_attention=True)
+        assert spec.submodules.mlp.module == MLPInterleaved
+        assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
+        assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
+        assert spec.submodules.self_attention.module == SelfAttentionContiguous
+
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, qk_layernorm=True,
+                                        use_contiguous_weight_layout_attention=True)
+        assert spec.submodules.mlp.module == MLPInterleaved
         assert spec.submodules.self_attention.submodules.q_layernorm == FusedNorm
         assert spec.submodules.self_attention.submodules.k_layernorm == FusedNorm
         assert spec.submodules.self_attention.module == SelfAttentionContiguous
 
-        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, multi_latent_attention=True)
-        assert spec.submodules.mlp.module == MLP
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, multi_latent_attention=True,
+                                        use_contiguous_weight_layout_attention=True)
+        assert spec.submodules.mlp.module == MLPInterleaved
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
         assert spec.submodules.self_attention.module == MLASelfAttentionConcatenated
 
-        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, use_contiguous_weight_layout=False)
-        assert spec.submodules.mlp.module == MLP
+        spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True,
+                                        use_contiguous_weight_layout_attention=False)
+        assert spec.submodules.mlp.module == MLPInterleaved
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.k_layernorm == IdentityOp
         assert spec.submodules.self_attention.module == SelfAttention
 
         spec = get_gpt_layer_local_spec(num_experts=None, moe_grouped_gemm=True, multi_latent_attention=True,
-                                        mla_qkv_concat=False)
-        assert spec.submodules.mlp.module == MLP
+                                        mla_qkv_concat=False,
+                                        use_contiguous_weight_layout_attention=True)
+        assert spec.submodules.mlp.module == MLPInterleaved
         assert spec.submodules.self_attention.submodules.q_layernorm == IdentityOp
         assert spec.submodules.self_attention.submodules.kv_layernorm == IdentityOp
         assert spec.submodules.self_attention.module == MLASelfAttention
@@ -109,7 +123,8 @@ class TestBlockSpec:
         Expected: Each layer_spec.mlp.module is MoELayer.
         """
         config = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
-                                   add_bias_linear=False)
+                                   add_bias_linear=False,
+                                   use_contiguous_weight_layout_attention=True)
         spec = get_gpt_decoder_block_spec(config)
         assert len(spec.layer_specs) == 8
         for layer_spec in spec.layer_specs:
@@ -127,7 +142,7 @@ class TestBlockSpec:
         Expected: Each layer_spec.mlp.module is MoELayer.
         """
         config = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
-                                   add_bias_linear=False, use_contiguous_weight_layout=False)
+                                   add_bias_linear=False, use_contiguous_weight_layout_attention=False)
         spec = get_gpt_decoder_block_spec(config)
         assert len(spec.layer_specs) == 8
         for layer_spec in spec.layer_specs:
@@ -189,7 +204,7 @@ class TestBlockSpec:
             if i in (0, 4):
                 assert layer_spec.submodules.mlp.module == MoELayer
             else:
-                assert layer_spec.submodules.mlp.module == MLP
+                assert layer_spec.submodules.mlp.module == MLPInterleaved
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
@@ -210,7 +225,7 @@ class TestBlockSpec:
             if i in (0, 4):
                 assert layer_spec.submodules.mlp.module == MoELayer
             else:
-                assert layer_spec.submodules.mlp.module == MLP
+                assert layer_spec.submodules.mlp.module == MLPInterleaved
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
