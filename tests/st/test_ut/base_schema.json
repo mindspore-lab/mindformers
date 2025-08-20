@@ -75,7 +75,7 @@
         "signature": "()"
     },
     "mindformers.core.AdamW": {
-        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
+        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False)"
     },
     "mindformers.core.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"
@@ -1035,7 +1035,7 @@
         "signature": "(self)"
     },
     "mindformers.core.optim.AdamW": {
-        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)"
+        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False)"
     },
     "mindformers.core.optim.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"

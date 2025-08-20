@@ -135,6 +135,9 @@ class AdamW(Optimizer):
             - Cell: Weight decay is dynamic. During training, the optimizer calls the instance of
               the Cell with step as the input to get the weight decay value of current step.
 
+        swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
+            storing them on NPU. Default: False.
+
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
@@ -151,11 +154,12 @@ class AdamW(Optimizer):
         ValueError: If `weight_decay` is less than 0.
     """
 
-    def __init__(self, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0):
+    def __init__(self, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, swap=False):
         _check_param_value(betas, eps, weight_decay, self.cls_name)
 
         super().__init__(learning_rate, params, weight_decay=weight_decay)
 
+        self.swap = swap
         self.beta1 = Tensor(np.array([betas[0]]).astype(np.float32))
         self.beta2 = Tensor(np.array([betas[1]]).astype(np.float32))
         self.eps = Tensor(np.array([eps]).astype(np.float32))
@@ -171,7 +175,10 @@ class AdamW(Optimizer):
         parameter_tuple = self.parameters
         new = []
         for old_param in parameter_tuple:
-            new_state = Parameter(initializer(init, shape=old_param.shape, dtype=mstype.float32))
+            new_state = Parameter(
+                initializer(init, shape=old_param.shape, dtype=mstype.float32),
+                device='CPU' if self.swap else None
+            )
             new_state.param_info = old_param.param_info.clone()
             if hasattr(old_param.param_info, "cloned_obj"):
                 old_param.param_info.cloned_obj.append(new_state)

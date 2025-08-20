@@ -156,6 +156,9 @@ class PmaAdamW(AdamW):
 
         ema_alpha (float, optional): The fusion coefficient is only effective when fused_algo=ema. Default: ``0.2``.
 
+        swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
+            storing them on NPU. Default: False.
+
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
@@ -174,10 +177,17 @@ class PmaAdamW(AdamW):
     """
 
     def __init__(self, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0,
-                 fused_num=10, interleave_step=1000, fused_algo='ema', ema_alpha=0.2):
+                 fused_num=10, interleave_step=1000, fused_algo='ema', ema_alpha=0.2, swap=False):
         _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, self.cls_name)
 
-        super().__init__(params=params, learning_rate=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay)
+        super().__init__(
+            params=params,
+            learning_rate=learning_rate,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            swap=swap
+        )
 
         self.fused_num = fused_num
         self.interleave_step = interleave_step
