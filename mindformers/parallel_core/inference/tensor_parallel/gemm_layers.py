@@ -351,6 +351,11 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             param.set_data(ms.from_numpy(loaded_weight))
             return
 
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if not weight_is_3d and param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
+            weight_needs_transpose = False
+
         # Shard w1/w3
         param_output_dim = getattr(param, "output_dim", None)
         shard_size = param.shape[param_output_dim] // 2 # Half w1, half w3.
@@ -570,7 +575,11 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         # based on the shard id. This will be whatever
         # dimension intermediate_size_per_partition is used.
         shard_dim = getattr(param, "input_dim", None)
+
         if not param.name.endswith("weight") and shard_dim is None:
+            # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+                loaded_weight = loaded_weight[:].squeeze(-1)
             param.init_data()
             param[expert_id] = ms.from_numpy(loaded_weight[:])
             return

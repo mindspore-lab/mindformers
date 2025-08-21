@@ -372,11 +372,12 @@ class ColumnParallelLinear(LinearBase):
         loaded_weight = loaded_weight[:]
         if loaded_shard_id is not None and shard_dim is not None:
             if loaded_shard_id == 'q_up':
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
                 loaded_weight = deal_linear_q_up_weight(loaded_weight,
                                                         self.config,
                                                         shard_dim,
                                                         shard_size=shard_size,
-                                                        rope_transition=self.quant_config is None)
+                                                        rope_transition=rope_transition)
             if loaded_shard_id == 'kv_up':
                 loaded_weight = deal_linear_kv_up_weight(loaded_weight, self.config, shard_dim, shard_size=shard_size)
         else:
@@ -469,6 +470,9 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             shard_size = self.output_sizes[array_id] // tp_size
 
         start_idx = tp_rank * shard_size
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
         loaded_weight = split_loaded_weight(loaded_weight, output_dim,
                                             start_idx, shard_size)
         expected_shape = list(param.shape)
@@ -787,6 +791,10 @@ class RowParallelLinear(LinearBase):
         input_dim = getattr(param, "input_dim", None)
         shard_size = self.input_size_per_partition
         start_idx = tp_rank * shard_size
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
+
         loaded_weight = split_loaded_weight(loaded_weight, input_dim,
                                             start_idx, shard_size)
 
@@ -952,9 +960,10 @@ class ReplicatedLinear(LinearBase):
             if loaded_shard_id == 'kv_down':
                 offset = 0
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight,
                                                            self.config,
-                                                           rope_transition=self.quant_config is None)
+                                                           rope_transition=rope_transition)
             if loaded_shard_id == 'gating':
                 offset = 0
                 size = self.config.moe_shared_expert_intermediate_size
@@ -968,7 +977,7 @@ class ReplicatedLinear(LinearBase):
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                     f" but got the shape of param is {expected_shape} "
-                    f"and the shape of weight is{loaded_weight.get_shape()}")
+                    f"and the shape of weight is{loaded_weight.shape}")
             indices = [slice(None)] * len(param.shape)
             indices[output_dim] = slice(offset, offset + size)
             param.init_data()

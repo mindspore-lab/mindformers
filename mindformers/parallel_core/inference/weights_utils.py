@@ -92,10 +92,13 @@ def deal_linear_q_up_weight(weight, config, shard_dim, shard_size, rope_transiti
     tp_rank = get_tensor_model_parallel_rank()
     num_heads = config.num_attention_heads
     if rope_transition:
+        ori_shape_len = len(weight.shape)
         rope_dim = config.qk_pos_emb_head_dim + config.qk_head_dim
         weight = weight.reshape(num_heads, rope_dim, -1)
         weight = infer_trans_rope_weight(weight, config.qk_pos_emb_head_dim)
-        weight = weight.reshape(num_heads * rope_dim, -1)
+        weight = weight.reshape(num_heads * rope_dim, -1) if ori_shape_len == 2 else \
+                weight.reshape(-1)
+
     start_idx = tp_rank * shard_size
     loaded_weight = split_loaded_weight(weight, shard_dim, start_idx, shard_size)
     if loaded_weight.shape[-1] == 1 and len(loaded_weight.shape) == 2:
@@ -148,12 +151,23 @@ def deal_linear_kv_up_weight(weight, config, shard_dim, shard_size):
 
 
 def deal_linear_kv_down_weight(weight, config, rope_transition=False):
+    """Splits the linear_kv_down weights from source checkpoint.
+
+    Args:
+        weight: The weights to be loaded.
+        config: Model configuration.
+        rope_transition: if true the weights are transformed to fit rope kernel
+
+    """
     if rope_transition:
         kv_lora_rank = config.kv_lora_rank
         qk_rope_head_dim = config.qk_pos_emb_head_dim
         kv_head_dim = kv_lora_rank + qk_rope_head_dim
+        ori_shape_len = len(weight.shape)
         weight = weight.reshape(kv_head_dim, -1)
         weight = infer_trans_rope_weight(weight, qk_rope_head_dim)
+        if ori_shape_len == 1:
+            weight = weight.reshape(-1)
     return weight
 
 

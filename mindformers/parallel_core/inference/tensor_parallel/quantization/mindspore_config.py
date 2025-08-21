@@ -31,6 +31,8 @@ class MindSporeConfig(QuantizationConfig):
         super().__init__()
         self.full_config = full_config
         self.quantization = full_config["quantization"]
+        # osl method need config source == golden-stick
+        self.is_modelslim = full_config.get("source", "modelslim") != "golden-stick"
 
     def get_name(self) -> QuantizationBackends:
         return "mindspore"
