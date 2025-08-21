@@ -46,8 +46,12 @@ from mindformers.checkpoint.utils import (
     check_checkpoints_dir_max_num,
     get_metadata_filename
 )
-from mindformers.checkpoint.sharded_tensor import get_sharded_tensor_list_from_strategy_metadata
-from mindformers.checkpoint.metadata import save_metadata
+from mindformers.checkpoint.fully_parallel import BalancedSaveStrategy
+from mindformers.checkpoint.metadata import (
+    save_metadata,
+    get_total_shard_metadata,
+    get_total_params_file_mapping_info
+)
 
 
 @dataclass
@@ -245,7 +249,7 @@ class AsyncSaveManager:
 def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
                     async_save_manager: AsyncSaveManager = None, common_info: CommonInfo = None,
                     keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None,
-                    global_strategy_info: List[Dict] = None):
+                    global_strategy_info: List[Dict] = None, remove_redundancy: bool = False):
     """
     Saves the current state of the training process,
         including the model, optimizer, and learning rate scheduler, to a checkpoint file.
@@ -262,6 +266,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
             If None, the default path is 'output_dir/checkpoint'.
             And 'output_dir' is configured in yaml and defaults to './output' in the execution script path.
         global_strategy_info (List[Dict]): The strategy info of this network.
+        remove_redundancy (bool): Whether to remove redundancy of saving checkpoint.
     """
     logger.info('....... Start to save checkpoint as new format .......')
 
@@ -317,34 +322,56 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
 
     # Save model weight.
     logger.info("....... Start to save model weight .......")
-    start_save_ckpt_time = time()
-    model_ckpt_filename = get_checkpoint_name(
-        cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Model'
-    )
-    ms_save_checkpoint(
-        network,
-        model_ckpt_filename,
-        async_save=use_async_save,
-        format="safetensors"
-    )
-    logger.info(f"Model checkpoint successfully saved at '{model_ckpt_filename}.safetensors'.")
-
     model_keys = network.parameters_dict().keys()
+    start_save_ckpt_time = time()
+
+    if remove_redundancy and global_strategy_info is not None:
+        remove_model_redundancy = BalancedSaveStrategy(
+            network,
+            user_prefix=user_prefix,
+            checkpoint_path=save_checkpoint_path,
+            filter_func=lambda x: x in list(model_keys),
+            file_type='Model'
+        )
+        remove_model_redundancy.save(iteration)
+    else:
+        model_ckpt_filename = get_checkpoint_name(
+            cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Model'
+        )
+        ms_save_checkpoint(
+            network,
+            model_ckpt_filename,
+            async_save=use_async_save,
+            format="safetensors"
+        )
+        logger.info(f"Model checkpoint successfully saved at '{model_ckpt_filename}.safetensors'.")
 
     # Save optimizer weight.
     if optimizer is not None:
-        logger.warning("....... Start to save optimizer weight .......")
-        optimizer_ckpt_filename = get_checkpoint_name(
-            cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Optimizer'
-        )
-        ms_save_checkpoint(
-            optimizer,
-            optimizer_ckpt_filename,
-            async_save=use_async_save,
-            format="safetensors",
-            choice_func=lambda x: x not in list(model_keys)
-        )
-        logger.info(f"Optimizer checkpoint successfully saved at '{optimizer_ckpt_filename}.safetensors'.")
+        if remove_redundancy and global_strategy_info is not None:
+            # Optimizer weight remove redundancy.
+            remove_optimizer_redundancy = BalancedSaveStrategy(
+                optimizer,
+                user_prefix=user_prefix,
+                checkpoint_path=save_checkpoint_path,
+                filter_func=lambda x: x not in list(model_keys),
+                file_type='Optimizer'
+            )
+            remove_optimizer_redundancy.save(iteration)
+        else:
+            # Optimizer weight has redundancy.
+            logger.warning("....... Start to save optimizer weight .......")
+            optimizer_ckpt_filename = get_checkpoint_name(
+                cur_iter_checkpoint_dir, user_prefix, get_rank(), get_group_size(), 'Optimizer'
+            )
+            ms_save_checkpoint(
+                optimizer,
+                optimizer_ckpt_filename,
+                async_save=use_async_save,
+                format="safetensors",
+                choice_func=lambda x: x not in list(model_keys)
+            )
+            logger.info(f"Optimizer checkpoint successfully saved at '{optimizer_ckpt_filename}.safetensors'.")
     else:
         logger.warning("Optimizer weight will not be save!")
 
@@ -360,17 +387,9 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         logger.info(f"Save common info cost time: {time() - start_save_common_info_time:.3f}s.")
 
     # Save 'metadata.json'.
-    if global_strategy_info is not None:
+    if not remove_redundancy:
         metadata_file_path = get_metadata_filename(checkpoints_root_path, iteration)
-        save_metadata_json(
-            global_strategy_info=global_strategy_info,
-            model_keys=model_keys if optimizer is None else None,
-            user_prefix=user_prefix,
-            metadata_file_path=metadata_file_path,
-            save_optimizer=optimizer is not None
-        )
-    else:
-        logger.info("No need to save metadata.json for single card.")
+        save_metadata_json(global_strategy_info, model_keys, user_prefix, metadata_file_path, optimizer is not None)
 
     # Save tracker file in sync save process.
     if not use_async_save:
@@ -383,42 +402,19 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
 
 def save_metadata_json(global_strategy_info, model_keys, user_prefix, metadata_file_path, save_optimizer):
     """Saving metadata.json used `get_strategy_metadata` API."""
-    logger.info("...... Start saving metadata ......")
+    if global_strategy_info is not None:
+        logger.info("...... Start saving metadata ......")
 
-    if get_rank() == 0:
-        npu_nums = get_group_size()
-        sharded_tensor_metas = list()
-        param_file_mappings = list()
-
-        for cur_npu_rank in range(0, npu_nums):
-            org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
-            cur_rank_strategy_layout = [
-                dict([item])
-                for item in org_cur_rank_strategy_layout.items()
-            ]
-
-            # Get Sharded tensors from strategy metadata of current rank.
-            cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
-                param_infos=cur_rank_strategy_layout,
-                model_keys=model_keys,
-                cur_npu_rank=cur_npu_rank,
-                save_optimizer=save_optimizer
+        if get_rank() == 0:
+            sharded_tensor_metas = get_total_shard_metadata(
+                global_strategy_info=global_strategy_info,
+                filter_func=(lambda x: x in list(model_keys)) if not save_optimizer else None
             )
+            param_file_mappings = get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_keys)
+            save_metadata(sharded_tensor_metas, param_file_mappings, metadata_file_path)
 
-            # Get mappings of parameter file of current rank.
-            for sharded_tensor in cur_rank_sharded_tensors:
-                if model_keys and sharded_tensor.key not in list(model_keys):
-                    ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Optimizer')
-                else:
-                    ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Model')
-                param_file_mappings.append(
-                    (ckpt_name + '.safetensors', cur_npu_rank, (sharded_tensor.key, sharded_tensor.global_offset))
-                )
-
-            sharded_tensor_metas.append(cur_rank_sharded_tensors)
-
-        save_metadata(sharded_tensor_metas, param_file_mappings, metadata_file_path)
-
-    # Barrier here to ensure 'metadata.json' saved, then continue training.
-    barrier_world("Rank_0 is saving 'metadata.json' ...")
-    logger.info(f"The 'metadata.json' saved successfully at '{metadata_file_path}'.")
+        # Barrier here to ensure 'metadata.json' saved, then continue training.
+        barrier_world("Rank_0 is saving 'metadata.json' ...")
+        logger.info(f"The 'metadata.json' saved successfully at '{metadata_file_path}'.")
+    else:
+        logger.info("No need to save metadata.json for single card.")
