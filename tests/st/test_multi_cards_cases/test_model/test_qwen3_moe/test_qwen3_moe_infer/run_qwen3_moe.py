@@ -12,28 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""mcore qwen3-0.6b model ST of inference"""
+"""mcore qwen3-30b-a3b model ST of inference"""
 import argparse
 import os
 
 from transformers import AutoTokenizer
 
 from mindformers import AutoConfig
-from mindformers.models.qwen3.modeling_qwen3 import Qwen3ForCausalLM
+from mindformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeForCausalLM
 from mindformers import build_context, MindFormerConfig
 from mindformers.tools.logger import logger
 
 from tests.st.test_multi_cards_cases.test_model.utils import compare_distance
 
 
-def test_qwen3_0_6b_predict_mcore(device_num: int = 1):
+def test_qwen3_30b_a3b_predict_mcore(device_num: int = 1):
     """
-    Feature: Mcore Qwen3-0.6b predict task
+    Feature: Mcore Qwen3-30B-A3B predict task
     Description: Two-card tp parallel
     Expectation: Success or assert precision failed
     """
     max_decode_length = 64
-    config_path = os.path.join(os.path.dirname(__file__), "qwen3_0_6b_infer.yaml")
+    config_path = os.path.join(os.path.dirname(__file__), "qwen3_moe_30b_a3b_infer.yaml")
     config = MindFormerConfig(config_path)
     config.use_parallel = device_num > 1
     build_context(config)
@@ -42,22 +42,24 @@ def test_qwen3_0_6b_predict_mcore(device_num: int = 1):
     # Auto config
     model_config = AutoConfig.from_pretrained(config_path)
     model_config.parallel_config.model_parallel = device_num
-    network = Qwen3ForCausalLM(model_config)
+    # Reduced layer network
+    model_config.num_hidden_layers = 2
+    network = Qwen3MoeForCausalLM(model_config)
     # Load HF safetensors
     network.load_weights(config.pretrained_model_dir)
     # Build prompt and answer
     batch_datas = {1: {"prompt": "Give me a short introduction to large language model.",
                        "answer": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
                                  "Give me a short introduction to large language model.<|im_end|>\n"
-                                 "<|im_start|>assistant\n<think>\nOkay, the user wants a short introduction to a large "
-                                 "language model. Let me start by recalling what I know about them."
-                                 "Large language models are AI systems designed to"},
+                                 "<|im_start|>assistant\n使用網路電話及imageNamePREFIXesっきりtic不来/rem/rem/rem/rem/rem"
+                                 "/rem/rem/rem/rem/rem … الفند.bootstrapcdn…the…the…the…the…the組�,"
+                                 "eg,eg,eg,eg,eg,eg,eg,eg"},
                    4: {"prompt": "Please introduce some scenic spots in Beijing.",
                        "answer": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
                                  "Please introduce some scenic spots in Beijing.<|im_end|>\n<|im_start|>assistant\n"
-                                 "<think>\nOkay, the user asked for some scenic spots in Beijing. "
-                                 "Let me start by recalling the main attractions there. "
-                                 "The Forbidden City is a top spot, so that's a good"},
+                                 "使用網路電話及imageNamePREFIXesっきりtic不来/rem/rem/rem/rem/rem/rem/rem/rem/rem/rem/rem"
+                                 "/rem/remいらっoryanthaIdealized,いらっory prêt.bootstrapcdn…theメー�,.\n\n"
+                                 "enticate/cal/cal"},
                    }
     for batch_size, batch_data in batch_datas.items():
         messages = [
@@ -81,13 +83,13 @@ def test_qwen3_0_6b_predict_mcore(device_num: int = 1):
 
         for i in range(0, len(outputs)):
             output_text = tokenizer.decode(outputs[i])
-            logger.info("test_qwen3_0_6b_predict, output_text:{}".format(str(output_text)))
+            logger.info("test_qwen3_30b_a3b_predict, output_text:{}".format(str(output_text)))
             compare_distance(output_text, answer)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Run Qwen3 ST")
+    parser = argparse.ArgumentParser(description="Run Qwen3Moe ST")
     parser.add_argument("--device_num", type=int, default=2)
 
     args = parser.parse_args()
-    test_qwen3_0_6b_predict_mcore(args.device_num)
+    test_qwen3_30b_a3b_predict_mcore(args.device_num)
