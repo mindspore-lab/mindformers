@@ -13,47 +13,16 @@
 # limitations under the License.
 # ============================================================================
 """Mindspore quantization configuration."""
-from typing import Dict, Any, Optional, List, Union
-
+from typing import Dict, Any, Optional, List
+import re
+from collections import defaultdict
 import mindspore
 from mindformers.parallel_core.inference.tensor_parallel.layers import VocabParallelEmbedding
-from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import GroupedLinearBase
 
 from . import QuantizationBackends
 from .base_config import QuantizationConfig, QuantizeMethodBase
-from .a8w8_mindspore import A8W8LinearMethod
-from .a8dynw8_mindspore import A8W8DynamicLinearMethod
-from ..layers import UnquantizedLinearMethod, LinearBase, UnquantizedEmbeddingMethod
-from ...transformer.moe.experts import GroupedMLP
-
-class OutlierSuppressionLite:
-    """Class for OSL quantization configs."""
-
-    @staticmethod
-    def get_quant_method(quant_config: QuantizationConfig,
-                         layer: mindspore.nn.Cell,
-                         prefix: str) -> QuantizeMethodBase:
-        """Get the quantize method to use for the quantized layer.
-
-        Args:
-            layer: The layer for the quant method.
-            prefix: The full name of the layer in the state dict
-        Returns:
-            The quantize method. None if the given layer doesn't support quant
-            method.
-        """
-        quant_method = UnquantizedLinearMethod()
-        if "embedding" in prefix and isinstance(layer, VocabParallelEmbedding):
-            quant_method = UnquantizedEmbeddingMethod()
-        elif "attention" in prefix and isinstance(layer, LinearBase) and "linear_kv_up_proj" not in prefix:
-            quant_method = A8W8LinearMethod(quant_config)
-        elif "mlp" in prefix and isinstance(layer, Union[GroupedLinearBase, LinearBase, GroupedMLP]):
-            quant_method = A8W8DynamicLinearMethod(quant_config)
-        return quant_method
-
-QUANTIZATION_METHOD_MAPPING = {
-    "osl": OutlierSuppressionLite.get_quant_method
-}
+from ..layers import UnquantizedLinearMethod, UnquantizedEmbeddingMethod
+from .utils import QUANTIZATION_METHOD_MAPPING, mapping_rules
 
 class MindSporeConfig(QuantizationConfig):
     """Class for Mindspore quantization configs."""
@@ -71,7 +40,51 @@ class MindSporeConfig(QuantizationConfig):
 
     @staticmethod
     def get_config_filenames() -> list[str]:
-        return ["quantization_description.json"]
+        return ["quantization_description.json", "quant_model_description.json"]
+
+    def convert_name(self, weight_name):
+        "convert name"
+        # different param name or weight name converted here
+        for hf_name, mcore_name in self.full_config.get("weight_mapping"):
+            if hf_name in weight_name:
+                weight_name = weight_name.replace(hf_name, mcore_name)
+
+        # FIXME: After osl supports mcore calibration, the following conversion map should be removed.
+        weight_name = weight_name.replace('model.tok_embeddings.embedding_weight',
+                                          'embedding.word_embeddings.weight')
+        weight_name = weight_name.replace('model.norm_out.', 'decoder.final_layernorm.')
+        weight_name = weight_name.replace('lm_head.', 'output_layer.')
+
+        weight_name = weight_name.replace('.attention_norm.', '.input_layernorm.')
+        weight_name = weight_name.replace('.ffn_norm.', '.pre_mlp_layernorm.')
+        weight_name = weight_name.replace('.q2l_proj.', '.linear_q_down_proj.')
+        weight_name = weight_name.replace('.lq_norm.', '.q_layernorm.')
+        weight_name = weight_name.replace('.l2q_proj.', '.linear_q_up_proj.')
+        weight_name = weight_name.replace('.kv2l.', '.linear_kv_down_proj.')
+        weight_name = weight_name.replace('.lkv_norm.', '.kv_layernorm.')
+        weight_name = weight_name.replace('.lkv2kv.', '.linear_kv_up_proj.')
+        weight_name = weight_name.replace('.wo.', '.linear_proj.')
+
+        weight_name = weight_name.replace('.w1.', '.gating.')
+        weight_name = weight_name.replace('.w2.', '.linear_fc2.')
+        weight_name = weight_name.replace('.w3.', '.hidden.')
+        weight_name = weight_name.replace('.routed_experts.router.dense.', '.router.weight.')
+        weight_name = weight_name.replace('.routed_experts.router.e_score_correction_bias', '.router.expert_bias')
+        weight_name = weight_name.replace('.routed_experts.ffn.', '.experts.')
+
+        weight_name = weight_name.replace('model.layers.', 'decoder.layers.')
+        weight_name = weight_name.replace('.attention.', '.self_attention.')
+        weight_name = weight_name.replace('.feed_forward.', '.mlp.')
+
+        weight_name = weight_name.replace('.matmul.', '.')
+        weight_name = weight_name.replace('.quant_op.', '.')
+        weight_name = weight_name.replace('._layer.', '.')
+
+        weight_name = weight_name.replace('.dequant_scale', '.deq_scale')
+        weight_name = weight_name.replace('.input_zp', '.input_offset')
+        weight_name = weight_name.replace('.weight_scale', '.w_scale')
+
+        return weight_name
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "QuantizationConfig":
@@ -82,7 +95,30 @@ class MindSporeConfig(QuantizationConfig):
         pass
 
     def get_quant_method(self, layer: mindspore.nn.Cell, prefix: str) -> Optional[QuantizeMethodBase]:
-        get_quant = QUANTIZATION_METHOD_MAPPING[self.quantization]
-        if get_quant is None:
-            raise ValueError(f"Unknown quantization method: {self.quantization}")
-        return get_quant(self, layer, prefix)
+        self.full_config = {self.convert_name(k): v for k, v in self.full_config.items()}
+        get_quant = None
+        new_dict = defaultdict(tuple)
+        for key, value in mapping_rules.items():
+            if len(value) >= 2:
+                new_dict[value[0]] += (value[1],)
+        for key, value in new_dict.items():
+            if key in prefix:
+                prefix = prefix.replace(key, value[0])
+                break
+        for key, value in self.full_config.items():
+            if "experts." in prefix:
+                key = re.sub(r"experts\.\d+", "experts", key)
+            if prefix in key:
+                get_quant = value
+                break
+
+        if get_quant == "FLOAT":
+            if "embedding" in prefix and isinstance(layer, VocabParallelEmbedding):
+                quant_method = UnquantizedEmbeddingMethod()
+            else:
+                quant_method = UnquantizedLinearMethod()
+            return quant_method
+        quant_method = QUANTIZATION_METHOD_MAPPING[get_quant]
+        if quant_method is None:
+            raise ValueError(f"Unknown quantization method: {quant_method}")
+        return quant_method(self)

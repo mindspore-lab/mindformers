@@ -30,7 +30,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTMod
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-from mindformers.parallel_core.inference.weights_utils import get_quant_config
+from mindformers.models.build_config import get_quant_config
 from .configuration_deepseek_v3 import DeepseekV3Config
 
 
@@ -69,6 +69,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
+        self.use_fused_mla = self.config.quantization_config is not None
+        config.use_fused_mla = self.use_fused_mla
+        quant_config = get_quant_config(self.config.to_dict(), self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
@@ -79,11 +82,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
-        quant_config = None
-        if self.config.quantization_config is not None:
-            quant_config = get_quant_config(self.config)
-        self.use_fused_mla = self.config.quantization_config is not None
-        config.use_fused_mla = self.use_fused_mla
         self.model = GPTModel(
             config=config,
             transformer_layer_spec=get_gpt_decoder_block_spec(

@@ -18,10 +18,13 @@ build model config modules
 """
 import copy
 import os
+import json
+import glob
 from typing import Union
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.models.utils import CONFIG_NAME, dict_from_json_file
-
+from mindformers.parallel_core.inference.tensor_parallel.quantization import (get_quantization_config,
+                                                                              QuantizationConfig)
 
 def build_model_config(
         config: dict = None, default_args: dict = None,
@@ -108,11 +111,13 @@ def get_model_config(
                 config.pretrained_model_dir, model_config
             )
             model_config = merged_model_config
+            default_args['checkpoint_name_or_path'] = use_pretrained_model_dir
+            if not model_config.get("quantization"):
+                quant_config = model_config.get("quantization_config", None)
+                if quant_config and quant_config.get("quant_method", None):
+                    model_config['quantization'] = quant_config.get("quant_method")
         else:
             model_config = config.model_config
-        if model_config.get("quantization_config", None):
-            quant_config = model_config.get("quantization_config")
-            config.model_config.quantization_config = quant_config
         return MindFormerRegister.get_instance_from_cfg(
             model_config, MindFormerModuleType.CONFIG, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
@@ -130,3 +135,49 @@ def merge_model_config(pretrain_model_dir, config: Union[dict, MindFormerConfig]
         hf_dict.update(config_dict)
     model_dict = hf_dict
     return model_dict
+
+
+def get_quant_config(model_config: dict, weight_mapping: list) -> QuantizationConfig:
+    """method to generate QuantizationConfig."""
+    quantization = model_config.get("quantization", None)
+    if not quantization:
+        return None
+    quant_cls = get_quantization_config(quantization)
+    quant_config = model_config.get("quantization_config", None)
+    if quant_config:
+        quant_config["weight_mapping"] = weight_mapping
+        quant_config["quantization"] = quantization
+    possible_config_filenames = quant_cls.get_config_filenames()
+
+    # If the quantization config is not found, use the default config.
+    if not possible_config_filenames:
+        if quant_config:
+            return quant_cls(quant_config)
+        return quant_cls()
+
+    pretrained_model_dir = model_config.get("checkpoint_name_or_path")
+    if not os.path.isdir(pretrained_model_dir):
+        raise ValueError(
+            f"Cannot find the quantization config file in {pretrained_model_dir}")
+
+    config_files = glob.glob(os.path.join(pretrained_model_dir, "*.json"))
+    quant_config_files = [
+        f for f in config_files if any(
+            os.path.splitext(x)[0] in f for x in possible_config_filenames)
+    ]
+
+    if not quant_config_files:
+        raise ValueError(
+            f"Cannot find the config file for {quantization}")
+    if len(quant_config_files) > 1:
+        raise ValueError(
+            f"Found multiple config files for {quantization}: "
+            f"{quant_config_files}")
+
+    quant_config_file = quant_config_files[0]
+    with open(quant_config_file, encoding='utf-8') as f:
+        config = json.load(f)
+    if quant_config:
+        quant_config.update(config)
+        config = quant_config
+    return quant_cls.from_config(config)
