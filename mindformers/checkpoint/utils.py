@@ -202,4 +202,20 @@ def get_checkpoint_name(cur_iter_checkpoint_dir: str, user_prefix: str, file_idx
     else:
         file_name = f'{user_prefix}-{type_prefix}-{file_idx:07d}-{total_file_num:07d}'
 
+    if cur_iter_checkpoint_dir is None:
+        return file_name
     return os.path.join(cur_iter_checkpoint_dir, file_name)
+
+
+def get_sharded_tensor_shard_id(param_name, global_offset):
+    """
+    Generate a unique identifier for a sharded tensor based on its parameter name and global offset.
+
+    Args:
+        param_name (str): The name of the parameter associated with the sharded tensor.
+        global_offset (tuple): The global offset of the sharded tensor.
+
+    Returns:
+        str: A unique identifier for the sharded tensor.
+    """
+    return str(tuple((param_name, tuple(global_offset))))
