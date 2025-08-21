@@ -24,6 +24,7 @@ import mindspore.common.dtype as mstype
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
 from mindformers.parallel_core.process_group_config import default_model_comm_pgs
+from mindformers.parallel_core.inference.parallel_state import is_pipeline_first_stage
 from mindformers.version_control import is_310p
 
 
@@ -35,6 +36,8 @@ class InferModelMixin(ModelMixin):
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
         dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_hidden_states = None if is_pipeline_first_stage() else Tensor(
+            shape=[None, None], dtype=self.compute_dtype)
         dynamic_positions = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
@@ -45,7 +48,8 @@ class InferModelMixin(ModelMixin):
 
         def get_input():
             cache_list = []
-            for _ in range(self.config.num_hidden_layers):
+            num_layers = len(self.model.decoder.layers)
+            for _ in range(num_layers):
                 if is_310p():
                     cache_list.append(Tensor(shape=[None, None, None], dtype=self.compute_dtype))
                 else:
@@ -78,13 +82,13 @@ class InferModelMixin(ModelMixin):
                 dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
 
             # when need padding_idx, add padding parameter into set_input
-            self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
+            self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_positions, dynamic_batch_valid_length,
                             dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_attention_mask, None,
                             dynamic_attn_padding_idx, dynamic_attn_unpadding_idx,
                             dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx, key_cache, value_cache)
         else:
-            self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
+            self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_positions, dynamic_batch_valid_length,
                             dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
         logger.info(f"Set dynamic input for {self.__class__.__name__}")

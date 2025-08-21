@@ -279,6 +279,7 @@ COMMON_CONFIG_MAPPING = {
     "is_dynamic": "is_dynamic",
     "use_eod_reset": "use_eod_reset",
     "use_contiguous_weight_layout": "use_contiguous_weight_layout",
+    "pre_process": "pre_process",
     "post_process": "post_process",
     "mlp_linear_fc1_bias": "mlp_linear_fc1_bias",
 

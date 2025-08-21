@@ -50,12 +50,12 @@ class MoETokenDispatcher:
         self.config = config
         self.num_experts = config.num_moe_experts
 
-        self.global_group = model_comm_pgs.globals
+        self.tpdp_group = model_comm_pgs.tpdp
         self.ep_group = model_comm_pgs.moe_ep
         # use model_comm_pgs.moe_tp_group as tensor parallel group in this module.
         self.tp_group = model_comm_pgs.moe_tp
 
-        self.global_rank = self.global_group.rank
+        self.tpdp_rank = self.tpdp_group.rank
         self.tp_size = self.tp_group.size
         self.tp_rank = self.tp_group.rank
         self.ep_size = self.ep_group.size

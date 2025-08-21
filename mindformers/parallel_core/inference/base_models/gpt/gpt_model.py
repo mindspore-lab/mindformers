@@ -29,6 +29,7 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.rope_util
 from mindformers.parallel_core.inference.utils import divide, generate_padding_index
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import default_weight_loader, make_expert_params_mapping
+from mindformers.parallel_core.inference.parallel_state import is_pipeline_last_stage
 from mindformers.tools.logger import logger
 
 
@@ -111,8 +112,6 @@ class GPTModel(nn.Cell):
             quant_config: Optional[QuantizationConfig] = None,
     ):
         super(GPTModel, self).__init__()
-        if not pre_process:
-            raise NotImplementedError("For GPTModel, `pre_process` is not supported to set False")
         if fp16_lm_cross_entropy:
             raise NotImplementedError("For GPTModel, `fp16_lm_cross_entropy` is not supported")
         if rope_scaling:
@@ -142,6 +141,7 @@ class GPTModel(nn.Cell):
         self.tp_group_size = self.tp.size
         self.tp_rank = self.tp.rank
         self.is_prefill = True
+        self.return_hidden_states = False
 
         if hasattr(self.config, 'position_embedding_type'):
             self.position_embedding_type = self.config.position_embedding_type
@@ -176,20 +176,22 @@ class GPTModel(nn.Cell):
         self.decoder = TransformerBlock(
             config=self.config,
             spec=transformer_layer_spec,
+            post_process=is_pipeline_last_stage(),
             model_comm_pgs=model_comm_pgs,
             quant_config=quant_config,
         )
 
         # Output
-        self.output_layer = ColumnParallelLinear(
-            self.config.hidden_size,
-            self.vocab_size,
-            config=self.config,
-            bias=False,
-            gather_output=self.parallel_output,
-            compute_dtype=self.config.compute_dtype,
-            tp_group=model_comm_pgs.tp,
-        )
+        if self.post_process:
+            self.output_layer = ColumnParallelLinear(
+                self.config.hidden_size,
+                self.vocab_size,
+                config=self.config,
+                bias=False,
+                gather_output=self.parallel_output,
+                compute_dtype=self.config.compute_dtype,
+                tp_group=model_comm_pgs.tp,
+            )
         if share_embeddings_and_output_weights:
             self.output_layer.weight = self.embedding.word_embeddings.weight
 
@@ -243,8 +245,8 @@ class GPTModel(nn.Cell):
         })
         return model_inputs
 
-    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
-                  q_seq_lens=None, block_tables=None, slot_mapping=None,
+    def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
+                  context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None,
                   attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None,
                   ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         """ Construct function of GPTModel. """
@@ -258,7 +260,12 @@ class GPTModel(nn.Cell):
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions)
 
         # Decoder embedding.
-        decoder_input = self.cast(self.embedding(input_ids), self.compute_dtype)
+        if self.pre_process:
+            decoder_input = self.cast(self.embedding(input_ids), self.compute_dtype)
+        else:
+            if hidden_states is None:
+                raise ValueError("When pre_process is False, hidden_states must be provided.")
+            decoder_input = self.cast(hidden_states, self.compute_dtype)
 
         # Run decoder.
         hidden_states = self.decoder(
@@ -280,7 +287,7 @@ class GPTModel(nn.Cell):
         )
 
         # Return hidden states.
-        if not self.post_process:
+        if not self.post_process or self.return_hidden_states:
             return hidden_states
 
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)
@@ -288,6 +295,7 @@ class GPTModel(nn.Cell):
         logits = self.output_layer(output)
         logits = self.cast(logits.squeeze(0), mstype.float32)
         return logits
+
 
     def get_params_dict(self):
         params_dict = dict()

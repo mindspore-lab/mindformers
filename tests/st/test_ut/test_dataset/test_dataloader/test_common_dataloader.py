@@ -126,7 +126,6 @@ class TestCommonDataLoader:
         assert sample == src_sample
 
     @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_alpaca_handler(self):
         """test alpaca handler with CommonDataLoader"""
@@ -141,7 +140,6 @@ class TestCommonDataLoader:
         assert dataset.num_rows == 10
 
     @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_alpaca_pack(self):
         """test pack alpaca with CommonDataLoader"""
@@ -177,7 +175,6 @@ class TestCommonDataLoader:
         assert dataset[0]['input_ids'][-1] != 0
 
     @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_pack_compress_mask(self):
         """test use compress mask in CommonDataLoader"""
@@ -194,7 +191,6 @@ class TestCommonDataLoader:
         assert dataloader[0][-1].size == 128
 
     @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_pack_wo_compress_mask(self):
         """test not use compress mask in CommonDataLoader"""
@@ -210,7 +206,6 @@ class TestCommonDataLoader:
         assert dataloader[0][-1].shape == (1, 256, 256)
 
     @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_load_from_disk(self):
         """test CommonDataLoader load from disk"""

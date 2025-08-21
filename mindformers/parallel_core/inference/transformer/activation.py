@@ -39,7 +39,7 @@ class SiLU(nn.Cell):
         self.silu = mint.nn.SiLU()
 
     def construct(self, x):
-        output = self.silu(x)
+        output = self.silu(x.contiguous())
         return output
 
 

@@ -25,14 +25,16 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import Tensor, ops, Parameter, mint
-from mindspore.communication import get_group_size, get_rank
+from mindspore.communication import get_group_size
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.parallel_state import (get_data_parallel_group,
                                                                 get_tensor_model_parallel_world_size,
                                                                 get_data_parallel_world_size,
                                                                 get_moe_expert_parallel_world_size,
-                                                                get_moe_tensor_parallel_world_size)
+                                                                get_moe_tensor_parallel_world_size,
+                                                                get_pipeline_model_parallel_world_size,
+                                                                get_pipeline_model_parallel_rank)
 from mindformers.tools import logger
 
 
@@ -261,7 +263,7 @@ def generate_padding_index(q_seq_lens: Tensor):
     tokens_len_per_dp = ops.AllGather(group=get_data_parallel_group().group)(tokens_len_per_dp)
     tokens_len_per_dp = tokens_len_per_dp.asnumpy()
     padding_size = (tokens_len_per_dp.max() + tp_group_size - 1) // tp_group_size * tp_group_size
-    current_dp_rank = get_rank() // tp_group_size
+    current_dp_rank = get_data_parallel_group().rank
     attn_padding_idx = None
     attn_unpadding_idx = None
     ffn_padding_idx = None
@@ -296,11 +298,9 @@ def generate_padding_index(q_seq_lens: Tensor):
 
 def update_comm_config(config: TransformerConfig):
     """update communication config"""
-    global_group_size = get_group_size()
-    tp_group_size = config.tensor_model_parallel_size
-    dp_group_size = global_group_size // tp_group_size
-    ep_group_size = config.expert_model_parallel_size
-    moe_tp_group_size = global_group_size // ep_group_size
+    tp_group_size = get_tensor_model_parallel_world_size()
+    dp_group_size = get_data_parallel_world_size()
+    moe_tp_group_size = get_moe_tensor_parallel_world_size()
 
     if dp_group_size > 1 and tp_group_size == 1:
         if moe_tp_group_size == 1:
@@ -327,3 +327,33 @@ def update_comm_config(config: TransformerConfig):
             config.ffn_allgather = True
             config.ffn_allreduce = False
     return config
+
+def get_num_layers_and_offset(config):
+    """get number of model layers and offset for current rank"""
+    num_layers = config.num_layers
+    pp = get_pipeline_model_parallel_world_size()
+    if num_layers < pp:
+        raise RuntimeError(f"The number of model layers is {num_layers}, "
+                           f"but using pipeline parallel requires at least "
+                           f"'pp({pp}) layers for splitting")
+    if pp > 1:
+        pp_rank = get_pipeline_model_parallel_rank()
+        if config.offset != 0:
+            offset = np.array(config.offset, np.int32)
+            if offset.ndim >= 1 and offset.shape[-1] != pp:
+                raise ValueError(f"offset.shape[-1] should equal to `pp` ({pp}), "
+                                 f"but got ({offset.shape[-1]}). `offset`: {offset}")
+            if offset.sum() != num_layers % pp:
+                r = num_layers % pp
+                raise ValueError(f"The sum of `offset` ({offset.sum()}) should equal to remainder of `num_layers` "
+                                 f"({num_layers}) % (pp ({pp}) = {r}")
+            offset = np.broadcast_to(offset, (pp,))
+            avg_layers = num_layers // pp
+            layer_list = np.ones((pp,), np.int32) * avg_layers + offset
+        else:
+            layer_list = [num_layers // pp] * pp
+            remain_layer_nums = num_layers - sum(layer_list)
+            for i in range(2, remain_layer_nums+2):
+                layer_list[-i] += 1
+        return int(layer_list[pp_rank]), int(sum(layer_list[:pp_rank]))
+    return num_layers, 0

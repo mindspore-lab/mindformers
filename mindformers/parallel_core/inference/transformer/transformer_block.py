@@ -18,6 +18,7 @@ __all__ = [
     'TransformerBlock'
 ]
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor
@@ -28,6 +29,7 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.transformer_layer import BaseTransformerLayer
 from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.utils import get_num_layers_and_offset
 
 
 @dataclass
@@ -74,7 +76,7 @@ def _get_block_submodules(
         if issubclass(spec.module, TransformerBlock):
             return spec.submodules
         if issubclass(spec.module, BaseTransformerLayer):
-            num_layers = config.num_layers
+            num_layers, _ = get_num_layers_and_offset(config)
             return TransformerBlockSubmodules(
                 layer_specs=[spec] * num_layers, layer_norm=get_norm_cls(config.normalization)
             )
@@ -142,24 +144,12 @@ class TransformerBlock(nn.Cell):
             quant_config: Optional[QuantizationConfig] = None,
     ):
         super(TransformerBlock, self).__init__()
-
-        # pre_process=True is not supported in TransformerBlock.
-        # The corresponding Megatron v0.12.0 module's forward pass has this logic disabled by default,
-        # so it won't cause significant impact.
-        if pre_process:
-            raise NotImplementedError("For TransformerBlock, `pre_process=True` is not supported.")
-
-        # The post_process parameter is currently unused.
-        # Since post_process is bound to post_layer_norm, it is executed based on post_layer_norm as a substitute.
-        # The code behavior remains consistent with the corresponding module in Megatron v0.12.0.
-        if post_process:
-            raise NotImplementedError("For TransformerBlock, `post_process=True` is not supported.")
-
         self.config = config
         self.submodules = _get_block_submodules(config, spec)
         self.model_comm_pgs = model_comm_pgs
         self.post_layer_norm = post_layer_norm
-        self.num_layers = config.num_layers
+        self.pre_process = pre_process
+        self.post_process = post_process
         self.quant_config = quant_config
         self._build_layers(config)
 
@@ -168,16 +158,12 @@ class TransformerBlock(nn.Cell):
         # Transformer layers.
         def build_layer(layer_spec, layer_number):
             return build_module(layer_spec, config=self.config, layer_number=layer_number,
-                                model_comm_pgs=self.model_comm_pgs, quant_config=self.quant_config,
-                                prefix=f"decoder.layers.{layer_number-1}")
-
-        self.layers = nn.CellList(
-            [
-                build_layer(layer_spec, i + 1)
-                for i, layer_spec in enumerate(self.submodules.layer_specs)
-            ]
-        )
-
+                                model_comm_pgs=self.model_comm_pgs, quant_config=self.quant_config)
+        self.num_layers, offset = get_num_layers_and_offset(config)
+        layers_dict = OrderedDict()
+        for i, layer_spec in enumerate(self.submodules.layer_specs):
+            layers_dict[str(i + offset)] = build_layer(layer_spec, i + 1 + offset)
+        self.layers = nn.SequentialCell(layers_dict)
         if self.submodules.layer_norm and self.post_layer_norm:
             self.final_layernorm = build_module(
                 self.submodules.layer_norm,
@@ -241,7 +227,7 @@ class TransformerBlock(nn.Cell):
             )
 
         # final layernorm.
-        if self.post_layer_norm:
+        if self.post_process and self.post_layer_norm:
             hidden_states = self.final_layernorm(hidden_states)
 
         return hidden_states

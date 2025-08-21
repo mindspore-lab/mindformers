@@ -79,20 +79,22 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
                               position_embedding_type=config.position_embedding_type,
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
+                              pre_process=self.config.pre_process,
                               post_process=self.config.post_process,
                               model_comm_pgs=self.model_comm_pgs)
 
     # pylint: disable=W0613
     @jit
-    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
-                  block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None,
-                  key_cache=None, value_cache=None):
+    def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
+                  context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None,
+                  attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None):
         r"""
         model forward.
 
         Args:
             input_ids: input ids.
             positions: position ids.
+            hidden_states: hidden states.
             batch_valid_length: actual seq length.
             context_lens_tensor: computed key value length.
             q_seq_lens: query sequence lengths.
@@ -110,6 +112,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
         logits = self.model(
             input_ids=input_ids,
             positions=positions,
+            hidden_states=hidden_states,
             batch_valid_length=batch_valid_length,
             context_lens_tensor=context_lens_tensor,
             q_seq_lens=q_seq_lens,

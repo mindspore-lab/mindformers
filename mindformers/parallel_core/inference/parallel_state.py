@@ -25,6 +25,7 @@ _WORLD_GROUP = None
 _DATA_PARALLEL_GROUP = None
 _TENSOR_MODEL_PARALLEL_GROUP = None
 _PIPELINE_MODEL_PARALLEL_GROUP = None
+_TENSOR_AND_DATA_PARALLEL_GROUP = None
 _MOE_EXPERT_MODEL_PARALLEL_GROUP = None
 _MOE_TENSOR_MODEL_PARALLEL_GROUP = None
 
@@ -38,8 +39,8 @@ class ProcessGroup:
             self,
             group: Optional[str] = None,
             global_ranks: Optional[List[int]] = None,
-            size: Optional[int] = 1,
-            rank: Optional[int] = 0,
+            size: int = 1,
+            rank: int = 0,
     ) -> None:
         self._group = group
         self._global_ranks = global_ranks
@@ -55,8 +56,8 @@ class ProcessGroup:
             destroy_group(self._group)
         self._group = None
         self._global_ranks = None
-        self._size = None
-        self._rank = None
+        self._size = 1
+        self._rank = 0
         self._is_group_created = False
 
     def create_this_group(self) -> None:
@@ -64,7 +65,7 @@ class ProcessGroup:
         self._is_group_created = True
 
     @property
-    def group(self) -> str:
+    def group(self) -> Union[str, None]:
         if not self._is_group_created:
             raise RuntimeError("Group is not created")
         return self._group
@@ -80,6 +81,10 @@ class ProcessGroup:
     @property
     def is_group_created(self) -> bool:
         return self._is_group_created
+
+    @property
+    def global_ranks(self) -> Union[List[int], None]:
+        return self._global_ranks
 
 
 default_pgs = ProcessGroup()
@@ -227,16 +232,87 @@ class RankGenerator:
         return ranks
 
 
-def initialize_model_parallel(tensor_model_parallel_size: Optional[int] = 1,
-                              data_parallel_size: Optional[int] = 1,
-                              pipeline_model_parallel_size: Optional[int] = 1,
-                              expert_model_parallel_size: Optional[int] = 1,
-                              order: Optional[str] = "tp-dp-pp",) -> None:
+def initialize_moe_model_parallel(expert_model_parallel_size: int,
+                                  tensor_and_data_parallel_size: int,
+                                  origin_order: str) -> None:
+    """Initialize the MOE model parallel groups.
+
+    Args:
+        expert_model_parallel_size (int):
+            The number of Mixture of Experts parallel devices in each expert parallel group.
+
+        tensor_and_data_parallel_size (int):
+            The number of tensor and data parallel devices in each tensor and data parallel group.
+
+        origin_order (str):
+            The original order of the parallel configuration.
+    """
+    moe_tensor_parallel_size = 1
+    if expert_model_parallel_size != tensor_and_data_parallel_size:
+        if tensor_and_data_parallel_size % expert_model_parallel_size != 0:
+            raise ValueError(
+                f"Tensor and data parallel size ({tensor_and_data_parallel_size}) "
+                f"can not be divisible by expert model parallel size ({expert_model_parallel_size})."
+            )
+        moe_tensor_parallel_size = tensor_and_data_parallel_size // expert_model_parallel_size
+        logger.info(f"expert_model_parallel_size({expert_model_parallel_size}) "
+                    f"is not equal to tensor_and_data_parallel_size({tensor_and_data_parallel_size}), "
+                    f"so we will use {moe_tensor_parallel_size} as the MOE_tensor_parallel_size.")
+
+    def transform_to_moe_order(order: str) -> str:
+        if 'ep' not in order:
+            return order
+        tokens = order.split('-')
+        idx_map = {t: idx for idx, t in enumerate(tokens)}
+        result = result = sorted(['tp', 'ep'], key=lambda x: idx_map[x])
+        return '-'.join(result)
+
+    moe_rank_generator = RankGenerator(tp=moe_tensor_parallel_size,
+                                       ep=expert_model_parallel_size,
+                                       dp=1,
+                                       pp=1,
+                                       cp=1,
+                                       order=transform_to_moe_order(origin_order))
+    tensor_and_data_parallel_group = _TENSOR_AND_DATA_PARALLEL_GROUP
+    rank_id = get_rank()
+    for local_ranks in moe_rank_generator.get_ranks('tp'):
+        global_ranks = [tensor_and_data_parallel_group.global_ranks[r]
+                        for r in local_ranks if r < len(tensor_and_data_parallel_group.global_ranks)]
+        if rank_id in global_ranks:
+            group = 'moe_tp' + '-' + '-'.join([str(i) for i in global_ranks])
+            moe_tp_parallel_process_group = ProcessGroup(group=group,
+                                                         global_ranks=global_ranks,
+                                                         size=len(global_ranks),
+                                                         rank=global_ranks.index(rank_id))
+            global _MOE_TENSOR_MODEL_PARALLEL_GROUP
+            _MOE_TENSOR_MODEL_PARALLEL_GROUP = moe_tp_parallel_process_group
+
+    for local_ranks in moe_rank_generator.get_ranks('ep'):
+        global_ranks = [tensor_and_data_parallel_group.global_ranks[r]
+                        for r in local_ranks if r < len(tensor_and_data_parallel_group.global_ranks)]
+        if rank_id in global_ranks:
+            group = 'moe_ep' + '-' + '-'.join([str(i) for i in global_ranks])
+            moe_ep_parallel_process_group = ProcessGroup(group=group,
+                                                         global_ranks=global_ranks,
+                                                         size=len(global_ranks),
+                                                         rank=global_ranks.index(rank_id))
+            global _MOE_EXPERT_MODEL_PARALLEL_GROUP
+            _MOE_EXPERT_MODEL_PARALLEL_GROUP = moe_ep_parallel_process_group
+
+
+def initialize_model_parallel(tensor_model_parallel_size: int = 1,
+                              data_parallel_size: int = 1,
+                              pipeline_model_parallel_size: int = 1,
+                              expert_model_parallel_size: int = 1,
+                              order: str = "tp-ep-pp-dp",) -> None:
     """Initialize model data parallel groups.
 
     Args:
         tensor_model_parallel_size (int, default = 1):
             The number of GPUs to split individual tensors across.
+
+        data_parallel_size (int, default = 1):
+            The number of GPUs to split the model across for data parallelism.
 
         pipeline_model_parallel_size (int, default = 1):
             The number of tensor parallel GPU groups to split the
@@ -249,8 +325,11 @@ def initialize_model_parallel(tensor_model_parallel_size: Optional[int] = 1,
             The number of Mixture of Experts parallel GPUs in each expert
             parallel group.
 
-        order (str, default=tp-dp-pp):
-            The rank initialization order of parallelism.
+        order (str, default="tp-ep-pp-dp"):
+            The order of the parallel configuration. It can be `tp`, `dp`, `pp` or `ep`.
+            For example, if the order is `tp-ep-pp-dp`, it means that the tensor parallel
+            group is created first, then the expert parallel group, then the pipeline
+            parallel group, and finally the data parallel group.
     """
     if not _is_initialized():
         raise RuntimeError(
@@ -305,17 +384,21 @@ def initialize_model_parallel(tensor_model_parallel_size: Optional[int] = 1,
     global _WORLD_GROUP
     _WORLD_GROUP = world_group_info
 
-    data_parallel_process_group = create_process_group('dp', 'dp')
+    data_parallel_process_group = create_process_group('dp', group_name_prefix='dp')
     global _DATA_PARALLEL_GROUP
     _DATA_PARALLEL_GROUP = data_parallel_process_group
 
-    tensor_parallel_process_group = create_process_group('tp', 'tp')
+    tensor_parallel_process_group = create_process_group('tp', group_name_prefix='tp')
     global _TENSOR_MODEL_PARALLEL_GROUP
     _TENSOR_MODEL_PARALLEL_GROUP = tensor_parallel_process_group
 
-    pipeline_parallel_process_group = create_process_group('pp', 'pp')
+    pipeline_parallel_process_group = create_process_group('pp', group_name_prefix='pp')
     global _PIPELINE_MODEL_PARALLEL_GROUP
     _PIPELINE_MODEL_PARALLEL_GROUP = pipeline_parallel_process_group
+
+    tensor_and_data_parallel_group = create_process_group('tp-dp', group_name_prefix='tpdp')
+    global _TENSOR_AND_DATA_PARALLEL_GROUP
+    _TENSOR_AND_DATA_PARALLEL_GROUP = tensor_and_data_parallel_group
 
     global _PIPELINE_GLOBAL_RANKS
     all_pp_ranks = rank_generator.get_ranks('pp')
@@ -324,26 +407,11 @@ def initialize_model_parallel(tensor_model_parallel_size: Optional[int] = 1,
             _PIPELINE_GLOBAL_RANKS = pp_ranks
             break
 
-    moe_tensor_parallel_size = 1
-    if expert_model_parallel_size != world_size:
-        moe_tensor_parallel_size = world_size // expert_model_parallel_size
-        logger.info(f"expert_model_parallel_size({expert_model_parallel_size}) "
-                    f"is not equal to world_size({world_size}), "
-                    f"so we will use {moe_tensor_parallel_size} as the MOE_tensor_parallel_size.")
-    rank_generator = RankGenerator(tp=moe_tensor_parallel_size,
-                                   ep=expert_model_parallel_size,
-                                   dp=1,
-                                   pp=1,
-                                   cp=1,
-                                   order='ep-tp')
-
-    moe_ep_parallel_process_group = create_process_group('ep', 'moe_ep')
-    global _MOE_EXPERT_MODEL_PARALLEL_GROUP
-    _MOE_EXPERT_MODEL_PARALLEL_GROUP = moe_ep_parallel_process_group
-
-    moe_tp_parallel_process_group = create_process_group('tp', 'moe_tp')
-    global _MOE_TENSOR_MODEL_PARALLEL_GROUP
-    _MOE_TENSOR_MODEL_PARALLEL_GROUP = moe_tp_parallel_process_group
+    # parallel state for MoE
+    tensor_and_data_parallel_size = tensor_model_parallel_size * data_parallel_size
+    initialize_moe_model_parallel(expert_model_parallel_size=expert_model_parallel_size,
+                                  tensor_and_data_parallel_size=tensor_and_data_parallel_size,
+                                  origin_order=order)
 
     if get_data_parallel_world_size() > 1:
         get_data_parallel_group()
@@ -351,12 +419,12 @@ def initialize_model_parallel(tensor_model_parallel_size: Optional[int] = 1,
         get_tensor_model_parallel_group()
 
 
-def is_initialized():
+def is_initialized() -> bool:
     """Useful for code segments that may be accessed with or without mpu initialization"""
     return _DATA_PARALLEL_GROUP is not None
 
 
-def model_parallel_is_initialized():
+def model_parallel_is_initialized() -> bool:
     """Check if model and data parallel groups are initialized."""
     if (
             _TENSOR_MODEL_PARALLEL_GROUP is None
@@ -367,7 +435,9 @@ def model_parallel_is_initialized():
     return True
 
 
-def _get_group_helper(process_group: ProcessGroup) -> str:
+def _get_group_helper(process_group: ProcessGroup) -> ProcessGroup:
+    if process_group.size == 1:
+        return process_group
     if not process_group.is_group_created:
         process_group.create_this_group()
     return process_group
@@ -415,6 +485,13 @@ def get_moe_expert_parallel_group(check_initialized: bool = True) -> ProcessGrou
     return _get_group_helper(_MOE_EXPERT_MODEL_PARALLEL_GROUP)
 
 
+def get_tensor_and_data_parallel_group(check_initialized: bool = True) -> ProcessGroup:
+    """Get the tensor and data parallel group the caller rank belongs to."""
+    if check_initialized and _TENSOR_AND_DATA_PARALLEL_GROUP is None:
+        raise RuntimeError('Tensor and data parallel group is not initialized')
+    return _get_group_helper(_TENSOR_AND_DATA_PARALLEL_GROUP)
+
+
 def get_tensor_model_parallel_world_size() -> int:
     """Return world size for the tensor model parallel group."""
     if _TENSOR_MODEL_PARALLEL_GROUP is None:
@@ -450,7 +527,16 @@ def get_moe_expert_parallel_world_size() -> int:
     return _MOE_EXPERT_MODEL_PARALLEL_GROUP.size
 
 
-def _get_rank_helper(process_group: ProcessGroup) -> int:
+def get_tensor_and_data_parallel_world_size() -> int:
+    """Return world size for the tensor and data parallel group."""
+    if _TENSOR_AND_DATA_PARALLEL_GROUP is None:
+        return 1
+    return _TENSOR_AND_DATA_PARALLEL_GROUP.size
+
+
+def _get_rank_helper(process_group: Union[ProcessGroup, None]) -> int:
+    if process_group is None:
+        return 0
     if process_group.rank is not None:
         return process_group.rank
     process_group.rank = 0 if process_group.size == 1 else get_rank(group=_get_group_helper(process_group))
@@ -480,6 +566,11 @@ def get_moe_tensor_parallel_rank() -> int:
 def get_moe_expert_parallel_rank() -> int:
     """Return my rank for the MOE expert parallel group."""
     return _get_rank_helper(_MOE_EXPERT_MODEL_PARALLEL_GROUP)
+
+
+def get_tensor_and_data_parallel_rank() -> int:
+    """Return my rank for the tensor and data parallel group."""
+    return _get_rank_helper(_TENSOR_AND_DATA_PARALLEL_GROUP)
 
 
 def get_pipeline_model_parallel_first_rank() -> int:

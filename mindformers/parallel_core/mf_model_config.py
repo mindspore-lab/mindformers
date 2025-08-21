@@ -349,6 +349,9 @@ class MFModelConfig:
     parallel_decoding_params: dict = None
     """Parameters used when hardware decoding."""
 
+    pre_process: bool = True
+    """When using pipeline parallel, indicate whether it's the first stage."""
+
     post_process: bool = True
     """When using pipeline parallel, indicate whether it's the last stage."""
 
