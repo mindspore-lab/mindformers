@@ -33,10 +33,10 @@ class MoELayerRunner(MoERunner):
         """load weights for moe module"""
         new_param_dict = {}
 
-        def split_global(weight, split_axis=0):
+        def split_tp_dp(weight, split_axis=0):
             split_size = weight.shape[split_axis] // self.global_group_size
-            start = self.global_rank * split_size
-            stop = (self.global_rank + 1) * split_size
+            start = self.tp_dp_rank * split_size
+            stop = (self.tp_dp_rank + 1) * split_size
             if split_axis == 0:
                 return weight[start:stop]
             if split_axis == 1:
@@ -58,9 +58,9 @@ class MoELayerRunner(MoERunner):
         shared_expert_w_gate = shared_expert_fc1_w[:self.moe_intermediate_size, :]
         shared_expert_w_hidden = shared_expert_fc1_w[self.moe_intermediate_size:, :]
         if not self.config.use_alltoall:
-            shared_expert_w_gate_shard = split_global(shared_expert_w_gate)
-            shared_expert_w_hidden_shard = split_global(shared_expert_w_hidden)
-            shared_expert_w_fc2_shard = split_global(shared_expert_fc2_w, split_axis=1)
+            shared_expert_w_gate_shard = split_tp_dp(shared_expert_w_gate)
+            shared_expert_w_hidden_shard = split_tp_dp(shared_expert_w_hidden)
+            shared_expert_w_fc2_shard = split_tp_dp(shared_expert_fc2_w, split_axis=1)
         else:
             shared_expert_w_gate_shard = shared_expert_w_gate
             shared_expert_w_hidden_shard = shared_expert_w_hidden

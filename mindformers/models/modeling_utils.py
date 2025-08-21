@@ -1115,21 +1115,21 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             is_local = os.path.isdir(pretrained_model_name_or_path)
             if is_local:
                 if os.path.isfile(
-                        os.path.join(pretrained_model_name_or_path, subfolder, \
+                        os.path.join(pretrained_model_name_or_path, subfolder,
                                      _add_variant(WEIGHTS_NAME, variant))
                 ):
                     # Load from a Mindspore checkpoint
                     archive_file = os.path.join(
-                        pretrained_model_name_or_path, subfolder, \
+                        pretrained_model_name_or_path, subfolder,
                         _add_variant(WEIGHTS_NAME, variant)
                     )
                 elif os.path.isfile(
-                        os.path.join(pretrained_model_name_or_path, subfolder, \
+                        os.path.join(pretrained_model_name_or_path, subfolder,
                                      _add_variant(WEIGHTS_INDEX_NAME, variant))
                 ):
                     # Load from a sharded PyTorch checkpoint
                     archive_file = os.path.join(
-                        pretrained_model_name_or_path, subfolder, \
+                        pretrained_model_name_or_path, subfolder,
                         _add_variant(WEIGHTS_INDEX_NAME, variant)
                     )
                     is_sharded = True

@@ -33,6 +33,7 @@ class ModelCommProcessGroups:
         pp (ProcessGroup): Pipeline Model Parallel Group.
         moe_tp (ProcessGroup): MoE Tensor Parallel Group.
         moe_ep (ProcessGroup): MoE Expert Parallel Group.
+        tp_dp (ProcessGroup): Tensor and Data Parallel Group.
     """
     # _TENSOR_MODEL_PARALLEL_GROUP
     globals: ProcessGroup = field(init=False)
@@ -51,6 +52,9 @@ class ModelCommProcessGroups:
 
     # _MOE_EXPERT_MODEL_PARALLEL_GROUP
     moe_ep: ProcessGroup = field(init=False)
+
+    # _TENSOR_AND_DATA_PARALLEL_GROUP
+    tp_dp: ProcessGroup = field(init=False)
 
     def __init__(self, **kwargs) -> None:
         for key, value in kwargs.items():
@@ -74,6 +78,7 @@ class ModelCommProcessGroups:
                 - 'pp': Pipeline Model Parallel Group
                 - 'moe_tp': MoE Tensor Parallel Group
                 - 'moe_ep': MoE Expert Parallel Group
+                - 'tp_dp': Tensor and Data Parallel Group
         """
         # Get all available groups from the class
         all_groups = {field.name for field in fields(cls)}
@@ -95,10 +100,15 @@ class ModelCommProcessGroups:
             'pp': parallel_state.get_pipeline_model_parallel_group,
             'moe_tp': parallel_state.get_moe_tensor_parallel_group,
             'moe_ep': parallel_state.get_moe_expert_parallel_group,
+            'tp_dp': parallel_state.get_tensor_and_data_parallel_group,
         }
 
         # Create an instance of the class with the initialized groups
-        init_dict = {group: group_to_init_method[group]() for group in required_groups}
+        init_dict = {
+            group: group_to_init_method[group]()
+            for group in group_to_init_method
+            if group in required_groups
+        }
 
         return cls(**init_dict)
 
@@ -115,6 +125,7 @@ class ModelCommProcessGroups:
             'pp': ProcessGroup(),
             'moe_tp': ProcessGroup(),
             'moe_ep': ProcessGroup(),
+            'tp_dp': ProcessGroup(),
         }
 
         return cls(**group_init_method)

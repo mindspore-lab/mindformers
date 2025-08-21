@@ -59,7 +59,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
             )
         if is_initialized():
             self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tp_dp'])
         else:
             self.model_comm_pgs = default_model_comm_pgs
 
@@ -87,20 +87,22 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
                               position_embedding_type=config.position_embedding_type,
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
+                              pre_process=config.pre_process,
                               post_process=config.post_process,
                               model_comm_pgs=self.model_comm_pgs)
 
     @jit
-    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
-                  block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None,
-                  attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None,
-                  key_cache=None, value_cache=None):
+    def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
+                  context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None,
+                  attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None,
+                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         r"""
         model forward.
 
         Args:
             input_ids: input ids.
             positions: position ids.
+            hidden_states: hidden states.
             batch_valid_length: actual seq length.
             context_lens_tensor: computed key value length.
             q_seq_lens: query sequence lengths.
@@ -125,6 +127,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
         """
         logits = self.model(
             input_ids=input_ids,
+            hidden_states=hidden_states,
             positions=positions,
             batch_valid_length=batch_valid_length,
             context_lens_tensor=context_lens_tensor,

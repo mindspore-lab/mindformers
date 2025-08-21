@@ -283,6 +283,7 @@ COMMON_CONFIG_MAPPING = {
     "use_contiguous_weight_layout_attention": "use_contiguous_weight_layout_attention",
     "use_interleaved_weight_layout_mlp": "use_interleaved_weight_layout_mlp",
     "partial_rotary_factor": "partial_rotary_factor",
+    "pre_process": "pre_process",
     "post_process": "post_process",
 
     # Flash Attention

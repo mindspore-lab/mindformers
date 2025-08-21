@@ -377,6 +377,9 @@ class MFModelConfig:
     softmax_compute_dtype: str = 'float32'
     """Data type for computing softmax during attention computation."""
 
+    pre_process: bool = True
+    """When using pipeline parallel, indicate whether it's the first stage."""
+
     post_process: bool = True
     """When using pipeline parallel, indicate whether it's the last stage."""
 
