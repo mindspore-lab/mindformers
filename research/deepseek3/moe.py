@@ -883,6 +883,7 @@ class ExpertParallelMoE(nn.Cell):
         if self.moe_ep_size > 1 and not self.use_alltoall:
             bias_idx = [idx for idx in range(self.expert_num)]
             self.bias_idx = bias_idx[self.in_start_expert_idx:] + bias_idx[:self.in_start_expert_idx]
+            self.router.e_score_correction_bias.init_data()
             self.router.e_score_correction_bias = self.router.e_score_correction_bias[self.bias_idx]
 
     def moe_with_allgather(self, input_tensor, expert_weight, expert_index):
