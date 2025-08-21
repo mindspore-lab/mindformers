@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Optional, Union
 from copy import deepcopy
 import numpy as np
+import datasets
 
 import mindspore as ms
 from mindspore import Tensor, ops
@@ -215,13 +216,12 @@ class HFDataLoader:
 
         # Get distributed training environment info
         world_size = get_real_group_size()
-        is_main_rank = is_dataset_built_on_rank()
 
         # 1. Build HFDataLoaderConfig object
         config = cls._build_config(**kwargs)
 
         # In distributed mode: use mock dataset for non-main ranks to avoid redundant loading
-        if world_size > 1 and config.use_broadcast_data and not is_main_rank:
+        if world_size > 1 and config.use_broadcast_data and not is_dataset_built_on_rank():
             return cls._build_mock_dataset(config, num_shards, shard_id)
 
         # 2. Load dataset (supports HF Hub or local files)
@@ -247,7 +247,6 @@ class HFDataLoader:
     @classmethod
     def load_dataset(cls, config: HFDataLoaderConfig):
         """Load datasets, support HF dataset loading methods now."""
-        import datasets
         load_func_name = config.load.pop('load_func', 'load_dataset')
         logger.info(f" > use function `{load_func_name}` to load dataset, "
                     f"if you need to use other methods, modify the configuration `load_func`.")
@@ -255,7 +254,7 @@ class HFDataLoader:
         load_func = getattr(datasets, load_func_name)
         dataset = load_func(**config.load)
 
-        if config.load.get('split') is None:
+        if config.load.get('split') is None and not isinstance(dataset, datasets.Dataset):
             logger.info(" > `split` argument in load function is not set, use 'train' default.")
             dataset = dataset.get('train')
 
@@ -343,7 +342,7 @@ class HFDataLoader:
         shuffle = kwargs.pop('shuffle', False)
 
         # filter out invalid parameters passed from upper-level interfaces.
-        invalid_args = ['dataset_dir', 'column_names']
+        invalid_args = ['dataset_dir', 'column_names', 'type']
         for args in invalid_args:
             kwargs.pop(args, None)
 

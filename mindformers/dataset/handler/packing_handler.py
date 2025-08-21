@@ -210,7 +210,11 @@ class PackingHandler(BaseInstructDataHandler):
                 f"'input_ids' or 'labels' not in dataset columns while packing.")
 
         if self.pack_strategy == 'truncate':
-            dataset = dataset.map(truncate_examples, batched=True, desc="Packing")
+            dataset = dataset.map(
+                truncate_examples,
+                fn_kwargs=dict(config=self.config),
+                batched=True,
+                desc="Packing")
 
         elif self.pack_strategy == 'pack':
             dataset = pack_examples(dataset, self.config)
