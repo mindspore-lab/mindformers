@@ -29,63 +29,83 @@ If you have any suggestions on MindSpore Transformers, contact us through an iss
 
 The following table lists models supported by MindSpore Transformers.
 
-| Model                                                                                                                                         | Specifications                |    Model Type    | Latest Version |
-|:----------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------|:----------------:|:--------------:|
-| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/deepseek3) ![Recent Popular](./docs/assets/hot.svg)                | 671B                          |    Sparse LLM    |     1.6.0      |
-| [GLM4](https://gitee.com/mindspore/mindformers/blob/r1.6.0/docs/model_cards/glm4.md) ![Recent Popular](./docs/assets/hot.svg)                 | 9B                            |    Dense LLM     |     1.6.0      |
-| [Llama3.1](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/llama3_1) ![Recent Popular](./docs/assets/hot.svg)                    | 8B/70B                        |    Dense LLM     |     1.6.0      |
-| [Mixtral](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/mixtral) ![Recent Popular](./docs/assets/hot.svg)                      | 8x7B                          |    Sparse LLM    |     1.6.0      |
-| [Qwen2.5](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/qwen2_5) ![Recent Popular](./docs/assets/hot.svg)                      | 0.5B/1.5B/7B/14B/32B/72B      |    Dense LLM     |     1.6.0      |
-| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/telechat2) ![Recent Popular](./docs/assets/hot.svg)                  | 7B/35B/115B                   |    Dense LLM     |     1.6.0      |
-| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md) ![End of Life](./docs/assets/eol.svg)          | 34B                           |    Dense LLM     |     1.5.0      |
-| [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md) ![End of Life](./docs/assets/eol.svg)  | 19B                           |        MM        |     1.5.0      |
-| [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md) ![End of Life](./docs/assets/eol.svg)  | 13B                           |        MM        |     1.5.0      |
-| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek2) ![End of Life](./docs/assets/eol.svg)                   | 236B                          |    Sparse LLM    |     1.5.0      |
-| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek1_5) ![End of Life](./docs/assets/eol.svg)         | 7B                            |    Dense LLM     |     1.5.0      |
-| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek) ![End of Life](./docs/assets/eol.svg)                 | 33B                           |    Dense LLM     |     1.5.0      |
-| [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k) ![End of Life](./docs/assets/eol.svg)                         | 6B                            |    Dense LLM     |     1.5.0      |
-| [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md) ![End of Life](./docs/assets/eol.svg)                    | 6B                            |    Dense LLM     |     1.5.0      |
-| [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2) ![End of Life](./docs/assets/eol.svg)                     | 7B/20B                        |    Dense LLM     |     1.5.0      |
-| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) ![End of Life](./docs/assets/eol.svg)            | 3B                            |    Dense LLM     |     1.5.0      |
-| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md) ![End of Life](./docs/assets/eol.svg)       | 11B                           |        MM        |     1.5.0      |
-| [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3) ![End of Life](./docs/assets/eol.svg)                           | 8B/70B                        |    Dense LLM     |     1.5.0      |
-| [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md) ![End of Life](./docs/assets/eol.svg)                | 7B/13B/70B                    |    Dense LLM     |     1.5.0      |
-| [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2) ![End of Life](./docs/assets/eol.svg)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense/Sparse LLM |     1.5.0      |
-| [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5) ![End of Life](./docs/assets/eol.svg)                         | 7B/14B/72B                    |    Dense LLM     |     1.5.0      |
-| [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl) ![End of Life](./docs/assets/eol.svg)                          | 9.6B                          |        MM        |     1.5.0      |
-| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat) ![End of Life](./docs/assets/eol.svg)                       | 7B/12B/52B                    |    Dense LLM     |     1.5.0      |
-| [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md) ![End of Life](./docs/assets/eol.svg)              | 1.5B                          |        MM        |     1.5.0      |
-| [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi) ![End of Life](./docs/assets/eol.svg)                                   | 6B/34B                        |    Dense LLM     |     1.5.0      |
-| [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao) ![End of Life](./docs/assets/eol.svg)                           | 12B                           |    Dense LLM     |     1.5.0      |
-| [Baichuan2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/baichuan2/baichuan2.md) ![End of Life](./docs/assets/eol.svg)        | 7B/13B                        |    Dense LLM     |     1.3.2      |
-| [GLM2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/glm2.md) ![End of Life](./docs/assets/eol.svg)                    | 6B                            |    Dense LLM     |     1.3.2      |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/gpt2.md) ![End of Life](./docs/assets/eol.svg)                    | 124M/13B                      |    Dense LLM     |     1.3.2      |
-| [InternLM](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/internlm/internlm.md) ![End of Life](./docs/assets/eol.svg)           | 7B/20B                        |    Dense LLM     |     1.3.2      |
-| [Qwen](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/qwen/qwen.md) ![End of Life](./docs/assets/eol.svg)                       | 7B/14B                        |    Dense LLM     |     1.3.2      |
-| [CodeGeex2](https://gitee.com/mindspore/mindformers/blob/r1.1.0/docs/model_cards/codegeex2.md) ![End of Life](./docs/assets/eol.svg)          | 6B                            |    Dense LLM     |     1.1.0      |
-| [WizardCoder](https://gitee.com/mindspore/mindformers/blob/r1.1.0/research/wizardcoder/wizardcoder.md) ![End of Life](./docs/assets/eol.svg)  | 15B                           |    Dense LLM     |     1.1.0      |
-| [Baichuan](https://gitee.com/mindspore/mindformers/blob/r1.0/research/baichuan/baichuan.md) ![End of Life](./docs/assets/eol.svg)             | 7B/13B                        |    Dense LLM     |      1.0       |
-| [Blip2](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/blip2.md) ![End of Life](./docs/assets/eol.svg)                    | 8.1B                          |        MM        |      1.0       |
-| [Bloom](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/bloom.md) ![End of Life](./docs/assets/eol.svg)                    | 560M/7.1B/65B/176B            |    Dense LLM     |      1.0       |
-| [Clip](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/clip.md) ![End of Life](./docs/assets/eol.svg)                      | 149M/428M                     |        MM        |      1.0       |
-| [CodeGeex](https://gitee.com/mindspore/mindformers/blob/r1.0/research/codegeex/codegeex.md) ![End of Life](./docs/assets/eol.svg)             | 13B                           |    Dense LLM     |      1.0       |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/glm.md) ![End of Life](./docs/assets/eol.svg)                        | 6B                            |    Dense LLM     |      1.0       |
-| [iFlytekSpark](https://gitee.com/mindspore/mindformers/blob/r1.0/research/iflytekspark/iflytekspark.md) ![End of Life](./docs/assets/eol.svg) | 13B                           |    Dense LLM     |      1.0       |
-| [Llama](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/llama.md) ![End of Life](./docs/assets/eol.svg)                    | 7B/13B                        |    Dense LLM     |      1.0       |
-| [MAE](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/mae.md) ![End of Life](./docs/assets/eol.svg)                        | 86M                           |        MM        |      1.0       |
-| [Mengzi3](https://gitee.com/mindspore/mindformers/blob/r1.0/research/mengzi3/mengzi3.md) ![End of Life](./docs/assets/eol.svg)                | 13B                           |    Dense LLM     |      1.0       |
-| [PanguAlpha](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/pangualpha.md) ![End of Life](./docs/assets/eol.svg)          | 2.6B/13B                      |    Dense LLM     |      1.0       |
-| [SAM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/sam.md) ![End of Life](./docs/assets/eol.svg)                        | 91M/308M/636M                 |        MM        |      1.0       |
-| [Skywork](https://gitee.com/mindspore/mindformers/blob/r1.0/research/skywork/skywork.md) ![End of Life](./docs/assets/eol.svg)                | 13B                           |    Dense LLM     |      1.0       |
-| [Swin](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/swin.md) ![End of Life](./docs/assets/eol.svg)                      | 88M                           |        MM        |      1.0       |
-| [T5](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/t5.md) ![End of Life](./docs/assets/eol.svg)                          | 14M/60M                       |    Dense LLM     |      1.0       |
-| [VisualGLM](https://gitee.com/mindspore/mindformers/blob/r1.0/research/visualglm/visualglm.md) ![End of Life](./docs/assets/eol.svg)          | 6B                            |        MM        |      1.0       |
-| [Ziya](https://gitee.com/mindspore/mindformers/blob/r1.0/research/ziya/ziya.md) ![End of Life](./docs/assets/eol.svg)                         | 13B                           |    Dense LLM     |      1.0       |
-| [Bert](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/bert.md) ![End of Life](./docs/assets/eol.svg)                      | 4M/110M                       |    Dense LLM     |      0.8       |
-
-![End of Life](./docs/assets/eol.svg) denotes that the model has been offline from the master branch, and you can choose the latest version for use.
+| Model                                                                                                                                         | Specifications                |    Model Type     | Model Architecture |     Latest Version     |
+|:----------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------|:-----------------:|:------------------:|:----------------------:|
+| [Qwen3](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3) ![Recent Popular](./docs/assets/hot.svg)                           | 0.6B/1.7B/4B/8B/14B/32B       |     Dense LLM     |       Mcore        | In-development version |
+| [Qwen3-MoE](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3_moe) ![Recent Popular](./docs/assets/hot.svg)                   | 30B-A3B/235B-A22B             |    Sparse LLM     |       Mcore        | In-development version |
+| [DeepSeek-V3](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/deepseek3) ![Recent Popular](./docs/assets/hot.svg)                | 671B                          |    Sparse LLM     |       Legacy       |         1.6.0          |
+| [GLM4](https://gitee.com/mindspore/mindformers/blob/r1.6.0/docs/model_cards/glm4.md) ![Recent Popular](./docs/assets/hot.svg)                 | 9B                            |     Dense LLM     |       Legacy       |         1.6.0          |
+| [Llama3.1](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/llama3_1) ![Recent Popular](./docs/assets/hot.svg)                    | 8B/70B                        |     Dense LLM     |       Legacy       |         1.6.0          |
+| [Mixtral](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/mixtral) ![Recent Popular](./docs/assets/hot.svg)                      | 8x7B                          |    Sparse LLM     |       Legacy       |         1.6.0          |
+| [Qwen2.5](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/qwen2_5) ![Recent Popular](./docs/assets/hot.svg)                      | 0.5B/1.5B/7B/14B/32B/72B      |     Dense LLM     |       Legacy       |         1.6.0          |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.6.0/research/telechat2) ![Recent Popular](./docs/assets/hot.svg)                  | 7B/35B/115B                   |     Dense LLM     |       Legacy       |         1.6.0          |
+| [CodeLlama](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/codellama.md) ![End of Life](./docs/assets/eol.svg)          | 34B                           |     Dense LLM     |       Legacy       |         1.5.0          |
+| [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_image.md) ![End of Life](./docs/assets/eol.svg)  | 19B                           |        MM         |       Legacy       |         1.5.0          |
+| [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/cogvlm2_video.md) ![End of Life](./docs/assets/eol.svg)  | 13B                           |        MM         |       Legacy       |         1.5.0          |
+| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek2) ![End of Life](./docs/assets/eol.svg)                   | 236B                          |    Sparse LLM     |       Legacy       |         1.5.0          |
+| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek1_5) ![End of Life](./docs/assets/eol.svg)         | 7B                            |     Dense LLM     |       Legacy       |         1.5.0          |
+| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/deepseek) ![End of Life](./docs/assets/eol.svg)                 | 33B                           |     Dense LLM     |       Legacy       |         1.5.0          |
+| [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k) ![End of Life](./docs/assets/eol.svg)                         | 6B                            |     Dense LLM     |       Legacy       |         1.5.0          |
+| [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md) ![End of Life](./docs/assets/eol.svg)                    | 6B                            |     Dense LLM     |       Legacy       |         1.5.0          |
+| [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2) ![End of Life](./docs/assets/eol.svg)                     | 7B/20B                        |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md) ![End of Life](./docs/assets/eol.svg)            | 3B                            |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md) ![End of Life](./docs/assets/eol.svg)       | 11B                           |        MM         |       Legacy       |         1.5.0          |
+| [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3) ![End of Life](./docs/assets/eol.svg)                           | 8B/70B                        |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md) ![End of Life](./docs/assets/eol.svg)                | 7B/13B/70B                    |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2) ![End of Life](./docs/assets/eol.svg)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense /Sparse LLM |       Legacy       |         1.5.0          |
+| [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5) ![End of Life](./docs/assets/eol.svg)                         | 7B/14B/72B                    |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl) ![End of Life](./docs/assets/eol.svg)                          | 9.6B                          |        MM         |       Legacy       |         1.5.0          |
+| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat) ![End of Life](./docs/assets/eol.svg)                       | 7B/12B/52B                    |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md) ![End of Life](./docs/assets/eol.svg)              | 1.5B                          |        MM         |       Legacy       |         1.5.0          |
+| [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi) ![End of Life](./docs/assets/eol.svg)                                   | 6B/34B                        |     Dense LLM     |       Legacy       |         1.5.0          |
+| [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao) ![End of Life](./docs/assets/eol.svg)                           | 12B                           |     Dense LLM     |       Legacy       |         1.5.0          |
+| [Baichuan2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/baichuan2/baichuan2.md) ![End of Life](./docs/assets/eol.svg)        | 7B/13B                        |     Dense LLM     |       Legacy       |         1.3.2          |
+| [GLM2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/glm2.md) ![End of Life](./docs/assets/eol.svg)                    | 6B                            |     Dense LLM     |       Legacy       |         1.3.2          |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/r1.3.0/docs/model_cards/gpt2.md) ![End of Life](./docs/assets/eol.svg)                    | 124M/13B                      |     Dense LLM     |       Legacy       |         1.3.2          |
+| [InternLM](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/internlm/internlm.md) ![End of Life](./docs/assets/eol.svg)           | 7B/20B                        |     Dense LLM     |       Legacy       |         1.3.2          |
+| [Qwen](https://gitee.com/mindspore/mindformers/blob/r1.3.0/research/qwen/qwen.md) ![End of Life](./docs/assets/eol.svg)                       | 7B/14B                        |     Dense LLM     |       Legacy       |         1.3.2          |
+| [CodeGeex2](https://gitee.com/mindspore/mindformers/blob/r1.1.0/docs/model_cards/codegeex2.md) ![End of Life](./docs/assets/eol.svg)          | 6B                            |     Dense LLM     |       Legacy       |         1.1.0          |
+| [WizardCoder](https://gitee.com/mindspore/mindformers/blob/r1.1.0/research/wizardcoder/wizardcoder.md) ![End of Life](./docs/assets/eol.svg)  | 15B                           |     Dense LLM     |       Legacy       |         1.1.0          |
+| [Baichuan](https://gitee.com/mindspore/mindformers/blob/r1.0/research/baichuan/baichuan.md) ![End of Life](./docs/assets/eol.svg)             | 7B/13B                        |     Dense LLM     |       Legacy       |          1.0           |
+| [Blip2](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/blip2.md) ![End of Life](./docs/assets/eol.svg)                    | 8.1B                          |        MM         |       Legacy       |          1.0           |
+| [Bloom](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/bloom.md) ![End of Life](./docs/assets/eol.svg)                    | 560M/7.1B/65B/176B            |     Dense LLM     |       Legacy       |          1.0           |
+| [Clip](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/clip.md) ![End of Life](./docs/assets/eol.svg)                      | 149M/428M                     |        MM         |       Legacy       |          1.0           |
+| [CodeGeex](https://gitee.com/mindspore/mindformers/blob/r1.0/research/codegeex/codegeex.md) ![End of Life](./docs/assets/eol.svg)             | 13B                           |     Dense LLM     |       Legacy       |          1.0           |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/glm.md) ![End of Life](./docs/assets/eol.svg)                        | 6B                            |     Dense LLM     |       Legacy       |          1.0           |
+| [iFlytekSpark](https://gitee.com/mindspore/mindformers/blob/r1.0/research/iflytekspark/iflytekspark.md) ![End of Life](./docs/assets/eol.svg) | 13B                           |     Dense LLM     |       Legacy       |          1.0           |
+| [Llama](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/llama.md) ![End of Life](./docs/assets/eol.svg)                    | 7B/13B                        |     Dense LLM     |       Legacy       |          1.0           |
+| [MAE](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/mae.md) ![End of Life](./docs/assets/eol.svg)                        | 86M                           |        MM         |       Legacy       |          1.0           |
+| [Mengzi3](https://gitee.com/mindspore/mindformers/blob/r1.0/research/mengzi3/mengzi3.md) ![End of Life](./docs/assets/eol.svg)                | 13B                           |     Dense LLM     |       Legacy       |          1.0           |
+| [PanguAlpha](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/pangualpha.md) ![End of Life](./docs/assets/eol.svg)          | 2.6B/13B                      |     Dense LLM     |       Legacy       |          1.0           |
+| [SAM](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/sam.md) ![End of Life](./docs/assets/eol.svg)                        | 91M/308M/636M                 |        MM         |       Legacy       |          1.0           |
+| [Skywork](https://gitee.com/mindspore/mindformers/blob/r1.0/research/skywork/skywork.md) ![End of Life](./docs/assets/eol.svg)                | 13B                           |     Dense LLM     |       Legacy       |          1.0           |
+| [Swin](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/swin.md) ![End of Life](./docs/assets/eol.svg)                      | 88M                           |        MM         |       Legacy       |          1.0           |
+| [T5](https://gitee.com/mindspore/mindformers/blob/r1.0/docs/model_cards/t5.md) ![End of Life](./docs/assets/eol.svg)                          | 14M/60M                       |     Dense LLM     |       Legacy       |          1.0           |
+| [VisualGLM](https://gitee.com/mindspore/mindformers/blob/r1.0/research/visualglm/visualglm.md) ![End of Life](./docs/assets/eol.svg)          | 6B                            |        MM         |       Legacy       |          1.0           |
+| [Ziya](https://gitee.com/mindspore/mindformers/blob/r1.0/research/ziya/ziya.md) ![End of Life](./docs/assets/eol.svg)                         | 13B                           |     Dense LLM     |       Legacy       |          1.0           |
+| [Bert](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/bert.md) ![End of Life](./docs/assets/eol.svg)                      | 4M/110M                       |     Dense LLM     |       Legacy       |          0.8           |
 
 The model maintenance strategy follows the [Life Cycle And Version Matching Strategy](#4-life-cycle-and-version-matching-strategy) of the corresponding latest supported version.
+
+### Model Level Introduction
+
+The Mcore architecture model is divided into five levels for training and inference, respectively, representing different standards for model deployment. For details on the levels of different specifications of models in the library, please refer to the model documentation.
+
+#### Training
+
+- `Released`: Passed testing team verification, with loss and grad norm accuracy meeting benchmark alignment standards under deterministic conditions;
+- `Validated`: Passed self-verification by the development team, with loss and grad norm accuracy meeting benchmark alignment standards under deterministic conditions;
+- `Preliminary`: Passed preliminary self-verification by developers, with complete functionality and usability, normal convergence of training, but accuracy not strictly verified;
+- `Untested`: Functionality is available but has not undergone systematic testing, with accuracy and convergence not verified, and support for user-defined development enablement;
+- `Community`: Community-contributed MindSpore native models, developed and maintained by the community.
+
+#### Inference
+
+- `Released`: Passed testing team acceptance, with evaluation accuracy aligned with benchmark standards;
+- `Validated`: Passed developer self-verification, with evaluation accuracy aligned with benchmark standards;
+- `Preliminary`: Passed preliminary self-verification by developers, with complete functionality and usable for testing; inference outputs are logically consistent but accuracy has not been strictly verified;
+- `Untested`: Functionality is available but has not undergone system testing; accuracy has not been verified; supports user-defined development enablement;
+- `Community`: Community-contributed MindSpore native models, developed and maintained by the community.
 
 ## 2. Installation
 
