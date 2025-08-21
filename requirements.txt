@@ -13,7 +13,6 @@ pyarrow==19.0.0
 tokenizers==0.21.0
 astunparse>=1.6.3
 numpy<2.0.0
-datasets==2.18.0
 tiktoken
 jinja2
 setproctitle
@@ -22,3 +21,4 @@ tensorboardX
 deprecated>=1.2.0
 pybind11 # for megatron dataset
 transformers==4.51.3
+datasets>=4.0.0
