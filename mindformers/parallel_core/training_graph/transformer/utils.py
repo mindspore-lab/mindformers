@@ -144,8 +144,11 @@ class LayerSetting:
         self._check_inputs()
         self.offset = np.broadcast_to(self.offset, (self.pp_interleave_num, self.pp))
 
+        self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
         avg_layer = self.num_layers // (self.pp * self.pp_interleave_num)
         self.layer_list = np.ones((self.pp_interleave_num, self.pp), np.int32) * avg_layer + self.offset
+        if self.is_zbv:
+            self.layer_list[1] = self.layer_list[1][::-1]
         interleave_sum = np.insert(np.cumsum(np.sum(self.layer_list, axis=1))[:-1], 0, 0)
         self.layer_accu = np.cumsum(self.layer_list, axis=1) + interleave_sum.reshape(-1, 1)
         self.pp_ids = [np.searchsorted(self.layer_accu.reshape(-1), i + 1) % self.pp for i in range(self.num_layers)]
@@ -366,6 +369,12 @@ class LayerSetting:
     def set(self, layer, layer_id):
         """Set pipeline stage and recompute for each layer with a layer_id."""
         pp_id = int(self.pp_ids[layer_id]) + self.start_stage
+        if self.is_zbv:
+            if self.interleave_ids[layer_id] == 1:
+                pp_id = self.pp - 1 - pp_id
+                layer.pipeline_segment = 1
+            else:
+                layer.pipeline_segment = 0
         layer.pipeline_stage = pp_id
         dis = max(int((self.num_layers + 1) / self.gradient_aggregation_group), 1)
         if self.pp > 1:
@@ -440,10 +449,14 @@ class LayerSetting:
                 return self.layer_list.tolist()
             return np.zeros_like(self.layer_list).tolist()
         if isinstance(select_recompute, (list, tuple)):
+            select_recompute = list(select_recompute)
+            if self.is_zbv:
+                select_recompute[1] = select_recompute[1][::-1]
+            bool_to_value = {False: 0, True: MAX_INT32}
             if all(isinstance(item, (int, bool)) for item in select_recompute):
                 for i, item in enumerate(select_recompute):
                     if isinstance(item, bool):
-                        select_recompute[i] = MAX_INT32 if item else 0
+                        select_recompute[i] = bool_to_value[item]
                 return self._alloc_recompute_layer(select_recompute).tolist()
             if all(isinstance(item, str) for item in select_recompute):
                 return self.layer_list.tolist()

@@ -6,6 +6,7 @@
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
 
+import mindspore as ms
 from mindformers.tools.logger import logger
 from mindformers.parallel_core.mf_model_config import MFModelConfig, convert_str_to_mstype
 from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
@@ -606,6 +607,14 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             raise ValueError(
                 "When using bias_swiglu_fusion, hidden_act must be swiglu."
             )
+
+        if ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v":
+            if self.virtual_pipeline_model_parallel_size != 2:
+                raise ValueError("When zero_bubble_v is enabled, pp_interleave_num must be set to 2.")
+            if self.pipeline_model_parallel_size < 2:
+                raise ValueError("When zero_bubble_v is enabled, pp must be greater than or equal to 2.")
+            if self.micro_batch_num < 2 * self.pipeline_model_parallel_size:
+                raise ValueError("When zero_bubble_v is enabled, micro_batch_num >= 2 * stage_num must be met.")
 
 
 @dataclass
