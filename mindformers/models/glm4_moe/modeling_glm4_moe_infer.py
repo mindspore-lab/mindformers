@@ -51,7 +51,6 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
         super().__init__(config, auto_prefix=False)
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
-        model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if not is_initialized() and mindspore_comm_has_init():
             initialize_model_parallel(
                 data_parallel_size=config.data_parallel_size,
@@ -89,7 +88,7 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               post_process=self.config.post_process,
-                              model_comm_pgs=model_comm_pgs)
+                              model_comm_pgs=self.model_comm_pgs)
 
     @jit
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
@@ -107,7 +106,7 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
             q_seq_lens: query sequence lengths.
             block_tables: Store mapping tables for each sequence.
             slot_mapping : Token cache physical slot index.
-            attention_mask: attentino mask used for fa or pa.
+            attention_mask: attention mask used for fa or pa.
             attn_metadata: attention metadata.
             attn_padding_idx: Indices mapping positions in attention output sequence to original token positions,
                 used for padding attention output to fixed size.

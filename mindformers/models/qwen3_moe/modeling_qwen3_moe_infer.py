@@ -107,7 +107,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
             q_seq_lens: query sequence lengths.
             block_tables: Store mapping tables for each sequence.
             slot_mapping : Token cache physical slot index.
-            attention_mask: attentino mask used for fa or pa.
+            attention_mask: attention mask used for fa or pa.
             attn_metadata: attention metadata
             attn_padding_idx: Indices mapping positions in attention output sequence to original token positions,
                 used for padding attention output to fixed size.
