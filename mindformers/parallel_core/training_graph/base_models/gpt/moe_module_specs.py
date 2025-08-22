@@ -17,7 +17,8 @@ from typing import Optional
 
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.training_graph.transformer.mlp import MLPSubmodules
-from mindformers.parallel_core.training_graph.transformer.moe.shared_experts import SharedExpertMLP
+from mindformers.parallel_core.training_graph.transformer.moe.shared_experts import SharedExpertMLP, \
+    SharedExpertMLPInterleaved
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.moe.moe_layer import MoELayer, MoESubmodules
 from mindformers.parallel_core.training_graph.transformer.moe.ffn import FFNGroupedGEMM
@@ -26,6 +27,7 @@ from mindformers.parallel_core.training_graph.transformer.moe.ffn import FFNGrou
 def get_moe_module_spec(
         num_experts: Optional[int] = None,
         moe_grouped_gemm: Optional[bool] = False,
+        use_interleaved_weight_layout_mlp: Optional[bool] = True
 ) -> ModuleSpec:
     """Helper function to get module spec for MoE"""
     if num_experts is None:
@@ -35,12 +37,14 @@ def get_moe_module_spec(
     if not moe_grouped_gemm:
         raise NotImplementedError("moe_grouped_gemm = 'False' is not supported now.")
 
+    shared_experts = SharedExpertMLPInterleaved if use_interleaved_weight_layout_mlp else SharedExpertMLP
+
     moe_module_spec = ModuleSpec(
         module=MoELayer,
         submodules=MoESubmodules(
             experts=FFNGroupedGEMM,
             shared_experts=ModuleSpec(
-                module=SharedExpertMLP,
+                module=shared_experts,
                 submodules=MLPSubmodules(
                     linear_fc1=ColumnParallelLinear,
                     linear_fc2=RowParallelLinear

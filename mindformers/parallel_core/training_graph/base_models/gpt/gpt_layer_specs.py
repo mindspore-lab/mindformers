@@ -22,7 +22,7 @@ from mindformers.parallel_core.training_graph.transformer.attention import SelfA
     SelfAttention
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
-from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
+from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules, MLPInterleaved
 from mindformers.parallel_core.training_graph.transformer.multi_latent_attention import MLASelfAttention, \
     MLASelfAttentionSubmodules, MLASelfAttentionConcatenated, MLASelfAttentionSubmodulesConcatenated
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import \
@@ -38,11 +38,13 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 def get_mlp_module_spec(
         num_experts: Optional[int] = None,
         moe_grouped_gemm: Optional[bool] = True,
+        use_interleaved_weight_layout_mlp: Optional[bool] = True
 ) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE"""
+    mlp = MLPInterleaved if use_interleaved_weight_layout_mlp else MLP
     if num_experts is None:
         return ModuleSpec(
-            module=MLP,
+            module=mlp,
             submodules=MLPSubmodules(
                 linear_fc1=ColumnParallelLinear,
                 linear_fc2=RowParallelLinear,
@@ -52,6 +54,7 @@ def get_mlp_module_spec(
     return get_moe_module_spec(
         num_experts=num_experts,
         moe_grouped_gemm=moe_grouped_gemm,
+        use_interleaved_weight_layout_mlp=use_interleaved_weight_layout_mlp
     )
 
 
@@ -61,9 +64,10 @@ def get_gpt_layer_local_spec(
         qk_layernorm: Optional[bool] = False,
         multi_latent_attention: Optional[bool] = False,
         qk_l2_norm: Optional[bool] = False,
-        use_contiguous_weight_layout: Optional[bool] = True,
+        use_contiguous_weight_layout_attention: Optional[bool] = False,
         mla_qkv_concat: Optional[bool] = True,
         fused_norm: Optional[bool] = True,
+        use_interleaved_weight_layout_mlp: Optional[bool] = True
 ) -> ModuleSpec:
     """Use this spec for an implementation using only modules in Megatron-Core.
 
@@ -74,14 +78,16 @@ def get_gpt_layer_local_spec(
         qk_layernorm (bool, optional): To use layernorm for queries/keys. Defaults to False.
         multi_latent_attention (bool, optional): To use MultiLatentAttention. Defaults to False.
         qk_l2_norm (bool, optional): To use l2 norm for queries/keys. Defaults to False.
-        use_contiguous_weight_layout(bool, optional): Determines the weight arrangement in SelfAttention's QKV linear
-            projection. Only affects SelfAttention layers. Uses contiguous layout: [Q_weights, K_weights, V_weights]
-            when True. Uses interleaved head layout: [Q_head0, K_head0, V_head0, Q_head1, ...] when False.
-            Defaults to True.
+        use_contiguous_weight_layout_attention(bool, optional): Determines the weight arrangement in SelfAttention's
+            QKV linear projection. Only affects SelfAttention layers. Uses contiguous layout: [Q_weights, K_weights,
+            V_weights] when True. Uses interleaved head layout: [Q_head0, K_head0, V_head0, Q_head1, ...] when False.
+            Defaults to False.
         mla_qkv_concat(bool, optional): If True, Multi Latent Attention computes q_compressed, k, kv_compressed in
             a single linear transformation; if False (default), computes them separately. Defaults to True.
         fused_norm (bool): Whether to use fused-normalization. Defaults to True.
-
+        use_interleaved_weight_layout_mlp (bool, optional): Determines the weight arrangement in MLP's linear_fc1. Uses
+            interleaved layout: [Gate_weights[0], Hidden_weights[0], Gate_weights[1], Hidden_weights[1], ...] when True.
+            Uses contiguous layout: [Gate_weights, Hidden_weights] when False. Defaults to True.
     Returns:
         ModuleSpec: Module specification with Megatron-Core modules
     """
@@ -90,7 +96,8 @@ def get_gpt_layer_local_spec(
 
     mlp = get_mlp_module_spec(
         num_experts=num_experts,
-        moe_grouped_gemm=moe_grouped_gemm
+        moe_grouped_gemm=moe_grouped_gemm,
+        use_interleaved_weight_layout_mlp=use_interleaved_weight_layout_mlp
     )
 
     if multi_latent_attention:
@@ -138,7 +145,7 @@ def get_gpt_layer_local_spec(
         submodules=TransformerLayerSubmodules(
             input_layernorm=get_norm_cls(fused_norm),
             self_attention=ModuleSpec(
-                module=SelfAttentionContiguous if use_contiguous_weight_layout else SelfAttention,
+                module=SelfAttentionContiguous if use_contiguous_weight_layout_attention else SelfAttention,
                 submodules=SelfAttentionSubmodules(
                     linear_qkv=ColumnParallelLinear,
                     core_attention=FlashAttention,
@@ -166,9 +173,10 @@ def get_gpt_decoder_block_spec(
         qk_layernorm=config.qk_layernorm,
         multi_latent_attention=config.multi_latent_attention,
         qk_l2_norm=qk_l2_norm,
-        use_contiguous_weight_layout=config.use_contiguous_weight_layout,
+        use_contiguous_weight_layout_attention=config.use_contiguous_weight_layout_attention,
         mla_qkv_concat=config.mla_qkv_concat,
-        fused_norm=config.fused_norm
+        fused_norm=config.fused_norm,
+        use_interleaved_weight_layout_mlp=config.use_interleaved_weight_layout_mlp
     )
 
     moe_layer_spec = get_gpt_layer_local_spec(
@@ -177,9 +185,10 @@ def get_gpt_decoder_block_spec(
         qk_layernorm=config.qk_layernorm,
         multi_latent_attention=config.multi_latent_attention,
         qk_l2_norm=qk_l2_norm,
-        use_contiguous_weight_layout=config.use_contiguous_weight_layout,
+        use_contiguous_weight_layout_attention=config.use_contiguous_weight_layout_attention,
         mla_qkv_concat=config.mla_qkv_concat,
-        fused_norm=config.fused_norm
+        fused_norm=config.fused_norm,
+        use_interleaved_weight_layout_mlp=config.use_interleaved_weight_layout_mlp
     )
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.

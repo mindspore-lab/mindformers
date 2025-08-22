@@ -37,8 +37,9 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
             transformer_layer_spec = get_gpt_layer_local_spec(
                 qk_layernorm=transformer_config.qk_layernorm,
                 multi_latent_attention=transformer_config.multi_latent_attention,
-                use_contiguous_weight_layout=transformer_config.use_contiguous_weight_layout,
-                mla_qkv_concat=transformer_config.mla_qkv_concat
+                use_contiguous_weight_layout_attention=transformer_config.use_contiguous_weight_layout_attention,
+                mla_qkv_concat=transformer_config.mla_qkv_concat,
+                use_interleaved_weight_layout_mlp=transformer_config.use_interleaved_weight_layout_mlp
             )
         mtp_block_spec = None
         if transformer_config.mtp_num_layers is not None:

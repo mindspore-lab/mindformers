@@ -52,7 +52,7 @@ class SwiGlu(nn.Cell):
 
     def __init__(self, config: ModelParallelConfig = None):
         super(SwiGlu, self).__init__()
-        self.split = aclnn_ops.SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split = aclnn_ops.SplitWithSize()
         # pylint: disable=W0212
         self.silu = SiLU_op()
         self.mul = Mul()
@@ -74,7 +74,7 @@ class SwiGlu(nn.Cell):
         Args:
             config (ModelParallelConfig): The model parallel configuration.
         """
-        self.split.shard((layout("cp", "dp", "tp"),))
+        self.split.shard((layout("cp", "dp", "None"),))
         self.silu.shard((layout("cp", "dp", "tp"),))
         self.mul.shard((layout("cp", "dp", "tp"),
                         layout("cp", "dp", "tp")))
@@ -189,10 +189,7 @@ class SiLU(nn.Cell):
         Args:
             config (ModelParallelConfig): The model parallel configuration.
         """
-        dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
-        cp = config.context_parallel_size if config and config.context_parallel_size is not None else 1
-        silu_in_strategy = ((cp, dp, 1),)
-        self.silu.shard(silu_in_strategy)
+        self.silu.shard((layout("cp", "dp", "tp"),))
 
     def sharding_propagation(self, config: ModelParallelConfig):
         pass

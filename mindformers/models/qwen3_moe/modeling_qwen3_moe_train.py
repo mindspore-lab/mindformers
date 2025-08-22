@@ -52,8 +52,9 @@ class TrainingQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, TrainModelMixin):
             transformer_layer_spec=get_gpt_layer_local_spec(
                 moe_grouped_gemm=config.moe_grouped_gemm,
                 num_experts=config.num_moe_experts,
-                use_contiguous_weight_layout=config.use_contiguous_weight_layout,
+                use_contiguous_weight_layout_attention=config.use_contiguous_weight_layout_attention,
                 qk_layernorm=True,
+                use_interleaved_weight_layout_mlp=config.use_interleaved_weight_layout_mlp,
             ),
             vocab_size=config.vocab_size,
             max_sequence_length=config.max_position_embeddings,

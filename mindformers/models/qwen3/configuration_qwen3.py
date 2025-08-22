@@ -152,7 +152,7 @@ class Qwen3Config(PretrainedConfig):
             normalization='RMSNorm',
             add_bias_linear=False,
             gated_linear_unit=True,
-            use_contiguous_weight_layout=True
+            use_contiguous_weight_layout_attention=False
         ))
     @ignore_and_delete_parameter(extra_ignore_param=[
         ('max_window_layers', NotSupportedInfo.useless),
