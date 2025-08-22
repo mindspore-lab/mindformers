@@ -23,7 +23,6 @@ import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
-from mindformers.parallel_core.process_group_config import default_model_comm_pgs
 
 
 class InferModelMixin(ModelMixin):
@@ -56,37 +55,29 @@ class InferModelMixin(ModelMixin):
                 "ModelCommProcessGroups is not set, please set it during model initialization."
             )
 
+        dynamic_attn_padding_idx = None
+        dynamic_attn_unpadding_idx = None
+        dynamic_ffn_padding_idx = None
+        dynamic_ffn_unpadding_idx = None
+
+        tp_group_size = self.model_comm_pgs.tp.size
+        dp_group_size = self.model_comm_pgs.dp.size
+        ep_group_size = self.model_comm_pgs.moe_ep.size
+
         # Check whether model needs padding index parameters
-        if (
-                self.model_comm_pgs is not default_model_comm_pgs and
-                getattr(self.model_comm_pgs, 'dp', None) and
-                getattr(self.model_comm_pgs, 'moe_ep', None)
-        ):
-            dynamic_attn_padding_idx = None
-            dynamic_attn_unpadding_idx = None
-            dynamic_ffn_padding_idx = None
-            dynamic_ffn_unpadding_idx = None
+        if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
+            dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
 
-            tp_group_size = self.model_comm_pgs.tp.size
-            dp_group_size = self.model_comm_pgs.dp.size
-            ep_group_size = self.model_comm_pgs.moe_ep.size
+        # when need padding_idx, add padding parameter into set_input
+        self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
+                        dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
+                        dynamic_slot_mapping, dynamic_attention_mask, None,
+                        dynamic_attn_padding_idx, dynamic_attn_unpadding_idx,
+                        dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx, key_cache, value_cache)
 
-            if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
-                dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-
-            # when need padding_idx, add padding parameter into set_input
-            self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
-                            dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_attention_mask, None,
-                            dynamic_attn_padding_idx, dynamic_attn_unpadding_idx,
-                            dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx, key_cache, value_cache)
-        else:
-            self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
-                            dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
         logger.info(f"Set dynamic input for {self.__class__.__name__}")
 
     def add_flags_custom_mcore(self, is_prefill):

@@ -51,9 +51,15 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
         if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(config.tensor_model_parallel_size, order='tp')
+            initialize_model_parallel(
+                data_parallel_size=config.data_parallel_size,
+                tensor_model_parallel_size=config.tensor_model_parallel_size,
+                expert_model_parallel_size=config.expert_model_parallel_size,
+                order='tp-ep-dp',
+            )
         if is_initialized():
-            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
+                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
         else:
             self.model_comm_pgs = default_model_comm_pgs
 
@@ -85,6 +91,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
     @jit
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
                   block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None,
+                  attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None,
                   key_cache=None, value_cache=None):
         r"""
         model forward.
@@ -97,8 +104,16 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
             q_seq_lens: query sequence lengths.
             block_tables: Store mapping tables for each sequence.
             slot_mapping : Token cache physical slot index.
-            attention_mask: attentino mask used for fa or pa.
+            attention_mask: attention mask used for fa or pa.
             attn_metadata: attention metadata
+            attn_padding_idx: Indices mapping positions in attention output sequence to original token positions,
+                used for padding attention output to fixed size.
+            attn_unpadding_idx: Indices mapping valid tokens in padded attention output sequence to
+                their original positions, used for removing padding in attention output.
+            ffn_padding_idx: Indices mapping positions in MoE output sequence to flattened valid token positions,
+                used for padding MoE output to fixed size.
+            ffn_unpadding_idx: Indices mapping valid tokens in padded MoE output sequence to their original positions,
+                used for removing padding in MoE output.
             key_cache: key cache for incremental inference.
             value_cache: value cache for incremental inference.
 
@@ -116,6 +131,10 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
             slot_mapping=slot_mapping,
             attention_mask=attention_mask,
             attn_metadata=attn_metadata,
+            attn_padding_idx=attn_padding_idx,
+            attn_unpadding_idx=attn_unpadding_idx,
+            ffn_padding_idx=ffn_padding_idx,
+            ffn_unpadding_idx=ffn_unpadding_idx,
             key_cache=key_cache,
             value_cache=value_cache
         )

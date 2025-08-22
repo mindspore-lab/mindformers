@@ -3081,7 +3081,7 @@
         "signature": "(config: mindformers.models.qwen2.configuration_qwen2.Qwen2Config)"
     },
     "mindformers.models.qwen2.InferenceQwen2ForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen2.Qwen2Config": {
         "signature": "(vocab_size=151936, hidden_size=4096, intermediate_size=22016, num_hidden_layers=32, num_attention_heads=32, num_key_value_heads=32, hidden_act='silu', max_position_embeddings=32768, initializer_range=0.02, rms_norm_eps=1e-06, use_cache=True, tie_word_embeddings=False, rope_theta=10000.0, rope_scaling=None, use_sliding_window=False, sliding_window=4096, max_window_layers=28, layer_types=None, attention_dropout=0.0, **kwargs)"
@@ -3105,13 +3105,13 @@
         "signature": "(config: mindformers.models.qwen2.configuration_qwen2.Qwen2Config)"
     },
     "mindformers.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3.InferenceQwen3ForCausalLM": {
         "signature": "(config: mindformers.models.qwen3.configuration_qwen3.Qwen3Config)"
     },
     "mindformers.models.qwen3.InferenceQwen3ForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3.Qwen3Config": {
         "signature": "(vocab_size=151936, hidden_size=4096, intermediate_size=22016, num_hidden_layers=32, num_attention_heads=32, num_key_value_heads=32, head_dim=128, hidden_act='silu', max_position_embeddings=32768, initializer_range=0.02, rms_norm_eps=1e-06, use_cache=True, tie_word_embeddings=False, rope_theta=10000.0, rope_scaling=None, attention_bias=False, use_sliding_window=False, sliding_window=4096, max_window_layers=28, layer_types=None, attention_dropout=0.0, **kwargs)"
@@ -3141,7 +3141,7 @@
         "signature": "(config: mindformers.models.qwen3.configuration_qwen3.Qwen3Config)"
     },
     "mindformers.models.qwen3.modeling_qwen3_infer.InferenceQwen3ForCausalLM.construct": {
-        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
     "mindformers.models.qwen3_moe.InferenceQwen3MoeForCausalLM": {
         "signature": "(config: mindformers.models.qwen3_moe.configuration_qwen3_moe.Qwen3MoeConfig)"
@@ -5294,11 +5294,23 @@
     "mindformers.wrapper.MFPipelineWithLossScaleCell.construct": {
         "signature": "(self, *inputs)"
     },
+    "mindformers.wrapper.MFPipelineWithLossScaleCell.grads_for_legacy": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
+    "mindformers.wrapper.MFPipelineWithLossScaleCell.grads_for_mcore": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
     "mindformers.wrapper.MFTrainOneStepCell": {
         "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"
+    },
+    "mindformers.wrapper.MFTrainOneStepCell.grads_for_legacy": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
+    "mindformers.wrapper.MFTrainOneStepCell.grads_for_mcore": {
+        "signature": "(self, scaling_sens, *inputs)"
     },
     "mindformers.wrapper.PipelineCellWithTwoOutput": {
         "signature": "(network, micro_size)"
@@ -5327,11 +5339,23 @@
     "mindformers.wrapper.wrapper.MFPipelineWithLossScaleCell.construct": {
         "signature": "(self, *inputs)"
     },
+    "mindformers.wrapper.wrapper.MFPipelineWithLossScaleCell.grads_for_legacy": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
+    "mindformers.wrapper.wrapper.MFPipelineWithLossScaleCell.grads_for_mcore": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell": {
         "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)"
     },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"
+    },
+    "mindformers.wrapper.wrapper.MFTrainOneStepCell.grads_for_legacy": {
+        "signature": "(self, scaling_sens, *inputs)"
+    },
+    "mindformers.wrapper.wrapper.MFTrainOneStepCell.grads_for_mcore": {
+        "signature": "(self, scaling_sens, *inputs)"
     },
     "mindformers.wrapper.wrapper.PipelineCellWithTwoOutput": {
         "signature": "(network, micro_size)"

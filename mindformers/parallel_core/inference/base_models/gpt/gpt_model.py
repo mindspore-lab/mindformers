@@ -213,13 +213,6 @@ class GPTModel(nn.Cell):
         r"""
         Update the model input and add the related parameters of padding_index.
         """
-        if not (
-                self.model_comm_pgs is not default_model_comm_pgs and
-                getattr(self.model_comm_pgs, 'dp', None) and
-                getattr(self.model_comm_pgs, 'moe_ep', None)
-        ):
-            return model_inputs
-
         tp_group_size = self.model_comm_pgs.tp.size
         dp_group_size = self.model_comm_pgs.dp.size
         ep_group_size = self.model_comm_pgs.moe_ep.size
