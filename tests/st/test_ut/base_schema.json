@@ -4308,13 +4308,13 @@
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils.ApplyRotaryPosEmb": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig)"
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, for_k_pos_emb=False)"
     },
     "mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils.ApplyRotaryPosEmb.construct": {
-        "signature": "(self, t: mindspore.common.tensor.Tensor, freqs: tuple, rotary_interleaved: bool = False, multi_latent_attention: bool = False, input_is_parallel: bool = False) -> mindspore.common.tensor.Tensor"
+        "signature": "(self, t: mindspore.common.tensor.Tensor, freqs: tuple, rotary_interleaved: bool = False, multi_latent_attention: bool = False) -> mindspore.common.tensor.Tensor"
     },
     "mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils.ApplyRotaryPosEmb._rotate_half": {
-        "signature": "(self, t: mindspore.common.tensor.Tensor, rotary_interleaved: bool = False, input_is_parallel: bool = False) -> mindspore.common.tensor.Tensor"
+        "signature": "(self, t: mindspore.common.tensor.Tensor, rotary_interleaved: bool = False) -> mindspore.common.tensor.Tensor"
     },
     "mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils.ApplyRotaryPosEmb.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
@@ -4398,7 +4398,7 @@
         "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.shard": {
-        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
+        "signature": "(self) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.sharding_propagation": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4413,7 +4413,7 @@
         "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.shard": {
-        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
+        "signature": "(self) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.sharding_propagation": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"

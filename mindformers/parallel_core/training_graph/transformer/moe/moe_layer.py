@@ -22,6 +22,7 @@ from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
+from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.training_graph.transformer.moe.router import TopKRouter
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -88,6 +89,7 @@ class MoELayer(BaseMoELayer):
     ):
         # reversed arg
         super().__init__(config=config, layer_number=layer_number)
+        layout.init_layout(config)
         self.hidden_size = config.hidden_size
         self.use_seq_parallel = config.sequence_parallel
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
@@ -157,12 +159,12 @@ class MoELayer(BaseMoELayer):
 
     def shard(self, config: TransformerConfig):
         """Set parallel strategy."""
-        dp = config.data_parallel_size
-        mp = config.tensor_model_parallel_size
-        cp = config.context_parallel_size
-        self.transpose.shard(((cp, dp, mp),))
-        self.transpose2.shard(((dp, cp, mp),))
+        dp = "dp"
+        cp = "cp"
+        tp = "tp"
+        self.transpose.shard((layout(cp, dp, "None"),))
+        self.transpose2.shard((layout(dp, cp, tp),))
         if self.use_seq_parallel:
-            self.add.shard(((dp, mp, 1), (dp, mp, 1)))
+            self.add.shard((layout(dp, tp, "None"), layout(dp, tp, "None")))
         else:
-            self.add.shard(((dp, cp, mp), (dp, cp, mp)))
+            self.add.shard((layout(dp, cp, tp), layout(dp, cp, tp)))

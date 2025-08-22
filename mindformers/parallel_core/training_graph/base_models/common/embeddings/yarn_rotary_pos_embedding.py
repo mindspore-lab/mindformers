@@ -125,7 +125,7 @@ class YarnRotaryEmbedding(RotaryEmbedding):
         else:
             out = self.reshape(emb, (bs, -1, 1, emb.shape[1]))
             out = self.transpose(out, (1, 0, 2, 3))
-        return out.copy(), self.mscale
+        return out, self.mscale
 
 
 def get_swap_mask(head_dim):

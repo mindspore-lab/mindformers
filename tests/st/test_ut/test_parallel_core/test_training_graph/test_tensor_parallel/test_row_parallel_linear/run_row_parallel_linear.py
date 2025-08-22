@@ -21,6 +21,8 @@ import mindspore as ms
 from mindspore.communication import init
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import RowParallelLinear
+from mindformers.parallel_core.training_graph.device_matrix import layout
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.parallel_core.utils.init_method import init_method_normal
 from data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -51,14 +53,6 @@ class RowParallelLinearRunner:
 
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
-
-        # Set parallel context
-        if self.rank_id is not None:
-            ms.set_auto_parallel_context(
-                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
-            )
-            init()
-
         # Transformer config
         self.config = TransformerConfig(
             data_parallel_size=self.worker_num // self.args.tensor_parallel,
@@ -67,6 +61,22 @@ class RowParallelLinearRunner:
             num_attention_heads=self.args.tensor_parallel,
             num_layers=1
         )
+
+        # Set parallel context
+        if self.rank_id is not None:
+            ms.set_auto_parallel_context(
+                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
+            )
+            init()
+            self.tp = self.config.tensor_model_parallel_size \
+                if self.config.tensor_model_parallel_size is not None else 1
+            self.dp = self.config.data_parallel_size if self.config.data_parallel_size is not None else 1
+            self.pp = self.config.pipeline_model_parallel_size \
+                if self.config.pipeline_model_parallel_size is not None else 1
+            initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                      pipeline_model_parallel_size=self.pp)
+
+        layout.init_layout(self.config)
 
     def build_model(self):
         """Build and initialize RowParallelLinear model"""

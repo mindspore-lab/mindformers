@@ -19,12 +19,12 @@ from mindspore import nn, ops
 from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
-from mindspore.mint.nn.functional import linear
-from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt
+from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt, Dense, MeanExt
 # these ops are not supported in auto_generate
 from mindspore.ops.operations import Shape, ReduceSum, ReduceMean
 from mindspore.parallel._utils import _get_parallel_mode
 
+from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 GATING_ACTIVATION = {
@@ -54,10 +54,14 @@ class Router(ABC, nn.Cell):
 
         weight_shape = (self.expert_dim, self.hidden_size)
         self.weight = Parameter(config.init_method(weight_shape), name='weight')
+        self.linear = Dense()
 
     @abstractmethod
     def shard(self, config: TransformerConfig):
-        pass
+        self.linear.add_prim_attr("self_define_shard", True)
+        dp = "dp_ep_cp_tp"
+        self.linear.shard(in_strategy=(layout(dp, "None", "None"), layout("None", "None")),
+                          out_strategy=(layout(dp, "None", "None"),))
 
     def gating(self, inputs):
         """Forward pass of the router gate.
@@ -71,7 +75,7 @@ class Router(ABC, nn.Cell):
         # (dp, N, E) fp32 <-- (dp, N, h)
         # seems good for no sharding
         weight = self.weight.astype(self.moe_router_dtype)
-        router_logits = linear(inputs.astype(self.moe_router_dtype), weight)
+        router_logits = self.linear(inputs.astype(self.moe_router_dtype), weight)
         return router_logits
 
 
@@ -116,7 +120,7 @@ class TopKRouter(Router):
             self.assign_add.recompute(False)
             self.onehot_2d = OneHotExt()
             self.reduce_mean = ReduceMean(keep_dims=False)
-            self.afb_reduce_mean = ReduceMean(keep_dims=False)
+            self.afb_reduce_mean = MeanExt()
             self.afb_topk = TopkExt()
             self.afb_topk.recompute(False)
             self.afb_add_topk_bias = AddExt()
@@ -124,8 +128,8 @@ class TopKRouter(Router):
 
         # for aux loss
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
-        self.reduce_mean_aux_3d = ReduceMean(keep_dims=False)
-        self.reduce_mean_aux_2d = ReduceMean(keep_dims=False)
+        self.reduce_mean_aux_3d = MeanExt()
+        self.reduce_mean_aux_2d = MeanExt()
         self.mul_aux_2d = Mul()
         self.onehot_aux = OneHotExt()
         self.mul_noshard = Mul()
@@ -240,30 +244,46 @@ class TopKRouter(Router):
         """
         Handles the sharding configuration for the model's parallelism settings.
         """
-        dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
-        # for scaling factor
-        self.mul.shard(((), (dp, 1, 1)))
-        # normalize
-        self.reduce_sum_keep.shard(((dp, 1, 1),))
-        self.add_eps.shard(((dp, 1, 1), ()))
-        self.div_3d.shard(((dp, 1, 1), (dp, 1, 1)))
+        super().shard(config)
+        dp = "dp_ep_cp_tp"
         # gating activation, softmax or sigmoid
-        self.gating_activation.shard(((dp, 1, 1,),))
+        self.gating_activation.shard((layout(dp, "None", "None",),))
+        # normalize
+        self.reduce_sum_keep.add_prim_attr("self_define_shard", True)
+        self.reduce_sum_keep.shard(in_strategy=(layout(dp, "None", "None"),),
+                                   out_strategy=(layout(dp, "None", "None"),))
+        self.add_eps.shard((layout(dp, "None", "None"), layout()))
+        self.div_3d.shard((layout(dp, "None", "None"), layout(dp, "None", "None"),))
+        # for scaling factor
+        self.mul.shard((layout(), layout(dp, "None", "None")))
         # topk
-        self.topk.shard(((dp, 1, 1),))
+        self.topk.add_prim_attr("self_define_shard", True)
+        self.topk.shard(in_strategy=(layout(dp, "None", "None"), layout(), layout(), layout(), layout()),
+                        out_strategy=(layout(dp, "None", "None"), layout(dp, "None", "None")))
         # topk_with_bias
         if self.moe_router_enable_expert_bias:
-            self.gate_gather.shard(((dp, 1, 1), (dp, 1, 1)))
-            self.assign_add.shard(((1,), (1,)))
-            self.onehot_2d.shard(((dp, 1, 1), (), ()))
-            self.reduce_mean.shard(((dp, 1, 1),))
-            self.afb_reduce_mean.shard(((dp, 1),))
-            self.afb_topk.shard(((dp, 1, 1),))
-            self.afb_add_topk_bias.shard(((dp, 1, 1), (1,)))
+            self.gate_gather.add_prim_attr("self_define_shard", True)
+            self.gate_gather.shard(in_strategy=(layout(dp, "None", "None"), layout(), layout(dp, "None", "None")),
+                                   out_strategy=(layout(dp, "None", "None"),))
+            self.assign_add.shard((layout("None",), layout("None",),))
+            self.onehot_2d.add_prim_attr("self_define_shard", True)
+            self.onehot_2d.shard(in_strategy=(layout(dp, "None"), layout(), layout()),
+                                 out_strategy=(layout(dp, "None", "None"),))
+
+            self.reduce_mean.add_prim_attr("self_define_shard", True)
+            self.reduce_mean.shard(in_strategy=(layout(dp, "None", "None"),), out_strategy=(layout(dp, "None"),))
+
+            self.afb_reduce_mean.shard((layout(dp, "None"),))
+            self.afb_topk.add_prim_attr("self_define_shard", True)
+            self.afb_topk.shard(in_strategy=(layout(dp, "None", "None"),),
+                                out_strategy=(layout(dp, "None", "None"), layout(dp, "None", "None")))
+            self.afb_add_topk_bias.shard((layout(dp, "None", "None"), layout("None",),))
         # for aux loss
-        self.reduce_mean_aux_3d.shard(((dp, 1, 1),))
-        self.reduce_mean_aux_2d.shard(((dp, 1),))
-        self.mul_aux_2d.shard(((dp, 1), (dp, 1)))
-        self.onehot_aux.shard(((dp, 1, 1), (), ()))
-        self.mul_noshard.shard(((), ()))
-        self.add_loss.shard(((1,), ()))
+        self.reduce_mean_aux_3d.add_prim_attr("self_define_shard", True)
+        self.reduce_mean_aux_3d.shard(in_strategy=(layout(dp, "None", "None"),), out_strategy=(layout(dp, "None"),))
+        self.reduce_mean_aux_2d.shard((layout(dp, "None"),))
+        self.mul_aux_2d.shard((layout(dp, "None"), layout(dp, "None")))
+        self.onehot_aux.add_prim_attr("self_define_shard", True)
+        self.onehot_aux.shard(in_strategy=(layout(dp, "None"), layout(), layout(), layout(), layout()),
+                              out_strategy=(layout(dp, "None", "None"),))
+        self.add_loss.shard((layout("None",), layout()))

@@ -21,6 +21,7 @@ from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import BaseTransformerLayer
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.tools.logger import logger
 
 
@@ -198,12 +199,8 @@ class TransformerBlock(nn.Cell):
 
     def shard(self, config: TransformerConfig):
         """ shard function of mlp block. """
-        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         cp = config.context_parallel_size if config.context_parallel_size is not None else 1
-        tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
 
         if self.post_layer_norm:
             if config.sequence_parallel or cp > 1:
-                self.final_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
-            else:
-                self.final_layernorm.shard(config, in_strategy=(1, dp, 1))
+                self.final_layernorm.shard(config, in_strategy=(layout("cp_tp", "dp", "None"), layout("None",)))

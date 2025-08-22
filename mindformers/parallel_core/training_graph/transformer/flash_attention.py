@@ -26,11 +26,11 @@ from mindspore.ops import auto_generate as aclnn_ops
 from mindspore.ops import functional as F
 from mindspore.ops import cast
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
-from mindspore.parallel.shard import Layout
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 class FlashAttention(Cell):
@@ -161,7 +161,7 @@ class FlashAttention(Cell):
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
-        else:
+        elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
 
     def _generate_flash_attention_strategy(self, dp, tp, cp, cp_ds=1):
@@ -173,8 +173,7 @@ class FlashAttention(Cell):
         tp = cp_ds * tp
 
         if self.input_layout == "TND" and cp > 1:
-            layout = Layout(device_matrix=(dp, cp, tp), alias_name=("dp", "cp", "tp"))
-            fa_strategies = (layout(("dp", "cp"), "tp", "None"),
+            fa_strategies = (layout("dp_cp", "tp", "None"),
                              layout("dp", "tp", "None"),
                              layout("dp", "tp", "None"),
                              layout("None", "None"),
@@ -198,9 +197,14 @@ class FlashAttention(Cell):
                                  (dp, kv_head_split_num, cp, 1),
                                  (dp, kv_head_split_num, cp, 1))
             else:
-                fa_strategies = ((dp, tp, cp, 1),
-                                 (dp, kv_head_split_num, 1, 1),
-                                 (dp, kv_head_split_num, 1, 1))
+                if self.use_mqa:
+                    fa_strategies = (layout("dp", "tp", "cp", "None"),
+                                     layout("dp", "None", "None", "None"),
+                                     layout("dp", "None", "None", "None"))
+                else:
+                    fa_strategies = (layout("dp", "tp", "cp", "None"),
+                                     layout("dp", "tp", "None", "None"),
+                                     layout("dp", "tp", "None", "None"))
         elif self.input_layout == "TH":
             fa_strategies = ((dp, tp),
                              (dp, tp),
@@ -211,14 +215,14 @@ class FlashAttention(Cell):
                              (dp, tp, 1))
 
         if self.use_alibi_mask:
-            fa_strategies += ((dp, tp, cp, 1),)
+            fa_strategies += (layout("dp", "tp", "cp", "None"),)
         if self.enable_dropout:
-            fa_strategies += ((dp, tp, cp, 1),)
+            fa_strategies += (layout("dp", "tp", "cp", "None"),)
         if self.use_attention_mask:
             if self.sparse_mode in [0, 1]:
-                fa_strategies += ((dp, 1, cp, 1),)
+                fa_strategies += (layout("dp", "None", "cp", "None"),)
             elif self.sparse_mode in [2, 3, 8]:
-                fa_strategies += ((1, 1),)
+                fa_strategies += (layout("None", "None"),)
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
         if self.input_layout in ["TH", "TND"] or self.use_actual_seqlen:
@@ -321,10 +325,10 @@ class FlashAttention(Cell):
         tp = 1 if config is None else config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
 
-        self.bnsd_transpose.shard(((cp, dp, tp, 1),))
+        self.bnsd_transpose.shard((layout("cp", "dp", "tp", "None"),))
         self.bsh_transpose.shard(((cp, dp, tp),))
-        self.merge_head_transpose.shard(((dp, tp, cp, 1),))
-        self.fa_out_transpose.shard(((dp, cp, tp),))
+        self.merge_head_transpose.shard((layout("dp", "tp", "cp", "None"),))
+        self.fa_out_transpose.shard((layout("dp", "cp", "tp"),))
 
         fa_strategies = self._generate_flash_attention_strategy(dp, tp, cp)
         self.flash_attention.shard(fa_strategies)

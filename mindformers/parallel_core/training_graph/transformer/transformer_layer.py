@@ -23,6 +23,7 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.dropout import Dropout
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 @dataclass
@@ -252,18 +253,18 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
     def shard(self, config: TransformerConfig):
         """ shard function of mlp block. """
         dp = config.data_parallel_size if config.data_parallel_size is not None else 1
-        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
         tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        cp = config.context_parallel_size if config.context_parallel_size is not None else 1
 
         if self.sequence_parallel or cp > 1:
-            self.input_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
-            self.pre_mlp_layernorm.shard(config, in_strategy=(cp * tp, dp, 1))
-            self.add.shard(((cp * tp, dp, 1), (cp * tp, dp, 1)))
+            self.add.shard((layout("cp_tp", "dp", "None"),
+                            layout("cp_tp", "dp", "None")))
             self.hidden_states_dropout.shard((cp * tp, dp, 1))
-            self.add_bias.shard(((cp * tp, dp, 1), (1,)))
+            self.add_bias.shard((layout("cp_tp", "dp", "None"),
+                                 layout("None",)))
+            self.input_layernorm.shard(config, in_strategy=(layout("cp_tp", "dp", "None"), layout("None",)))
+            self.pre_mlp_layernorm.shard(config, in_strategy=(layout("cp_tp", "dp", "None"), layout("None",)))
         else:
-            self.input_layernorm.shard(config, in_strategy=(1, dp, 1))
-            self.pre_mlp_layernorm.shard(config, in_strategy=(1, dp, 1))
             self.add.shard(((1, dp, 1), (1, dp, 1)))
             self.hidden_states_dropout.shard((1, dp, 1))
             self.add_bias.shard(((1, dp, 1), (1,)))

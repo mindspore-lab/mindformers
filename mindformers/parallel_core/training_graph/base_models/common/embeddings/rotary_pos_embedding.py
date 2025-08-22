@@ -144,10 +144,13 @@ class RotaryEmbedding(nn.Cell):
         else:
             out = self.reshape(emb, (bs, -1, 1, emb.shape[1]))
             out = self.transpose(out, (1, 0, 2, 3))
-        return out.copy(), self.mscale
+        return out, self.mscale
 
     def shard(self, config):
         dp = config.data_parallel_size
+
+        self.cat.shard(((1, 1), (1, 1)))
+        self.outer.shard(((1,), (1,)))
 
         self.outer_for_eod.shard(((dp,), (1,)))
         self.cat_for_eod.shard(((dp, 1), (dp, 1)))

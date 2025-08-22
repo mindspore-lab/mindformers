@@ -18,11 +18,11 @@ from mindspore.common.parameter import Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import Shape, Cast, GroupedMatmul, Reshape, Swiglu, StridedSlice
 from mindspore.ops.operations import Morph
-from mindspore.parallel.shard import Layout
 from mindspore.parallel._utils import _get_parallel_mode
 
-from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher, MoEAlltoAllDeredundencyTokenDispatcher
+from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
 def func_infer_dtype(*args):
@@ -155,31 +155,23 @@ class FFNGroupedGEMM(nn.Cell):
         """
         Handles the sharding configuration for the model's parallelism settings.
         """
-        dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
-        ep = config.expert_model_parallel_size
-        if dp % ep != 0:
-            raise ValueError(
-                f"The value of expert_model_parallel_size must be divisible by "
-                "data_parallel_size * tensor_model_parallel_size, where"
-                f"data_parallel_size: {config.data_parallel_size}, "
-                f"tensor_model_parallel_size: {config.tensor_model_parallel_size}, "
-                f"expert_model_parallel_size: {config.expert_model_parallel_size}.")
-        outer_dp = dp // ep
-        inner_dp = ep
-
+        inner_dp = "ep"
+        sp = "None"
+        mp0 = "None"
+        mp1 = "None"
+        dp = "dp_ep_cp_tp"
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
-            self.stride_slice.shard(((dp, 1, 1),))
+            self.stride_slice.shard((layout(dp, "None", "None"),))
 
-        layout = Layout((outer_dp, inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
         self.morphed_forward.shard(
             in_strategy=(
-                layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # tokens       [B, S, h]
-                layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # probs        [B, S, k]
-                layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # routing_map  [B, S, k]
-                layout("inner_dp", "mp0", "mp1"),  # w1  [E, h, H]
-                layout("inner_dp", "mp1", "mp0"),  # w2  [E, H, h]
+                layout(dp, sp, mp0),  # tokens       [B, S, h]
+                layout(dp, sp, mp0),  # probs        [B, S, k]
+                layout(dp, sp, mp0),  # routing_map  [B, S, k]
+                layout(inner_dp, mp0, mp1),  # w1  [E, h, H]
+                layout(inner_dp, mp1, mp0),  # w2  [E, H, h]
             ),
             out_strategy=(
-                layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output       [B, S, h]
+                layout(dp, sp, mp0),  # output       [B, S, h]
             )
         )

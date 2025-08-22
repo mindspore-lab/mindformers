@@ -22,9 +22,11 @@ from mindspore.communication import init
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.norm import LayerNorm
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.training_graph.transformer.attention import SelfAttention, \
     SelfAttentionSubmodules
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 
 from data_gen_utils import get_init_params
 
@@ -66,12 +68,6 @@ class SelfAttentionMegatronRunner:
         self.rank_id = int(rank_id_str) if rank_id_str is not None else None
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
-        if self.rank_id is not None:
-            ms.set_auto_parallel_context(
-                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
-            )
-            init()
-
         # Transformer 配置
         self.config = TransformerConfig(
             compute_dtype='bfloat16',
@@ -87,6 +83,23 @@ class SelfAttentionMegatronRunner:
             params_dtype='float32',
             attention_dropout=0.0,
         )
+
+        if self.rank_id is not None:
+            ms.set_auto_parallel_context(
+                parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True
+            )
+            init()  # Initialize communication
+            if self.config.tensor_model_parallel_size is not None:
+                self.tp = self.config.tensor_model_parallel_size
+            else:
+                self.tp = 1
+            self.dp = self.config.data_parallel_size if self.config.data_parallel_size is not None else 1
+            self.pp = self.config.pipeline_model_parallel_size \
+                if self.config.pipeline_model_parallel_size is not None else 1
+            initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                      pipeline_model_parallel_size=self.pp)
+
+        layout.init_layout(self.config)
 
     def build_model(self):
         """Build and initialize SelfAttention model"""

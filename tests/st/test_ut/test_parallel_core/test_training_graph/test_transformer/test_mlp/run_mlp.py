@@ -20,6 +20,7 @@ from mindspore import nn, ParameterTuple
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.parallel_core.training_graph.device_matrix import layout
 from data_gen_utils import get_init_params, get_golden_datas, get_gpu_datas, get_grads
 from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 from tests.utils.tensor_utils import to_numpy_list
@@ -48,6 +49,7 @@ class TestModel(nn.Cell):
     def __init__(self, config: TransformerConfig, input_size=None):
         super(TestModel, self).__init__()
         self.config = config
+        layout.init_layout(self.config)
         self.mlp = MLP(submodules=MLPSubmodules(linear_fc1=ColumnParallelLinear, linear_fc2=RowParallelLinear),
                        config=config, input_size=input_size)
 
