@@ -70,7 +70,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
-        self.use_fused_mla = self.config.quantization_config is not None
+        self.use_fused_mla = False
         config.use_fused_mla = self.use_fused_mla
         quant_config = get_quant_config(self.config.to_dict(), self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
