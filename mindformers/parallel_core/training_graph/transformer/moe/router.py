@@ -116,6 +116,8 @@ class TopKRouter(Router):
             self.gate_gather = ops.GatherD()
             self.expert_load = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                          requires_grad=False, parallel_optimizer=False)
+            self.expert_load.init_data()
+            self.expert_bias.init_data()
             self.assign_add = AssignAdd()
             self.assign_add.recompute(False)
             self.onehot_2d = OneHotExt()
