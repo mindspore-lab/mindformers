@@ -18,39 +18,20 @@ import sys
 import argparse
 import os
 import time
-from typing import Optional
 
 from mindformers.tools import MindFormerConfig, logger
-from mindformers.dataset.handler.build_data_handler import build_data_handler
-from mindformers.dataset.dataloader.common_dataloader import CommonDataLoader
+from mindformers.dataset.dataloader.hf_dataloader import HFDataLoader, process_legacy_args
+from mindformers.core.context.build_context import MFContextOperator
 
 
-class PreprocessDataLoader(CommonDataLoader):
-    """Dataloader class for preprocessing HF datasets"""
+class ProcessHFDataLoader(HFDataLoader):
+    """HF dataset process module"""
 
-    def __new__(cls,
-                path: Optional[str] = None,
-                load_func: str = 'load_dataset',
-                handler: Optional[dict] = None,
-                packing: str = None,
-                **kwargs):
-        if path is None or path.strip() == "":
-            raise ValueError(f"path should not be empty.")
-
-        if "split" not in kwargs:
-            kwargs["split"] = "train"
-
-        kwargs = cls._filter_params(kwargs=kwargs)
-        dataset = cls.load_dataset(path=path, load_func=load_func, **kwargs)
-
-        if handler:  # data preprocess
-            if not isinstance(handler, list):
-                raise ValueError(f"handler in config should be set as 'list', but got {type(handler)}.")
-            for per_handler in handler:
-                data_handler = build_data_handler(per_handler, packing=packing)
-                dataset = data_handler.handle(dataset)
-
-        return dataset
+    def __new__(cls, **kwargs):
+        kwargs = process_legacy_args(**kwargs)
+        config = cls._build_config(**kwargs)
+        dataset = cls.load_dataset(config)
+        cls.process_dataset(config, dataset)
 
 
 def prepare_args():
@@ -91,16 +72,15 @@ def main():
     # prepare arguments and load config
     args = prepare_args()
     config = MindFormerConfig(args.config)
+    MFContextOperator(config)
 
     # build dataset
     dataloader_config = config.train_dataset.data_loader
-    dataset = PreprocessDataLoader(**dataloader_config)
-
-    # save dataset
-    dataset.save_to_disk(args.save_path)
+    dataloader_config.handler.append(dict(type='save_to_disk', dataset_path=args.save_path))
+    ProcessHFDataLoader(**dataloader_config)
 
     end_time = time.time()
-    logger.info(f"Packed datasets saved in {args.save_path}, spend {end_time - start_time:.4f}s.")
+    logger.info(f"Processed datasets saved in {args.save_path}, spend {end_time - start_time:.4f}s.")
 
 
 if __name__ == '__main__':
