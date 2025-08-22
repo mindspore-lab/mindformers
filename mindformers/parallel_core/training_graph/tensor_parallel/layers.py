@@ -30,7 +30,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
-from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
+from mindspore.ops.auto_generate import Cast, AddExt, Reshape, IndexSelect
 from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
@@ -212,8 +212,7 @@ class ColumnParallelLinear(nn.Cell):
             self.bias = None
 
         self.cast = Cast()
-        self.matmul = MatMulExt()
-        self.transpose = Transpose()
+        self.matmul = ops.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
             self.add = AddExt()
         self.reshape = Reshape()
@@ -271,8 +270,6 @@ class ColumnParallelLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
-        if self.transpose_b:
-            weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
 
         bias = self.cast(bias, self.compute_dtype)
@@ -293,8 +290,6 @@ class ColumnParallelLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
-        if self.transpose_b:
-            weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
 
         input_ = self.cast(input_, ori_dtype)
@@ -425,8 +420,7 @@ class RowParallelLinear(nn.Cell):
             self.bias = None
 
         self.cast = Cast()
-        self.transpose = Transpose()
-        self.matmul = MatMulExt()
+        self.matmul = ops.MatMul(transpose_b=transpose_b)
 
         if not skip_bias_add:
             self.add = AddExt()
@@ -478,8 +472,6 @@ class RowParallelLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
-        if self.transpose_b:
-            weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
         if self.tp != 1:
             if self.sequence_parallel:
@@ -507,8 +499,6 @@ class RowParallelLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
-        if self.transpose_b:
-            weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
         if self.tp != 1:
             if self.sequence_parallel:
