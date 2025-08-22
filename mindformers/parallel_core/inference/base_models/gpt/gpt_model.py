@@ -141,7 +141,7 @@ class GPTModel(nn.Cell):
         self.tp_group_size = self.tp.size
         self.tp_rank = self.tp.rank
         self.is_prefill = True
-        self.return_hidden_states = False
+        self.return_hidden_states = False # For serving: return hidden_states early and skip output_layer
 
         if hasattr(self.config, 'position_embedding_type'):
             self.position_embedding_type = self.config.position_embedding_type
