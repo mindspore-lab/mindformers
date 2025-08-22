@@ -61,10 +61,11 @@ def parse_data_dtypes(arr):
 
 def _is_pack_mode(config):
     """Determine if the given configuration is set to 'pack mode'."""
-    for sub_process in config.process:
-        if sub_process.get('type') == 'PackingHandler':
-            return True
-    return False
+    if isinstance(config.process, list):
+        for sub_process in config.process:
+            if sub_process.get('type') == 'PackingHandler':
+                return True
+    return config.create_attention_mask
 
 
 def process_legacy_args(**kwargs):
@@ -127,6 +128,7 @@ class HFDataLoaderConfig:
                      Must be provided, otherwise an error will be raised.
         process (dict | list, optional): Processing configuration for HuggingFace datasets.
                                          Can be a single dictionary or a list of dictionaries.
+        create_attention_mask (bool, optional): Whether to create an attention mask.
         create_compressed_eod_mask (bool, optional): Whether to enable
             the creation of a compressed end-of-document (EOD) mask.
             This is used in TND layout FlashAttention modules with `actual_seq_len`.
@@ -140,6 +142,8 @@ class HFDataLoaderConfig:
     load: dict = None
 
     process: Optional[Union[dict, list]] = None
+
+    create_attention_mask: bool = False
 
     create_compressed_eod_mask: bool = False
 
@@ -335,9 +339,10 @@ class HFDataLoader:
     @staticmethod
     def _build_config(**kwargs):
         """Build dataloader config from input args."""
+        create_attention_mask = kwargs.pop('create_attention_mask', False)
         create_compressed_eod_mask = kwargs.pop('create_compressed_eod_mask', False)
         compressed_eod_mask_length = kwargs.pop('compressed_eod_mask_length', 128)
-        use_broadcast_data = kwargs.pop('use_broadcast_data', False)
+        use_broadcast_data = kwargs.pop('use_broadcast_data', True)
         handler = kwargs.pop('handler', None)
         shuffle = kwargs.pop('shuffle', False)
 
@@ -349,6 +354,7 @@ class HFDataLoader:
         config = HFDataLoaderConfig(
             load=kwargs,
             process=handler,
+            create_attention_mask=create_attention_mask,
             create_compressed_eod_mask=create_compressed_eod_mask,
             compressed_eod_mask_length=compressed_eod_mask_length,
             use_broadcast_data=use_broadcast_data,
