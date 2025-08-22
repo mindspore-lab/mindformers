@@ -17,7 +17,6 @@ __all__ = ['InferenceTelechat2ForCausalLM']
 
 from typing import Dict
 
-from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.utils import jit
@@ -32,6 +31,7 @@ from mindformers.parallel_core.process_group_config import ModelCommProcessGroup
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 
 from .configuration_telechat2 import Telechat2Config
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
@@ -52,11 +52,11 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
         config: TransformerConfig = convert_to_transformer_config(self.config)
         self.transformer_config = config
         if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(get_group_size(), order='tp')
+            initialize_model_parallel(tensor_model_parallel_size=config.tensor_model_parallel_size, order='tp')
         if is_initialized():
-            model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
         else:
-            model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+            self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
 
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
@@ -79,7 +79,7 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
                               position_embedding_type=config.position_embedding_type,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               post_process=config.post_process,
-                              model_comm_pgs=model_comm_pgs)
+                              model_comm_pgs=self.model_comm_pgs)
 
     @jit
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
