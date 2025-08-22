@@ -59,11 +59,12 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
                 data_parallel_size=config.data_parallel_size,
                 tensor_model_parallel_size=config.tensor_model_parallel_size,
                 expert_model_parallel_size=config.expert_model_parallel_size,
-                order='tp-ep-dp',
+                pipeline_model_parallel_size=config.pipeline_model_parallel_size,
+                order='tp-ep-dp-pp',
             )
         if is_initialized():
             self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tpdp', 'pp'])
         else:
             self.model_comm_pgs = default_model_comm_pgs
 
@@ -93,6 +94,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             max_sequence_length=self.max_position_embeddings,
             position_embedding_type=config.position_embedding_type,
             rotary_base=config.rotary_base,
+            pre_process=config.pre_process,
+            post_process=config.post_process,
             model_comm_pgs=self.model_comm_pgs,
             quant_config=quant_config,
         )
@@ -118,6 +121,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
     def construct(
             self,
             input_ids,
+            hidden_states=None,
             positions=None,
             batch_valid_length=None,
             context_lens_tensor=None,
@@ -138,6 +142,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         Args:
             input_ids: input ids.
+            hidden_states: hidden states.
             positions: position ids.
             batch_valid_length: actual seq length.
             context_lens_tensor: computed key value length.
@@ -163,6 +168,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         """
         logits = self.model(
             input_ids=input_ids,
+            hidden_states=hidden_states,
             positions=positions,
             batch_valid_length=batch_valid_length,
             context_lens_tensor=context_lens_tensor,

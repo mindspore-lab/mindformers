@@ -75,7 +75,7 @@ class BaseMoELayer(nn.Cell, ABC):
         super().__init__()
         self.config = config
         self.layer_number = layer_number
-        self.global_group = model_comm_pgs.globals
+        self.tpdp_group = model_comm_pgs.tpdp
         self.ep_group = model_comm_pgs.moe_ep
         ep_size = self.ep_group.size
 
@@ -157,7 +157,7 @@ class MoELayer(BaseMoELayer):
     def construct(self, hidden_states: Tensor, attn_unpadding_idx: Tensor = None, ffn_padding_idx: Tensor = None):
         """Construct MoELayer."""
         if self.config.attn_allgather:
-            hidden_states = gather_from_model_parallel_region(hidden_states, self.global_group, dim=0)
+            hidden_states = gather_from_model_parallel_region(hidden_states, self.tpdp_group, dim=0)
             hidden_states = ops.gather(hidden_states, attn_unpadding_idx, 0)
 
         # router
@@ -182,9 +182,9 @@ class MoELayer(BaseMoELayer):
             output = mint.add(output, shared_expert_output)
 
         if self.config.ffn_allreduce:
-            output = reduce_from_model_parallel_region(output, self.global_group)
+            output = reduce_from_model_parallel_region(output, self.tpdp_group)
         elif self.config.ffn_reduce_scatter:
             output = ops.gather(output, ffn_padding_idx, 0)
-            output = reduce_scatter_to_model_parallel_region(output, self.global_group)
+            output = reduce_scatter_to_model_parallel_region(output, self.tpdp_group)
 
         return output

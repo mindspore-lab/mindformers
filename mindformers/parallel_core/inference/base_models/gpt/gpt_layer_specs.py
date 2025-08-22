@@ -44,6 +44,7 @@ from mindformers.parallel_core.inference.transformer.norm import get_norm_cls
 from mindformers.parallel_core.inference.base_models.gpt.moe_module_spec import get_moe_module_spec
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlockSubmodules
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.inference.utils import get_num_layers_and_offset
 
 
 def get_gpt_layer_local_spec(
@@ -195,10 +196,11 @@ def get_gpt_decoder_block_spec(
 
     # Create the layer specs for the model.
     layer_specs = []
-    for layer_number in range(config.num_layers):
-        if moe_layer_pattern[layer_number] == 1:
+    num_layers, offset = get_num_layers_and_offset(config)
+    for layer_number in range(num_layers):
+        if moe_layer_pattern[layer_number + offset] == 1:
             layer_specs.append(moe_layer_spec)
-        elif moe_layer_pattern[layer_number] == 0:
+        elif moe_layer_pattern[layer_number + offset] == 0:
             layer_specs.append(dense_layer_spec)
         else:
             raise ValueError(f"Invalid layer pattern: {moe_layer_pattern}")
