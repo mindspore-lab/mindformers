@@ -31,11 +31,11 @@ class MindSporeConfig(QuantizationConfig):
         super().__init__()
         self.full_config = full_config
         self.quantization = full_config["quantization"]
-        # osl method need config source == golden-stick
-        self.is_modelslim = full_config.get("source", "modelslim") != "golden-stick"
+        # osl method need config quantization == golden-stick
+        self.is_modelslim = self.quantization != "golden-stick"
 
     def get_name(self) -> QuantizationBackends:
-        return "mindspore"
+        return self.quantization
 
     def get_supported_act_dtypes(self) -> List[str]:
         return [mindspore.dtype.float16, mindspore.dtype.int8]
