@@ -398,6 +398,9 @@ class GPTModel(nn.Cell):
                 else:
                     for mapping in other_params_mapping:
                         param_name, weight_name, expert_id, shard_id = mapping
+                        expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
+                        if expert_id == -1:
+                            continue
                         if weight_name not in name:
                             continue
                         name = name.replace(weight_name, param_name)
