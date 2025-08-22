@@ -162,7 +162,7 @@ class TopKRouter(Router):
                 self.fused_add_topk_div(
                     gating_logits,
                     self.expert_bias,
-                    self.num_experts_chosen,
+                    self.n_group,
                     self.topk_group,
                     self.group_topk_inner,
                     self.num_experts_chosen,
