@@ -28,7 +28,7 @@ _TASK_TYPE = TaskType.TWO_CARDS_TASK
 TWO_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel, pipeline_parallel"
 TWO_CARD_TEST_CASES = [
     (
-        # 并行策略: PP2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 2
+        # prefill, 并行策略: PP2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 2
         # expected result: 功能跑通, 精度对齐。
         {"is_prefill": True, "num_experts": None, "moe_grouped_gemm": False, "qk_layernorm": False,
          "multi_latent_attention": False, "qk_l2_norm": False, "sandwich_norm": False, "num_layers": 2},
@@ -38,7 +38,7 @@ TWO_CARD_TEST_CASES = [
         2,
     ),
     (
-        # 并行策略: PP2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 2
+        # decode, 并行策略: PP2, Transformer Layer组成模块: Standard Norm, SelfAttention, MLP, num_layers: 2
         # expected result: 功能跑通, 精度对齐。
         {"is_prefill": False, "num_experts": None, "moe_grouped_gemm": False, "qk_layernorm": False,
          "multi_latent_attention": False, "qk_l2_norm": False, "sandwich_norm": False, "num_layers": 2},

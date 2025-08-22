@@ -20,7 +20,7 @@ import mindspore as ms
 from mindspore import Tensor, nn, Parameter, ops, mint
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
-# from mindspore.ops.auto_generate import FusedAddTopKDiv
+from mindspore.ops.auto_generate import FusedAddTopKDiv
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
@@ -160,7 +160,7 @@ class TopKRouter(Router):
                 self.fused_add_topk_div(
                     gating_logits,
                     self.expert_bias,
-                    self.num_experts_chosen,
+                    self.n_group,
                     self.topk_group,
                     self.group_topk_inner,
                     self.num_experts_chosen,
