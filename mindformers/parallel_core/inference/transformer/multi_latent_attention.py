@@ -18,7 +18,7 @@ __all__ = [
     'MLASelfAttentionSubmodules',
     'MultiLatentAttention',
     'MLASelfAttention',
-    "FusedMLASelfAttention"
+    'FusedMLASelfAttention'
 ]
 
 import math
@@ -26,6 +26,11 @@ from dataclasses import dataclass
 from typing import Union, Optional
 import numpy as np
 
+try:
+    import ms_custom_ops
+except ModuleNotFoundError:
+    # environment need install ms_custom_ops package
+    pass
 from mindspore import mint, ops, Tensor, dtype
 from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
@@ -37,6 +42,7 @@ from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import (
     YaRNScalingRotaryEmbedding,
     _yarn_get_mscale
@@ -192,7 +198,7 @@ class MultiLatentAttention(Attention):
     ):
         """Forward process of the CoreAttention."""
 
-        query, key, value, out_absorb = self.get_query_key_value_tensors(
+        query, _, key, _, value, out_absorb = self.get_query_key_value_tensors(
             hidden_states,
             batch_valid_length,
             rotary_pos_cos,
@@ -342,21 +348,16 @@ class MLASelfAttention(MultiLatentAttention):
         self.kv_layernorm = build_module(submodules.kv_layernorm, hidden_size=self.config.kv_lora_rank,
                                          config=self.config, eps=self.config.layernorm_epsilon)
 
-    def get_query_key_value_tensors(
+    def compute_kv(
             self,
             hidden_states,
             batch_valid_length=None,
             rotary_pos_cos=None,
-            rotary_pos_sin=None,
-            slot_mapping=None,
-            key_cache=None
-    ):
+            rotary_pos_sin=None
+        ):
         """
-        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        compute q_pos_emb, kv_compressed, k_pos_emb
         """
-        # =========================================
-        # QKV down projection and layernorm
-        # =========================================
         hidden_states = self.input_layernorm(hidden_states)
         if self.config.q_lora_rank is not None:
             qkv = self.linear_qkv_down_proj(hidden_states)
@@ -403,30 +404,59 @@ class MLASelfAttention(MultiLatentAttention):
                                                        batch_valid_length)
         # q_pos_emb: [num_tokens, n * qk_pos_emb_head_dim] -> [num_tokens, n, qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition, self.config.qk_pos_emb_head_dim)
+        return kv_compressed, k_pos_emb, q_no_pe, q_pos_emb
+
+    def split_kv(
+            self,
+            kv_compressed,
+            k_pos_emb
+        ):
+        """
+        split k_no_pe, k_pos_emb, value_states from compressed kv and k position embedding
+        """
+        # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
+        kv = self.linear_kv_up_proj(kv_compressed)
+
+        # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
+        # value: [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
+        k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
+                                         self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
+        k_no_pe = k_no_pe.reshape(-1, self.kv_num_heads_per_partition, self.config.qk_head_dim)
+
+        # value_states: [num_tokens, n, v_head_dim]
+        value_states = value.reshape(-1, self.kv_num_heads_per_partition, self.config.v_head_dim)
+        # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
+        k_pos_emb = mint.unsqueeze(k_pos_emb, -2)
+        # k_pos_emb: [num_tokens, n, (qk_head_dim + v_head_dim)]
+        k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
+        return k_no_pe, k_pos_emb, value_states
+
+    def get_query_key_value_tensors(
+            self,
+            hidden_states,
+            batch_valid_length=None,
+            rotary_pos_cos=None,
+            rotary_pos_sin=None,
+            slot_mapping=None,
+            key_cache=None,
+            value_cache=None
+        ):
+        """
+        Derives `query`, `key` and `value` tensors from `hidden_states`.
+        """
+        # =========================================
+        # QKV down projection and layernorm
+        # =========================================
+        kv_compressed, k_pos_emb, q_no_pe, q_pos_emb = \
+            self.compute_kv(hidden_states, batch_valid_length, rotary_pos_cos, rotary_pos_sin)
         key_states_cache = mint.cat((kv_compressed, k_pos_emb), dim=-1)
         key_out = self.core_attention.reshape_and_cache(key_states_cache, None, key_cache, None, slot_mapping)
         q_no_pe = self.depend(q_no_pe, key_out)
 
         if self.is_prefill:
-            # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
-            kv = self.linear_kv_up_proj(kv_compressed)
-
-            # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
-            # value: [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
-            k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
-                                             self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
-            k_no_pe = k_no_pe.reshape(-1, self.kv_num_heads_per_partition, self.config.qk_head_dim)
-
-            # value_states: [num_tokens, n, v_head_dim]
-            value_states = value.reshape(-1, self.kv_num_heads_per_partition, self.config.v_head_dim)
+            k_no_pe, k_pos_emb, value_states = self.split_kv(kv_compressed, k_pos_emb)
             # query_states: [num_tokens, n, (qk_head_dim + v_head_dim)]
             query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
-
-            # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
-            k_pos_emb = mint.unsqueeze(k_pos_emb, -2)
-            # k_pos_emb: [num_tokens, n, (qk_head_dim + v_head_dim)]
-            k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
-
             key_states = mint.cat((k_no_pe, k_pos_emb), dim=-1)
             value_states = mint.cat((value_states, k_pos_emb), dim=-1)
 
@@ -434,7 +464,7 @@ class MLASelfAttention(MultiLatentAttention):
             key = key_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
             value = value_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
 
-            return query, key, value, None
+            return query, None, key, None, value, None
 
         q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
                                           [self.num_attention_heads_per_partition * self.config.qk_head_dim,
@@ -450,7 +480,7 @@ class MLASelfAttention(MultiLatentAttention):
                                      self.num_attention_heads_per_partition *
                                      (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
 
-        return query, None, None, out_absorb
+        return query, None, None, None, None, out_absorb
 
 class FusedMLASelfAttention(MLASelfAttention):
     """MLA Self-attention layer class use fused op
@@ -491,6 +521,12 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_proj_input_scale = None
         self.qkv_down_beta = None
         self.q_up_beta = None
+        self.use_ringmla = get_tensor_model_parallel_world_size() < 16
+        self.mla = ops.auto_generate.Mla()
+        self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
+                           if self.softmax_scale is None else self.softmax_scale
+        self.ring_mla_mask = Tensor(np.triu(np.ones((512, 512), dtype=np.float16), 1), dtype.bfloat16)
+        self.depend = P.Depend()
 
     def process_weights_after_loading(self) -> None:
         """
@@ -529,20 +565,41 @@ class FusedMLASelfAttention(MLASelfAttention):
             rotary_pos_cos=None,
             rotary_pos_sin=None,
             slot_mapping=None,
-            key_cache=None
+            key_cache=None,
+            value_cache=None
     ):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
         if self.is_prefill:
-            return super().get_query_key_value_tensors(
-                hidden_states,
-                batch_valid_length=batch_valid_length,
-                rotary_pos_cos=rotary_pos_cos,
-                rotary_pos_sin=rotary_pos_sin,
-                slot_mapping=slot_mapping,
-                key_cache=key_cache
-            )
+            kv_compressed, k_pos_emb, q_no_pe, q_pos_emb = \
+                self.compute_kv(hidden_states, batch_valid_length, rotary_pos_cos, rotary_pos_sin)
+            if self.use_ringmla:
+                key_out = self.core_attention.reshape_and_cache(kv_compressed, key_cache=key_cache,
+                                                                slot_mapping=slot_mapping)
+                rope_out = self.core_attention.reshape_and_cache(k_pos_emb, key_cache=value_cache,
+                                                                 slot_mapping=slot_mapping)
+                q_no_pe = self.depend(q_no_pe, key_out)
+                q_no_pe = self.depend(q_no_pe, rope_out)
+            else:
+                key_states_cache = mint.cat((kv_compressed, k_pos_emb), dim=-1)
+                key_out = self.core_attention.reshape_and_cache(key_states_cache, key_cache=key_cache,
+                                                                slot_mapping=slot_mapping)
+                q_no_pe = self.depend(q_no_pe, key_out)
+
+            k_no_pe, k_pos_emb, value_states = self.split_kv(kv_compressed, k_pos_emb)
+            if self.use_ringmla:
+                return q_no_pe, q_pos_emb, k_no_pe, k_pos_emb, value_states, None
+            # query_states: [num_tokens, n, (qk_head_dim + v_head_dim)]
+            query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
+            key_states = mint.cat((k_no_pe, k_pos_emb), dim=-1)
+            value_states = mint.cat((value_states, k_pos_emb), dim=-1)
+
+            query = query_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
+            key = key_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
+            value = value_states.reshape(-1, self.num_attention_heads_per_partition * self.q_head_dim)
+
+            return query, None, key, None, value, None
 
         # only decode use fused op
         q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
@@ -579,11 +636,103 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.linear_q_up_proj.deq_scale,
             self.ctkv_scale,
             self.qnope_scale,
-            key_cache,
-            0)
+            key_cache if not self.use_ringmla else value_cache,
+            0 if not self.use_ringmla else 1)
+        if self.use_ringmla:
+            return states[0], states[2], None, None, None, out_absorb
         query_states = states[0]
         query = query_states.reshape(-1,
                                      self.num_attention_heads_per_partition *
                                      (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
 
-        return query, None, None, out_absorb
+        return query, None, None, None, None, out_absorb
+
+    def construct(
+            self,
+            hidden_states,
+            attention_mask,
+            key_value_states=None,
+            rotary_pos_cos=None,
+            rotary_pos_sin=None,
+            position_ids=None,
+            batch_valid_length=None,
+            block_tables=None,
+            slot_mapping=None,
+            q_seq_lens=None,
+            actual_seq_qlen=None,
+            actual_seq_kvlen=None,
+            context_lens_tensor=None,
+            key_cache=None,
+            value_cache=None
+    ):
+        """Forward process of the CoreAttention."""
+        if not self.use_ringmla:
+            return super().construct(
+                hidden_states, attention_mask, key_value_states, rotary_pos_cos, rotary_pos_sin,
+                position_ids, batch_valid_length, block_tables, slot_mapping, q_seq_lens,
+                actual_seq_qlen, actual_seq_kvlen, context_lens_tensor, key_cache, value_cache
+            )
+        q_no_pe, q_pos_emb, k_no_pe, k_pos_emb, value, out_absorb = self.get_query_key_value_tensors(
+            hidden_states, batch_valid_length, rotary_pos_cos,
+            rotary_pos_sin, slot_mapping, key_cache, value_cache
+        )
+        # ==================================
+        # core attention computation
+        # ==================================
+        if self.is_prefill:
+            q_seq_len_cpu = ops.move_to(q_seq_lens, "CPU")
+            o_prev = mint.zeros((hidden_states.shape[0], self.num_attention_heads_per_partition,
+                                 self.config.v_head_dim), dtype=dtype.bfloat16)
+            lse_prev = mint.zeros((self.num_attention_heads_per_partition, hidden_states.shape[0]),
+                                  dtype=dtype.float32)
+            #self.ring_mla_mask = self.tile_kv(self.ring_mla_mask, (q_seq_lens.shape[0], 1, 1))
+            core_attn_out, lse_out = ms_custom_ops.ring_mla(
+                query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
+                mask=self.ring_mla_mask, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None,
+                deq_scale_pv=None, deq_offset_pv=None, quant_p=None, log_n=None, o_prev=o_prev,
+                lse_prev=lse_prev, q_seq_lens=q_seq_len_cpu, context_lens=q_seq_len_cpu,
+                head_num=self.num_attention_heads_per_partition, scale_value=self.scale_value,
+                kv_head_num=self.num_attention_heads_per_partition,
+                mask_type=1, #"MASK_TYPE_TRIU",
+                calc_type=1, #"CALC_TYPE_FISRT_RING",
+            )
+            # compute_prefill_context
+            if self.is_chunked:
+                k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                               Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
+                r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                               Tensor([1, self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
+                load_out = ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
+                                                          context_lens_tensor, k_cache, r_cache)
+                k_cache = self.depend(k_cache, load_out)
+
+                k_no_pe, k_pos_emb, value = self.split_kv(k_cache, r_cache)
+
+                context_lens_cpu = ops.move_to(context_lens_tensor, "CPU")
+                core_attn_out, _ = ms_custom_ops.ring_mla(
+                    query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
+                    mask=None, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None, deq_scale_pv=None,
+                    deq_offset_pv=None, quant_p=None, log_n=None, o_prev=core_attn_out,
+                    lse_prev=lse_out, q_seq_lens=q_seq_len_cpu, context_lens=context_lens_cpu,
+                    head_num=self.num_attention_heads_per_partition, scale_value=self.scale_value,
+                    kv_head_num=self.num_attention_heads_per_partition,
+                    mask_type=0, #"MASK_TYPE_TRIU",
+                    calc_type=0, #"CALC_TYPE_FISRT_RING",
+                    )
+        else:
+            core_attn_out, _ = self.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None, None, None,
+                                        q_seq_lens, batch_valid_length, self.num_attention_heads_per_partition,
+                                        self.scale_value, 1)
+
+            core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
+            core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
+                                        mint.transpose(out_absorb, -2, -1))
+            core_attn_out = mint.transpose(core_attn_out, -3, -2)
+
+        core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
+        # ==================================
+        # apply output projection. [t, h]
+        # ==================================
+        output = self.linear_proj(core_attn_out)
+
+        return output
