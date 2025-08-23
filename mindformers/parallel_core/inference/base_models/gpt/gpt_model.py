@@ -14,6 +14,7 @@
 # ============================================================================
 """GPT Transformer language model"""
 from typing import Dict, Iterable, Optional, Set, Tuple, Literal
+import numpy as np
 
 from mindspore import nn, ops, mint, Tensor
 import mindspore.common.dtype as mstype
@@ -142,6 +143,7 @@ class GPTModel(nn.Cell):
         self.tp = model_comm_pgs.tp
         self.tp_group_size = self.tp.size
         self.tp_rank = self.tp.rank
+        self.expert_map = self._determine_expert_map()
         self.is_prefill = True
 
         if hasattr(self.config, 'position_embedding_type'):
@@ -291,10 +293,29 @@ class GPTModel(nn.Cell):
 
         return params_dict
 
+    def _determine_expert_map(self):
+        """
+        Calculates how many experts should be assigned to each rank for EP and
+        creates a mapping from global to local expert index. Experts are
+        distributed evenly across ranks
+        """
+        ep_group_size = self.model_comm_pgs.moe_ep.size
+        if ep_group_size == 1:
+            return None
+
+        num_local_experts = self.config.num_moe_experts // ep_group_size
+        ep_rank = self.model_comm_pgs.moe_ep.rank
+        # Create a list of size num_experts filled with -1
+        expert_map = np.full((self.config.num_moe_experts,), -1, dtype=np.int32)
+        # Create an expert map for the local experts
+        expert_map[ep_rank * num_local_experts: (ep_rank + 1) * num_local_experts] = \
+            np.arange(0, num_local_experts, dtype=np.int32)
+        return expert_map
+
     def map_global_expert_id_to_local_expert_id(self, global_expert_id: int) -> int:
         r"""
         Map global expert_id to local ID on current ep_rank.
-        Each rank except the last rank get base number of experts, remaining experts go to the last rank.
+        Each rank get base number of experts.
 
         Args:
             global_expert_id (int): Global expert ID
@@ -302,29 +323,9 @@ class GPTModel(nn.Cell):
         Returns:
             local_expert_id (int): Local expert ID, returns -1 if not belonging to current rank
         """
-        if not getattr(self.model_comm_pgs, 'moe_ep', None):
-            raise RuntimeError("ep communication domain not found.")
-        ep_group_size = self.model_comm_pgs.moe_ep.size
-        ep_rank = self.model_comm_pgs.moe_ep.rank
-        num_experts = self.config.num_moe_experts
-        num_local_experts = num_experts // ep_group_size
-
-        # Check if current ep rank is responsible for this global expert ID
-        if ep_rank < ep_group_size - 1:
-            start_idx = ep_rank * num_local_experts
-            end_idx = start_idx + num_local_experts
-
-            if start_idx <= global_expert_id < end_idx:
-                return global_expert_id - start_idx
-        else:
-            # Last ep rank is responsible for all remaining experts
-            start_idx = (ep_group_size - 1) * num_local_experts
-
-            if global_expert_id >= start_idx:
-                return global_expert_id - start_idx
-
-        # Not belong to current ep rank
-        return -1
+        if self.expert_map is None:
+            return global_expert_id
+        return self.expert_map[global_expert_id].item()
 
     def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None):
         r"""
@@ -368,10 +369,10 @@ class GPTModel(nn.Cell):
             else:
                 for mapping in expert_params_mapping:
                     param_name, weight_name, expert_id, shard_id = mapping
+                    if weight_name not in name:
+                        continue
                     expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
                     if expert_id == -1:
-                        continue
-                    if weight_name not in name:
                         continue
                     name = name.replace(weight_name, param_name)
                     name = name[:name.rfind('.')]
