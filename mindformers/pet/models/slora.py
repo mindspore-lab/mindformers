@@ -132,8 +132,8 @@ class SLoraModel(PreTrainedModel):
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         return self.lora_model.prepare_inputs_for_predict_layout(input_ids, **kwargs)
 
-    def slice_incremental_inputs(self, model_inputs: dict, current_index):
-        return self.lora_model.slice_incremental_inputs(model_inputs, current_index)
+    def slice_incremental_inputs(self, model_inputs: dict, current_index, need_flatten: bool = False):
+        return self.lora_model.slice_incremental_inputs(model_inputs, current_index, need_flatten)
 
     def set_dynamic_inputs(self, **kwargs):
         parallel_decoding = getattr(self.lora_model, "parallel_decoding", False)

@@ -4593,7 +4593,7 @@
         "signature": "(self, input_ids, **kwargs)"
     },
     "mindformers.pet.LoraModel.slice_incremental_inputs": {
-        "signature": "(self, model_inputs: dict, current_index)"
+        "signature": "(self, model_inputs: dict, current_index, need_flatten: bool = False)"
     },
     "mindformers.pet.LoraModel.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"
@@ -4638,7 +4638,7 @@
         "signature": "(self, input_ids, **kwargs)"
     },
     "mindformers.pet.models.LoraModel.slice_incremental_inputs": {
-        "signature": "(self, model_inputs: dict, current_index)"
+        "signature": "(self, model_inputs: dict, current_index, need_flatten: bool = False)"
     },
     "mindformers.pet.models.LoraModel.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"

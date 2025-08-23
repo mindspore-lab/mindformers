@@ -82,8 +82,8 @@ class PetModel(PreTrainedModel):
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         return self.network.prepare_inputs_for_predict_layout(input_ids, **kwargs)
 
-    def slice_incremental_inputs(self, model_inputs: dict, current_index):
-        return self.network.slice_incremental_inputs(model_inputs, current_index)
+    def slice_incremental_inputs(self, model_inputs: dict, current_index, need_flatten: bool = False):
+        return self.network.slice_incremental_inputs(model_inputs, current_index, need_flatten)
 
     def set_dynamic_inputs(self, **kwargs):
         return self.network.set_dynamic_inputs(**kwargs)
