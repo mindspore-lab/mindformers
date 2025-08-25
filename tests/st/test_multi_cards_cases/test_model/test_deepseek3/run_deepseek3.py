@@ -85,6 +85,7 @@ def parallel_train_dp2_pp2_ep2_tnd():
     config.parallel_config.model_parallel = 1
     config.parallel_config.use_seq_parallel = False
     config.parallel.dataset_strategy = [[dp, 1], [dp, 1], [dp, 1]]
+    config.model.model_config.offset = [1, 0]
     build_context(config)
 
     construct_args_key = ['input_ids', 'labels', 'actual_seq_len']

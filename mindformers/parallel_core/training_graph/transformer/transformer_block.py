@@ -144,9 +144,7 @@ class TransformerBlock(nn.Cell):
         """build transformer layers."""
         # Transformer layers.
         self.layers = nn.CellList()
-        # layer setting, take mtp layers into total layers.
-        mtp_num_layers = 0 if not config.mtp_num_layers else config.mtp_num_layers
-        self.layer_setting = LayerSetting(config.num_layers + mtp_num_layers,
+        self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
                                           config,
                                           config.virtual_pipeline_model_parallel_size)

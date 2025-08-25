@@ -347,16 +347,18 @@ class MultiTokenPredictionBlock(nn.Cell):
     def _build_layers(self):
         """Building MTP layers."""
         self.layers = nn.CellList()
-        # layer setting, take mtp layers into total layers.
+
         self.layer_setting = LayerSetting(
-            self.config.num_layers + len(self.submodules.layer_specs),
+            self.config.num_layers,
             self.config.offset,
             self.config,
             self.config.virtual_pipeline_model_parallel_size
         )
-        for i, layer_spec in enumerate(self.submodules.layer_specs):
+
+        for layer_spec in self.submodules.layer_specs:
             mtp_layer = build_module(layer_spec, config=self.config)
-            self.layer_setting(mtp_layer, self.config.num_layers + i)
+            # set mtp layer_id the same with last transformer layer (the last pipeline_stage)
+            self.layer_setting(mtp_layer, self.config.num_layers - 1)
             self.layers.append(mtp_layer)
 
     def shard(self):
