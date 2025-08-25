@@ -79,6 +79,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         self.compute_dtype = config.compute_dtype
 
         self.is_prefill = True
+        self.is_chunked = False
         if isinstance(self.config.parallel_decoding_params, Dict):
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
@@ -116,6 +117,17 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         for layer in self.model.decoder.layers:
             layer.self_attention.add_flags(is_prefill=is_prefill)
             layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
+
+    def add_flags_chunked(self, is_chunked):
+        r"""
+        Add customized attributes for specific cells in the model when the use_past is enabled.
+        """
+        self.add_flags(is_chunked=is_chunked)
+        self.model.add_flags(is_chunked=is_chunked)
+        self.model.decoder.add_flags(is_chunked=is_chunked)
+        for layer in self.model.decoder.layers:
+            layer.self_attention.add_flags(is_chunked=is_chunked)
+            layer.self_attention.core_attention.add_flags(is_chunked=is_chunked)
 
     @jit
     def construct(

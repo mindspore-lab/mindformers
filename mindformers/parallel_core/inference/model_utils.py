@@ -29,6 +29,7 @@ from mindformers.parallel_core.inference.parallel_state import is_pipeline_first
 from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 
 class InferModelMixin(ModelMixin):
     """
@@ -59,7 +60,8 @@ class InferModelMixin(ModelMixin):
             return mutable(cache_list)
 
         key_cache = get_input()
-        value_cache = get_input() if not self.transformer_config.multi_latent_attention else None
+        use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
+        value_cache = get_input() if not self.transformer_config.multi_latent_attention or use_ringmla else None
 
         # Check whether model needs padding index parameters
         if (

@@ -141,6 +141,7 @@ class GPTModel(nn.Cell):
         self.tp_group_size = self.tp.size
         self.tp_rank = self.tp.rank
         self.is_prefill = True
+        self.is_chunked = False
         self.return_hidden_states = False # For serving: return hidden_states early and skip output_layer
 
         if hasattr(self.config, 'position_embedding_type'):
@@ -252,7 +253,7 @@ class GPTModel(nn.Cell):
         """ Construct function of GPTModel. """
 
         # Generate cos and sin for RoPE.
-        if self.is_prefill:
+        if self.is_prefill and not self.is_chunked:
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_prefill()
         else:

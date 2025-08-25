@@ -124,6 +124,7 @@ class Attention(nn.Cell):
         self.params_dtype = self.config.params_dtype
         self.compute_dtype = self.config.compute_dtype
         self.is_prefill = True
+        self.is_chunked = False
 
         self.num_heads = self.config.num_attention_heads
         self.num_query_groups = (self.num_heads
