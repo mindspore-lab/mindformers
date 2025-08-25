@@ -181,38 +181,33 @@ class FlashAttention(Cell):
                              layout("dp"))
             return fa_strategies
 
-        kv_head_split_num = 1 if self.use_mqa else tp
+        kv_head_split_num = "None" if self.use_mqa else "tp"
         if self.input_layout == "BSH":
             if self.use_ring_attention:
-                fa_strategies = ((dp, cp, tp),
-                                 (dp, cp, kv_head_split_num),
-                                 (dp, cp, kv_head_split_num))
+                fa_strategies = (layout("dp", "cp", "tp"),
+                                 layout("dp", "cp", kv_head_split_num),
+                                 layout("dp", "cp", kv_head_split_num))
             else:
-                fa_strategies = ((dp, cp, tp),
-                                 (dp, 1, kv_head_split_num),
-                                 (dp, 1, kv_head_split_num))
+                fa_strategies = (layout("dp", "cp", "tp"),
+                                 layout("dp", "None", kv_head_split_num),
+                                 layout("dp", "None", kv_head_split_num))
         elif self.input_layout == "BNSD":
             if self.use_ring_attention:
-                fa_strategies = ((dp, tp, cp, 1),
-                                 (dp, kv_head_split_num, cp, 1),
-                                 (dp, kv_head_split_num, cp, 1))
+                fa_strategies = (layout("dp", "tp", "cp", "None"),
+                                 layout("dp", kv_head_split_num, "cp", "None"),
+                                 layout("dp", kv_head_split_num, "cp", "None"))
             else:
-                if self.use_mqa:
-                    fa_strategies = (layout("dp", "tp", "cp", "None"),
-                                     layout("dp", "None", "None", "None"),
-                                     layout("dp", "None", "None", "None"))
-                else:
-                    fa_strategies = (layout("dp", "tp", "cp", "None"),
-                                     layout("dp", "tp", "None", "None"),
-                                     layout("dp", "tp", "None", "None"))
+                fa_strategies = (layout("dp", "tp", "cp", "None"),
+                                 layout("dp", kv_head_split_num, "None", "None"),
+                                 layout("dp", kv_head_split_num, "None", "None"))
         elif self.input_layout == "TH":
-            fa_strategies = ((dp, tp),
-                             (dp, tp),
-                             (dp, tp))
+            fa_strategies = (layout("dp", "tp"),
+                             layout("dp", "tp"),
+                             layout("dp", "tp"))
         elif self.input_layout == "TND":
-            fa_strategies = ((dp, tp, 1),
-                             (dp, tp, 1),
-                             (dp, tp, 1))
+            fa_strategies = (layout("dp", "tp", "None"),
+                             layout("dp", "tp", "None"),
+                             layout("dp", "tp", "None"))
 
         if self.use_alibi_mask:
             fa_strategies += (layout("dp", "tp", "cp", "None"),)
@@ -226,7 +221,7 @@ class FlashAttention(Cell):
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
         if self.input_layout in ["TH", "TND"] or self.use_actual_seqlen:
-            fa_strategies += ((dp,), (dp,),)
+            fa_strategies += (layout("dp"), layout("dp"),)
         return fa_strategies
 
     def construct(self,
