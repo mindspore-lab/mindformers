@@ -22,7 +22,7 @@ from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
+from mindformers.parallel_core.training_graph.device_matrix import layout, layout_moe
 from mindformers.parallel_core.training_graph.transformer.moe.router import TopKRouter
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -89,7 +89,7 @@ class MoELayer(BaseMoELayer):
     ):
         # reversed arg
         super().__init__(config=config, layer_number=layer_number)
-        layout.init_layout(config)
+        layout_moe.init_layout(config)
         self.hidden_size = config.hidden_size
         self.use_seq_parallel = config.sequence_parallel
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
@@ -146,25 +146,24 @@ class MoELayer(BaseMoELayer):
         experts_output = self.experts(x_reshaped, router_coeff, expert_index)
         experts_output = self.reshape(experts_output, origin_shape)
 
-        # 3. shared experts
-        if self.use_shared_expert:
-            shared_experts_output, _ = self.shared_experts(x)
-            experts_output = self.add(experts_output, shared_experts_output)
-
         # BSH -> SBH
         experts_output = self.transpose2(experts_output, (1, 0, 2))
+
+        # 3. shared experts
+        if self.use_shared_expert:
+            shared_experts_output, _ = self.shared_experts(hidden_states)
+            experts_output = self.add(experts_output, shared_experts_output)
+
 
         extra_loss = self.add_loss(extra_loss, router_aux_loss)
         return experts_output, None, extra_loss
 
     def shard(self, config: TransformerConfig):
         """Set parallel strategy."""
-        dp = "dp"
-        cp = "cp"
-        tp = "tp"
-        self.transpose.shard((layout(cp, dp, "None"),))
-        self.transpose2.shard((layout(dp, cp, tp),))
+        self.transpose.shard((layout("cp", "dp", "None"),))
         if self.use_seq_parallel:
-            self.add.shard((layout(dp, tp, "None"), layout(dp, tp, "None")))
+            self.transpose2.shard((layout("dp", "cp_tp", "None"),))
+            self.add.shard((layout("cp_tp", "dp", "None"), layout("cp_tp", "dp", "None")))
         else:
-            self.add.shard((layout(dp, cp, tp), layout(dp, cp, tp)))
+            self.transpose2.shard((layout("dp", "cp", "None"),))
+            self.add.shard((layout("cp", "dp", "None"), layout("cp", "dp", "None")))

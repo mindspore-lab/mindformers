@@ -59,7 +59,7 @@ class Router(ABC, nn.Cell):
     @abstractmethod
     def shard(self, config: TransformerConfig):
         self.linear.add_prim_attr("self_define_shard", True)
-        dp = "dp_ep_cp_tp"
+        dp = "dp_cp"
         self.linear.shard(in_strategy=(layout(dp, "None", "None"), layout("None", "None")),
                           out_strategy=(layout(dp, "None", "None"),))
 
@@ -245,7 +245,7 @@ class TopKRouter(Router):
         Handles the sharding configuration for the model's parallelism settings.
         """
         super().shard(config)
-        dp = "dp_ep_cp_tp"
+        dp = "dp_cp"
         # gating activation, softmax or sigmoid
         self.gating_activation.shard((layout(dp, "None", "None",),))
         # normalize
