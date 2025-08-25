@@ -24,7 +24,6 @@ import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
-from mindformers.parallel_core.process_group_config import default_model_comm_pgs
 from mindformers.parallel_core.inference.parallel_state import is_pipeline_first_stage
 from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
@@ -63,38 +62,28 @@ class InferModelMixin(ModelMixin):
         use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
         value_cache = get_input() if not self.transformer_config.multi_latent_attention or use_ringmla else None
 
+        dynamic_attn_padding_idx = None
+        dynamic_attn_unpadding_idx = None
+        dynamic_ffn_padding_idx = None
+        dynamic_ffn_unpadding_idx = None
+
+        tp_group_size = self.model_comm_pgs.tp.size
+        dp_group_size = self.model_comm_pgs.dp.size
+        ep_group_size = self.model_comm_pgs.moe_ep.size
+
         # Check whether model needs padding index parameters
-        if (
-                hasattr(self, 'model_comm_pgs') and
-                self.model_comm_pgs is not default_model_comm_pgs and
-                getattr(self.model_comm_pgs, 'dp', None) and
-                getattr(self.model_comm_pgs, 'moe_ep', None)
-        ):
-            dynamic_attn_padding_idx = None
-            dynamic_attn_unpadding_idx = None
-            dynamic_ffn_padding_idx = None
-            dynamic_ffn_unpadding_idx = None
+        if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
+            dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
+            dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
 
-            tp_group_size = self.model_comm_pgs.tp.size
-            dp_group_size = self.model_comm_pgs.dp.size
-            ep_group_size = self.model_comm_pgs.moe_ep.size
-
-            if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
-                dynamic_attn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_attn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_ffn_padding_idx = Tensor(shape=[None], dtype=mstype.int32)
-                dynamic_ffn_unpadding_idx = Tensor(shape=[None], dtype=mstype.int32)
-
-            # when need padding_idx, add padding parameter into set_input
-            self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_positions, dynamic_batch_valid_length,
-                            dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_attention_mask, None,
-                            dynamic_attn_padding_idx, dynamic_attn_unpadding_idx,
-                            dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx, key_cache, value_cache)
-        else:
-            self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_positions, dynamic_batch_valid_length,
-                            dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_attention_mask, None, key_cache, value_cache)
+        # when need padding_idx, add padding parameter into set_input
+        self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_positions, dynamic_batch_valid_length,
+                        dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
+                        dynamic_slot_mapping, dynamic_attention_mask, None,
+                        dynamic_attn_padding_idx, dynamic_attn_unpadding_idx,
+                        dynamic_ffn_padding_idx, dynamic_ffn_unpadding_idx, key_cache, value_cache)
         logger.info(f"Set dynamic input for {self.__class__.__name__}")
 
     def add_flags_custom_mcore(self, is_prefill):

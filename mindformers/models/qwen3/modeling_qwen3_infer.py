@@ -52,9 +52,16 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
         config: TransformerConfig = convert_to_transformer_config(self.config)
         self.transformer_config = config
         if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(tensor_model_parallel_size=config.tensor_model_parallel_size, order='tp')
+            initialize_model_parallel(
+                data_parallel_size=config.data_parallel_size,
+                tensor_model_parallel_size=config.tensor_model_parallel_size,
+                expert_model_parallel_size=config.expert_model_parallel_size,
+                pipeline_model_parallel_size=config.pipeline_model_parallel_size,
+                order='tp-ep-dp-pp',
+            )
         if is_initialized():
-            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
+            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
+                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tpdp', 'pp'])
         else:
             self.model_comm_pgs = default_model_comm_pgs
 
@@ -85,8 +92,9 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
 
     @jit
     def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
-                  context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None,
-                  attn_metadata=None, key_cache=None, value_cache=None):
+                  context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None,
+                  attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None,
+                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
         r"""
         model forward.
 
@@ -101,6 +109,14 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
             slot_mapping : Token cache physical slot index.
             attention_mask: attentino mask used for fa or pa.
             attn_metadata: attention metadata
+            attn_padding_idx: Indices mapping positions in attention output sequence to original token positions,
+                used for padding attention output to fixed size.
+            attn_unpadding_idx: Indices mapping valid tokens in padded attention output sequence to
+                their original positions, used for removing padding in attention output.
+            ffn_padding_idx: Indices mapping positions in MoE output sequence to flattened valid token positions,
+                used for padding MoE output to fixed size.
+            ffn_unpadding_idx: Indices mapping valid tokens in padded MoE output sequence to their original positions,
+                used for removing padding in MoE output.
             key_cache: key cache for incremental inference.
             value_cache: value cache for incremental inference.
 
