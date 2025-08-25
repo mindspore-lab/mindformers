@@ -23,7 +23,7 @@ except ImportError:
     nltk_available = False
 
 # pylint: disable=W0611
-from mindformers.dataset.dataloader import indexed_dataset
+from mindformers.dataset.blended_datasets.indexed_dataset import IndexedDatasetBuilder
 from mindformers.models import build_tokenizer
 from mindformers.models.tokenization_utils import AddedToken
 from mindformers.models.llama.llama_tokenizer_fast import LlamaTokenizerFast
@@ -238,7 +238,7 @@ class Partition:
                                                           key, level)
             output_idx_files[key] = "{}_{}_{}.idx".format(output_prefix,
                                                           key, level)
-            builders[key] = indexed_dataset.IndexedDataBuilder(
+            builders[key] = IndexedDatasetBuilder(
                 output_bin_files[key],
                 dtype=np.int32,
             )
@@ -535,7 +535,7 @@ def main():
                                                       key, level)
         output_idx_files[key] = "{}_{}_{}.idx".format(args.output_prefix,
                                                       key, level)
-        builders[key] = indexed_dataset.IndexedDataBuilder(
+        builders[key] = IndexedDatasetBuilder(
             output_bin_files[key],
             dtype=np.int32,
         )
