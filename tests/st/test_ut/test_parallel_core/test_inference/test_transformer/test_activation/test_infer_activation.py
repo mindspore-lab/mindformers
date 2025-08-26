@@ -15,7 +15,6 @@
 """mcore activation UT of inference"""
 from pathlib import Path
 import subprocess
-import random
 import pytest
 import numpy as np
 
@@ -41,15 +40,9 @@ SINGLE_CARD_TEST_CASES = [
 ]
 
 
-def generate_random_port(start, end):
-    """ Get random port."""
-    port = random.randint(start, end)
-    return port
-
-
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path, module,
-        batch_size, seq_length, hidden_size, output_path_param: str = None
+        batch_size, seq_length, hidden_size, output_path_param: str = None, port: int = 8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -59,7 +52,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(9800, 9900)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}", # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [
@@ -156,6 +149,7 @@ class TestInferSiLU:
             data_keys,
             tmp_path,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -173,6 +167,7 @@ class TestInferSiLU:
             seq_length=model_args["seq_length"],
             hidden_size=model_args["hidden_size"],
             output_path_param=output_file_path,
+            port=port
         )
 
         cmd_result = subprocess.run(
@@ -183,6 +178,9 @@ class TestInferSiLU:
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferSiLUSingleCard(TestInferSiLU):
+    """Test class for InferSiLU with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

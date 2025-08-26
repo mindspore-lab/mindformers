@@ -18,8 +18,8 @@ import random
 import pytest
 
 from tests.st.test_multi_cards_cases.utils import TaskType
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_attention.test_infer_attention import TestSelfAttention
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_attention.data_gen_utils import (
+from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_self_attention.test_infer_self_attention import TestInferSelfAttention
+from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_self_attention.data_gen_utils import (
     BATCH_SIZE,
     PREFILL_SEQ_LEN,
     DECODE_SEQ_LEN,
@@ -45,8 +45,8 @@ TWO_CARD_TEST_CASES = [
         2
     )
 ]
-class TestInferAttentionParallel(TestSelfAttention):
-    """Test class for Attention with different configurations"""
+class TestInferSelfAttentionParallel(TestInferSelfAttention):
+    """Test class for SelfAttention with different configurations"""
     @pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,

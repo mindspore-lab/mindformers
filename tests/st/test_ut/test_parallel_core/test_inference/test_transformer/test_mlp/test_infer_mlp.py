@@ -15,7 +15,6 @@
 """mcore MLP UT of inference"""
 from pathlib import Path
 import subprocess
-import random
 import pytest
 import numpy as np
 
@@ -99,12 +98,6 @@ SINGLE_CARD_TEST_CASES = [
     )
 
 ]
-
-
-def generate_random_port(start, end):
-    """ Get random port."""
-    port = random.randint(start, end)
-    return port
 
 
 def build_msrun_command_list(
@@ -251,6 +244,9 @@ class TestInferMLP:
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferMLPSingleCard(TestInferMLP):
+    """Test class for InferMLP with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

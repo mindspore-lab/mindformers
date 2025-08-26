@@ -84,6 +84,9 @@ class TestInferMoELayerTP(TestInferMoE):
             golden_data = GOLDEN_DATA.get(data_key)
             checker.check_precision(golden_data, npu_data)
 
+
+class TestInferMoELayerTPParallel(TestInferMoELayerTP):
+    """Test class for InferMoELayer with tp parallel"""
     @pytest.mark.level0
     @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_DP1TP4EP1_TEST_CASES)
     def test_four_cards_tp4ep1_cases(

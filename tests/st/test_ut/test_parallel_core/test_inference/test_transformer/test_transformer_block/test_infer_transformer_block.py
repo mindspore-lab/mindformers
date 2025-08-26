@@ -15,7 +15,6 @@
 """mcore transformer block UT of inference"""
 from pathlib import Path
 import subprocess
-import random
 import pytest
 import numpy as np
 
@@ -53,11 +52,6 @@ SINGLE_CARD_TEST_CASES = [
         False,
     ),
 ]
-
-
-def generate_random_port(start, end):
-    port = random.randint(start, end)
-    return port
 
 
 def build_msrun_command_list(
@@ -210,6 +204,9 @@ class TestInferTransformerLayer:
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferTransformerLayerSingleCard(TestInferTransformerLayer):
+    """Test class for InferTransformerLayer with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

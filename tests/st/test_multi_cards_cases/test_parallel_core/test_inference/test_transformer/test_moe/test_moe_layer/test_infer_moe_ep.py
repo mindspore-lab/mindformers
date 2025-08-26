@@ -15,17 +15,14 @@
 """mcore MoE ep parallel UT of inference"""
 import os
 import random
-from pathlib import Path
 
 import pytest
 
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.test_infer_moe import TestInferMoE
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.data_gen_utils import GOLDEN_DATA
-from tests.utils.precision_utils import PrecisionChecker
 from tests.st.test_multi_cards_cases.test_parallel_core.test_inference.test_transformer.\
     test_moe.test_moe_layer.test_infer_moe_tp import (
         MOE_CONFIG_WITH_SHARED_EXPERTS,
-        FOUR_CARD_TEST_PARAM
+        FOUR_CARD_TEST_PARAM,
+        TestInferMoELayerTP,
     )
 from tests.st.test_multi_cards_cases.utils import TaskType
 
@@ -62,24 +59,8 @@ FOUR_CARD_DP1TP4EP4_TEST_CASES = [
 ]
 
 
-class TestInferMoELayerEP(TestInferMoE):
-    """Test class for MoELayer with ep parallel"""
-
-    def setup_method(self):
-        """Setup method to prepare test environment"""
-        self.sh_path = Path(__file__).parent.resolve()
-        self.run_script_path = self.sh_path / "run_infer_moe_layer.py"
-
-    @staticmethod
-    def check_acc(output_ms_dict, data_keys):
-        """Compare output_ms with GOLDEN_DATA and GPU_DATA."""
-
-        checker = PrecisionChecker()
-        for key, data_key in data_keys.items():
-            npu_data = output_ms_dict.get(key)
-            golden_data = GOLDEN_DATA.get(data_key)
-            checker.check_precision(golden_data, npu_data)
-
+class TestInferMoELayerEPParallel(TestInferMoELayerTP):
+    """Test class for InferMoELayer with ep parallel"""
     @pytest.mark.level0
     @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_DP2TP2EP2_TEST_CASES)
     def test_four_cards_tp2ep2_cases(

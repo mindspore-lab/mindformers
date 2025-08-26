@@ -215,6 +215,9 @@ class TestInferMoE:
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferMoELayerSingleCard(TestInferMoE):
+    """Test class for InferMoELayer with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

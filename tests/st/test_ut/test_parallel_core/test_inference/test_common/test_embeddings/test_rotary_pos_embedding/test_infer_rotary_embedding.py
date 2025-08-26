@@ -15,7 +15,6 @@
 """mcore RoPE UT of inference"""
 from pathlib import Path
 import subprocess
-import random
 import pytest
 import numpy as np
 
@@ -134,19 +133,13 @@ YARN_ROPE_SINGLE_CARD_TEST_CASES = [
 ]
 
 
-def generate_random_port(start, end):
-    """ Get random port."""
-    port = random.randint(start, end)
-    return port
-
-
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path, module,
         batch_size, seq_length, rotary_percent, rotary_interleaved, seq_len_interpolation_factor,
         rotary_base, rotary_cos_format, max_position_embedding, is_prefill,
         scaling_factor: float = None, low_freq_factor: float = None, high_freq_factor: float = None,
         orig_max_position: int = None, beta_fast: int = None, beta_slow: int = None,
-        mscale: float = None, mscale_all_dim: float = None, output_path_param: str = None
+        mscale: float = None, mscale_all_dim: float = None, output_path_param: str = None, port: int = 8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -156,7 +149,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(10000, 10100)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}", # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [
@@ -279,6 +272,7 @@ class TestInferRotaryEmbedding:
             data_keys,
             tmp_path,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -302,6 +296,7 @@ class TestInferRotaryEmbedding:
             max_position_embedding=model_args["max_position_embedding"],
             is_prefill=model_args["is_prefill"],
             output_path_param=output_file_path,
+            port=port,
         )
 
         cmd_result = subprocess.run(
@@ -312,6 +307,9 @@ class TestInferRotaryEmbedding:
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferRotaryEmbeddingSingleCard(TestInferRotaryEmbedding):
+    """Test class for InferRotaryEmbedding with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -341,6 +339,7 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
             data_keys,
             tmp_path,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -368,6 +367,7 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
             high_freq_factor=model_args["high_freq_factor"],
             orig_max_position=model_args["orig_max_position"],
             output_path_param=output_file_path,
+            port=port,
         )
 
         cmd_result = subprocess.run(
@@ -378,6 +378,9 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferLlama3RotaryEmbeddingSingleCard(TestInferLlama3RotaryEmbedding):
+    """Test class for InferLlama3RotaryEmbedding with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -387,7 +390,12 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
     )
     def test_single_card_configurations(self, model_args, data_keys, expect_error, tmp_path):
         """Test single card with various configurations."""
-        super().test_single_card_configurations(model_args, data_keys, expect_error, tmp_path)
+        self.run_test(
+            worker_num=1, local_worker_num=1,
+            model_args=model_args, expect_error=expect_error,
+            data_keys=data_keys,
+            tmp_path=tmp_path
+        )
 
 
 class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
@@ -402,6 +410,7 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
             data_keys,
             tmp_path,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -431,6 +440,7 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
             mscale=model_args["mscale"],
             mscale_all_dim=model_args["mscale_all_dim"],
             output_path_param=output_file_path,
+            port=port,
         )
 
         cmd_result = subprocess.run(
@@ -441,6 +451,9 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
 
         self.check_result(output_file_path, model_args, data_keys, cmd_result, expect_error)
 
+
+class TestInferYaRNScalingRotaryEmbeddingSingleCard(TestInferYaRNScalingRotaryEmbedding):
+    """Test class for InferYaRNScalingRotaryEmbedding with single card configurations"""
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
@@ -450,4 +463,9 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
     )
     def test_single_card_configurations(self, model_args, data_keys, expect_error, tmp_path):
         """Test single card with various configurations."""
-        super().test_single_card_configurations(model_args, data_keys, expect_error, tmp_path)
+        self.run_test(
+            worker_num=1, local_worker_num=1,
+            model_args=model_args, expect_error=expect_error,
+            data_keys=data_keys,
+            tmp_path=tmp_path
+        )

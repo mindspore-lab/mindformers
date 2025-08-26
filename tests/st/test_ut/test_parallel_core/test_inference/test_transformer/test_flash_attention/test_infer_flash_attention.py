@@ -80,7 +80,7 @@ def build_msrun_command_list(
     return cmd_list
 
 
-class TestFlashAttention:
+class TestInferFlashAttention:
     """Test class for Flash Attention with different configurations"""
     OUTPUT_MS_FILENAME = "output_ms_fa.npz"
     LOG_DIR_NAME = "msrun_log"
@@ -174,6 +174,9 @@ class TestFlashAttention:
 
         self.check_acc(ouput_ms_dict, data_keys)
 
+
+class TestInferFlashAttentionSingleCard(TestInferFlashAttention):
+    """Test class for InferFlashAttention with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

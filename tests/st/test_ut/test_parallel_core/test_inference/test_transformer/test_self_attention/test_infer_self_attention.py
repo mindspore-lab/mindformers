@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """mcore Self_Attn UT of inference"""
-import random
 import subprocess
 from pathlib import Path
 import os
@@ -58,11 +57,6 @@ SINGLE_CARD_TEST_CASES = [
     ),
 ]
 
-def generate_random_port(start, end):
-    """ generatate random port. """
-    port = random.randint(start, end)
-    return port
-
 
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path,
@@ -97,7 +91,7 @@ def build_msrun_command_list(
     return cmd_list
 
 
-class TestSelfAttention:
+class TestInferSelfAttention:
     """Test class for self_attn with different configurations"""
     OUTPUT_MS_FILENAME = "output_ms.npz"
     LOG_DIR_NAME = "msrun_log"
@@ -106,7 +100,7 @@ class TestSelfAttention:
     def setup_method(self):
         """Setup method to prepare test environment"""
         self.sh_path = Path(__file__).parent.resolve()
-        self.run_script_path = self.sh_path / "run_infer_attention.py"
+        self.run_script_path = self.sh_path / "run_infer_self_attention.py"
 
     @staticmethod
     def check_function(output_ms_dict, data_keys, n_kv_heads):
@@ -206,6 +200,9 @@ class TestSelfAttention:
 
             self.check_acc(output_ms_dict, data_keys)
 
+
+class TestSelfAttentionSingleCard(TestInferSelfAttention):
+    """Test class for TestSelfAttention with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard

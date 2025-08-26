@@ -15,7 +15,6 @@
 """mcore Dopt_Attn UT of inference"""
 import subprocess
 from pathlib import Path
-import random
 import numpy as np
 import pytest
 
@@ -54,15 +53,9 @@ DPA_SINGLE_CARD_TEST_CASES = [
 ]
 
 
-def generate_random_port(start, end):
-    """ Get random port."""
-    port = random.randint(start, end)
-    return port
-
-
 def build_msrun_command_list(
         worker_num, local_worker_num, log_dir, run_script_path, batch_size,
-        seq_length, num_heads, num_query_groups, hidden_size, output_path_param: str = None
+        seq_length, num_heads, num_query_groups, hidden_size, output_path_param: str = None, port: int = 8118
 ):
     """ Build the msrun command with the specified parameters. """
     if worker_num == 1:
@@ -72,7 +65,7 @@ def build_msrun_command_list(
             "msrun",
             f"--worker_num={worker_num}",
             f"--local_worker_num={local_worker_num}",  # Should match NPU cards available
-            f"--master_port={generate_random_port(10100, 10200)}", # Ensure port is unique per test run if parallelized at pytest level
+            f"--master_port={port}", # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir={log_dir}",
             "--join=True"]
     cmd_list += [
@@ -88,7 +81,7 @@ def build_msrun_command_list(
     return cmd_list
 
 
-class TestDotProductAttention:
+class TestInferDotProductAttention:
     """Test class for DotProduct Attention with different configurations"""
     OUTPUT_MS_FILENAME = "output_ms_dpa.npz"
     LOG_DIR_NAME = "msrun_log"
@@ -137,6 +130,7 @@ class TestDotProductAttention:
             data_keys,
             tmp_path,
             expect_error=False,
+            port=8118
     ):
         """Helper function to run test"""
         output_file_path = tmp_path / self.OUTPUT_MS_FILENAME
@@ -155,6 +149,7 @@ class TestDotProductAttention:
             num_query_groups=model_args["num_query_groups"],
             hidden_size=model_args["hidden_size"],
             output_path_param=output_file_path,
+            port=port
         )
 
         cmd_result = subprocess.run(
@@ -184,6 +179,9 @@ class TestDotProductAttention:
 
         self.check_acc(ouput_ms_dict, data_keys)
 
+
+class TestDotProductAttentionSingleCard(TestInferDotProductAttention):
+    """Test class for DotProductAttention with single card configurations"""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
