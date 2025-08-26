@@ -144,9 +144,6 @@ def get_quant_config(model_config: dict, weight_mapping: list) -> QuantizationCo
         return None
     quant_cls = get_quantization_config(quantization)
     quant_config = model_config.get("quantization_config", None)
-    if quant_config:
-        quant_config["weight_mapping"] = weight_mapping
-        quant_config["quantization"] = quantization
     possible_config_filenames = quant_cls.get_config_filenames()
 
     # If the quantization config is not found, use the default config.
@@ -180,4 +177,6 @@ def get_quant_config(model_config: dict, weight_mapping: list) -> QuantizationCo
     if quant_config:
         quant_config.update(config)
         config = quant_config
+    config["weight_mapping"] = weight_mapping
+    config["quantization"] = quantization
     return quant_cls.from_config(config)

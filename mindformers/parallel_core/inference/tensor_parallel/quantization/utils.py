@@ -15,10 +15,12 @@
 """Mindspore quantization utils."""
 from .a8w8_mindspore import A8W8LinearMethod
 from .a8dynw8_mindspore import A8W8DynamicLinearMethod
+from .a8dyw4_mindspore import A8W4DynamicLinearMethod
 
 QUANTIZATION_METHOD_MAPPING = {
     "W8A8": A8W8LinearMethod,
-    "W8A8_DYNAMIC": A8W8DynamicLinearMethod
+    "W8A8_DYNAMIC": A8W8DynamicLinearMethod,
+    "W4A8_DYNAMIC": A8W4DynamicLinearMethod
 }
 
 mapping_rules = {
