@@ -31,9 +31,11 @@ try:
 except ModuleNotFoundError:
     # environment need install ms_custom_ops package
     pass
-from mindspore import mint, ops, Tensor, dtype
+from mindspore import mint, ops, Tensor, dtype, Parameter
 from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
+from mindspore.ops.operations._infer_ops import QuantV2
+import mindspore as ms
 
 from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
@@ -48,7 +50,7 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rota
     _yarn_get_mscale
 )
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-
+from mindformers.parallel_core.inference.weights_utils import set_weight_attrs, split_loaded_weight
 
 @dataclass
 class MLASelfAttentionSubmodules:
@@ -426,7 +428,7 @@ class MLASelfAttention(MultiLatentAttention):
         # value_states: [num_tokens, n, v_head_dim]
         value_states = value.reshape(-1, self.kv_num_heads_per_partition, self.config.v_head_dim)
         # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
-        k_pos_emb = mint.unsqueeze(k_pos_emb, -2)
+        k_pos_emb = k_pos_emb.reshape(-1, 1, self.config.qk_pos_emb_head_dim)
         # k_pos_emb: [num_tokens, n, (qk_head_dim + v_head_dim)]
         k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
         return k_no_pe, k_pos_emb, value_states
@@ -512,21 +514,61 @@ class FusedMLASelfAttention(MLASelfAttention):
             prefix=prefix
         )
         self.mla_preprocess = ops.auto_generate.MlaPreprocess()
-        self.ctkv_scale = Tensor([0], dtype=dtype.bfloat16)
-        self.qnope_scale = Tensor([0], dtype=dtype.bfloat16)
         self.is_modelslim = quant_config.is_modelslim
+        self.fa3_quant = quant_config.fa3_quant
+        self.fa3_quant_layer = quant_config.fa3_quant_layer
+        self.is_fa3_quant_layer = (layer_number - 1) in self.fa3_quant_layer # layer_number start from 1
         self.input_layernorm_weight = None
         self.qkv_down_proj_input_scale = None
         self.q_layernorm_weight = None
         self.q_up_proj_input_scale = None
         self.qkv_down_beta = None
         self.q_up_beta = None
+        self.qkv_down_proj_input_offset = None
+        self.q_up_proj_input_offset = None
         self.use_ringmla = get_tensor_model_parallel_world_size() < 16
         self.mla = ops.auto_generate.Mla()
         self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
                            if self.softmax_scale is None else self.softmax_scale
         self.ring_mla_mask = Tensor(np.triu(np.ones((512, 512), dtype=np.float16), 1), dtype.bfloat16)
         self.depend = P.Depend()
+        self.quant = QuantV2()
+        if self.is_fa3_quant_layer:
+            self.qnope_scale = Parameter(Tensor(shape=(self.num_attention_heads_per_partition,), dtype=dtype.float32,
+                                                init=Zero()),
+                                         name="qnope_scale",
+                                         requires_grad=False)
+            self.quant_ctkv_scale = None
+            self.ctkv_scale = Parameter(Tensor(shape=(1,), dtype=dtype.float32, init=Zero()), name="ctkv_scale",
+                                        requires_grad=False)
+            self.ctkv_offset = Tensor(shape=(1,), dtype=self.compute_dtype, init=Zero())
+            set_weight_attrs(
+                self.ctkv_scale,
+                {
+                    "weight_loader": self.weight_loader,
+                },
+            )
+            set_weight_attrs(
+                self.qnope_scale,
+                {
+                    "output_dim": 0,
+                    "weight_loader": self.weight_loader,
+                },
+            )
+
+        else:
+            self.ctkv_scale = Tensor([0], dtype=dtype.bfloat16)
+            self.qnope_scale = Tensor([0], dtype=dtype.bfloat16)
+        self.qk_descale = None
+        self.pv_descale = None
+        if not self.use_ringmla:
+            self.cache_mode = 0
+        elif self.is_fa3_quant_layer:
+            self.cache_mode = 2 # fa3 quant layers
+        elif self.fa3_quant:
+            self.cache_mode = 3 # fa3 no quant layers, kvcache also need nz
+        else:
+            self.cache_mode = 1
 
     def process_weights_after_loading(self) -> None:
         """
@@ -557,6 +599,21 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.q_up_proj_input_scale = self.linear_q_up_proj.input_scale
             self.qkv_down_beta = self.linear_qkv_down_proj.beta
             self.q_up_beta = self.linear_q_up_proj.beta
+        self.qkv_down_proj_input_offset = Tensor(self.linear_qkv_down_proj.input_offset.asnumpy(),
+                                                 dtype=dtype.int8)
+        self.q_up_proj_input_offset = Tensor(self.linear_q_up_proj.input_offset.asnumpy(),
+                                             dtype=dtype.int8)
+        if not self.is_fa3_quant_layer:
+            return
+        qnope_scale = self.qnope_scale.asnumpy()
+        ctkv_scale = self.ctkv_scale.asnumpy()
+        qk_descale = ctkv_scale.astype(np.float32) * qnope_scale.astype(np.float32)
+        pv_descale = np.repeat(ctkv_scale, qnope_scale.shape[0])
+        self.quant_ctkv_scale = Tensor(1.0/ctkv_scale, dtype=self.compute_dtype)
+        self.ctkv_scale = Parameter(Tensor(ctkv_scale, dtype=self.compute_dtype), name=self.ctkv_scale.name)
+        self.qnope_scale = Parameter(Tensor(1.0/qnope_scale, dtype=self.compute_dtype), name=self.qnope_scale.name)
+        self.qk_descale = ms.from_numpy(qk_descale)
+        self.pv_descale = ms.from_numpy(pv_descale)
 
     def get_query_key_value_tensors(
             self,
@@ -575,12 +632,15 @@ class FusedMLASelfAttention(MLASelfAttention):
             kv_compressed, k_pos_emb, q_no_pe, q_pos_emb = \
                 self.compute_kv(hidden_states, batch_valid_length, rotary_pos_cos, rotary_pos_sin)
             if self.use_ringmla:
-                key_out = self.core_attention.reshape_and_cache(kv_compressed, key_cache=key_cache,
-                                                                slot_mapping=slot_mapping)
-                rope_out = self.core_attention.reshape_and_cache(k_pos_emb, key_cache=value_cache,
-                                                                 slot_mapping=slot_mapping)
-                q_no_pe = self.depend(q_no_pe, key_out)
-                q_no_pe = self.depend(q_no_pe, rope_out)
+                if self.is_fa3_quant_layer:
+                    quant_kv_compressed = self.quant(kv_compressed, self.quant_ctkv_scale, self.ctkv_offset, False,
+                                                     "ROUND", dtype.int8)
+                    kv_out = ms_custom_ops.reshape_and_cache(quant_kv_compressed, k_pos_emb, key_cache, value_cache,
+                                                             slot_mapping, 1)
+                else:
+                    kv_out = ms_custom_ops.reshape_and_cache(kv_compressed, k_pos_emb, key_cache, value_cache,
+                                                             slot_mapping, 1)
+                q_no_pe = self.depend(q_no_pe, kv_out)
             else:
                 key_states_cache = mint.cat((kv_compressed, k_pos_emb), dim=-1)
                 key_out = self.core_attention.reshape_and_cache(key_states_cache, key_cache=key_cache,
@@ -615,13 +675,13 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.input_layernorm_weight,
             self.qkv_down_beta,
             self.qkv_down_proj_input_scale,
-            self.linear_qkv_down_proj.input_offset,
+            self.qkv_down_proj_input_offset,
             self.linear_qkv_down_proj.weight,
             self.linear_qkv_down_proj.quant_bias,
             self.q_layernorm_weight,
             self.q_up_beta,
             self.q_up_proj_input_scale,
-            self.linear_q_up_proj.input_offset,
+            self.q_up_proj_input_offset,
             self.kv_layernorm.weight,
             rotary_pos_sin,
             rotary_pos_cos,
@@ -637,7 +697,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.ctkv_scale,
             self.qnope_scale,
             key_cache if not self.use_ringmla else value_cache,
-            0 if not self.use_ringmla else 1)
+            self.cache_mode)
         if self.use_ringmla:
             return states[0], states[2], None, None, None, out_absorb
         query_states = states[0]
@@ -720,9 +780,10 @@ class FusedMLASelfAttention(MLASelfAttention):
                     calc_type=0, #"CALC_TYPE_FISRT_RING",
                     )
         else:
-            core_attn_out, _ = self.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None, None, None,
+            core_attn_out, _ = self.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
+                                        self.qk_descale, self.pv_descale,
                                         q_seq_lens, batch_valid_length, self.num_attention_heads_per_partition,
-                                        self.scale_value, 1)
+                                        self.scale_value, 1, "MASK_NONE", 0, self.cache_mode)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
             core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
@@ -736,3 +797,31 @@ class FusedMLASelfAttention(MLASelfAttention):
         output = self.linear_proj(core_attn_out)
 
         return output
+
+    def weight_loader(self, param, loaded_weight):
+        """
+        Load and partition weights for FusedMLASelfAttention.
+
+        This method handles the loading of weights that have been partitioned along the output dimension
+        according to tensor parallelism. Each rank loads its corresponding shard of the weight matrix.
+
+        Args:
+            param: The parameter tensor to load weights into.
+            loaded_weight: The full weight tensor loaded from checkpoint.
+
+        """
+        tp_rank = self.tp.rank
+        shard_dim = getattr(param, "output_dim", None)
+        shard_size = self.num_attention_heads_per_partition
+        start_idx = tp_rank * shard_size
+        if shard_dim is not None:
+            loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+        else:
+            loaded_weight = loaded_weight[:]
+        loaded_weight = loaded_weight.squeeze(-1)
+        if param.shape == loaded_weight.shape:
+            param.set_data(ms.from_numpy(loaded_weight))
+        else:
+            raise ValueError(
+                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
