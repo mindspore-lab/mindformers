@@ -16,7 +16,6 @@
 from mindspore import Tensor
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
@@ -38,7 +37,7 @@ class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
 
     def __init__(self, config: Qwen3Config):
         super().__init__(config, auto_prefix=False)
-        config: TransformerConfig = convert_to_transformer_config(self.config)
+        config: TransformerConfig = self.convert_to_transformer_config(self.config)
 
         self.model = GPTModel(
             config=config,

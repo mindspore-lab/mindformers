@@ -334,7 +334,7 @@ class MFModelConfig:
     It will be converted to `fp32_residual_connection` in `TransformerConfig`.
     """
 
-    print_separate_loss: bool = False
+    print_separate_loss: bool = True
     """Print lm_loss, extra_loss and mtp_loss separately."""
 
     #################################################

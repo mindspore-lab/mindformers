@@ -19,7 +19,6 @@ from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
     get_gpt_mtp_block_spec, get_gpt_layer_local_spec
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 
 from .configuration_deepseek_v3 import DeepseekV3Config
@@ -30,7 +29,7 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
 
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
-        transformer_config = convert_to_transformer_config(config, is_mla_model=True)
+        transformer_config = self.convert_to_transformer_config(config, is_mla_model=True)
         if transformer_config.num_moe_experts:
             transformer_layer_spec = get_gpt_decoder_block_spec(transformer_config)
         else:

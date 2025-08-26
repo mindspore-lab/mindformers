@@ -48,7 +48,7 @@ _CHECK_TEXT_MAPPING = {
     'eval_epoch_interval', 'eval_dataset', 'eval_dataset_task', 'lr_schedule', 'metric', 'model', 'moe_config',
     'optimizer', 'parallel_config', 'parallel', 'recompute_config', 'remove_redundancy', 'runner_config',
     'runner_wrapper', 'monitor_config', 'tensorboard', 'train_dataset_task', 'train_dataset', 'trainer',
-    'swap_config', 'use_legacy', 'pretrained_model_dir'
+    'swap_config', 'use_legacy', 'pretrained_model_dir', 'print_separate_loss'
 }
 
 def generator_train():

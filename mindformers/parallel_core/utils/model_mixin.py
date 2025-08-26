@@ -16,4 +16,4 @@
 
 
 class TrainModelMixin:
-    pass
+    """General interfaces for train models."""

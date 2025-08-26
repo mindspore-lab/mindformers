@@ -239,6 +239,7 @@ class GeneralConfig(Config):
     run_mode = None
     use_parallel = False
     resume_training = False
+    print_separate_loss = True
 
     # checkpoint
     load_checkpoint = ""

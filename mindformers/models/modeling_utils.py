@@ -51,6 +51,7 @@ from mindformers.tools.utils import (
     barrier_world,
     FILE_PERMISSION
 )
+from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 from .configuration_utils import PretrainedConfig
@@ -198,6 +199,9 @@ class ModelMixin:
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
     """
 
+    def __init__(self):
+        self.transformer_config = None
+
     def convert_name(self, weight_name):
         r"""
         convert HuggingFace weight name to MindFormers weight name.
@@ -223,6 +227,31 @@ class ModelMixin:
             "A model class needs to define a `set_dynamic_inputs`"
             " method in order to use `model.set_inputs()`."
         )
+
+    def convert_to_transformer_config(self, model_config, is_mla_model: bool = False, additional_map: dict = None,
+                                      not_convert_whitelist: set = None):
+        self.transformer_config = convert_to_transformer_config(
+            model_config, is_mla_model, additional_map, not_convert_whitelist
+        )
+        return self.transformer_config
+
+    def get_gpt_transformer_config(self):
+        """
+        Get the transformer config for GPT model
+        """
+        if self.transformer_config is None:
+            raise ValueError("Please call `convert_to_transformer_config` in Model before get gpt transformer config.")
+        return self.transformer_config
+
+    def is_mtp_model(self):
+        """Check whether the model is a multi-token prediction model."""
+        mtp_num_layers = self.get_gpt_transformer_config().mtp_num_layers
+        return bool(mtp_num_layers and mtp_num_layers > 0)
+
+    def is_moe_model(self):
+        """Check whether the model is a moe model."""
+        num_moe_experts = self.get_gpt_transformer_config().num_moe_experts
+        return bool(num_moe_experts and num_moe_experts > 0)
 
     def get_gpt_model(self):
         """
