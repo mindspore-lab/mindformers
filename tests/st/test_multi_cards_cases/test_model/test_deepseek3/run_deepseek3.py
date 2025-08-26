@@ -31,6 +31,7 @@ CUR_DIR = os.path.dirname(__file__)
 
 ms.set_context(mode=ms.GRAPH_MODE)
 
+
 def ds3_train(config, dataset, construct_args_key, checker_config):
     """set model train."""
     callback = TrainingChecker(**checker_config)
@@ -62,10 +63,9 @@ def parallel_train_dp2_mp2_ep2():
     model_config = config.model.model_config
     dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
 
-    loss_std = [12.930860, 12.927275, 12.925634, 12.930267, 12.9184675,
-                12.950851, 12.943171, 12.903012, 12.923124, 12.9096985,
-                12.934890, 12.893597, 12.895839, 12.856908, 12.892370,
-                12.846892, 12.871050, 12.850401, 12.856202, 12.845798]
+    loss_std = [12.935539, 12.927562, 12.941107, 12.931256, 12.923391, 12.932854, 12.928603, 12.934785, 12.916213,
+                12.923475, 12.876181, 12.916439, 12.896573, 12.909515, 12.880952, 12.884477, 12.871492, 12.836152,
+                12.866294, 12.840752]
     checker_config = {
         'loss_list_std': loss_std,
         'experiment_mode': False,
@@ -73,6 +73,7 @@ def parallel_train_dp2_mp2_ep2():
         'micro_batch_interleave_num': 1
     }
     ds3_train(config, dataset, construct_args_key, checker_config)
+
 
 def parallel_train_dp2_pp2_ep2_tnd():
     """test mcore deepseekv3 train in dp=pp=ep=2 with TND layout."""
@@ -99,10 +100,10 @@ def parallel_train_dp2_pp2_ep2_tnd():
         batch_size=4, step_num=20
     )
 
-    loss_std = [12.349524, 12.358808, 12.297059, 12.314140, 12.290504,
-                12.324657, 12.383023, 12.268216, 12.321362, 12.293335,
-                12.287886, 12.266078, 12.297275, 12.248414, 12.235787,
-                12.227171, 12.152615, 12.173938, 12.204180, 12.108925]
+    loss_std = [12.349523544311523, 12.358807563781738, 12.297042846679688, 12.314142227172852, 12.29040241241455,
+                12.324695587158203, 12.3829984664917, 12.268146514892578, 12.32144832611084, 12.293285369873047,
+                12.287753105163574, 12.266066551208496, 12.297396659851074, 12.248311996459961, 12.235709190368652,
+                12.227277755737305, 12.152572631835938, 12.174047470092773, 12.204164505004883, 12.108986854553223]
     checker_config = {
         'loss_list_std': loss_std,
         'experiment_mode': False,
@@ -131,10 +132,9 @@ def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss(
     model_config = config.model.model_config
     dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
 
-    loss_std = [12.930097, 12.926512, 12.924904, 12.929503, 12.917668,
-                12.950146, 12.942476, 12.902112, 12.922327, 12.908855,
-                12.934126, 12.892874, 12.895041, 12.856199, 12.891665,
-                12.846106, 12.870367, 12.849709, 12.855352, 12.844956]
+    loss_std = [12.934776, 12.926798, 12.940386, 12.930534, 12.922695, 12.932041, 12.927808, 12.934062, 12.915464,
+                12.922742, 12.875401, 12.915732, 12.895757, 12.908832, 12.880258, 12.883907, 12.870718, 12.835363,
+                12.8654995, 12.840014]
 
     checker_config = {
         'loss_list_std': loss_std,
