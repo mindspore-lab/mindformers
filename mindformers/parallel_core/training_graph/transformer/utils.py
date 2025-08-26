@@ -21,7 +21,7 @@ import mindspore as ms
 from mindspore.ops import operations as P
 from mindspore import nn, Tensor
 from mindformers.tools.logger import logger
-from mindformers.modules.transformer import TransformerSwapConfig
+from mindformers.modules.transformer import TransformerSwapConfig, TransformerRecomputeConfig
 from mindformers.core.context import is_legacy_model
 
 # pylint: disable=W0212
@@ -111,12 +111,23 @@ class LayerSetting:
         if self.use_legacy:
             default_patterns = [r'feed_forward\.mul', r'feed_forward\.w1\.activation\.silu']
             self.swap = parallel_config.swap
+            self.recompute = parallel_config.recompute
         else:
             default_patterns = [r'mlp\.shared_experts\.mul', r'mlp\.shared_experts\.activation_func\.silu',
                                 r'mlp\.mul', r'mlp\.activation_func\.silu']
             self.swap = TransformerSwapConfig(swap=parallel_config.cpu_offloading,
                                               layer_swap=parallel_config.cpu_offloading_num_layers,
                                               op_swap=parallel_config.op_swap)
+            self.recompute = TransformerRecomputeConfig(
+                recompute=parallel_config.recompute,
+                select_recompute=parallel_config.select_recompute,
+                parallel_optimizer_comm_recompute=parallel_config.parallel_optimizer_comm_recompute,
+                select_comm_recompute=parallel_config.select_comm_recompute,
+                mp_comm_recompute=parallel_config.mp_comm_recompute,
+                recompute_slice_activation=parallel_config.recompute_slice_activation,
+                select_recompute_exclude=parallel_config.select_recompute_exclude,
+                select_comm_recompute_exclude=parallel_config.select_comm_recompute_exclude
+            )
         default_comm_patterns = [r'.*\.norm']
         default_off_patterns = []
         default_comm_off_patterns = []
@@ -135,7 +146,6 @@ class LayerSetting:
                 self.pp = parallel_config.pipeline_stage
             else:
                 self.pp = parallel_config.pipeline_model_parallel_size
-        self.recompute = parallel_config.recompute
         self.backward_prefetch = 'backward_prefetch'
         self.layers = 'layers'
         self.gradient_aggregation_group = parallel_config.gradient_aggregation_group
