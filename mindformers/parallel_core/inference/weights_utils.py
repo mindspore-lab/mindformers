@@ -56,6 +56,8 @@ def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
     """
     if shard_dim is None:
         loaded_weight = loaded_weight[:]
+        loaded_weight = loaded_weight.astype(np.float16) \
+            if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
         return loaded_weight
 
     end_idx = start_idx + shard_size

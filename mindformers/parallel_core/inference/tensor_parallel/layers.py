@@ -486,8 +486,9 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[1])} and "
                 f"the shape of weight is{loaded_weight.shape}")
+        loaded_shard_num = 2 #gating/hidden
         if (is_310p() or self.config.use_fused_mla) and param.name.endswith("weight"):
-            self.format_to_nz(param, 2)
+            self.format_to_nz(param, loaded_shard_num)
 
 
 class QKVParallelLinear(ColumnParallelLinear):
@@ -606,8 +607,9 @@ class QKVParallelLinear(ColumnParallelLinear):
                     f" but got the shape of param is {(shard_size,)} and "
                     f"the shape of weight is{loaded_weight.shape}")
         param[shard_offset:shard_offset + shard_size] = loaded_weight
+        loaded_shard_num = 3 #q/k/v
         if is_310p() and param.name.endswith("weight"):
-            self.format_to_nz(param, 3)
+            self.format_to_nz(param, loaded_shard_num)
 
 
 class RowParallelLinear(LinearBase):
