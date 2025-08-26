@@ -13,9 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Activations."""
-from mindspore import nn, ops
-
-from mindformers.version_control import check_valid_big_kernel
+from mindspore import nn
 
 
 class SiLU(nn.Cell):
@@ -31,18 +29,9 @@ class SiLU(nn.Cell):
 
     def __init__(self):
         super().__init__()
-        if check_valid_big_kernel():
-            # pylint: disable=W0212
-            self.silu = nn.SiLU()
-            self.self_define = False
-        else:
-            self.sigmoid = ops.Sigmoid()
-            self.mul = ops.Mul()
-            self.silu = self._self_silu
-            self.self_define = True
-
-    def _self_silu(self, x):
-        return self.mul(x, self.sigmoid(x))
+        # pylint: disable=W0212
+        self.silu = nn.SiLU()
+        self.self_define = False
 
     def construct(self, x):
         return self.silu(x)

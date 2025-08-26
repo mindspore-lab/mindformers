@@ -32,7 +32,6 @@ from mindspore import log as logger
 from mindspore.common.initializer import initializer, Normal
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
-from mindformers.version_control import check_valid_big_kernel
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, \
     _valid_value_checks
@@ -56,18 +55,9 @@ class LlamaSiLU(Cell):
 
     def __init__(self):
         super().__init__()
-        if check_valid_big_kernel():
-            # pylint: disable=W0212
-            self.silu = P._inner_ops.SiLU()
-            self.self_define = False
-        else:
-            self.sigmoid = P.Sigmoid()
-            self.mul = P.Mul()
-            self.silu = self._self_silu
-            self.self_define = True
-
-    def _self_silu(self, x):
-        return self.mul(x, self.sigmoid(x))
+        # pylint: disable=W0212
+        self.silu = P._inner_ops.SiLU()
+        self.self_define = False
 
     def construct(self, x):
         return self.silu(x)

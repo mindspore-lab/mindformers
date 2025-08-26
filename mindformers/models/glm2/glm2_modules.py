@@ -24,7 +24,7 @@ from mindspore import nn, ops, Parameter, Tensor, log as logger
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
-from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_valid_big_kernel
+from mindformers.version_control import check_rmsnorm_big_kernel_valid
 from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.models.glm2.glm2_config import ChatGLM2Config
 
@@ -273,15 +273,10 @@ class ChatGLM2SiLU(nn.Cell):
 
     def __init__(self):
         super(ChatGLM2SiLU, self).__init__()
-        if check_valid_big_kernel():
-            # pylint: disable=W0212
-            self.silu = P._inner_ops.SiLU()
-            self.self_define = False
-        else:
-            self.sigmoid = P.Sigmoid()
-            self.mul = P.Mul()
-            self.silu = self._self_silu
-            self.self_define = True
+        # pylint: disable=W0212
+        self.silu = P._inner_ops.SiLU()
+        self.self_define = False
+
 
     def shard(self, strategy):
         """shard"""
@@ -290,9 +285,6 @@ class ChatGLM2SiLU(nn.Cell):
             self.mul.shard((strategy[0], strategy[0]))
         else:
             self.silu.shard(strategy)
-
-    def _self_silu(self, x):
-        return self.mul(x, self.sigmoid(x))
 
     def construct(self, x):
         """construct"""
