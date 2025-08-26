@@ -24,3 +24,10 @@ mindformers/mindformers/trainer/trainer.py:__init__
 mindformers/mindformers/trainer/trainer.py:train
 mindformers/mindformers/trainer/trainer.py:finetune
 mindformers/mindformers/utils/load_checkpoint_utils.py:load_checkpoint_with_safetensors
+mindformers/mindformers/modules/transformer/transformer.py:__init__
+mindformers/mindformers/modules/layers.py:__init__
+mindformers/mindformers/generation/logits_process.py:check_params
+mindformers/mindformers/model_runner.py:__init__
+mindformers/mindformers/modules/transformer/moe.py:__init__
+mindformers/mindformers/models/llama/llama_layer.py:__init__
+mindformers/research/deepseek3/deepseek2_config.py:__init__
