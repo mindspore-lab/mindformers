@@ -348,9 +348,6 @@ class _BaseAutoModelClass:
 
         if isinstance(config, MindFormerConfig):
             config_args = config
-            if isinstance(config_args.parallel_config, dict):
-                config_args.parallel_config = TransformerOpParallelConfig(
-                    **config_args.parallel_config)
         elif isinstance(config, str) and os.path.exists(config) and config.endswith(".yaml"):
             config_args = MindFormerConfig(config)
         elif isinstance(config, PretrainedConfig):
@@ -368,6 +365,9 @@ class _BaseAutoModelClass:
         if config_args.get("generation_config", None):
             config_args.model.generation_config = config_args.generation_config
         if config_args.get("parallel_config", None):
+            if isinstance(config_args.parallel_config, dict):
+                config_args.parallel_config = TransformerOpParallelConfig(
+                    **config_args.parallel_config)
             config_args.model.model_config.parallel_config = config_args.parallel_config
         model = build_network(config_args.model)
         logger.info("model built successfully!")
