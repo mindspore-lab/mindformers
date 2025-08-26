@@ -598,7 +598,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                                  f"than 'num_layers'({self.num_layers}).")
 
         if isinstance(self.rope_scaling, dict):
-            self.position_embedding_type = self.rope_scaling.pop("type")
+            self.position_embedding_type = (self.rope_scaling.pop("type", None) or
+                                            self.rope_scaling.pop("rope_type", None))
             self.rotary_scaling_factor = self.rope_scaling.pop("factor")
             self.max_position_embeddings = self.rope_scaling.pop("original_max_position_embeddings",
                                                                  None) or self.seq_length
