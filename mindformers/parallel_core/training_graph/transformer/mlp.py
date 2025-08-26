@@ -121,7 +121,7 @@ class MLP(nn.Cell):
             init_method=self.output_layer_init_method
         )
 
-        self.split = SplitWithSize().add_prim_attr("skip_redistribution", True)
+        self.split = SplitWithSize()
         self.reshape = Reshape()
         self.add = AddExt()
 
@@ -160,7 +160,7 @@ class MLP(nn.Cell):
         """ shard function of mlp block. """
         self.add.shard((layout("cp", "dp", "tp"), layout("tp",)))
         if self.gated_linear_unit:
-            self.split.shard((layout("cp", "dp", "tp"),))
+            self.split.shard((layout("cp", "dp", "tp"),)).add_prim_attr("skip_redistribution", True)
             self.mul.shard((layout("cp", "dp", "tp"), layout("cp", "dp", "tp")))
             if self.activation_type == 'swiglu':
                 self.activation_func.split.add_prim_attr("skip_redistribution", True)

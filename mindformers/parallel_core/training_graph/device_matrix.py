@@ -47,7 +47,9 @@ class LayoutManager:
         comm_group = {
             "cp_tp": ("cp", "tp"),
             "cp_dp": ("cp", "dp"),
-            "dp_cp": ("dp", "cp")
+            "dp_cp": ("dp", "cp"),
+            "dp_tp": ("dp", "tp"),
+            "dp_cp_tp": ("dp", "cp", "tp")
         }
 
         if self._layout is None:
@@ -160,12 +162,9 @@ class MoeLayoutManager(LayoutManager):
     def __call__(self, *args, **kwargs):
         """MoE-specific communication group mapping"""
         moe_comm_group = {
-            "cp_tp": ("cp", "tp"),
             "cp_dp": ("cp", "dp_ex_ep", "ep"),
             "dp": ("dp_ex_ep", "ep"),
             "dp_cp": ("dp_ex_ep", "ep", "cp"),
-            "dp_cp_tp": ("dp_ex_ep", "cp", "tp"),
-            "dp_ep_cp_tp": ("dp_ex_ep", "ep", "cp", "tp")
         }
 
         if self._layout is None:
@@ -216,11 +215,12 @@ class MoeLayoutManager(LayoutManager):
             return self._layout
 
         parallel_config = self.get_parallel_config(config)
+        dp = parallel_config['dp'] * parallel_config['tp']
         ep = parallel_config['ep']
-        dp_ex_ep = parallel_config['dp'] // ep
+        dp_ex_ep = dp // ep
 
-        dev_mat = (dp_ex_ep, ep, parallel_config['cp'], parallel_config['tp'])
-        self._layout = Layout(dev_mat, ("dp_ex_ep", "ep", "cp", "tp"))
+        dev_mat = (dp_ex_ep, ep, parallel_config['cp'])
+        self._layout = Layout(dev_mat, ("dp_ex_ep", "ep", "cp"))
         self._layout_type = "dp_cp_tp_ep"
         return self._layout
 

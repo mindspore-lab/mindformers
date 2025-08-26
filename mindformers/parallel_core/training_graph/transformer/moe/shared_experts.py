@@ -25,6 +25,7 @@ from mindspore.context import ParallelMode
 
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules, MLPInterleaved
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 class SharedExpertMLP(MLP):
@@ -54,7 +55,7 @@ class SharedExpertMLP(MLP):
         config = deepcopy(config)
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
         super().__init__(config, submodules)
-
+        layout.init_layout(config)
         self.cast = Cast()
         self.use_seq_parallel = config.sequence_parallel
         self.router_dense_type = config.moe_router_dtype
@@ -71,57 +72,25 @@ class SharedExpertMLP(MLP):
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.expert_sharding_propagation(self.parallel_config)
             else:
-                self.expert_gate_shard(config)
-        self.shard(config)
+                self.expert_gate_shard()
 
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of shared_expert_mlp block. """
-        if self.use_seq_parallel:
-            shared_x = self.reshape(hidden_states, (-1, self.dp, hidden_states.shape[-1]))
-            shared_experts_output, output_bias = super().construct(shared_x)
-            shared_experts_output = self.reshape(shared_experts_output,
-                                                 (hidden_states.shape[0], -1, hidden_states.shape[-1]))
-        else:
-            shared_experts_output, output_bias = super().construct(hidden_states)
+        shared_experts_output, output_bias = super().construct(hidden_states)
         if self.use_shared_expert_gate:
             gate = self.sigmoid(self.shared_experts_gate(self.cast(hidden_states, self.router_dense_type)))
             shared_experts_output = self.mul_shared_gate(shared_experts_output, self.cast(gate, self.compute_dtype))
         return shared_experts_output, output_bias
 
-    def expert_gate_shard(self, config: TransformerConfig):
+    def expert_gate_shard(self):
         """ shard function of shared_expert_mlp block. """
-        super().shard(config)
-        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         if self.use_shared_expert_gate:
-            self.sigmoid.shard(((1, dp, 1),))
-            self.mul_shared_gate.shard(((1, dp, 1), (1, dp, 1)))
-            self.shared_experts_gate.matmul.shard(((dp, 1), (1, 1)))
+            self.sigmoid.shard((layout("None", "dp", "None"),))
+            self.mul_shared_gate.shard((layout("None", "dp", "None"), layout("None", "dp", "None")))
+            self.shared_experts_gate.matmul.shard((layout("dp", "None"), layout("None", "None")))
 
     def expert_sharding_propagation(self, config: TransformerConfig):
         super().sharding_propagation(config)
-
-    def shard(self, config: TransformerConfig):
-        """ shard function of shared_expert_mlp block. """
-        if self.gated_linear_unit:
-            dp = config.data_parallel_size if config.data_parallel_size is not None else 1
-            cp = config.context_parallel_size if config.context_parallel_size is not None else 1
-            tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
-            if config.sequence_parallel:
-                dp = dp * tp
-                tp = 1
-
-                mul_in_strategy = ((cp, dp, tp), (cp, dp, tp))
-                self.mul.shard(in_strategy=mul_in_strategy)
-                self.add.shard(((cp, dp, tp), (tp,)))
-                self.linear_fc1.matmul.shard(((dp * cp, 1), (1, tp)))
-                self.linear_fc2.matmul.shard(((dp * cp, tp), (tp, 1)))
-                if self.activation_type == 'swiglu' or self.activation_type == 'silu':
-                    self.activation_func.silu.shard(((cp, dp, 1),))
-                if self.activation_type == 'swiglu':
-                    self.activation_func.slice.shard(((cp, dp, 1),))
-                    self.activation_func.mul.shard(((cp, dp, 1), (cp, dp, 1)))
-                if self.activation_type != 'swiglu':
-                    self.split.shard(((cp, dp, tp),)).add_prim_attr("skip_redistribution", True)
 
 
 class SharedExpertMLPInterleaved(MLPInterleaved):
@@ -151,6 +120,7 @@ class SharedExpertMLPInterleaved(MLPInterleaved):
         config = deepcopy(config)
         config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
         super().__init__(config, submodules)
+        layout.init_layout(config)
 
         self.cast = Cast()
         self.use_seq_parallel = config.sequence_parallel
@@ -168,31 +138,22 @@ class SharedExpertMLPInterleaved(MLPInterleaved):
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.expert_sharding_propagation(self.parallel_config)
             else:
-                self.expert_gate_shard(config)
-        self.shard(config)
+                self.expert_gate_shard()
 
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of shared_expert_mlp block. """
-        if self.use_seq_parallel:
-            shared_x = self.reshape(hidden_states, (-1, self.dp, hidden_states.shape[-1]))
-            shared_experts_output, output_bias = super().construct(shared_x)
-            shared_experts_output = self.reshape(shared_experts_output,
-                                                 (hidden_states.shape[0], -1, hidden_states.shape[-1]))
-        else:
-            shared_experts_output, output_bias = super().construct(hidden_states)
+        shared_experts_output, output_bias = super().construct(hidden_states)
         if self.use_shared_expert_gate:
             gate = self.sigmoid(self.shared_experts_gate(self.cast(hidden_states, self.router_dense_type)))
             shared_experts_output = self.mul_shared_gate(shared_experts_output, self.cast(gate, self.compute_dtype))
         return shared_experts_output, output_bias
 
-    def expert_gate_shard(self, config: TransformerConfig):
+    def expert_gate_shard(self):
         """ shard function of shared_expert_mlp block. """
-        super().shard(config)
-        dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         if self.use_shared_expert_gate:
-            self.sigmoid.shard(((1, dp, 1),))
-            self.mul_shared_gate.shard(((1, dp, 1), (1, dp, 1)))
-            self.shared_experts_gate.matmul.shard(((dp, 1), (1, 1)))
+            self.sigmoid.shard((layout("None", "dp", "None"),))
+            self.mul_shared_gate.shard((layout("None", "dp", "None"), layout("None", "dp", "None")))
+            self.shared_experts_gate.matmul.shard((layout("dp", "None"), layout("None", "None")))
 
     def expert_sharding_propagation(self, config: TransformerConfig):
         super().sharding_propagation(config)

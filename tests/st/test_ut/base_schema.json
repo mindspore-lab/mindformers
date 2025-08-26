@@ -4509,7 +4509,7 @@
         "signature": "(self, hidden_states: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.expert_gate_shard": {
-        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
+        "signature": "(self)"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.expert_sharding_propagation": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"

@@ -47,6 +47,7 @@ class FFNGroupedGEMM(nn.Cell):
     def __init__(self, config: TransformerConfig):
         super(FFNGroupedGEMM, self).__init__()
         self.config = config
+        layout.init_layout(self.config)
         self.num_local_experts = config.num_moe_experts
 
         if config.add_bias_linear:
@@ -159,7 +160,7 @@ class FFNGroupedGEMM(nn.Cell):
         sp = "None"
         mp0 = "None"
         mp1 = "None"
-        dp = "dp_ep_cp_tp"
+        dp = "dp_cp"
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             self.stride_slice.shard((layout(dp, "None", "None"),))
 
