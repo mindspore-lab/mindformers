@@ -161,8 +161,8 @@ def _is_distributed_checkpoint(checkpoint_file, ckpt_format='safetensors'):
 def _get_src_file_suffix(config):
     """get file_suffix from config.load_checkpoint."""
     if isinstance(config.resume_training, str):
-        file_suffix, _ = os.path.splitext(config.resume_training)
-        return config.load_checkpoint, file_suffix
+        epoch, step = get_epoch_and_step_from_ckpt_name(config.resume_training, config.load_ckpt_format)
+        return config.load_checkpoint, f"{epoch}_{step}"
 
     if os.path.isfile(config.load_checkpoint):
         # only support path format: path/rank_x/prefix-{epoch}_{step}.{config.load_ckpt_format}
