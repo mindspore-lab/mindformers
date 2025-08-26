@@ -39,7 +39,7 @@ from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
 from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs, split_loaded_weight,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
-                                                               deal_linear_kv_down_weight)
+                                                               deal_linear_kv_down_weight, cpu_offload_weights_params)
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase, QuantizationConfig
 from mindformers.version_control import is_310p
 from mindformers.models.utils import format_type
@@ -396,6 +396,7 @@ class ColumnParallelLinear(LinearBase):
         param.set_data(ms.from_numpy(loaded_weight))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class MergedColumnParallelLinear(ColumnParallelLinear):
@@ -493,7 +494,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         loaded_shard_num = 2 #gating/hidden
         if (is_310p() or self.config.use_fused_mla) and param.name.endswith("weight"):
             self.format_to_nz(param, loaded_shard_num)
-
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 class QKVParallelLinear(ColumnParallelLinear):
     """Linear layers for the attention's QKV transformation.
@@ -614,6 +615,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         loaded_shard_num = 3 #q/k/v
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param, loaded_shard_num)
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class RowParallelLinear(LinearBase):
@@ -816,6 +818,7 @@ class RowParallelLinear(LinearBase):
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class ReplicatedLinear(LinearBase):
@@ -996,6 +999,7 @@ class ReplicatedLinear(LinearBase):
         if self.config.use_fused_mla and param.name.endswith("weight"):
             move_to_cpu = self.config.use_fused_mla and ms.get_context('mode') == ms.PYNATIVE_MODE
             self.format_to_nz(param, 2, move_to_cpu=move_to_cpu)
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class VocabParallelEmbedding(nn.Cell):
@@ -1030,6 +1034,7 @@ class VocabParallelEmbedding(nn.Cell):
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.sequence_parallel = config.sequence_parallel
+        self.config = config
 
         if quant_config is None:
             self.quant_method = UnquantizedEmbeddingMethod()
@@ -1139,6 +1144,7 @@ class VocabParallelEmbedding(nn.Cell):
 
         param[:loaded_weight.shape[0]] = ms.from_numpy(loaded_weight)
         param[loaded_weight.shape[0]:] = 0
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class UnquantizedEmbeddingMethod(QuantizeMethodBase):

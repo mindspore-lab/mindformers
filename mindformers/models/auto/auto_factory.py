@@ -369,6 +369,8 @@ class _BaseAutoModelClass:
                 config_args.parallel_config = TransformerOpParallelConfig(
                     **config_args.parallel_config)
             config_args.model.model_config.parallel_config = config_args.parallel_config
+        if config_args.get("cpu_offloading_weights", False):
+            config_args.model.cpu_offloading_weights = config_args.cpu_offloading_weights
         model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model

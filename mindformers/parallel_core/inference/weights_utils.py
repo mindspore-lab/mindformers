@@ -22,7 +22,7 @@ from mindspore import Parameter
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
                                                                 get_tensor_model_parallel_rank)
 from mindformers.version_control import is_310p
-
+from mindformers.tools.logger import logger
 
 def set_weight_attrs(
         weight: Parameter,
@@ -227,3 +227,20 @@ def make_expert_params_mapping(
             weight_params_mapping.append(weight_mapping)
             other_params_mapping.append(other_param_mapping)
     return weight_params_mapping, other_params_mapping
+
+
+# pylint: disable=W0212
+def cpu_offload_weights_params(param, cpu_offloading_weights):
+    """
+    Offload parameter weights to CPU memory.
+
+    Args:
+        param: Model parameter object that needs to support _offload() method
+        cpu_offloading_weights: Boolean value controlling whether to enable CPU offloading functionality
+
+    Returns:
+        None
+    """
+    if cpu_offloading_weights:
+        param._offload()
+        logger.debug(f'Offload {param.name} to CPU memory.')
