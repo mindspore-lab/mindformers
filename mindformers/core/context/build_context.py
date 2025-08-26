@@ -352,6 +352,9 @@ class MFContextOperator(MFContextConfig):
             env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = ms_internal_disable_custom_kernel_list
             env['RUN_MODE'] = run_mode
 
+        if run_mode is not None and RunMode(run_mode) in [RunMode.TRAIN, RunMode.FINETUNE] and not use_legacy:
+            env['MS_DEV_JIT_SYNTAX_LEVEL'] = "0"
+
         os.environ.update({k: v for k, v in env.items() if v is not None})
         logger.debug(f"Environment valiables to be set in mindformers context: {env}")
 
