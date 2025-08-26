@@ -36,7 +36,8 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import (
     barrier_world,
     get_output_subpath,
-    set_safe_mode_for_file_or_dir
+    set_safe_mode_for_file_or_dir,
+    is_publicly_accessible_path
 )
 from mindformers.checkpoint.utils import (
     get_checkpoint_iter_dir,
@@ -275,6 +276,10 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         checkpoints_root_path = os.path.realpath(save_checkpoint_path)
     else:
         checkpoints_root_path = get_output_subpath("checkpoint", append_rank=False)
+
+    if not is_publicly_accessible_path(checkpoints_root_path):
+        raise FilePathError("This 'save_checkpoint_megatron_format' feature is not currently supported "
+                            "in 'non-shared storage environments' with multiple hosts.")
     logger.info(f"The root path of saved checkpoints is: '{checkpoints_root_path}'.")
 
     # Generate current iteration saving path.
@@ -329,7 +334,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         remove_model_redundancy = BalancedSaveStrategy(
             network,
             user_prefix=user_prefix,
-            checkpoint_path=save_checkpoint_path,
+            checkpoint_path=checkpoints_root_path,
             filter_func=lambda x: x in list(model_keys),
             file_type='Model'
         )
@@ -353,7 +358,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
             remove_optimizer_redundancy = BalancedSaveStrategy(
                 optimizer,
                 user_prefix=user_prefix,
-                checkpoint_path=save_checkpoint_path,
+                checkpoint_path=checkpoints_root_path,
                 filter_func=lambda x: x not in list(model_keys),
                 file_type='Optimizer'
             )
