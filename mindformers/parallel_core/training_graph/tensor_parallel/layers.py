@@ -21,7 +21,6 @@ __all__ = [
 ]
 
 from typing import List, Optional, Callable
-import copy
 
 import mindspore._checkparam as Validator
 from mindspore import nn, Tensor, ops
@@ -595,47 +594,28 @@ class LinearNoTP(ColumnParallelLinear):
         tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
         disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
         transpose_b (bool): Whether to transpose the weight matrix. Default: True.
-        compute_dtype (dtype): The data type of the computation. Default: dtype.float16.
         init_method (Callable): The initialization method. Default: None
     """
 
-    def __init__(self,
-                 input_size: int,
-                 output_size: int,
-                 config: TransformerConfig,
-                 init_method: Callable = None,
-                 bias: bool = True,
-                 gather_output: bool = False,
-                 stride: int = 1,
-                 keep_master_weight_for_test: bool = False,
-                 skip_bias_add: bool = False,
-                 skip_weight_param_allocation: bool = False,
-                 embedding_activation_buffer: Optional[List[Tensor]] = None,
-                 grad_output_buffer: Optional[List[Tensor]] = None,
-                 is_expert: bool = False,
-                 tp_comm_buffer_name: str = None,
-                 disable_grad_reduce: bool = False,
-                 transpose_b: bool = True,
-                 bias_init: Callable = None
-                 ):
-        config = copy.deepcopy(config)
-        config.tensor_model_parallel_size = 1
-        super().__init__(
-            input_size,
-            output_size,
-            config,
-            init_method,
-            bias,
-            gather_output,
-            stride,
-            keep_master_weight_for_test,
-            skip_bias_add,
-            skip_weight_param_allocation,
-            embedding_activation_buffer,
-            grad_output_buffer,
-            is_expert,
-            tp_comm_buffer_name,
-            disable_grad_reduce,
-            transpose_b,
-            bias_init
+    def shard(self) -> None:
+        """Shard the operators in LinearNoTP."""
+        self.morphed_forward_with_bias.shard(
+            in_strategy=(
+                layout("cp", "dp", "None"),  # input_       [S, B, h]
+                layout("None", "None"),  # weight       [H, h]
+                layout("None"),  # bias         [H]
+            ),
+            out_strategy=(
+                layout("cp", "dp", "None"),  # output       [S, B, H]
+            )
+        )
+
+        self.morphed_forward.shard(
+            in_strategy=(
+                layout("cp", "dp", "None"),  # input_       [S, B, h]
+                layout("None", "None"),  # weight       [H, h]
+            ),
+            out_strategy=(
+                layout("cp", "dp", "None"),  # output       [S, B, H]
+            )
         )
