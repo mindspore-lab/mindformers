@@ -31,7 +31,7 @@ context:
   enable_graph_kernel: False
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
-  max_device_memory: "59GB"
+  max_device_memory: "29GB"
   save_graphs: False
   save_graphs_path: "./graph"
 
