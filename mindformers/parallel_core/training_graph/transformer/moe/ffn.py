@@ -61,9 +61,7 @@ class FFNGroupedGEMM(nn.Cell):
 
         # config.gated_linear_unit=True for MOE module by default.
         # Note: The gated_linear_unit config switch will be supported later.
-        fc1_output_size = 2 * self.config.moe_ffn_hidden_size * self.num_local_experts
-        fc2_input_size = self.config.moe_ffn_hidden_size * self.num_local_experts
-        self.intermediate_size = self.config.moe_ffn_hidden_size
+        self.moe_ffn_hidden_size = self.config.moe_ffn_hidden_size
         self.hidden_size = config.hidden_size
 
         self.compute_dtype = config.compute_dtype
@@ -74,11 +72,14 @@ class FFNGroupedGEMM(nn.Cell):
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
 
         # parameters
+        # The weight1's shape in Megatron-LM GroupedMLP is (hidden_size, num_local_experts * moe_ffn_hidden_size * 2)
+        # The weight2's shape in Megatron-LM GroupedMLP is (hidden_size, num_local_experts * moe_ffn_hidden_size)
+        # To load same weight in Megatron-LM, we need to reshape the weight1 and weight2 to its shape.
         self.weight1 = Parameter(
-            self.init_method([self.hidden_size, fc1_output_size]),
+            self.init_method([self.num_local_experts * self.hidden_size, self.moe_ffn_hidden_size * 2]),
             name='w1')
         self.weight2 = Parameter(
-            self.init_method([fc2_input_size, self.hidden_size]),
+            self.init_method([self.num_local_experts * self.moe_ffn_hidden_size, self.hidden_size]),
             name='w2')
 
         # init token dispatcher
@@ -118,8 +119,6 @@ class FFNGroupedGEMM(nn.Cell):
         w1 = self.cast_op(self.weight1, dtype)
         w2 = self.cast_op(self.weight2, dtype)
         # reshape w1 and w2 to [E, h, H] and [E, H, h]
-        w1 = self.reshape(w1, (self.num_local_experts, self.hidden_size, 2 * self.intermediate_size))
-        w2 = self.reshape(w2, (self.num_local_experts, self.intermediate_size, self.hidden_size))
         output = self.morphed_forward(tokens, probs, routing_map, w1, w2)
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             output = self.stride_slice(output, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
@@ -127,6 +126,9 @@ class FFNGroupedGEMM(nn.Cell):
 
     def forward_func(self, tokens, probs, routing_map, w1, w2):
         """Morphed forward."""
+        w1 = self.reshape(w1, (-1, self.hidden_size, self.moe_ffn_hidden_size * 2))
+        w2 = self.reshape(w2, (-1, self.moe_ffn_hidden_size, self.hidden_size))
+
         dispatched_input, tokens_per_expert, ctx = \
             self.token_dispatcher.token_permutation(tokens, probs, routing_map)
 
@@ -159,7 +161,6 @@ class FFNGroupedGEMM(nn.Cell):
         inner_dp = "ep"
         sp = "None"
         mp0 = "None"
-        mp1 = "None"
         dp = "dp_cp"
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             self.stride_slice.shard((layout(dp, "None", "None"),))
@@ -169,8 +170,8 @@ class FFNGroupedGEMM(nn.Cell):
                 layout(dp, sp, mp0),  # tokens       [B, S, h]
                 layout(dp, sp, mp0),  # probs        [B, S, k]
                 layout(dp, sp, mp0),  # routing_map  [B, S, k]
-                layout(inner_dp, mp0, mp1),  # w1  [E, h, H]
-                layout(inner_dp, mp1, mp0),  # w2  [E, H, h]
+                layout(inner_dp, mp0),  # w1  [E, h, H]
+                layout(inner_dp, mp0),  # w2  [E, H, h]
             ),
             out_strategy=(
                 layout(dp, sp, mp0),  # output       [B, S, h]
