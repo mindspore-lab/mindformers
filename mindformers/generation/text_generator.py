@@ -35,7 +35,6 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    TemperatureLogitsWarper, TopKLogitsWarper,
                                                    TopPLogitsWarper, MinLengthLogitsProcessor,
                                                    MinNewTokensLengthLogitsProcessor)
-from mindformers import version_control
 from mindformers.core.context import is_legacy_model
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
@@ -89,9 +88,8 @@ class GenerationMixin:
         self.detailed_latency = DetailedLatency()
         self.profile = Profiling()
         self.block_mgr = None
-        self.use_mint_op = version_control.use_mint_op()
         self.is_pynative = is_pynative()
-        self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
+        self.argmax = mint.argmax
         self._pre_set_phase = None
         self._exec_add_flags = True
         self.gather = P.Gather()
@@ -1628,7 +1626,7 @@ class GenerationMixin:
             next_logits_cache, cache for logits, if needed in output.
             is_finished, whether the sequence has completed its generation task.
         """
-        if self.use_mint_op and not self.is_pynative:
+        if not self.is_pynative:
             from mindspore.common.api import _pynative_executor
             _pynative_executor.set_async_for_graph(True)
         batch_size = input_ids.shape[0]
@@ -1722,7 +1720,7 @@ class GenerationMixin:
 
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
-        if self.use_mint_op and not self.is_pynative:
+        if not self.is_pynative:
             from mindspore.common.api import _pynative_executor
             _pynative_executor.sync()
             _pynative_executor.set_async_for_graph(False)

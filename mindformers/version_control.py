@@ -212,16 +212,9 @@ def check_rmsnorm_big_kernel_valid():
     return False
 
 
-def use_mint_op():
-    """Check whether ms.mint op is valid or not"""
-    version_info = ms.__version__.split('rc')
-    return is_version_ge(version_info[0], '2.3.0') and ms.__version__ != '2.3.0rc1'
-
-
 def check_valid_gmm_op(gmm_version=None):
     """check mindspore version is valid for groupedmatmul"""
-    version_map = {"GroupedMatmul": "2.3.0",
-                   "GroupedMatmulV4": "2.6.0"}
+    version_map = {"GroupedMatmulV4": "2.6.0"}
     version_info = ms.__version__.split('rc')
     version_valid = is_version_ge(version_info[0], version_map.get(gmm_version))
     if version_valid is None:
@@ -229,16 +222,6 @@ def check_valid_gmm_op(gmm_version=None):
     if not version_valid:
         logger.warning(f"Current MindSpore do not support {gmm_version}, "
                        f"please upgrade to {version_valid} or later version.")
-        return False
-    return True
-
-
-def check_valid_moefinalizerouting_op():
-    """check mindspore version is valid for groupedmatmul"""
-    version_valid = is_version_ge(ms.__version__, "2.3.0")
-    if not version_valid:
-        logger.warning(f"Current MindSpore do not support MoeFinalizeRouting, "
-                       f"please upgrade to 2.3.0 or later version.")
         return False
     return True
 
