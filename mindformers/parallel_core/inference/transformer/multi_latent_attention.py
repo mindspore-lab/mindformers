@@ -762,6 +762,18 @@ class FusedMLASelfAttention(MLASelfAttention):
                                                Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
                 r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
                                                Tensor([1, self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
+                # fa3_quant kvcache format is nz (shape is three dims)
+                # paged_cache_load + nz now has error in the network
+                # by the reshape ops, Identity ops is inserted for nz to nd
+                # to temporarily avoid paged_cache_load errors
+                if self.fa3_quant:
+                    num_blocks, block_size, _ = key_cache.shape
+                    key_cache = key_cache.reshape(num_blocks, block_size, 1, self.config.kv_lora_rank)
+                    value_cache = value_cache.reshape(num_blocks, block_size, 1, self.config.qk_pos_emb_head_dim)
+                # for fa3_quant_layer, need to dequant the key_cache
+                if self.is_fa3_quant_layer:
+                    key_cache = self.cast(key_cache, dtype.bfloat16)
+                    key_cache = key_cache / self.quant_ctkv_scale
                 load_out = ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
                                                           context_lens_tensor, k_cache, r_cache)
                 k_cache = self.depend(k_cache, load_out)
@@ -783,7 +795,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             core_attn_out, _ = self.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
                                         self.qk_descale, self.pv_descale,
                                         q_seq_lens, batch_valid_length, self.num_attention_heads_per_partition,
-                                        self.scale_value, 1, "MASK_NONE", 0, self.cache_mode)
+                                        self.scale_value)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
             core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
