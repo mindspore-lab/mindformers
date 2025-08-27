@@ -157,7 +157,12 @@ class MegatronDatasetBuilder:
                 logger.info(f"This rank is {global_rank_id}, tensor parallel = {tp}, \
                             pipeline stage = {global_rank_id//(dp *tp )}, this rank will build empty data.")
                 source = MockBlendedMegatron(blended_config, sizes[0])
-                gen_dataset = GeneratorDataset(source, column_names=source.cols(), shuffle=False)
+                gen_dataset = GeneratorDataset(
+                    source,
+                    column_names=source.cols(),
+                    shuffle=False,
+                    num_shards=num_shards,
+                    shard_id=shard_id)  # keep the same sharding as real dataset
                 skip_barrier_controller(times=2)
         else:
             gen_dataset = build_gpt_dataset()
