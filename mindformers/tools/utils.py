@@ -153,7 +153,8 @@ def sync_trans(f):
 def get_output_root_path():
     """get default output path in local/AICC."""
     path = os.getenv("LOCAL_DEFAULT_PATH", './output')
-    return os.path.expanduser(path)
+    expanduser_path = os.path.expanduser(path)
+    return os.path.realpath(expanduser_path)
 
 
 @args_type_check(path=str)
@@ -162,8 +163,9 @@ def set_output_path(path):
     from .logger import logger
     if path is None:
         path = './output'
-    os.environ['LOCAL_DEFAULT_PATH'] = os.path.expanduser(path)
-    logger.info(f"set output path to '{os.path.abspath(os.path.expanduser(path))}'")
+    expanduser_path = os.path.expanduser(path)
+    os.environ['LOCAL_DEFAULT_PATH'] = os.path.realpath(expanduser_path)
+    logger.info(f"set output path to '{os.path.realpath(expanduser_path)}'")
 
 
 def set_strategy_save_path(config):
