@@ -21,7 +21,7 @@ import mindspore as ms
 from mindspore import nn, mint
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
-from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
+from mindspore._c_expression import MSContext
 from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.utils import get_predict_run_mode
@@ -29,40 +29,23 @@ from .tools.utils import is_version_ge
 from .tools.logger import logger
 
 
-def get_ascend_soc_version():
-    """Get ascend soc version."""
-    if is_version_ge(ms.__version__, "2.2.0"):
-        from mindspore._c_expression import MSContext
-        return MSContext.get_instance().get_ascend_soc_version()
-    ascend_chip_type = os.getenv("ASCEND_CHIP_TYPE", "UNSET")
-    if ascend_chip_type not in ["910a", "910b", "UNSET"]:
-        raise EnvironmentError(f"ASCEND_CHIP_TYPE should be in ['910a', '910b'],but get {ascend_chip_type}")
-    if ascend_chip_type == "UNSET":
-        logger.info("Environment variables need to be set manually to obtain the chip type,"
-                    "which can be set as follows: \n"
-                    "For Atlas 800, run 'export ASCEND_CHIP_TYPE=910a' before the program runs.\n"
-                    "For Atlas 800T A2, run 'export ASCEND_CHIP_TYPE=910b' before the program runs.\n"
-                    "If you need to get chip information automatically, MindSpore 2.2 and above is recommended")
-    return ascend_chip_type
-
-
 def is_910a():
-    device = get_ascend_soc_version()
+    device = MSContext.get_instance().get_ascend_soc_version()
     return device in ['910a', 'ascend910']
 
 
 def is_910b():
-    device = get_ascend_soc_version()
+    device = MSContext.get_instance().get_ascend_soc_version()
     return device in ['910b', 'ascend910b']
 
 
 def is_310p():
-    device = get_ascend_soc_version()
+    device = MSContext.get_instance().get_ascend_soc_version()
     return device in ['310p', 'ascend310p']
 
 
 def need_nz():
-    device = get_ascend_soc_version()
+    device = MSContext.get_instance().get_ascend_soc_version()
     return device in ['310p', 'ascend310p', '910a', 'ascend910']
 
 
@@ -79,15 +62,6 @@ def get_predict_lazy_inline(func):
             func(*args, **kwargs)
 
     return decorator
-
-
-def check_lazy_inline_version():
-    if not is_version_ge(ms.__version__, "2.2.0"):
-        logger.info("The Lazy Inline compilation acceleration feature is not supported "
-                    "when MindSpore version is earlier than 2.2.0, The current MindSpore version is %s, "
-                    "please install MindSpore 2.2.0 or later.", ms.__version__)
-        return False
-    return True
 
 
 def get_lazy_inline(func):
@@ -112,10 +86,6 @@ def get_lazy_inline(func):
         if os.getenv("ENABLE_LAZY_INLINE", "1") == "0":
             logger.info("The Lazy Inline compilation acceleration feature is turned off, due to the "
                         "environment variable ENABLE_LAZY_INLINE is set to 0.")
-            func(*args, **kwargs)
-            return
-
-        if not check_lazy_inline_version():
             func(*args, **kwargs)
             return
 
@@ -206,50 +176,13 @@ def get_identity():
     return F.identity
 
 
-def fix_optim_global_step_sig():
-    # when the version of mindspore bigger than 2.2.0, it should update global step explicitly.
-    return is_version_ge(ms.__version__, "2.2.0")
-
-
-def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
+def check_valid_flash_attention(fa_type=None):
     """check mindspore version is valid for input flash attention"""
-    version_map = {"PromptFlashAttention": "2.2.0",
-                   "FlashAttention": "2.2.0"}
-    valid_version = version_map.get(fa_type)
     if not is_910b() and fa_type in ["PromptFlashAttention"]:
-        logger.warning(f"Current device {get_ascend_soc_version()} do not support {fa_type}, "
+        logger.warning(f"Current device {MSContext.get_instance().get_ascend_soc_version()} do not support {fa_type}, "
                        f"please use 910b device.")
         return False
-    if valid_version is None:
-        raise ValueError(f"fa_type should be in {list(version_map.keys())}, but get {fa_type}")
-    version_valid = is_version_ge(ms.__version__, valid_version)
-    if not version_valid:
-        logger.warning(f"Current MindSpore do not support {fa_type}, "
-                       f"please upgrade to {valid_version} or later version.")
-        logger.warning("Now running on self-attention mode.")
-        result = False
-    elif not import_fa_valid:
-        logger.warning(f"Import {fa_type} ERROR, please upgrade your MindSpore to {valid_version} or later version. ")
-        logger.warning("Now running on self-attention mode.")
-        result = False
-    # both pass should return True
-    else:
-        result = True
-    return result
-
-
-def choose_flash_attention_dtype():
-    """
-    attention_mask dtype should be float16 on ms 2.2.0, uint8 on 2.2.10
-    ms version below 2.2.0 won't be in this func
-    """
-    fa_dtype = ms.uint8
-    cur_ver = ms.__version__
-    if is_version_ge(cur_ver, "2.2.0") and not is_version_ge(cur_ver, "2.2.1"):
-        fa_dtype = ms.float16
-    elif is_version_ge(cur_ver, "2.2.1"):
-        fa_dtype = ms.uint8
-    return fa_dtype
+    return True
 
 
 def is_version_python(cur_ver, tar_ver):
