@@ -420,6 +420,12 @@ class MFLossMonitor(Callback):
         if not hasattr(network, 'current_phase'):
             logger.warning('This model dose not support collecting model flops now!')
             return False
+
+        if not is_legacy_model() and self.is_moe_model:
+            logger.warning(f"Model Flops computation is not support when using GroupMatMul MoELayer, "
+                           f"due to dynamic shape")
+            return False
+
         self.current_phase = network.current_phase
         return True
 
