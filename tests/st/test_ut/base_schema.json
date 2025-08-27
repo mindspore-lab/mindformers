@@ -1130,6 +1130,9 @@
     "mindformers.generation.GenerationMixin._set_kv_cache": {
         "signature": "(self)"
     },
+    "mindformers.generation.GenerationMixin._generate_kv_cache": {
+        "signature": "(self, tansformer_config, kv_cache_shape, use_ringmla)"
+    },
     "mindformers.generation.GenerationMixin._set_lower_triangle_mask": {
         "signature": "(self)"
     },
@@ -1414,6 +1417,9 @@
     },
     "mindformers.generation.text_generator.GenerationMixin._set_kv_cache": {
         "signature": "(self)"
+    },
+    "mindformers.generation.text_generator.GenerationMixin._generate_kv_cache": {
+        "signature": "(self, tansformer_config, kv_cache_shape, use_ringmla)"
     },
     "mindformers.generation.text_generator.GenerationMixin._set_lower_triangle_mask": {
         "signature": "(self)"

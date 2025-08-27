@@ -30,6 +30,7 @@ from mindformers.parallel_core.inference.tensor_parallel.quantization.base_confi
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 
+
 class InferModelMixin(ModelMixin):
     """
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
@@ -48,19 +49,32 @@ class InferModelMixin(ModelMixin):
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_attention_mask = Tensor(shape=[None, None], dtype=self.compute_dtype)
 
-        def get_input():
+        def get_input(fa3_quant=False, fa3_quant_layer=None, need_nz=False):
+            if fa3_quant_layer is None:
+                fa3_quant_layer = set()
             cache_list = []
             num_layers = len(self.model.decoder.layers)
-            for _ in range(num_layers):
-                if is_310p():
-                    cache_list.append(Tensor(shape=[None, None, None], dtype=self.compute_dtype))
+            for num_layer in range(num_layers):
+                kv_cache_dtype = mstype.int8 if fa3_quant and num_layer in fa3_quant_layer else \
+                                self.compute_dtype
+                if need_nz:
+                    cache_list.append(Tensor(shape=[None, None, None], dtype=kv_cache_dtype))
                 else:
-                    cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.compute_dtype))
+                    cache_list.append(Tensor(shape=[None, None, None, None], dtype=kv_cache_dtype))
             return mutable(cache_list)
 
-        key_cache = get_input()
         use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
-        value_cache = get_input() if not self.transformer_config.multi_latent_attention or use_ringmla else None
+        fa3_quant = self.model.quant_config.fa3_quant if self.model.quant_config else False
+        fa3_quant_layer = self.model.quant_config.fa3_quant_layer if self.model.quant_config else set()
+        if not use_ringmla:
+            key_cache = get_input(need_nz=is_310p())
+            value_cache = get_input(need_nz=is_310p()) if not self.transformer_config.multi_latent_attention else None
+        elif fa3_quant:
+            key_cache = get_input(fa3_quant=True, fa3_quant_layer=fa3_quant_layer, need_nz=True)
+            value_cache = get_input(need_nz=True)
+        else:
+            key_cache = get_input(need_nz=is_310p())
+            value_cache = get_input(need_nz=is_310p())
 
         dynamic_attn_padding_idx = None
         dynamic_attn_unpadding_idx = None

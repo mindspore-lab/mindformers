@@ -121,6 +121,7 @@ class GPTModel(nn.Cell):
             raise NotImplementedError("For GPTModel, `mtp_block_spec` is not supported")
 
         self.config = config
+        self.quant_config = quant_config
         self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length

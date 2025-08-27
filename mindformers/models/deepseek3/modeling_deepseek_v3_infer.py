@@ -72,7 +72,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         config = update_comm_config(config)
         self.use_fused_mla = False
         config.use_fused_mla = self.use_fused_mla
-        quant_config = get_quant_config(self.config.to_dict(), self.weight_mapping)
+        self.quant_config = get_quant_config(self.config.to_dict(), self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
@@ -98,7 +98,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             pre_process=config.pre_process,
             post_process=config.post_process,
             model_comm_pgs=self.model_comm_pgs,
-            quant_config=quant_config,
+            quant_config=self.quant_config,
         )
 
     def add_flags_custom_mcore(self, is_prefill):
@@ -246,6 +246,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             weight_name = weight_name.replace('.input_zp', '.input_offset')
             weight_name = weight_name.replace('.weight_scale', '.w_scale')
             weight_name = weight_name.replace('.weight_offset', '.w_offset')
+            weight_name = weight_name.replace('.self_attn.fa_q.scale', '.self_attention.qnope_scale')
+            weight_name = weight_name.replace('.self_attn.fa_k.scale', '.self_attention.ctkv_scale')
         if self.use_fused_mla:
             weight_name = weight_name.replace('.input_layernorm.', '.self_attention.input_layernorm.')
         return weight_name
