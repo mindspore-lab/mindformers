@@ -42,15 +42,7 @@ except ImportError:
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
-
-try:
-    from mindspore.ops.operations.nn_ops import PromptFlashAttention
-except ImportError:
-    PROMPTFLASHATTENTION_VALID = False
-    logger.warning("PromptFlashAttention is not available.")
-else:
-    PROMPTFLASHATTENTION_VALID = True
-    logger.info("PromptFlashAttention is available.")
+from mindspore.ops.operations.nn_ops import PromptFlashAttention
 
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
@@ -59,8 +51,7 @@ from mindformers.modules.layers import LayerNorm, Linear, \
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
     _Config, _check_config, MoEParallelConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
-from mindformers.version_control import get_dropout, choose_flash_attention_dtype, \
-    check_valid_flash_attention
+from mindformers.version_control import get_dropout, check_valid_flash_attention
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.logger import logger as log
@@ -704,7 +695,7 @@ class TransformerOpParallelConfig(_Config):
         if not isinstance(value, TransformerRecomputeConfig) and not isinstance(value, bool):
             raise TypeError(f"recompute must be a TransformerRecomputeConfig/bool, but got {type(value).__name__}.")
         if isinstance(value, bool):
-            logger.warning(f"TransformerRecomputeConfig is recommended as the recompute configuration type.")
+            logger.warning("TransformerRecomputeConfig is recommended as the recompute configuration type.")
         self._recompute = value
 
     @property
@@ -2143,7 +2134,7 @@ class MultiHeadAttention(Cell):
         flash attention
         """
         if attention_mask is not None:
-            attention_mask_dtype = choose_flash_attention_dtype()
+            attention_mask_dtype = ms.uint8
             attention_mask = self.sub(
                 P.Cast()(self.one, attention_mask_dtype),
                 P.Cast()(attention_mask, attention_mask_dtype))
@@ -2468,15 +2459,11 @@ class TransformerEncoderLayer(Cell):
                     "by the 'parallel_config.model_parallel', but got the ffn_hidden_size is {} "
                     "and parallel_config. model_parallel is {}."
                     .format(ffn_hidden_size, parallel_config.model_parallel))
-            # flash attention / prompt flash attention / incre flash attention version validation
-            if use_flash_attention and not check_valid_flash_attention(fa_type="FlashAttention"):
-                use_flash_attention = False
-                log.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
-            if use_prompt_flash_attention and \
-                    not check_valid_flash_attention(PROMPTFLASHATTENTION_VALID, "PromptFlashAttention"):
+            # prompt flash attention version validation
+            if use_prompt_flash_attention and not check_valid_flash_attention("PromptFlashAttention"):
                 use_prompt_flash_attention = False
                 log.info("Current MindSpore or device do not support prompt flash attention, "
-                         "please upgrade to 2.2.0 or higher or use 910B to run pfa")
+                         "please use 910B to run pfa")
 
             _check_moe_config(moe_config, parallel_config)
             self.use_moe = (moe_config.expert_num > 1)
