@@ -207,7 +207,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         # Do extra conversion for quantization parameters.
 
         # FIXME: After osl supports mcore calibration, the following conversion map should be removed.
-        if self.config.quantization_config is not None:
+        if self.config.quantization is not None:
             weight_name = weight_name.replace('model.tok_embeddings.embedding_weight',
                                               'embedding.word_embeddings.weight')
             weight_name = weight_name.replace('model.norm_out.', 'decoder.final_layernorm.')

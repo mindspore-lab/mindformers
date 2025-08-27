@@ -315,6 +315,14 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                                           'shard': (expert_parallel_group_size, self.tensor_parallel_group_size)}
         return state_dict
 
+    def is_modelslim_weight(self, param, loaded_weight):
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        weight_needs_transpose = True
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 and loaded_weight.get_shape()[1] == 1:
+            loaded_weight = loaded_weight[:].squeeze(-1)
+            weight_needs_transpose = False
+        return loaded_weight, weight_needs_transpose
+
     def weight_loader(self, param, loaded_weight, shard_id, expert_id, weight_name=None) -> None:
         """
         Args:
@@ -351,11 +359,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             param.set_data(ms.from_numpy(loaded_weight))
             return
 
-        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-        if not weight_is_3d and param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
-            loaded_weight = loaded_weight[:].squeeze(-1)
-            weight_needs_transpose = False
-
+        loaded_weight, weight_needs_transpose = self.is_modelslim_weight(param, loaded_weight)
         # Shard w1/w3
         param_output_dim = getattr(param, "output_dim", None)
         shard_size = param.shape[param_output_dim] // 2 # Half w1, half w3.
@@ -390,7 +394,10 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         elif shard_id == "w3":
             update_indices[param_output_dim] = slice(shard_size, 2 * shard_size)
         param.init_data()
-        param[tuple(update_indices)] = ms.from_numpy(loaded_weight)
+        if param.dtype == ms.qint4x2 or param.dtype == ms.uint64:
+            param.asnumpy()[tuple(update_indices)] = loaded_weight
+        else:
+            param[tuple(update_indices)] = ms.from_numpy(loaded_weight)
 
 
 class RowParallelGroupedLinear(GroupedLinearBase):
@@ -578,22 +585,22 @@ class RowParallelGroupedLinear(GroupedLinearBase):
 
         if not param.name.endswith("weight") and shard_dim is None:
             # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 \
+               and loaded_weight.get_shape()[1] == 1:
                 loaded_weight = loaded_weight[:].squeeze(-1)
             param.init_data()
             param[expert_id] = ms.from_numpy(loaded_weight[:])
             return
-        shard_id_to_sharded_dim = {"w2": 0}
+        shard_id_to_sharded_dim = {"w2": -1}
         shard_dim = shard_id_to_sharded_dim[shard_id]
         full_load = len(loaded_weight.get_shape()) == 3
         if full_load:
             shard_dim += 1
 
         param.init_data()
-        expert_data = param.data if full_load else param.data[expert_id]
 
         # Case model weights
-        shard_size = expert_data.shape[shard_dim]
+        shard_size = loaded_weight.get_shape()[shard_dim] // self.tensor_parallel_group_size
         # Because this weight shape is two-dimensional,
         # but the dimension splitting in the network is defined based on three dimensions,
         # so the splitting dimension needs to be subtracted by 1.
@@ -608,7 +615,10 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             loaded_weight = loaded_weight.reshape(1)
         if loaded_weight.shape == (shard_size, param.shape[2]):
             param.init_data()
-            param[expert_id] = ms.from_numpy(loaded_weight)
+            if param.dtype == ms.qint4x2:
+                param.asnumpy()[expert_id] = loaded_weight
+            else:
+                param[expert_id] = ms.from_numpy(loaded_weight)
         else:
             raise ValueError(
                 f"'param.data.shape' should be equal to 'loaded_weight.shape',"

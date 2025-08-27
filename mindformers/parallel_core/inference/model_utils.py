@@ -29,6 +29,7 @@ from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
+from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 
 
 class InferModelMixin(ModelMixin):
@@ -155,7 +156,7 @@ class InferModelMixin(ModelMixin):
         for name, cell in root.name_cells().items():
             full_cell_name = f"{name_prefix}.{name}"
             quant_method = getattr(cell, "quant_method", None)
-            if isinstance(quant_method, QuantizeMethodBase):
+            if isinstance(quant_method, QuantizeMethodBase) and not isinstance(cell, GroupedMLP):
                 quant_method.process_weights_after_loading(cell)
                 continue
             if isinstance(cell, Attention) and hasattr(cell, "process_weights_after_loading"):
