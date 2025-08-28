@@ -250,7 +250,7 @@ class MFLossMonitor(Callback):
         self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
         self.calculate_per_token_loss = calculate_per_token_loss
         self.mstx_range_id = None
-        self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and _check_mspti_is_on()
+        self.mstx_enabled = _check_mspti_is_on()
         self.print_separate_loss = print_separate_loss
         self.is_moe_model = kwargs.get("is_moe_model", False)
         self.is_mtp_model = kwargs.get("is_mtp_model", False)
@@ -702,18 +702,11 @@ class TrainingStateMonitor(Callback):
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
             self.dump_key = {0: -1}
             self.dump_step = step_interval
-            if is_version_ge(ms.__version__, '2.5.0'):
-                self.dump_name_mode = 0
-                self.finish_pattern = 'finish_step_*_*'
-                self.local_loss_pattern = re.compile('(local_loss)__(.+)_[a-z]+[0-9]+_([0-9]+)')
-                self.local_norm_pattern = re.compile('(local_norm)__(.+)_[a-z]+[0-9]+_([0-9]+)')
-                self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
-            else:
-                self.dump_name_mode = 1
-                self.finish_pattern = '*_finish_step'
-                self.local_loss_pattern = re.compile('([0-9]+)_(local_loss)__(.+)')
-                self.local_norm_pattern = re.compile('([0-9]+)_(local_norm)__(.+)')
-                self.device_local_norm_pattern = re.compile('([0-9]+)_(device_local_norm)')
+            self.dump_name_mode = 0
+            self.finish_pattern = 'finish_step_*_*'
+            self.local_loss_pattern = re.compile('(local_loss)__(.+)_[a-z]+[0-9]+_([0-9]+)')
+            self.local_norm_pattern = re.compile('(local_norm)__(.+)_[a-z]+[0-9]+_([0-9]+)')
+            self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
 
     def on_train_epoch_begin(self, run_context):
         """
@@ -1858,7 +1851,7 @@ class ProfileMonitor(Callback):
                  profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.mstx_range_id = None
-        self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and not _check_mspti_is_on()
+        self.mstx_enabled = not _check_mspti_is_on()
         self.stop_step = stop_step
         self.profile_rank_ids = profile_rank_ids
         self.profile_pipeline = profile_pipeline

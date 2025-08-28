@@ -248,17 +248,6 @@ def get_scatter():
     return Scatter()
 
 
-def check_cpu_affinity_valid():
-    """check mindspore version is valid for runtime cpu affinity"""
-    version_valid = is_version_ge(ms.__version__, "2.5.0")
-    if not version_valid:
-        logger.warning("The mindspore runtime set cpu affinity feature is not supported "
-                       "when MindSpore version is earlier than 2.5.0, The current MindSpore version is %s, "
-                       "please install MindSpore 2.5.0 or later.", ms.__version__)
-        return False
-    return True
-
-
 def check_delay_init_valid():
     """check mindspore version is valid for delay init"""
     version_valid = is_version_ge(ms.__version__, "2.4.1")
@@ -267,16 +256,6 @@ def check_delay_init_valid():
                        f"Please upgrade to 2.4.1 or later version.")
         return False
     return True
-
-
-def synchronize():
-    """choose valid synchronize function according to mindspore version"""
-    version_valid = is_version_ge(ms.__version__, "2.5.0")
-    # below ms 2.5.0 is not support
-    if version_valid:
-        ms.runtime.synchronize()
-    else:
-        ms.hal.synchronize()
 
 
 def check_stress_detect_valid():
@@ -290,14 +269,8 @@ def check_stress_detect_valid():
 
 
 def check_tft_valid():
-    """check mindspore version is valid for tft"""
-    version_valid = is_version_ge(ms.__version__, "2.5.0")
-    if not version_valid:
-        logger.warning("Current MindSpore version does not support tft, please upgrade to 2.5.0 or later version.")
-        return False
-
+    """check tft is valid"""
     env_enable = os.getenv("MS_ENABLE_TFT", "")
-
     remain_required_flags = ["TTP:1", "UCE:1", "ARF:1", "HCCE:1"]
     return any(flag in env_enable for flag in remain_required_flags)
 
@@ -358,26 +331,6 @@ def skip_barrier_controller(times: int = 1):
     logger.info(f"barrier {times} completed")
 
 
-def check_swiglu_valid():
-    """check mindspore version is valid for swiglu"""
-    version_valid = is_version_ge(ms.__version__, "2.5.0")
-    if not version_valid:
-        logger.warning("Current MindSpore version does not support primitive Swiglu, please upgrade to 2.5.0 or later "
-                       "version.")
-        return False
-    return True
-
-
-def check_rotary_position_embedding_valid():
-    """check mindspore version is valid for swiglu"""
-    version_valid = is_version_ge(ms.__version__, "2.5.0")
-    if not version_valid:
-        logger.warning("Current MindSpore version does not support primitive RotaryPositionEmbedding, please upgrade "
-                       "to 2.5.0 or later version.")
-        return False
-    return True
-
-
 def check_seqpp_fa_opt_support():
     """check mindspore version if sparse adaptive adjustment of fa with seqpipie"""
     return is_version_ge(ms.__version__, "2.6.0")
@@ -403,21 +356,9 @@ def check_safetensors_addition_param_support():
     return is_version_ge(ms.__version__, "2.6.0")
 
 
-def is_dump_supported():
-    """Check if the dump feature is supported based on the MindSpore version."""
-    return is_version_ge(ms.__version__, "2.5.0")
-
-
 def set_ms_deterministic(deterministic):
     """Set deterministic computing through mindspore."""
-    if is_version_ge(ms.__version__, '2.5.0'):
-        logger.debug("The version of MindSpore is %s, "
-                     "set deterministic compution by set_deterministic()",
-                     ms.__version__)
-        ms.set_deterministic(deterministic)
-    else:
-        deterministic_switch = 'ON' if deterministic else 'OFF'
-        logger.debug("The version of MindSpore is %s, "
-                     "set deterministic compution by set_context()",
-                     ms.__version__)
-        ms.set_context(deterministic=deterministic_switch)
+    logger.debug("The version of MindSpore is %s, "
+                 "set deterministic compution by set_deterministic()",
+                 ms.__version__)
+    ms.set_deterministic(deterministic)

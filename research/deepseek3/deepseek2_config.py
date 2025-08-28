@@ -24,7 +24,6 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
-from mindformers.version_control import check_swiglu_valid, check_rotary_position_embedding_valid
 
 __all__ = ['DeepseekV2Config']
 
@@ -219,6 +218,6 @@ class DeepseekV2Config(PretrainedConfig):
         self.num_blocks = num_blocks
         self.return_extra_loss = return_extra_loss
         self.init_method_std = init_method_std
-        self.use_fused_swiglu = use_fused_swiglu and check_swiglu_valid()
-        self.use_fused_rope = use_fused_rope and check_rotary_position_embedding_valid()
+        self.use_fused_swiglu = use_fused_swiglu
+        self.use_fused_rope = use_fused_rope
         self.enable_fa_var_len = enable_fa_var_len

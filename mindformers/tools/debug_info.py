@@ -20,9 +20,9 @@ import time
 import numpy as np
 from mindspore import Profiler
 from mindspore.profiler import ProfilerLevel
+from mindspore.runtime import synchronize
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
-from mindformers.version_control import synchronize
 
 
 def get_profile_settings():
