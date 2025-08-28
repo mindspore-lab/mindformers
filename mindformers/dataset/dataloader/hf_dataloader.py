@@ -478,7 +478,7 @@ class HFDataset:
     def _iter_data(self, idx):
         """Retrieve a single sample from a regular (non-packed) dataset."""
         sample = self.dataset[idx]
-        sample = (sample[col] for col in self.column_names)
+        sample = [sample[col] for col in self.column_names]
         return sample
 
     def _iter_packed_data(self, idx):
