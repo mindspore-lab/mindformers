@@ -20,7 +20,6 @@ import importlib
 import json
 import os
 import warnings
-import shutil
 from collections import OrderedDict
 from typing import Dict, Optional, Union
 from mindformers.tools.generic import experimental_mode_func_checker
@@ -40,6 +39,7 @@ from mindformers.models.auto.configuration_auto import (
     config_class_to_model_type
 )
 from mindformers.models.auto.auto_factory import _LazyAutoMapping
+from mindformers.models.auto.utils import set_default_yaml_file
 from mindformers.mindformer_book import MindFormerBook, print_dict
 
 TOKENIZER_SUPPORT_LIST = MindFormerBook.get_tokenizer_support_list()
@@ -374,21 +374,8 @@ class AutoTokenizer:
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
 
-            def get_default_yaml_file(model_name):
-                default_yaml_file = ""
-                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
-                    if model_name in model_dict:
-                        default_yaml_file = model_dict.get(model_name)
-                        break
-                return default_yaml_file
+            set_default_yaml_file(yaml_name, yaml_file)
 
-            if not os.path.exists(yaml_file):
-                default_yaml_file = get_default_yaml_file(yaml_name)
-                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
-                    shutil.copy(default_yaml_file, yaml_file)
-                    logger.info("default yaml config in %s is used.", yaml_file)
-                else:
-                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             class_name, config = cls._get_class_name_from_yaml(yaml_file)
         elif os.path.isdir(yaml_name_or_path):
             class_name, config = cls._get_class_name_from_yaml(yaml_name_or_path)

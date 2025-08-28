@@ -1389,12 +1389,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         remove_prefix_from_model = not has_prefix_module and expects_prefix_module
         add_prefix_to_model = has_prefix_module and not expects_prefix_module
 
-        if remove_prefix_from_model:
-            prefix_ = f"{prefix}."
-            expected_keys = [s[len(prefix_):] if s.startswith(prefix_) else s for s in expected_keys]
-        elif add_prefix_to_model:
-            expected_keys = [".".join([prefix, s]) for s in expected_keys]
-
         def _find_mismatched_keys(
                 state_dict,
                 model_state_dict,

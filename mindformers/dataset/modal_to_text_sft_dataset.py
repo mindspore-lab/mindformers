@@ -90,23 +90,8 @@ class ModalToTextSFTDataset(BaseDataset):
             raise ValueError("ModalToTextSFTDataset should have a `modal_to_text_transform` to transform raw text to "
                              "multi_modal data")
 
-        # build transforms
-        if isinstance(dataset_config.modal_to_text_transform, dict):
-            max_length = dataset_config.modal_to_text_transform.get("max_length")
-            if max_length is None:
-                raise ValueError("`modal_to_text_transform` should set max_length")
-            modal_to_text_transform = build_transforms(dataset_config.modal_to_text_transform,
-                                                       default_args={"tokenizer": tokenizer, "max_length": max_length})
-        else:
-            modal_to_text_transform = dataset_config.modal_to_text_transform
-
-        # build modal content transforms
-        if (isinstance(dataset_config.modal_content_transforms, list)
-                and isinstance(dataset_config.modal_content_transforms[0], dict)) \
-                or isinstance(dataset_config.modal_content_transforms, dict):
-            modal_content_transforms = build_transforms(dataset_config.modal_content_transforms)
-        else:
-            modal_content_transforms = dataset_config.modal_content_transforms
+        modal_content_transforms, modal_to_text_transform = ModalToTextSFTDataset.build_modal_transforms(dataset_config,
+                                                                                                         tokenizer)
 
         output_columns = modal_to_text_transform.model_transform_template.output_columns
         dataset = get_dataset_map(dataset, modal_to_text_transform,
@@ -150,3 +135,24 @@ class ModalToTextSFTDataset(BaseDataset):
             dataset = dataset.take(take_num)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
+
+    @staticmethod
+    def build_modal_transforms(dataset_config, tokenizer):
+        """build modal transforms"""
+        # build transforms
+        if isinstance(dataset_config.modal_to_text_transform, dict):
+            max_length = dataset_config.modal_to_text_transform.get("max_length")
+            if max_length is None:
+                raise ValueError("`modal_to_text_transform` should set max_length")
+            modal_to_text_transform = build_transforms(dataset_config.modal_to_text_transform,
+                                                       default_args={"tokenizer": tokenizer, "max_length": max_length})
+        else:
+            modal_to_text_transform = dataset_config.modal_to_text_transform
+        # build modal content transforms
+        if (isinstance(dataset_config.modal_content_transforms, list)
+                and isinstance(dataset_config.modal_content_transforms[0], dict)) \
+                or isinstance(dataset_config.modal_content_transforms, dict):
+            modal_content_transforms = build_transforms(dataset_config.modal_content_transforms)
+        else:
+            modal_content_transforms = dataset_config.modal_content_transforms
+        return modal_content_transforms, modal_to_text_transform
