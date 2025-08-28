@@ -15,6 +15,7 @@
 """Qwen3 models' APIs."""
 from mindspore import Tensor
 
+from mindformers.tools.logger import logger
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
@@ -78,3 +79,125 @@ class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
             loss_mask=loss_mask,
             actual_seq_len=actual_seq_len
         )
+
+    def convert_weight_dict(self, source_dict, **kwargs):
+        r"""
+        convert HuggingFace weight dict to MindFormers weight dict.
+
+        Args:
+            source_dict: origin weight dict.
+            kwargs: additional specific kwargs.
+
+        Raises:
+            ValueError: value error
+
+        Returns:
+            ms_weight_dict: converted weight dict.
+
+        """
+        qkv_concat = kwargs.get("model_config").qkv_concat
+
+        use_contiguous_weight_layout_attention = self.transformer_config.use_contiguous_weight_layout_attention
+
+        ms_weight_dict = {}
+        # QKV weight keys
+        wq_keys = []
+        wk_keys = []
+        wv_keys = []
+        # FFN weight keys
+        w1_keys = []
+        w3_keys = []
+
+        for k, v in source_dict.items():
+            k = self.convert_name(k)
+            ms_weight_dict.update({k: v})
+
+            if qkv_concat:
+                part = k.split('.')
+                # Get Q/K/V Keys
+                if part[-2] == 'linear_q':
+                    wq_keys.append(k)
+                if part[-2] == 'linear_k':
+                    wk_keys.append(k)
+                if part[-2] == 'linear_v':
+                    wv_keys.append(k)
+                # Get FFN Keys in MLP
+                if part[-2] == 'gating':
+                    w1_keys.append(k)
+                if part[-2] == 'hidden':
+                    w3_keys.append(k)
+
+        if qkv_concat:
+            qkv_dict = kwargs.get('qkv_dict', None)
+            condition = kwargs.get('condition', None)
+
+            if use_contiguous_weight_layout_attention:
+                logger.info("Concat QKV and FFN weight in contiguous weight layout attention.")
+                self.concat_qkv_weight_infer(wq_keys, wk_keys, wv_keys, qkv_dict, condition, ms_weight_dict)
+                self.concat_ffn_weight_infer(w1_keys, w3_keys, qkv_dict, condition, ms_weight_dict)
+            else:
+                logger.info("Concat QKV and FFN weight without contiguous weight layout attention.")
+                self.concat_qkv_weight_megatron(
+                    wq_keys=wq_keys, wk_keys=wk_keys, wv_keys=wv_keys,
+                    qkv_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
+                    head_dim=self.transformer_config.kv_channels,
+                    n_kv_heads=self.transformer_config.num_query_groups,
+                    num_attention_heads=self.transformer_config.num_attention_heads
+                )
+                self.concat_ffn_weight_megatron(
+                    w1_keys=w1_keys, w3_keys=w3_keys,
+                    ffn_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
+                    ffn_hidden_size=self.transformer_config.ffn_hidden_size
+                )
+
+        return ms_weight_dict
+
+    def convert_map_dict(self, hf_name_map_dict, **kwargs):
+        r"""
+        convert HuggingFace map dict to MindFormers map dict.
+
+        Args:
+            hf_name_map_dict: origin weight dict.
+            kwargs: additional specific kwargs.
+
+        Returns:
+            ms_name_map_dict: converted weight dict.
+
+        """
+        qkv_concat = kwargs.pop("qkv_concat", False)
+        ms_name_map_dict = {}
+        wq_keys = []
+        w1_keys = []
+
+        for k, v in hf_name_map_dict.items():
+            k = self.convert_name(k)
+            ms_name_map_dict.update({k: v})
+            if qkv_concat:
+                part = k.split('.')
+                if part[-2] == 'linear_q':
+                    wq_keys.append(k)
+                if part[-2] == 'gating':
+                    w1_keys.append(k)
+
+        if qkv_concat:
+            for wq_key in wq_keys:
+                wk_key = wq_key.replace('linear_q', 'linear_k')
+                wv_key = wq_key.replace('linear_q', 'linear_v')
+                wq_value = ms_name_map_dict.pop(wq_key)
+                ms_name_map_dict.pop(wk_key)
+                ms_name_map_dict.pop(wv_key)
+
+                w_qkv_key = wq_key.replace('linear_q', 'linear_qkv')
+                w_qkv_value = wq_value
+                ms_name_map_dict.update({w_qkv_key: w_qkv_value})
+
+            for w1_key in w1_keys:
+                w3_key = w1_key.replace('gating', 'hidden')
+                w1_value = ms_name_map_dict.pop(w1_key)
+                ms_name_map_dict.pop(w3_key)
+
+                w_gate_hidden_key = w1_key.replace('gating', 'linear_fc1')
+                w_gate_hidden_value = w1_value
+                ms_name_map_dict.update({w_gate_hidden_key: w_gate_hidden_value})
+
+        return ms_name_map_dict
