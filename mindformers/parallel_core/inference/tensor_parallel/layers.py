@@ -166,12 +166,14 @@ class LinearBase(ms.nn.Cell):
     def construct(self, x: ms.Tensor) -> ms.Tensor:
         raise NotImplementedError
 
-    def format_to_nz(self, param, merge_count=1):
+    def format_to_nz(self, param, merge_count=1, move_to_cpu=False):
         current_count = self.param_load_counts.get(param.name, 0) + 1
         self.param_load_counts[param.name] = current_count
 
         if current_count == merge_count:
             cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
+            if move_to_cpu:
+                cast_weight = cast_weight.move_to("CPU")
             param.set_data(cast_weight)
             del self.param_load_counts[param.name]
 
@@ -992,7 +994,8 @@ class ReplicatedLinear(LinearBase):
                     f"and the shape of weight is{loaded_weight.shape}")
             param.set_data(ms.from_numpy(loaded_weight))
         if self.config.use_fused_mla and param.name.endswith("weight"):
-            self.format_to_nz(param, 2)
+            move_to_cpu = self.config.use_fused_mla and ms.get_context('mode') == ms.PYNATIVE_MODE
+            self.format_to_nz(param, 2, move_to_cpu=move_to_cpu)
 
 
 class VocabParallelEmbedding(nn.Cell):
