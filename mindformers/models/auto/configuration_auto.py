@@ -290,6 +290,8 @@ class AutoConfig:
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
 
+        yaml_name_or_path = os.path.realpath(yaml_name_or_path)
+
         if os.path.exists(yaml_name_or_path):
             if not yaml_name_or_path.endswith(".yaml"):
                 raise ValueError(f"{yaml_name_or_path} should be a .yaml file for model"
