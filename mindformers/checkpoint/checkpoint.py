@@ -278,8 +278,8 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         checkpoints_root_path = get_output_subpath("checkpoint", append_rank=False)
 
     if not is_publicly_accessible_path(checkpoints_root_path):
-        raise FilePathError("This 'save_checkpoint_megatron_format' feature is not currently supported "
-                            "in 'non-shared storage environments' with multiple hosts.")
+        raise RuntimeError("The 'save_checkpoint_megatron_format' feature is not currently supported "
+                           "in 'non-shared storage environments' with multiple hosts.")
     logger.info(f"The root path of saved checkpoints is: '{checkpoints_root_path}'.")
 
     # Generate current iteration saving path.
