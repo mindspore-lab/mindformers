@@ -670,7 +670,7 @@ class BaseTrainer:
                 self.config.lr_schedule.learning_rate, scale_factor) \
                 if learning_scale and scale_factor is not None else self.config.lr_schedule.learning_rate
         lr_schedule = build_lr(self.config.lr_schedule)
-        if lr_schedule and hasattr(lr_schedule, "warmup_lr_init") is not None and warmup_lr_init is None:
+        if lr_schedule and hasattr(lr_schedule, "warmup_lr_init") and warmup_lr_init is None:
             logger.info(f"warmup_lr_init is not set. The default value {lr_schedule.warmup_lr_init} will be applied.")
         return lr_schedule
 
@@ -779,7 +779,7 @@ class BaseTrainer:
     def get_eval_data_size(self):
         """Get eval dataset size."""
         if self.eval_dataset is None:
-            raise NotImplementedError("train dataset is None")
+            raise NotImplementedError("eval dataset is None")
         return self.eval_dataset.get_dataset_size()
 
     @staticmethod
@@ -1489,7 +1489,6 @@ class BaseTrainer:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(save_file, flags_, FILE_PERMISSION), 'w') as file:
             file.write(str(output_info))
-        file.close()
 
         logger.info("output result is: %s", str(output_info))
         logger.info("output result is saved at: %s", save_file)

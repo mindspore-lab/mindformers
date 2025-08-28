@@ -1555,8 +1555,8 @@ def _reset_config_for_save(config: dict = None):
     if config.get('eval_dataset_task') is not None and config.get('eval_dataset') is not None:
         eval_dataset_config = config2dict(config.pop('eval_dataset'))
         eval_dataset_task_config = config2dict(config.pop('eval_dataset_task'))
-        config_dict.setdefault('train_dataset', eval_dataset_config)
-        config_dict.setdefault('train_dataset_task', eval_dataset_task_config)
+        config_dict.setdefault('eval_dataset', eval_dataset_config)
+        config_dict.setdefault('eval_dataset_task', eval_dataset_task_config)
 
     if config.get('context') is not None:
         context_config = config2dict(config.pop('context'))
