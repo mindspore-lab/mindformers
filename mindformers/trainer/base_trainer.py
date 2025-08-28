@@ -859,9 +859,22 @@ class BaseTrainer:
             self._check_input_sliced_sig(config, dataloader_type)
             return self._process_megatron_dataset(dataset, config)
 
-        # postprocess for CommonDataLoader
-        if dataloader_type == "CommonDataLoader" and dataloader_info.get('packing'):
-            self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
+        # postprocess for CommonDataLoader / HFDataLoader
+        if dataloader_type in ['HFDataLoader', 'CommonDataLoader']:
+            # check config for HF pack mode
+            handler = []
+            if hasattr(dataloader_info, 'handler'):
+                handler = [sub_handler.get('type') for sub_handler in dataloader_info.handler]
+            if is_legacy_model() and 'PackingHandler' in handler:  # CommonDataLoader legacy option
+                self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
+
+            # check config for use_broadcast_data
+            ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+            if dataloader_info.get('use_broadcast_data', True) and ds_broadcast_level < 3:
+                raise ValueError(
+                    "If you are using `HFDataLoader` or `CommonDataLoader` and enable `use_broadcast_data`, "
+                    "please set `dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file."
+                )
 
         return dataset, config
 
