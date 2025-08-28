@@ -531,6 +531,18 @@ class EvalCallbackConfig(ListConfig):
     _required_keys = ["type"]
 
 
+class StableRankConfig(Config):
+    """stable rank config"""
+    format = None
+    step_interval = 100
+    target = None
+    do_aggregation = False
+    moe_show_mode = 'all'
+    power_iteration_num = 5
+
+    _name = "stable_rank_config"
+
+
 class MonitorConfig(Config):
     """monitor config"""
     monitor_on = False
@@ -550,6 +562,7 @@ class MonitorConfig(Config):
     check_for_global_norm = False
     global_norm_spike_threshold = 3.0
     global_norm_spike_count_threshold = 10
+    stable_rank_config = StableRankConfig()
 
     _name = "monitor_config"
 

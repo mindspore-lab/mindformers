@@ -190,6 +190,52 @@ def _get_weight_norm(network):
     return norm
 
 
+def _get_max_eigenvalue(input_tensor, num_iter):
+    """
+    Calculate max eigenvalue
+    https://www.cnblogs.com/zxn-share/p/17392450.html
+    """
+    input_tensor = input_tensor.astype(ms.float32) # (m,n) or (b,m,n)
+    in_features = input_tensor.shape[-1] # (n)
+    u_tensor = None
+    for _ in range(5):
+        u_tensor = ms.ops.randn(in_features) # (n)
+        u_norm = u_tensor.norm()
+        if u_norm.asnumpy() > 0:
+            break
+    else:
+        logger.warning("Calculate max eigenvalue: the norm of a randomly generated vector is 0")
+        return 0.0
+    u_tensor = u_tensor / u_tensor.norm() # (n)
+    input_seq = ms.ops.matmul(input_tensor.transpose(-2, -1), input_tensor)  # (n.n) or (b,n,n)
+    if input_tensor.ndim == 2:
+        input_seq = ms.ops.unsqueeze(input_seq, 0)  # (1,n,n)
+    u_tensor = ms.ops.unsqueeze(u_tensor, 1) # (n,1)
+    for _ in range(num_iter):
+        v_tensor = ms.ops.matmul(input_seq, u_tensor) # (b,n,n) * (n,1) = (b,n,1)
+        eigenvalue = ms.ops.matmul(v_tensor.transpose(-2, -1), u_tensor).squeeze()  # (b,1,n) * (b,n,1) = b
+        v_norm = v_tensor.norm(dim=1, keepdim=True) # (b,1,1)
+        if (v_norm != 0).all():
+            u_tensor = v_tensor / v_norm
+        else:
+            return 0.0
+    return eigenvalue.asnumpy()
+
+
+def _get_stable_rank(weight, num_iter):
+    """Calculate stable rank"""
+    try:
+        eig = _get_max_eigenvalue(weight, num_iter)
+    except Exception as e:
+        logger.warning(f"{weight.name} calculate max eigenvalue failed: {e}")
+        return 0.0, 0.0
+    eig = np.asarray(eig)
+    if (eig != 0.0).all():
+        f_norm = ms.ops.norm(weight, ord='fro', dim=(-2, -1))
+        return ms.ops.square(f_norm).asnumpy() / eig, eig
+    return 0.0, 0.0
+
+
 def _get_optimizer_state(optim_params, filter_fn: Callable = None):
     """Get the respective L2 norms of specified optimizer parameters. Return a dict"""
     norms = {}
@@ -661,6 +707,30 @@ class TrainingStateMonitor(Callback):
               or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
+            - stable_rank_config
+                - format: Determine where to display the weight stable_rank and max eigenvalue.
+                Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+                or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+                Default: ``None``.
+
+                - step_interval (int, optional): Specify the frequency of monitoring stable rank.
+                Must be natural number. Default: ``1``.
+
+                - target (list[str], optional): Specify the name or regular expression of params to calculate
+                stable rank. e.g. ["layers.[01]", "attention"]. Default: ``['*']``.
+
+                - do_aggregation (bool, optional): Whether to aggregate weight parameter when when it has been
+                sliced to calculate stable_rank and eigenvalue.. Default: ``False``.
+
+                - moe_show_mode (Literal['full', 'statistics', 'all'], optional): Only works when calculating
+                weight_stable_rank and weight_eigenvalue for MOE model (3D param). Set to `full` to list all
+                experts data. Set to `statistics` to show min, max, mean of all experts. Set to `all` to show
+                both original data and statistic data. Default: ``'all'``.
+
+                - power_iteration_num (int, optional): The power iteration method is used to approximate the max
+                eigenvalue.The more iterations performed, the closer the computed result is to the true value,
+                but the computational cost increases accordingly. Must be natural number. Default: ``5``.
+
             - throughput_baseline: The model throughput baseline to calculate linearity. Must be a positive number.
               Will be displayed both to tensorboard and log. Set to ``None`` to ignore this metric. Default: ``None``.
 
@@ -700,7 +770,7 @@ class TrainingStateMonitor(Callback):
                  use_local_norm: bool = False):
         super().__init__()
         if not (isinstance(step_interval, int) and step_interval > 0):
-            logger.warning(f"The value of 'monitor_config.step_interval' should be positive integer, "
+            logger.warning("The value of 'monitor_config.step_interval' should be positive integer, "
                            f"but get {step_interval}. Use default value: 1.")
             step_interval = 1
         self.step_interval = step_interval
@@ -734,6 +804,10 @@ class TrainingStateMonitor(Callback):
             self.local_loss_pattern = re.compile('(local_loss)__(.+)_[a-z]+[0-9]+_([0-9]+)')
             self.local_norm_pattern = re.compile('(local_norm)__(.+)_[a-z]+[0-9]+_([0-9]+)')
             self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
+        # when pipeline_stages > 2, param aggregation is not supported for now
+        pp_parallel = context.get_auto_parallel_context("pipeline_stages") > 1
+        if pp_parallel and self.sr_format:
+            raise TypeError("When pipeline_stages > 1, weight aggregation is not supported")
 
     def on_train_epoch_begin(self, run_context):
         """
@@ -794,21 +868,14 @@ class TrainingStateMonitor(Callback):
             if self.max_attention_logit_format:
                 self._dump_max_attention_logit(cb_params)
             if self.weight_state_format:
-                network = cb_params.network
-                if isinstance(network, ms.nn.TrainOneStepCell):
-                    network = network.network
-                weight_norm = _get_weight_norm(network)
-                self._output('weight_norm', weight_norm, cb_params.cur_step_num, self.weight_state_format)
+                self._calc_weight_state(cb_params)
             if self.throughput_baseline is not None:
-                # compute throughput
-                throughput = self.global_batch_size / self.device_num / (per_step_seconds / 1000)
-                linearity = throughput / self.throughput_baseline
-                self._output('throughput_linearity', linearity, cb_params.cur_step_num, ['log', 'tensorboard'])
+                self._calc_throughput_linearity(cb_params, per_step_seconds)
             if self.device_local_loss_format:
-                for loss_tag, device_local_loss in get_device_local_loss(None).items():
-                    device_local_loss = np.mean(device_local_loss.asnumpy())
-                    self._output(f'device_accum_local_{loss_tag}_loss', device_local_loss, cb_params.cur_step_num,
-                                 self.device_local_loss_format)
+                self._calc_device_local_loss(cb_params)
+        if self.sr_format:
+            # cal stable rank and max eigenvalue
+            self._do_stable_rank(cb_params)
 
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
@@ -821,11 +888,7 @@ class TrainingStateMonitor(Callback):
 
         # Boundary check.
         if self.check_for_nan_in_loss_and_grad:
-            loss, global_norm, local_norm = self._get_loss_output(cb_params.net_outputs)
-            check_device_local_loss()
-            self._check_nan_or_inf(loss, 'loss')
-            self._check_nan_or_inf(global_norm, 'global_norm')
-            self._check_nan_or_inf(local_norm, 'local_norm')
+            self._boundary_check(cb_params)
 
         if self.device_local_loss_format:
             reset_device_local_loss()
@@ -884,16 +947,141 @@ class TrainingStateMonitor(Callback):
                 if self.global_norm_spike_count < self.global_norm_spike_count_threshold:
                     logger.info(f"Current global norm {global_norm} of step {global_step} "
                                 f"has been {self.global_norm_spike_count} "
-                                f"consecutive times greater than threshold: "
+                                "consecutive times greater than threshold: "
                                 f"{self.global_norm_spike_threshold}")
                 else:
                     raise ValueError(
                         f"Current global norm {global_norm} of step {global_step} "
                         f"has been {self.global_norm_spike_count_threshold} "
-                        f"consecutive times greater than threshold "
+                        "consecutive times greater than threshold "
                         f"{self.global_norm_spike_threshold}, stop training...")
             else:
                 self.global_norm_spike_count = 0
+
+    def _calc_weight_state(self, cb_params):
+        """calculate local weight_state"""
+        network = cb_params.network
+        if isinstance(network, ms.nn.TrainOneStepCell):
+            network = network.network
+        weight_norm = _get_weight_norm(network)
+        self._output('weight_norm', weight_norm, cb_params.cur_step_num, self.weight_state_format)
+
+    def _calc_throughput_linearity(self, cb_params, per_step_seconds):
+        """calculate throughput_linearity"""
+        throughput = self.global_batch_size / self.device_num / (per_step_seconds / 1000)
+        linearity = throughput / self.throughput_baseline
+        self._output('throughput_linearity', linearity, cb_params.cur_step_num, ['log', 'tensorboard'])
+
+    def _calc_device_local_loss(self, cb_params):
+        """calculate device local loss"""
+        for loss_tag, device_local_loss in get_device_local_loss(None).items():
+            device_local_loss = np.mean(device_local_loss.asnumpy())
+            self._output(f'device_accum_local_{loss_tag}_loss', device_local_loss, cb_params.cur_step_num,
+                         self.device_local_loss_format)
+
+    def _do_stable_rank(self, cb_params):
+        """do stable_rank"""
+        ms.runtime.empty_cache()
+        sr_step_diff = cb_params.cur_step_num - self.sr_last_print_time
+        if sr_step_diff >= self.sr_step_interval or sr_step_diff <= 0:
+            self.sr_last_print_time = cb_params.cur_step_num
+            self._calc_stable_rank(cb_params)
+
+    def _calc_stable_rank(self, cb_params):
+        """calculate stable_rank"""
+        network = cb_params.train_network
+        parallel_mode = context.get_auto_parallel_context("parallel_mode")
+        if parallel_mode == "stand_alone":
+            for param in network.network.trainable_params():
+                self._print_stable_rank(param.name, param, cb_params.cur_step_num)
+            return
+        save_param_names = self._get_remove_redundancy_param_names(network)
+        if save_param_names is None:
+            return
+        if self.do_aggregation:
+            parameter_layout_dict = network.parameter_layout_dict
+            for param in network.network.trainable_params():
+                if (not self._check_sr_target(param.name)) or param.name.startswith("accu_grads"):
+                    continue
+                # do aggregation
+                if param.name in parameter_layout_dict:
+                    param_data = Tensor(param.data.asnumpy())
+                    param_data = _get_merged_param_data(network, parameter_layout_dict, param.name, param_data, True)
+                    # within a communication group, only the first rank data is to be calculated
+                    redundancy_layout = self._get_single_params(network)
+                    if self._get_redundancy_removed_print(redundancy_layout, param.name):
+                        self._print_stable_rank(param.name, param_data, cb_params.cur_step_num)
+        else:
+            for param in network.network.trainable_params():
+                if self._check_sr_target(param.name) and param.name in save_param_names:
+                    self._print_stable_rank(param.name, param, cb_params.cur_step_num)
+
+    def _boundary_check(self, cb_params):
+        """boundary check"""
+        loss, global_norm, local_norm = self._get_loss_output(cb_params.net_outputs)
+        check_device_local_loss()
+        self._check_nan_or_inf(loss, 'loss')
+        self._check_nan_or_inf(global_norm, 'global_norm')
+        self._check_nan_or_inf(local_norm, 'local_norm')
+
+    def _get_redundancy_removed_print(self, redundancy_layout, name):
+        """get parameter which has redundancy removed to print"""
+        if redundancy_layout is None:
+            return False
+        for rankid, group in redundancy_layout.items():
+            if name in group:
+                if rankid == get_real_rank():
+                    return True
+                logger.info(f"stable_rank for {name} is printed in rank{rankid}.")
+                return False
+        return False
+
+    def _get_single_params(self, network):
+        """get non-redundancy parameters dict"""
+        parameter_layout_dict = network.parameter_layout_dict
+        if parameter_layout_dict is None:
+            return None
+        device_num = get_real_group_size()
+        stage_num = get_auto_parallel_context("pipeline_stages")
+        chunk_size = device_num // stage_num
+        rank_id = get_real_rank()
+        initial_rank = (rank_id // chunk_size) * chunk_size
+        param_redundancy_dict = get_parameter_redundancy(parameter_layout_dict, initial_rank)
+        single_params = remove_param_redundancy(param_redundancy_dict)
+        return single_params
+
+    def _get_remove_redundancy_param_names(self, network):
+        """remove redundancy parameters for this rank"""
+        single_params = self._get_single_params(network)
+        if single_params is None:
+            return None
+        rank_id = get_real_rank()
+        save_param_names = single_params.get(rank_id)
+        return save_param_names
+
+    def _check_sr_target(self, param_name):
+        if self.sr_target_cache.get(param_name) is None:
+            for pattern in self.sr_target:
+                if re.search(pattern, param_name) is not None:
+                    self.sr_target_cache[param_name] = True
+                    return True
+            self.sr_target_cache[param_name] = False
+            return False
+        return self.sr_target_cache[param_name]
+
+    def _init_stable_rank_config(self, config):
+        """Initialize stable rank config"""
+        if hasattr(config.get('stable_rank_config'), "get"):
+            self.sr_format = config.get('stable_rank_config').get('format', None)
+            self.sr_step_interval = config.get('stable_rank_config').get('step_interval', 100)
+            self.sr_last_print_time = 0
+            self.sr_target = config.get('stable_rank_config').get('target') or ['.*']
+            self.sr_target_cache = {}
+            self.do_aggregation = config.get('stable_rank_config').get('do_aggregation', False)
+            self.moe_show_mode = config.get('stable_rank_config').get('moe_show_mode') or ["all"]
+            self.power_iteration_num = config.get('stable_rank_config').get('power_iteration_num', 5)
+        else:
+            self.sr_format = None
 
     def _init_config(self, config):
         """Initialize members from config"""
@@ -915,6 +1103,7 @@ class TrainingStateMonitor(Callback):
         self.max_attention_logit_format = config.get('max_attention_logit_format', None)
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
+        self._init_stable_rank_config(config)
         self.throughput_baseline = config.get('throughput_baseline', None)
         self.print_struct = config.get('print_struct')
 
@@ -944,6 +1133,44 @@ class TrainingStateMonitor(Callback):
             # because json cannot use number as key, we convert it to string
             with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
                 self.abnormal_global_norms = json.load(file)
+
+    def _print_stable_rank(self, name, param, cur_step_num):
+        """output stable rank and max eigenvalues"""
+        if param.ndim > 3 or param.ndim < 2:
+            logger.warning(f"Calculate {name} stable rank: input tensor should be 2/3-dimensional,"
+                           f"actual dim: {param.ndim}")
+        elif param.ndim == 2:
+            stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
+            self._output(f'weight_stable_rank/{name}', stable_rank, cur_step_num, self.sr_format)
+            self._output(f'weight_eigenvalue/{name}', eigenvalue, cur_step_num, self.sr_format)
+        else:
+            stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
+            if self.moe_show_mode in ('all', 'full'):
+                for index, sr in enumerate(stable_rank):
+                    self._output(f'weight_stable_rank/{name}/expert_{index}', sr, cur_step_num,
+                                 self.sr_format)
+                for index, ev in enumerate(eigenvalue):
+                    self._output(f'weight_eigenvalue/{name}/expert_{index}', ev, cur_step_num,
+                                 self.sr_format)
+            if self.moe_show_mode in ('all', 'statistics'):
+                sr_max = np.max(stable_rank)
+                self._output(f'weight_stable_rank/{name}/expert_max', sr_max, cur_step_num,
+                             self.sr_format)
+                sr_min = np.min(stable_rank)
+                self._output(f'weight_stable_rank/{name}/expert_min', sr_min, cur_step_num,
+                             self.sr_format)
+                sr_mean = np.mean(stable_rank)
+                self._output(f'weight_stable_rank/{name}/expert_mean', sr_mean, cur_step_num,
+                             self.sr_format)
+                ev_max = np.max(eigenvalue)
+                self._output(f'weight_eigenvalue/{name}/expert_max', ev_max, cur_step_num,
+                             self.sr_format)
+                ev_min = np.min(eigenvalue)
+                self._output(f'weight_eigenvalue/{name}/expert_min', ev_min, cur_step_num,
+                             self.sr_format)
+                ev_mean = np.mean(eigenvalue)
+                self._output(f'weight_eigenvalue/{name}/expert_mean', ev_mean, cur_step_num,
+                             self.sr_format)
 
     def _check_attr_formats(self, attr):
         """Check the validation of formats in config"""
@@ -2739,11 +2966,11 @@ class StressTestModelMonitor(Callback):
         self.main_master_port = int(os.getenv("MS_SCHED_PORT"))
         logger.info(f"The main model is using master port {self.main_master_port}")
         if not isinstance(self.stress_master_port, int) or self.stress_master_port < 1:
-            logger.warning(f"For StressTestMonitor, stress_master_port must be an integer greater than or equal "
+            logger.warning("For StressTestMonitor, stress_master_port must be an integer greater than or equal "
                            f"to 1, but got {self.stress_master_port}. Setting to default value 8338")
             self.stress_master_port = 8338
         if self.stress_master_port == self.main_master_port:
-            logger.warning(f"For StressTestMonitor, stress_master_port must be different from the main task "
+            logger.warning("For StressTestMonitor, stress_master_port must be different from the main task "
                            f"but both got {self.stress_master_port}. Setting to {self.stress_master_port+1}")
             self.stress_master_port += 1
             logger.warning(f"Make sure that the new port {self.stress_master_port} is unoccupied.")
@@ -2751,7 +2978,7 @@ class StressTestModelMonitor(Callback):
         logger.info(f"Local worker number for each stress test is {self.worker_num}.")
         self.compare_interval_steps = compare_interval_steps
         if not isinstance(self.compare_interval_steps, int) or self.compare_interval_steps < 1:
-            logger.warning(f"For StressTestMonitor, compare_interval_steps must be an integer greater than or equal"
+            logger.warning("For StressTestMonitor, compare_interval_steps must be an integer greater than or equal"
                            f" to 1, but got {self.compare_interval_steps}.")
             logger.warning("Skipping interval steps comparison, only the last step result will be compared."
                            " compare_interval_steps is set to None")
@@ -2780,7 +3007,7 @@ class StressTestModelMonitor(Callback):
         logger.info(f"Check stress test logs at {self.stress_test_log_dir} for details.")
         if not self.dataset_dir or not os.path.exists(self.dataset_dir):
             logger.error(f"dataset_dir: {self.dataset_dir} was not found for StressTestModelMonitor, "
-                         f"Exiting Stress test.")
+                         "Exiting Stress test.")
             return
         num_cores = os.cpu_count()
         cpu_cores = f"0-{num_cores - 1}"
