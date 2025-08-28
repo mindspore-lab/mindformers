@@ -52,6 +52,7 @@ from mindformers.tools.utils import (
     FILE_PERMISSION
 )
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
+from mindformers.core.context.build_context import is_legacy_model
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 from .configuration_utils import PretrainedConfig
@@ -213,6 +214,8 @@ class ModelMixin:
             weight_name: converted weight names.
 
         """
+        if is_legacy_model():
+            raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
         for hf_name, mcore_name in self.weight_mapping:
             if hf_name in weight_name:
                 weight_name = weight_name.replace(hf_name, mcore_name)
