@@ -28,7 +28,6 @@ __all__ = ['MultiTokenPredictionBlock', 'MultiTokenPredictionBlock',
 from dataclasses import dataclass
 from typing import Union, List, Optional, Literal
 
-import mindspore as ms
 from mindspore import nn, Tensor
 from mindspore import dtype as mstype
 from mindspore.ops.auto_generate import Cast, Concat, Reshape, Shape, StridedSlice, Zeros, Transpose, OnesLike
@@ -304,7 +303,6 @@ class MultiTokenPredictionBlock(nn.Cell):
 
         self.init_extra_loss = Tensor([0], mstype.float32)
         self.compute_language_model_loss = VocabParallelCrossEntropy(config=config, loss_tag="mtp")
-        self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
 
         self.embedding = MtpSharedLanguageModelEmbedding(
             config=self.config,
@@ -312,12 +310,6 @@ class MultiTokenPredictionBlock(nn.Cell):
             max_sequence_length=self.config.seq_length,
             position_embedding_type=self.config.position_embedding_type
         )
-
-        if self.is_zbv:
-            self.embedding.pipeline_stage = 0
-            self.embedding.pipeline_segment = 1
-        else:
-            self.embedding.pipeline_stage = config.pipeline_model_parallel_size - 1
 
         self.output_layer = ColumnParallelLinear(
             self.config.hidden_size,
@@ -327,11 +319,6 @@ class MultiTokenPredictionBlock(nn.Cell):
             bias=False,
             skip_weight_param_allocation=True,
         )
-        if self.is_zbv:
-            self.output_layer.pipeline_stage = 0
-            self.output_layer.pipeline_segment = 1
-        else:
-            self.output_layer.pipeline_stage = config.pipeline_model_parallel_size - 1
 
         self.cast = Cast()
         self.concat_2d = Concat(axis=-1)
