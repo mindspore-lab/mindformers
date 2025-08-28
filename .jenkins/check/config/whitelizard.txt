@@ -37,3 +37,4 @@ mindformers/mindformers/models/tokenization_utils_base.py:_get_padding_truncatio
 mindformers/mindformers/models/tokenization_utils_base.py:pad
 mindformers/mindformers/models/tokenization_utils_base.py:prepare_for_model
 mindformers/mindformers/models/tokenization_utils_base.py:truncate_sequences
+mindformers/mindformers/parallel_core/inference/transformer/multi_latent_attention.py:__init__
