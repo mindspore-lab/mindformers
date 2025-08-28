@@ -13,3 +13,33 @@
 # limitations under the License.
 # ============================================================================
 """quantization core module"""
+
+__all__ = [
+    "QuantizationConfig",
+    "QuantizationBackends",
+    "get_quantization_config",
+    "QUANTIZATION_METHODS",
+]
+
+from typing import Literal, get_args
+
+from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizationConfig
+
+
+QuantizationBackends = Literal[
+    "mindspore"
+]
+
+QUANTIZATION_METHODS: list[str] = list(get_args(QuantizationBackends))
+
+
+def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
+    if quantization not in QUANTIZATION_METHODS:
+        raise ValueError(f"Invalid quantization method: {quantization}")
+
+    from mindformers.parallel_core.inference.tensor_parallel.quantization.mindspore.config import MindSporeConfig
+    backend_to_config: dict[str, type[QuantizationConfig]] = {
+        "mindspore": MindSporeConfig,
+    }
+
+    return backend_to_config[quantization]

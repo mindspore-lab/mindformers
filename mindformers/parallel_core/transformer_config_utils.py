@@ -428,6 +428,7 @@ COMMON_CONFIG_MAPPING = {
     "ffn_allreduce": "ffn_allreduce",
     "use_alltoall": "use_alltoall",
     "dispatch_global_max_bs": "dispatch_global_max_bs",
+    "quantization_config": "quantization_config",
 
     # Pet
     "pet_config": "pet_config"

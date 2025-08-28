@@ -19,6 +19,7 @@ import numpy as np
 from mindspore import nn, ops, mint, Tensor
 import mindspore.common.dtype as mstype
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
@@ -59,6 +60,7 @@ class GPTModel(nn.Cell):
             does not support to set currently. Default: None.
         model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
             Default: default_model_comm_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
 
     Inputs:
         - **input_ids** (Tensor) - Input token ids
@@ -108,17 +110,10 @@ class GPTModel(nn.Cell):
             seq_len_interpolation_factor: Optional[float] = None,
             mtp_block_spec: Optional[ModuleSpec] = None,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
     ):
         super(GPTModel, self).__init__()
-        if not pre_process:
-            raise NotImplementedError("For GPTModel, `pre_process` is not supported to set False")
-        if fp16_lm_cross_entropy:
-            raise NotImplementedError("For GPTModel, `fp16_lm_cross_entropy` is not supported")
-        if rope_scaling:
-            raise NotImplementedError("For GPTModel, `rope_scaling` is not supported. "
-                                      "Please use `rope_type` to control the selection of extrapolation algorithm.")
-        if mtp_block_spec:
-            raise NotImplementedError("For GPTModel, `mtp_block_spec` is not supported")
+        self.check_support(fp16_lm_cross_entropy, mtp_block_spec, pre_process, rope_scaling)
 
         self.config = config
         self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
@@ -128,7 +123,6 @@ class GPTModel(nn.Cell):
         self.post_process = getattr(config, "post_process", post_process)
         self.parallel_output = parallel_output
         self.compute_dtype = self.config.compute_dtype
-
         self.max_position_embeddings = max_sequence_length
         if not hasattr(config, "qk_pos_emb_head_dim"):
             if hasattr(config, "kv_channels"):
@@ -180,6 +174,7 @@ class GPTModel(nn.Cell):
             config=self.config,
             spec=transformer_layer_spec,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
         )
 
         # Output
@@ -199,6 +194,18 @@ class GPTModel(nn.Cell):
         self.gather = ops.Gather()
 
         self.set_modules({"model": self})
+
+    def check_support(self, fp16_lm_cross_entropy, mtp_block_spec, pre_process, rope_scaling):
+        """Check support for GPTModel."""
+        if not pre_process:
+            raise NotImplementedError("For GPTModel, `pre_process` is not supported to set False")
+        if fp16_lm_cross_entropy:
+            raise NotImplementedError("For GPTModel, `fp16_lm_cross_entropy` is not supported")
+        if rope_scaling:
+            raise NotImplementedError("For GPTModel, `rope_scaling` is not supported. "
+                                      "Please use `rope_type` to control the selection of extrapolation algorithm.")
+        if mtp_block_spec:
+            raise NotImplementedError("For GPTModel, `mtp_block_spec` is not supported")
 
     def set_modules(self, model_dicts: Dict[str, nn.Cell]):
         self.modules_dict = model_dicts
@@ -375,7 +382,6 @@ class GPTModel(nn.Cell):
                     if expert_id == -1:
                         continue
                     name = name.replace(weight_name, param_name)
-                    name = name[:name.rfind('.')]
                     if name in params_dict:
                         param = params_dict[name]
                         weight_loader = param.weight_loader

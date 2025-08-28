@@ -24,6 +24,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
 from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import UnquantizedGroupedLinearMethod
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.utils import divide
@@ -43,6 +44,8 @@ class GroupedMLP(nn.Cell):
             config: TransformerConfig,
             submodules: MLPSubmodules,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         super().__init__()
         self.config: TransformerConfig = config
@@ -59,21 +62,21 @@ class GroupedMLP(nn.Cell):
 
         self.activation_type = self.config.hidden_act
 
-        # create weights
-        # Note: Currently does not support quantization, only use UnquantizedGroupedLinearMethod.
         self.quant_method: Optional[QuantizeMethodBase] = UnquantizedGroupedLinearMethod()
+        if quant_config is not None:
+            self.quant_method = quant_config.get_quant_method(self, prefix)
         self.weight1 = self.quant_method.create_weights(
             layer=None,
             num_local_experts=self.num_local_experts,
             input_size_per_partition=self.input_size,
-            output_size_per_partition=divide(ffn_hidden_size, self.tp_group_size),
+            output_partition_sizes=[divide(ffn_hidden_size, self.tp_group_size)],
             params_dtype=self.config.params_dtype,
         )
         self.weight2 = self.quant_method.create_weights(
             layer=None,
             num_local_experts=self.num_local_experts,
             input_size_per_partition=self.ffn_hidden_size_per_partition,
-            output_size_per_partition=self.input_size,
+            output_partition_sizes=[self.input_size],
             params_dtype=self.config.params_dtype,
         )
 
@@ -89,6 +92,8 @@ class GroupedMLP(nn.Cell):
             weight=self.weight1, # Skip creating weights and use weight1 for gemm linear calculation
             is_expert=True,
             tp_group=self.tp_group,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_fc1",
         )
 
         if self.activation_type is not None:
@@ -107,6 +112,8 @@ class GroupedMLP(nn.Cell):
             weight=self.weight2, # Skip creating weights and use weight2 for gemm linear calculation
             is_expert=True,
             tp_group=self.tp_group,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_fc2",
         )
 
         set_weight_attrs(self.weight1, {"weight_loader": self.linear_fc1.weight_loader})

@@ -26,6 +26,7 @@ from typing import Union, Optional
 
 from mindspore import mint, nn, ops
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.enums import AttnMaskType
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -299,7 +300,9 @@ class SelfAttention(Attention):
                  attn_mask_type: AttnMaskType = None,
                  cp_comm_type: str = None,
                  delay_allreduce: bool = False,
-                 model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
+                 model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+                 quant_config: Optional[QuantizationConfig] = None,
+                 prefix: str = ""):
         super().__init__(
             config=config,
             submodules=submodules,
@@ -323,6 +326,8 @@ class SelfAttention(Attention):
             transpose_b=True,
             compute_dtype=self.compute_dtype,
             tp_group=self.tp,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_qkv",
         )
 
         if submodules.q_layernorm is not None:

@@ -39,7 +39,8 @@ from mindformers.parallel_core.inference.parallel_state import ProcessGroup, def
 from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs, split_loaded_weight,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
                                                                deal_linear_kv_down_weight)
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import (QuantizeMethodBase,
+                                                                                          QuantizationConfig)
 
 
 class LinearMethodBase(QuantizeMethodBase):
@@ -134,6 +135,8 @@ class LinearBase(ms.nn.Cell):
         output_size: output dimension of the linear layer.
         skip_bias_add: If true, skip adding bias but instead return it.
         params_dtype: Data type for the parameters.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(
@@ -142,6 +145,8 @@ class LinearBase(ms.nn.Cell):
             output_size: int,
             skip_bias_add: bool = False,
             params_dtype: mstype = mstype.float32,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super().__init__()
 
@@ -150,9 +155,11 @@ class LinearBase(ms.nn.Cell):
         self.output_size = output_size
         self.skip_bias_add = skip_bias_add
         self.params_dtype = params_dtype
-        # Currently does not support quantization, only use UnquantizedLinearMethod.
+        self.quant_config = quant_config
         self.quant_method: Optional[
             QuantizeMethodBase] = UnquantizedLinearMethod()
+        if self.quant_config is not None:
+            self.quant_method = self.quant_config.get_quant_method(self, prefix=prefix)
 
     def construct(self, input_: ms.Tensor) -> ms.Tensor:
         raise NotImplementedError
@@ -185,6 +192,8 @@ class ColumnParallelLinear(LinearBase):
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -219,8 +228,17 @@ class ColumnParallelLinear(LinearBase):
             transpose_b: bool = True,
             compute_dtype: mstype = mstype.bfloat16,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
-        super(ColumnParallelLinear, self).__init__(input_size, output_size, skip_bias_add, config.params_dtype)
+        super(ColumnParallelLinear, self).__init__(
+            input_size,
+            output_size,
+            skip_bias_add,
+            config.params_dtype,
+            quant_config=quant_config,
+            prefix=prefix
+        )
         if stride > 1:
             raise NotImplementedError("For ColumnParallelLinear, `stride > 1` is not supported for now, "
                                       "but got `stride={}`".format(stride))
@@ -344,9 +362,14 @@ class ColumnParallelLinear(LinearBase):
         shard_dim = getattr(param, "output_dim", None)
         shard_size = self.output_size_per_partition
         loaded_weight = loaded_weight[:]
-        if loaded_shard_id is not None:
+        if loaded_shard_id is not None and shard_dim is not None:
             if loaded_shard_id == 'q_up':
-                loaded_weight = deal_linear_q_up_weight(loaded_weight, self.config, shard_dim, shard_size=shard_size)
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
+                loaded_weight = deal_linear_q_up_weight(loaded_weight,
+                                                        self.config,
+                                                        shard_dim,
+                                                        shard_size=shard_size,
+                                                        rope_transition=rope_transition)
             if loaded_shard_id == 'kv_up':
                 loaded_weight = deal_linear_kv_up_weight(loaded_weight, self.config, shard_dim, shard_size=shard_size)
         else:
@@ -378,6 +401,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(self,
@@ -391,6 +416,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                  transpose_b: bool = True,
                  compute_dtype: mstype = None,
                  tp_group: ProcessGroup = default_pgs,
+                 quant_config: Optional[QuantizationConfig] = None,
+                 prefix: str = ""
                  ):
         self.params_dtype = config.params_dtype
 
@@ -413,6 +440,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             transpose_b=transpose_b,
             compute_dtype=compute_dtype,
             tp_group=tp_group,
+            quant_config=quant_config,
+            prefix=prefix
         )
 
     def weight_loader(self,
@@ -433,11 +462,19 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             shard_size = self.output_sizes[array_id] // tp_size
 
         start_idx = tp_rank * shard_size
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
         loaded_weight = split_loaded_weight(loaded_weight, output_dim,
                                             start_idx, shard_size)
-
-        if loaded_weight.shape == (shard_size, param.shape[1]):
-            param[shard_offset:shard_offset + shard_size, :] = ms.from_numpy(loaded_weight)
+        expected_shape = list(param.shape)
+        expected_shape[output_dim] = shard_size
+        expected_shape = tuple(expected_shape)
+        if loaded_weight.shape == expected_shape:
+            indices = [slice(None)] * len(param.shape)
+            indices[output_dim] = slice(shard_offset, shard_offset + shard_size)
+            param.init_data()
+            param[tuple(indices)] = ms.from_numpy(loaded_weight)
         else:
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
@@ -467,6 +504,8 @@ class QKVParallelLinear(ColumnParallelLinear):
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(
@@ -482,6 +521,8 @@ class QKVParallelLinear(ColumnParallelLinear):
             transpose_b: bool = True,
             compute_dtype: mstype = None,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         self.head_size = head_size
         self.total_num_heads = total_num_heads
@@ -516,6 +557,8 @@ class QKVParallelLinear(ColumnParallelLinear):
             transpose_b=transpose_b,
             compute_dtype=compute_dtype,
             tp_group=tp_group,
+            quant_config=quant_config,
+            prefix=prefix
         )
 
     def weight_loader(self,
@@ -586,6 +629,8 @@ class RowParallelLinear(LinearBase):
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -616,8 +661,15 @@ class RowParallelLinear(LinearBase):
             transpose_b: bool = True,
             compute_dtype: mstype = mstype.bfloat16,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
-        super(RowParallelLinear, self).__init__(input_size, output_size, skip_bias_add, config.params_dtype)
+        super(RowParallelLinear, self).__init__(input_size,
+                                                output_size,
+                                                skip_bias_add,
+                                                config.params_dtype,
+                                                quant_config=quant_config,
+                                                prefix=prefix)
         if stride > 1:
             raise NotImplementedError("For RowParallelLinear, `stride > 1` is not supported for now, "
                                       "but got `stride={}`".format(stride))
@@ -729,6 +781,10 @@ class RowParallelLinear(LinearBase):
         input_dim = getattr(param, "input_dim", None)
         shard_size = self.input_size_per_partition
         start_idx = tp_rank * shard_size
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
+
         loaded_weight = split_loaded_weight(loaded_weight, input_dim,
                                             start_idx, shard_size)
 
@@ -736,7 +792,8 @@ class RowParallelLinear(LinearBase):
         # have a shape (such as in the case of AutoFP8).
         if len(loaded_weight.shape) == ():
             loaded_weight = loaded_weight.reshape(1)
-
+        if param.name.endswith("quant_bias") and tp_rank != 0:
+            loaded_weight.fill(0)
         if param.shape == loaded_weight.shape:
             param.set_data(ms.from_numpy(loaded_weight))
         else:
@@ -763,6 +820,8 @@ class ReplicatedLinear(LinearBase):
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: mstype.bfloat16.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(
@@ -781,9 +840,16 @@ class ReplicatedLinear(LinearBase):
             is_expert: bool = False,
             tp_comm_buffer_name: str = None,
             transpose_b: bool = True,
-            compute_dtype: mstype = None
+            compute_dtype: mstype = None,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
-        super(ReplicatedLinear, self).__init__(input_size, output_size, skip_bias_add, config.params_dtype)
+        super().__init__(input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
             raise NotImplementedError("For ReplicatedLinear, `stride > 1` is not supported for now, "
                                       "but got `stride={}`".format(stride))
@@ -873,27 +939,37 @@ class ReplicatedLinear(LinearBase):
         """
         offset = None
         size = None
+        output_dim = getattr(param, "output_dim", None)
         loaded_weight = loaded_weight[:]
-        if loaded_shard_id is not None:
+        if loaded_shard_id is not None and output_dim is not None:
             if loaded_shard_id == 'q_down':
                 offset = 0
                 size = self.config.q_lora_rank
             if loaded_shard_id == 'kv_down':
                 offset = self.config.q_lora_rank
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
-                loaded_weight = deal_linear_kv_down_weight(loaded_weight, self.config)
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
+                loaded_weight = deal_linear_kv_down_weight(loaded_weight,
+                                                           self.config,
+                                                           rope_transition=rope_transition)
             if loaded_shard_id == 'gating':
                 offset = 0
                 size = self.config.moe_shared_expert_intermediate_size
             if loaded_shard_id == 'hidden':
                 offset = self.config.moe_shared_expert_intermediate_size
                 size = self.config.moe_shared_expert_intermediate_size
-            if loaded_weight.shape != (size, param.shape[1]):
+            expected_shape = list(param.shape)
+            expected_shape[output_dim] = size
+            expected_shape = tuple(expected_shape)
+            if loaded_weight.shape != expected_shape:
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                    f" but got the shape of param is {(size, param.shape[1])} "
+                    f" but got the shape of param is {expected_shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
-            param[offset:offset + size] = ms.from_numpy(loaded_weight)
+            indices = [slice(None)] * len(param.shape)
+            indices[output_dim] = slice(offset, offset + size)
+            param.init_data()
+            param[tuple(indices)] = ms.from_numpy(loaded_weight)
         else:
             if param.shape != loaded_weight.shape:
                 raise ValueError(
@@ -915,6 +991,8 @@ class VocabParallelEmbedding(nn.Cell):
             of str refer to the function `initializer`. Default: 'normal'.
         reduce_scatter_embeddings (bool): Decides whether to perform ReduceScatter after embedding lookup.
         tp_group (ProcessGroup): The process_group this linear layer used. Default: default_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this linear layer. Default: empty string("").
     """
 
     def __init__(
@@ -926,6 +1004,8 @@ class VocabParallelEmbedding(nn.Cell):
             config: TransformerConfig,
             reduce_scatter_embeddings: bool = False,
             tp_group: ProcessGroup = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super().__init__()
         if reduce_scatter_embeddings:
@@ -933,12 +1013,10 @@ class VocabParallelEmbedding(nn.Cell):
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
 
-        quant_method = None
-        # Currently does not support quantization, only use UnquantizedEmbeddingMethod.
-        if quant_method is None:
-            quant_method = UnquantizedEmbeddingMethod()
-        self.quant_method: QuantizeMethodBase = quant_method
-
+        if quant_config is None:
+            self.quant_method = UnquantizedEmbeddingMethod()
+        else:
+            self.quant_method = quant_config.get_quant_method(self, prefix=prefix)
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         rank_id = self.tp_group.rank

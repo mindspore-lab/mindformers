@@ -13,14 +13,18 @@
 # limitations under the License.
 # ============================================================================
 """weights utils."""
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 import numpy as np
 
 import mindspore as ms
 from mindspore import Parameter
 
+from mindformers.tools.register import MindFormerConfig
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
                                                                 get_tensor_model_parallel_rank)
+from mindformers.parallel_core.inference.tensor_parallel.quantization import get_quantization_config
+from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizationConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 
 
 def set_weight_attrs(
@@ -71,7 +75,7 @@ def infer_trans_rope_weight(weight, qk_pos_emb_head_dim):
     return weight
 
 
-def deal_linear_q_up_weight(weight, config, shard_dim, shard_size):
+def deal_linear_q_up_weight(weight, config, shard_dim, shard_size, rope_transition=False):
     """Splits the linear_q_up weights from source checkpoint.
 
     Args:
@@ -81,16 +85,23 @@ def deal_linear_q_up_weight(weight, config, shard_dim, shard_size):
         shard_size: The size of each shard when splitting the weight tensor.
                     Used for model parallelism when the model is distributed
                     across multiple devices.
+        rope_transition: if true the weights are transformed to fit rope kernel.
 
     """
     tp_rank = get_tensor_model_parallel_rank()
     num_heads = config.num_attention_heads
-    rope_dim = config.qk_pos_emb_head_dim + config.qk_head_dim
-    weight = weight.reshape(num_heads, rope_dim, -1)
-    weight = infer_trans_rope_weight(weight, config.qk_pos_emb_head_dim)
-    weight = weight.reshape(num_heads * rope_dim, -1)
+    if rope_transition:
+        ori_shape_len = len(weight.shape)
+        rope_dim = config.qk_pos_emb_head_dim + config.qk_head_dim
+        weight = weight.reshape(num_heads, rope_dim, -1)
+        weight = infer_trans_rope_weight(weight, config.qk_pos_emb_head_dim)
+        weight = weight.reshape(num_heads * rope_dim, -1) if ori_shape_len == 2 else \
+                weight.reshape(-1)
+
     start_idx = tp_rank * shard_size
     loaded_weight = split_loaded_weight(weight, shard_dim, start_idx, shard_size)
+    if loaded_weight.shape[-1] == 1 and len(loaded_weight.shape) == 2:
+        loaded_weight = loaded_weight.reshape(-1)
     return loaded_weight
 
 
@@ -138,12 +149,24 @@ def deal_linear_kv_up_weight(weight, config, shard_dim, shard_size):
     return weight
 
 
-def deal_linear_kv_down_weight(weight, config):
-    kv_lora_rank = config.kv_lora_rank
-    qk_rope_head_dim = config.qk_pos_emb_head_dim
-    kv_head_dim = kv_lora_rank + qk_rope_head_dim
-    weight = weight.reshape(kv_head_dim, -1)
-    weight = infer_trans_rope_weight(weight, qk_rope_head_dim)
+def deal_linear_kv_down_weight(weight, config, rope_transition=False):
+    """Splits the linear_kv_down weights from source checkpoint.
+
+    Args:
+        weight: The weights to be loaded.
+        config: Model configuration.
+        rope_transition: if true the weights are transformed to fit rope kernel
+
+    """
+    if rope_transition:
+        kv_lora_rank = config.kv_lora_rank
+        qk_rope_head_dim = config.qk_pos_emb_head_dim
+        kv_head_dim = kv_lora_rank + qk_rope_head_dim
+        ori_shape_len = len(weight.shape)
+        weight = weight.reshape(kv_head_dim, -1)
+        weight = infer_trans_rope_weight(weight, qk_rope_head_dim)
+        if ori_shape_len == 1:
+            weight = weight.reshape(-1)
     return weight
 
 
@@ -169,22 +192,37 @@ def make_expert_params_mapping(
         - expert_id: Physical expert ID
         - shard_id: Shard ID
     """
+    # In the returned mapping:
+    # - `expert_id` is the physical expert id
+    # - `weight_name` contains the weight name of the logical expert
+    # So that we should map the expert id to logical in `weight_name`
 
     params_mapping = []
     expert_list = [('w1', ckpt_gate_proj_name), ('w2', ckpt_down_proj_name), ('w3', ckpt_up_proj_name)]
 
-    for expert_id in range(num_experts):
-        for shard_id, weight_name in expert_list:
-            if weight_name in [ckpt_gate_proj_name, ckpt_up_proj_name]:
-                weight1_prefix = "experts.weight1."
-            else:
-                weight1_prefix = "experts.weight2."
-            param_tuple = (
-                weight1_prefix,
-                f"experts.{expert_id}.{weight_name}.",
+    for shard_id, shard_weight_name in expert_list:
+        is_linear_fc1 = shard_weight_name in [ckpt_gate_proj_name, ckpt_up_proj_name]
+        weight_param_name = f'experts.{"weight1" if is_linear_fc1 else "weight2"}'
+        other_param_name = f'experts.{"linear_fc1" if is_linear_fc1 else "linear_fc2"}.'
+        for expert_id in range(num_experts):
+            weight_mapping = (
+                weight_param_name,
+                f'experts.{expert_id}.{shard_weight_name}.weight',
                 expert_id,
                 shard_id
             )
-            params_mapping.append(param_tuple)
-
+            other_param_mapping = (
+                other_param_name,
+                f'experts.{expert_id}.{shard_weight_name}.',
+                expert_id,
+                shard_id
+            )
+            params_mapping.append(weight_mapping)
+            params_mapping.append(other_param_mapping)
     return params_mapping
+
+
+def get_quant_config(model_config: Union[dict, MindFormerConfig, PretrainedConfig]) -> QuantizationConfig:
+    quant_cls = get_quantization_config(model_config.quantization_config['quant_method'])
+    hf_quant_config = model_config.quantization_config
+    return quant_cls(hf_quant_config)
