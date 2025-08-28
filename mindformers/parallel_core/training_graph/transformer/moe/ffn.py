@@ -156,6 +156,14 @@ class FFNGroupedGEMM(nn.Cell):
         """
         Handles the sharding configuration for the model's parallelism settings.
         """
+        if config.data_parallel_size * config.tensor_model_parallel_size % config.expert_model_parallel_size != 0:
+            raise ValueError(
+                f"expert_model_parallel_size must divide (data_parallel_size * tensor_model_parallel_size) exactly.\n"
+                f"Current values: data_parallel_size={config.data_parallel_size}, "
+                f"tensor_model_parallel_size={config.tensor_model_parallel_size}, "
+                f"expert_model_parallel_size={config.expert_model_parallel_size}."
+            )
+
         inner_dp = "ep"
         sp = "None"
         mp0 = "None"
