@@ -27,6 +27,7 @@ from typing import Union, Optional
 from mindspore import mint
 from mindspore.ops import operations as P
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
@@ -73,6 +74,8 @@ class MultiLatentAttention(Attention):
             cp_comm_type: str = None,
             delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         super().__init__(
             config=config,
@@ -165,7 +168,9 @@ class MultiLatentAttention(Attention):
             is_expert=False,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
-            tp_group=self.tp
+            tp_group=self.tp,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_proj"
         )
 
         self.cast = P.Cast()
@@ -250,7 +255,10 @@ class MLASelfAttention(MultiLatentAttention):
             attn_mask_type=None,
             cp_comm_type: str = None,
             delay_allreduce: bool = False,
-            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs):
+            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
+        ):
         super().__init__(
             config=config,
             submodules=submodules,
@@ -259,6 +267,8 @@ class MLASelfAttention(MultiLatentAttention):
             cp_comm_type=cp_comm_type,
             delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
+            prefix=prefix
         )
 
         if self.config.q_lora_rank is None:
@@ -274,6 +284,8 @@ class MLASelfAttention(MultiLatentAttention):
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
                 tp_group=self.tp,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_q_proj"
             )
 
             self.linear_kv_down_proj = build_module(
@@ -286,7 +298,9 @@ class MLASelfAttention(MultiLatentAttention):
                 gather_output=False,
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
-                is_expert=False
+                is_expert=False,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_kv_down_proj"
             )
 
         else:
@@ -297,7 +311,9 @@ class MLASelfAttention(MultiLatentAttention):
                 config=self.config,
                 bias=False,
                 transpose_b=True,
-                compute_dtype=self.config.compute_dtype
+                compute_dtype=self.config.compute_dtype,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_qkv_down_proj"
             )
 
             self.linear_q_up_proj = build_module(
@@ -312,6 +328,8 @@ class MLASelfAttention(MultiLatentAttention):
                 compute_dtype=self.config.compute_dtype,
                 is_expert=False,
                 tp_group=self.tp,
+                quant_config=quant_config,
+                prefix=f"{prefix}.linear_q_up_proj"
             )
 
         self.linear_kv_up_proj = build_module(
@@ -324,6 +342,8 @@ class MLASelfAttention(MultiLatentAttention):
             compute_dtype=self.config.compute_dtype,
             is_expert=False,
             tp_group=self.tp,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_kv_up_proj"
         )
 
         if self.config.q_lora_rank is not None:

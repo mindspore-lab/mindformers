@@ -19,10 +19,13 @@ from safetensors import safe_open
 from tqdm.auto import tqdm
 
 from mindspore import Tensor, mutable
+from mindspore.nn import Cell
 import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
+from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.parallel_core.inference.transformer.attention import Attention
 
 
 class InferModelMixin(ModelMixin):
@@ -126,6 +129,22 @@ class InferModelMixin(ModelMixin):
                 self._safetensors_weights_iterator(weights_files),
                 self.generate_mapping()
             )
+        self.process_weights_after_loading(self.model)
+
+    def process_weights_after_loading(self, root: Cell, name_prefix: str = "model"):
+        """Recursively search for target layers in the network and process_weights_after_loading"""
+        if root is None:
+            return root
+        for name, cell in root.name_cells().items():
+            full_cell_name = f"{name_prefix}.{name}"
+            quant_method = getattr(cell, "quant_method", None)
+            if isinstance(quant_method, QuantizeMethodBase):
+                quant_method.process_weights_after_loading(cell)
+                continue
+            if isinstance(cell, Attention) and hasattr(cell, "process_weights_after_loading"):
+                cell.process_weights_after_loading()
+            _ = self.process_weights_after_loading(cell, full_cell_name)
+        return root
 
     def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
         """Iterate over the weights in the model safetensor files."""

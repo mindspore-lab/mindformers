@@ -29,7 +29,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTMod
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-
+from mindformers.parallel_core.inference.weights_utils import get_quant_config
 from .configuration_deepseek_v3 import DeepseekV3Config
 
 
@@ -77,6 +77,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
+        quant_config = None
+        if self.config.quantization_config is not None:
+            quant_config = get_quant_config(self.config)
         self.model = GPTModel(
             config=config,
             transformer_layer_spec=get_gpt_decoder_block_spec(
@@ -89,6 +92,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             position_embedding_type=config.position_embedding_type,
             rotary_base=config.rotary_base,
             model_comm_pgs=self.model_comm_pgs,
+            quant_config=quant_config,
         )
 
     def add_flags_custom_mcore(self, is_prefill):
@@ -173,3 +177,52 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             value_cache=value_cache,
         )
         return logits
+
+    def convert_name(self, weight_name):
+        r"""
+        Override convert_name method in inference model, in order to read PTQ weights correctly.
+        PTQ weights are generated after training, so it should only exist in inference model.
+        """
+        weight_name = super().convert_name(weight_name)
+        # Do extra conversion for quantization parameters.
+
+        if self.config.quantization_config is not None:
+            weight_name = weight_name.replace('model.tok_embeddings.embedding_weight',
+                                              'embedding.word_embeddings.weight')
+            weight_name = weight_name.replace('model.norm_out.', 'decoder.final_layernorm.')
+            weight_name = weight_name.replace('lm_head.', 'output_layer.')
+
+            weight_name = weight_name.replace('.self_attention.q_layernorm.bias',
+                                              '.attention.l2q_proj.quant_op.beta')
+            weight_name = weight_name.replace('.input_layernorm.bias',
+                                              '.attention.q2l_proj.quant_op.beta')
+            weight_name = weight_name.replace('.attention_norm.', '.input_layernorm.')
+            weight_name = weight_name.replace('.ffn_norm.', '.pre_mlp_layernorm.')
+            weight_name = weight_name.replace('.q2l_proj.', '.linear_q_down_proj.')
+            weight_name = weight_name.replace('.lq_norm.', '.q_layernorm.')
+            weight_name = weight_name.replace('.l2q_proj.', '.linear_q_up_proj.')
+            weight_name = weight_name.replace('.kv2l.', '.linear_kv_down_proj.')
+            weight_name = weight_name.replace('.lkv_norm.', '.kv_layernorm.')
+            weight_name = weight_name.replace('.lkv2kv.', '.linear_kv_up_proj.')
+            weight_name = weight_name.replace('.wo.', '.linear_proj.')
+
+            weight_name = weight_name.replace('.w1.', '.gating.')
+            weight_name = weight_name.replace('.w2.', '.linear_fc2.')
+            weight_name = weight_name.replace('.w3.', '.hidden.')
+            weight_name = weight_name.replace('.routed_experts.router.dense.', '.router.weight.')
+            weight_name = weight_name.replace('.routed_experts.router.e_score_correction_bias', '.router.expert_bias')
+            weight_name = weight_name.replace('.routed_experts.ffn.', '.experts.')
+
+            weight_name = weight_name.replace('model.layers.', 'decoder.layers.')
+            weight_name = weight_name.replace('.attention.', '.self_attention.')
+            weight_name = weight_name.replace('.feed_forward.', '.mlp.')
+
+            weight_name = weight_name.replace('.matmul.', '.')
+            weight_name = weight_name.replace('.quant_op.', '.')
+            weight_name = weight_name.replace('._layer.', '.')
+
+            weight_name = weight_name.replace('.dequant_scale', '.deq_scale')
+            weight_name = weight_name.replace('.input_zp', '.input_offset')
+            weight_name = weight_name.replace('.weight_scale', '.w_scale')
+            weight_name = weight_name.replace('.weight_offset', '.w_offset')
+        return weight_name

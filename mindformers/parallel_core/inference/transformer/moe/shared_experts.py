@@ -19,7 +19,7 @@ from copy import deepcopy
 from typing import Optional
 
 from mindspore import mint
-
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
@@ -38,6 +38,8 @@ class SharedExpertMLP(MLP):
             submodules: MLPSubmodules,
             gate: bool,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         config = deepcopy(config)
         if config.add_bias_linear:
@@ -55,7 +57,9 @@ class SharedExpertMLP(MLP):
             submodules=submodules,
             is_expert=True,
             delay_allreduce=True,
-            tp_group=model_comm_pgs.globals if not config.use_alltoall else None)
+            tp_group=model_comm_pgs.globals if not config.use_alltoall else None,
+            quant_config=quant_config,
+            prefix=prefix)
 
         self.use_shared_expert_gate = gate
         if self.use_shared_expert_gate:
@@ -65,7 +69,9 @@ class SharedExpertMLP(MLP):
                 config=self.config,
                 bias=False,
                 transpose_b=False,
-                compute_dtype=self.config.compute_dtype
+                compute_dtype=self.config.compute_dtype,
+                quant_config=quant_config,
+                prefix=f"{prefix}.gate",
             )
             self.activation_func = get_act_func("silu")
         else:

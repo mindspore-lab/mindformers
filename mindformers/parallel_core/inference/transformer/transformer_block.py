@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.transformer_layer import BaseTransformerLayer
@@ -93,6 +94,7 @@ class TransformerBlock(nn.Cell):
         post_process (bool): Default: False.
         model_comm_pgs (ModelCommProcessGroups, optional): Model communication process group.
             Default: default_model_comm_pgs.
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
 
 
     Inputs:
@@ -138,6 +140,7 @@ class TransformerBlock(nn.Cell):
             pre_process=False,
             post_process=False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
     ):
         super(TransformerBlock, self).__init__()
 
@@ -158,7 +161,7 @@ class TransformerBlock(nn.Cell):
         self.model_comm_pgs = model_comm_pgs
         self.post_layer_norm = post_layer_norm
         self.num_layers = config.num_layers
-
+        self.quant_config = quant_config
         self._build_layers(config)
 
     def _build_layers(self, config: TransformerConfig):
@@ -166,7 +169,8 @@ class TransformerBlock(nn.Cell):
         # Transformer layers.
         def build_layer(layer_spec, layer_number):
             return build_module(layer_spec, config=self.config, layer_number=layer_number,
-                                model_comm_pgs=self.model_comm_pgs)
+                                model_comm_pgs=self.model_comm_pgs, quant_config=self.quant_config,
+                                prefix=f"decoder.layers.{layer_number-1}")
 
         self.layers = nn.CellList(
             [

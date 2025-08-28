@@ -23,6 +23,7 @@ from typing import Union, Optional
 
 from mindspore import nn, mint
 
+from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
@@ -57,7 +58,8 @@ class MLP(nn.Cell):
         input_size (int, optional): Input hidden size. If None, will use config.hidden_size. Default: None.
         delay_allreduce (bool): Whether to delay allreduce during linear_fc2 forward function. Default: False
         tp_group (ProcessGroup): The process_group that current layer used. Default: default_pgs.
-
+        quant_config (QuantizationConfig, optional): Quantization configuration. Default: None.
+        prefix (str): The prefix string for this layer. Default: empty string("").
 
     Inputs:
         - **hidden_states** (Tensor) - Input tensor
@@ -77,6 +79,8 @@ class MLP(nn.Cell):
             input_size: Optional[int] = None,
             delay_allreduce: bool = False,
             tp_group: Optional[ProcessGroup] = default_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = "",
     ):
         super().__init__(config)
 
@@ -121,6 +125,8 @@ class MLP(nn.Cell):
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_fc1",
             **fc1_parallel_kwargs,
         )
 
@@ -138,6 +144,8 @@ class MLP(nn.Cell):
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_fc2",
             **fc2_parallel_kwargs,
         )
 
