@@ -19,7 +19,7 @@ import numpy as np
 from mindspore import nn, ops, mint, Tensor
 import mindspore.common.dtype as mstype
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear

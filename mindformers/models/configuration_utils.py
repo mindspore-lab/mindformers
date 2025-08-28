@@ -208,7 +208,7 @@ class PretrainedConfig(PushToHubMixin):
         self._commit_hash = kwargs.pop("_commit_hash", None)
 
         self.checkpoint_name_or_path = kwargs.pop("checkpoint_name_or_path", None)
-
+        self.pretrained_model_dir = str(kwargs.pop("pretrained_model_dir", ""))
         # version info
         self.mindformers_version = kwargs.pop("mindformers_version", None)
         self.tokenizer_class = kwargs.pop("tokenizer_class", None)
@@ -222,6 +222,10 @@ class PretrainedConfig(PushToHubMixin):
 
         # generation config
         self.is_sample_acceleration = kwargs.pop("is_sample_acceleration", None)
+
+        # quantization config
+        self.quantization_config = kwargs.pop("quantization_config", None)
+        self.quantization = kwargs.pop("quantization", None)
 
         for key, value in kwargs.items():
             try:

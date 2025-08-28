@@ -26,7 +26,7 @@ from typing import Optional, Union
 
 from mindspore import Tensor, nn, mint, ops
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter

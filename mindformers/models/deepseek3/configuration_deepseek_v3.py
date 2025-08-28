@@ -191,7 +191,6 @@ class DeepseekV3Config(PretrainedConfig):
             rope_scaling=None,
             attention_bias=False,
             attention_dropout=0.0,
-            quantization_config=None,
             **kwargs,
     ):
         """Deepseek V3 Config"""
@@ -233,7 +232,6 @@ class DeepseekV3Config(PretrainedConfig):
         self.rope_scaling = rope_scaling
         self.attention_bias = attention_bias
         self.attention_dropout = attention_dropout
-        self.quantization_config = quantization_config
 
         super().__init__(
             pad_token_id=pad_token_id,

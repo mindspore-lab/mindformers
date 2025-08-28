@@ -27,7 +27,7 @@ from typing import Union, Optional
 from mindspore import mint
 from mindspore.ops import operations as P
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
 from mindformers.parallel_core.transformer_config import MLATransformerConfig

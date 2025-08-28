@@ -23,7 +23,7 @@ import mindspore
 from mindspore import nn, Tensor
 
 if TYPE_CHECKING:
-    from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationBackends
+    from mindformers.parallel_core.inference.quantization import QuantizationBackends
 else:
     QuantizationBackends = str
 
