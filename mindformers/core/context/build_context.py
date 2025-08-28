@@ -119,7 +119,6 @@ class MSContextOperator:
         self._set_save_graphs_path(ctx, ms_ctx)
         self._set_save_dump_path(ctx, ms_ctx)
         self._set_predict_jit_config(ctx, ms_ctx)
-        self._set_runtime_num_threads(ctx, ms_ctx)
         self._set_runtime_kernel_launch_group()
         return self._remove_mf_keys({**ctx, **ms_ctx})
 
@@ -189,16 +188,6 @@ class MSContextOperator:
                 "jit_level": jit_level,
                 "infer_boost": infer_boost
             }
-
-    @staticmethod
-    def _set_runtime_num_threads(ctx, ms_ctx):
-        ms_version = ms.__version__
-        if ctx.get('runtime_num_threads') is None and ms_version < "2.3.0":
-            ms_ctx['runtime_num_threads'] = 1
-            logger.info(
-                "The current MindSpore version is %s,"
-                "and set the default runtime_num_threads to 1.", ms_version
-            )
 
     @staticmethod
     def _remove_mf_keys(ctx_config):

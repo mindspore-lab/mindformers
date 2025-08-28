@@ -146,11 +146,8 @@ class ColumnParallelLinear(nn.Cell):
             weight_shape = (self.expert_num,) + weight_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
                 self.matmul = ops.auto_generate.GroupedMatmulV4()
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
-                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
             else:
-                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
-                                   "Please upgrade to a MindSpore version above 2.3.0.")
+                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
         else:
             self.matmul = P.MatMul(transpose_b=self.transpose_b)
         with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
@@ -199,12 +196,9 @@ class ColumnParallelLinear(nn.Cell):
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
                 output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
                                               group_list, split_item=3, group_type=0, group_list_type=1)[0]
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+            else:
                 output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
                                               group_list)[0]
-            else:
-                raise RuntimeError("Inference of the MoE model relies on the GMM op. "
-                                   "Please upgrade to a MindSpore version above 2.3.0.")
 
         else:
             output_parallel = self.matmul(input_parallel, weight)
@@ -345,11 +339,8 @@ class RowParallelLinear(nn.Cell):
             bias_shape = (1, self.expert_num, 1) + bias_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
                 self.matmul = ops.auto_generate.GroupedMatmulV4()
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
-                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
             else:
-                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
-                                   "Please upgrade to a MindSpore version above 2.3.0.")
+                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
         else:
             self.matmul = P.MatMul(transpose_b=self.transpose_b)
         with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
@@ -390,12 +381,9 @@ class RowParallelLinear(nn.Cell):
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
                 output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
                                               group_list, split_item=3, group_type=0, group_list_type=1)[0]
-            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+            else:
                 output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
                                               group_list)[0]
-            else:
-                raise RuntimeError("Inference of the MoE model relies on the GMM op. "
-                                   "Please upgrade to a MindSpore version above 2.3.0.")
         else:
             output_parallel = self.matmul(input_parallel, weight)
 
