@@ -25,6 +25,7 @@ from mindformers.parallel_core.inference.parallel_state import (get_tensor_model
 from mindformers.parallel_core.inference.tensor_parallel.quantization import get_quantization_config
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizationConfig
 from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.version_control import is_310p
 
 
 def set_weight_attrs(
@@ -40,6 +41,8 @@ def set_weight_attrs(
 def default_weight_loader(param: Parameter, loaded_weight: Any) -> None:
     """Default weight loader."""
     loaded_weight = loaded_weight[:]
+    loaded_weight = loaded_weight.astype(np.float16) \
+        if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
     param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
 
 
@@ -53,6 +56,8 @@ def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
     """
     if shard_dim is None:
         loaded_weight = loaded_weight[:]
+        loaded_weight = loaded_weight.astype(np.float16) \
+            if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
         return loaded_weight
 
     end_idx = start_idx + shard_size
@@ -64,6 +69,8 @@ def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
         loaded_weight = loaded_weight[:, :, start_idx:end_idx]
     else:
         raise ValueError("shard_dim:{} is not supported.".format(shard_dim))
+    loaded_weight = loaded_weight.astype(np.float16) \
+        if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
     return loaded_weight
 
 

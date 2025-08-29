@@ -26,6 +26,7 @@ from mindformers.tools.logger import logger
 from mindformers.models.modeling_utils import ModelMixin
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention
+from mindformers.version_control import is_310p
 
 
 class InferModelMixin(ModelMixin):
@@ -47,7 +48,10 @@ class InferModelMixin(ModelMixin):
         def get_input():
             cache_list = []
             for _ in range(self.config.num_hidden_layers):
-                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.compute_dtype))
+                if is_310p():
+                    cache_list.append(Tensor(shape=[None, None, None], dtype=self.compute_dtype))
+                else:
+                    cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.compute_dtype))
             return mutable(cache_list)
 
         key_cache = get_input()
