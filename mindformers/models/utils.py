@@ -22,7 +22,7 @@ import mindspore as ms
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from ..tools.utils import get_predict_run_mode, is_pynative
+from ..tools.utils import get_predict_run_mode, is_pynative, get_output_root_path
 from ..version_control import get_lazy_inline, get_predict_lazy_inline
 from ..tools.logger import logger
 
@@ -34,6 +34,7 @@ FEATURE_EXTRACTOR_NAME = "preprocessor_config.json"
 PROCESSOR_NAME = "processor_config.json"
 IMAGE_PROCESSOR_NAME = FEATURE_EXTRACTOR_NAME
 MAX_INT32 = 2147483647
+DEFAULT_CHECKPOINT_SAVE_FOLDER = os.path.join(get_output_root_path(), 'checkpoint_save')
 
 str_to_ms_type = {
     "float16": mstype.float16,

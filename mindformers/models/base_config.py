@@ -23,6 +23,7 @@ import shutil
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.utils import FILE_PERMISSION
+from mindformers.models.utils import DEFAULT_CHECKPOINT_SAVE_FOLDER
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
 from ..tools.logger import logger
@@ -177,7 +178,7 @@ class BaseConfig(dict):
             save_name (str): the name of save files.
         """
         if save_directory is None:
-            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
+            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
 
         if not isinstance(save_directory, str) or not isinstance(save_name, str):
             raise TypeError(f"save_directory and save_name should be a str,"

@@ -53,6 +53,7 @@ from mindformers.tools.utils import (
 )
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.core.context.build_context import is_legacy_model
+from mindformers.models.utils import DEFAULT_CHECKPOINT_SAVE_FOLDER
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 from .configuration_utils import PretrainedConfig
@@ -613,12 +614,12 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         Args:
             save_directory(str): a directory to save the model weight and configuration.
                 If None, the directory will be  `./checkpoint_save`, which can be obtained by the
-                `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
+                `DEFAULT_CHECKPOINT_SAVE_FOLDER`. If set, the directory will be what is set.
             save_name(str): the name of saved files, including model weight and configuration file.
                 Default mindspore_model.
         """
         if save_directory is None:
-            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
+            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
 
         if not isinstance(save_directory, str) or not isinstance(save_name, str):
             raise TypeError(f"save_directory and save_name should be a str,"

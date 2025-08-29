@@ -34,7 +34,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.utils import FILE_PERMISSION
 from mindformers.models.build_config import build_model_config, get_model_config
-from mindformers.models.utils import CONFIG_NAME, ms_type_to_str
+from mindformers.models.utils import CONFIG_NAME, ms_type_to_str, DEFAULT_CHECKPOINT_SAVE_FOLDER
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools import (
     PushToHubMixin,
@@ -449,6 +449,18 @@ class PretrainedConfig(PushToHubMixin):
         """
         save_json = kwargs.pop("save_json", False)
 
+        if save_directory is None:
+            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
+
+        if not isinstance(save_directory, str) or not isinstance(save_name, str):
+            raise TypeError(f"save_directory and save_name should be a str,"
+                            f" but got {type(save_directory)} and {type(save_name)}.")
+
+        if os.path.isfile(save_directory):
+            raise ValueError(f"Provided path ({save_directory}) should be a directory, not a file")
+
+        os.makedirs(save_directory, exist_ok=True)
+
         if save_json:
             push_to_hub = kwargs.get("push_to_hub", False)
             self.save_config_experimental_mode(save_directory, push_to_hub, **kwargs)
@@ -463,11 +475,6 @@ class PretrainedConfig(PushToHubMixin):
         :param push_to_hub: whether push config json file to remote hub
         :param kwargs: kwargs params
         """
-        if os.path.isfile(save_directory):
-            raise AssertionError(f"Provided path ({save_directory}) should be a directory, not a file")
-
-        os.makedirs(save_directory, exist_ok=True)
-
         if push_to_hub:
             commit_message = kwargs.pop("commit_message", None)
             repo_id = kwargs.pop("repo_id", save_directory.split(os.path.sep)[-1])
@@ -497,16 +504,6 @@ class PretrainedConfig(PushToHubMixin):
         :param save_directory: local directory for saving yaml config file
         :param save_name: yaml config file name
         """
-        if save_directory is None:
-            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
-
-        if not isinstance(save_directory, str) or not isinstance(save_name, str):
-            raise TypeError(f"save_directory and save_name should be a str,"
-                            f" but got {type(save_directory)} and {type(save_name)}.")
-
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory, exist_ok=True)
-
         save_path = os.path.join(save_directory, save_name + ".yaml")
         parsed_config, removed_list = self._inverse_parse_config()
         wraped_config = self._wrap_config(parsed_config)
