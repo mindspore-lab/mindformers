@@ -36,7 +36,7 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
         rotary_interleaved (bool): Whether to use interleaved rotary position embedding.
         seq_len_interpolation_factor (float): The interpolation factor for sequence length.
         rotary_base (float): The base for rotary embedding.
-        rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
+        rotary_cos_format (str): The mode of ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
         scaling_factor (float): Base scaling factor for sequence length adjustment.
         original_max_position_embeddings (int): Original maximum position embeddings.
@@ -56,7 +56,7 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
             rotary_interleaved: bool = False,
             seq_len_interpolation_factor: float = None,
             rotary_base: float = 10000.0,
-            rotary_cos_format: int = 0,
+            rotary_cos_format: str = "rotate_half",
             rotary_dtype: mstype = mstype.float16,
             scaling_factor: float = 1.0,
             original_max_position_embeddings: int = 4096,

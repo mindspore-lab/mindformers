@@ -87,17 +87,11 @@ class MultiLatentAttention(Attention):
             model_comm_pgs=model_comm_pgs,
         )
         if attn_mask_type:
-            raise NotImplementedError(
-                "For MultiLatentAttention, `attn_mask_type` is not supported for now."
-            )
+            raise NotImplementedError("For MultiLatentAttention, `attn_mask_type` is not supported for now.")
         if attention_type:
-            raise NotImplementedError(
-                "For MultiLatentAttention, `attention_type` is not supported for now."
-            )
+            raise NotImplementedError("For MultiLatentAttention, `attention_type` is not supported for now.")
         if cp_comm_type is not None:
-            raise NotImplementedError(
-                "For MultiLatentAttention, `cp_comm_type` is not supported for now."
-            )
+            raise NotImplementedError("For MultiLatentAttention, `cp_comm_type` is not supported for now.")
 
         self.config = config
         self.query_projection_size = self.config.v_head_dim * self.config.num_attention_heads
@@ -115,8 +109,7 @@ class MultiLatentAttention(Attention):
                 self.config.qk_pos_emb_head_dim,
                 rotary_percent=self.config.rotary_percent,
                 rotary_base=self.config.rotary_base,
-                rotary_cos_format=2
-            )
+                rotary_cos_format="rotate_half")
         elif self.config.rope_type == "yarn":
             self.rotary_pos_emb = YaRNScalingRotaryEmbedding(
                 self.config.qk_pos_emb_head_dim,
@@ -127,8 +120,7 @@ class MultiLatentAttention(Attention):
                 beta_slow=self.config.beta_slow,
                 mscale=self.config.mscale,
                 mscale_all_dim=self.config.mscale_all_dim,
-                rotary_cos_format=2
-            )
+                rotary_cos_format="rotate_half")
         else:
             raise ValueError(
                 f"Unsupported RoPE type: {self.config.rope_type}, supported types are  'rope' and 'yarn'"
@@ -150,8 +142,7 @@ class MultiLatentAttention(Attention):
                 scale_value=self.softmax_scale,
                 next_tokens=0,
                 pa_kv_head_num=1,
-                pa_mla_v_dim=512
-                )
+                pa_mla_v_dim=512)
         else:
             raise NotImplementedError("For MLA, only `use_flash_attention=True` is supported")
 

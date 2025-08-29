@@ -102,8 +102,8 @@ class GPTModel(nn.Cell):
             parallel_output: bool = True,
             share_embeddings_and_output_weights: bool = False,
             position_embedding_type: Literal[
-                'learned_absolute', 'rope', 'llama3', 'yarn', 'none'
-            ] = 'learned_absolute',
+                'learned_absolute', 'rope', 'llama3', 'yarn', "partial_rope", 'none'
+            ] = 'none',
             rotary_percent: float = 1.0,
             rotary_base: int = 10000,
             rope_scaling: bool = False,
@@ -140,10 +140,10 @@ class GPTModel(nn.Cell):
         self.expert_map = self._determine_expert_map()
         self.is_prefill = True
 
-        if hasattr(self.config, 'position_embedding_type'):
-            self.position_embedding_type = self.config.position_embedding_type
-        else:
+        if position_embedding_type != "none":
             self.position_embedding_type = position_embedding_type
+        else:
+            self.position_embedding_type = getattr(self.config, 'position_embedding_type')
 
         if hasattr(self.config, 'rotary_base'):
             self.rotary_base = self.config.rotary_base

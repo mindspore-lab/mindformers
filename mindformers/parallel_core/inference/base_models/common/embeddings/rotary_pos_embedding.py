@@ -17,7 +17,8 @@ Rotary position embedding for transformer.
 """
 __all__ = [
     'RotaryEmbedding',
-    'Llama3RotaryEmbedding'
+    'Llama3RotaryEmbedding',
+    'PartialRotaryEmbedding'
 ]
 
 from typing import Union, Tuple
@@ -29,6 +30,8 @@ from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
 from mindspore.ops import operations as P
 
+from mindformers.parallel_core.inference.transformer.enums import RotaryPosEmbMode
+
 
 class RotaryEmbedding(Cell):
     """Rotary embedding for language model.
@@ -39,7 +42,7 @@ class RotaryEmbedding(Cell):
         rotary_interleaved (bool): Whether to use interleaved rotary position embedding.
         seq_len_interpolation_factor (float): The interpolation factor for sequence length.
         rotary_base (int): The base for rotary embedding.
-        rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
+        rotary_cos_format (str): The mode of ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
         max_position_embeddings (int): Maximum position embeddings.
     """
@@ -51,7 +54,7 @@ class RotaryEmbedding(Cell):
             rotary_interleaved: bool = False,
             seq_len_interpolation_factor: float = None,
             rotary_base: int = 10000,
-            rotary_cos_format: int = 0,
+            rotary_cos_format: str = "rotate_half",
             rotary_dtype: mstype = mstype.float16,
             max_position_embeddings: int = 4096,
     ) -> None:
@@ -63,10 +66,12 @@ class RotaryEmbedding(Cell):
 
         self.kv_channels = kv_channels
         self.rotary_percent = rotary_percent
-        if rotary_percent < 1.0:
+        if rotary_percent < 1.0 and rotary_cos_format == "rotate_half":
             self.dim = int(self.kv_channels * rotary_percent)
         else:
             self.dim = self.kv_channels
+            self.rotary_percent = 1.0
+
         self.rotary_base = rotary_base
 
         self.cast = P.Cast()
@@ -74,7 +79,7 @@ class RotaryEmbedding(Cell):
         self.cos = P.Cos()
         self.sin = P.Sin()
         self.gather = P.Gather()
-        self.rotary_embedding_op = ops.ApplyRotaryPosEmb(rotary_cos_format)
+        self.rotary_embedding_op = ops.ApplyRotaryPosEmb(getattr(RotaryPosEmbMode, rotary_cos_format).value)
 
         self.rotary_dtype = rotary_dtype
         self.max_position_embeddings = max_position_embeddings
@@ -174,7 +179,7 @@ class Llama3RotaryEmbedding(RotaryEmbedding):
         rotary_interleaved (bool): Whether to use interleaved rotary position embedding.
         seq_len_interpolation_factor (float): The interpolation factor for sequence length.
         rotary_base (int): The base for rotary embedding.
-        rotary_cos_format (int): The cos format of ops.ApplyRotaryPosEmb.
+        rotary_cos_format (str): The mode of ApplyRotaryPosEmb.
         rotary_dtype (mstype): The dtype of rotary embeddings.
         max_position_embeddings (int): Maximum position embeddings.
         scaling_factor (float): The scaling factor for sequence length.
@@ -190,7 +195,7 @@ class Llama3RotaryEmbedding(RotaryEmbedding):
             rotary_interleaved: bool = False,
             seq_len_interpolation_factor: float = None,
             rotary_base: int = 10000,
-            rotary_cos_format: int = 0,
+            rotary_cos_format: str = "rotate_half",
             rotary_dtype: mstype = mstype.float16,
             max_position_embeddings: int = 8192,
             scaling_factor: float = 1.0,
@@ -228,3 +233,19 @@ class Llama3RotaryEmbedding(RotaryEmbedding):
             ),
         )
         return new_freqs
+
+
+class PartialRotaryEmbedding(RotaryEmbedding):
+    """Rotary embedding extended with PartialRotary method."""
+
+    def _compute_cos_sin_cache(self):
+        self.ones_like = P.OnesLike()
+        self.zeros_like = P.ZerosLike()
+        freqs = self.get_freqs_non_repeated()
+        freqs = freqs.unsqueeze(2)
+        emb = self.cat((freqs, freqs))
+        emb = emb.reshape(self.max_position_embeddings, self.dim)
+        freqs_cos = self.cast(self.cat((self.cos(emb), self.ones_like(emb))), dtype=self.rotary_dtype)
+        freqs_sin = self.cast(self.cat((self.sin(emb), self.zeros_like(emb))), dtype=self.rotary_dtype)
+
+        return freqs_cos, freqs_sin

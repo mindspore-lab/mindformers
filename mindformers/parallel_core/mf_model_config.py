@@ -104,6 +104,9 @@ class MFModelConfig:
     rotary_dtype: str = "float32"
     """Custom rotary position embedding compute dtype."""
 
+    rotary_cos_format: str = "rotate_half"
+    """Custom cosine position embedding format."""
+
     bias_swiglu_fusion: bool = False
     """If True, use fused swiglu kernel."""
 

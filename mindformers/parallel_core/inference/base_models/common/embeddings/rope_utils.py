@@ -20,7 +20,8 @@ import mindspore.common.dtype as mstype
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import (
     RotaryEmbedding,
-    Llama3RotaryEmbedding
+    Llama3RotaryEmbedding,
+    PartialRotaryEmbedding
 )
 from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import \
     YaRNScalingRotaryEmbedding
@@ -76,11 +77,25 @@ def _get_yarn(**kwargs):
     )
 
 
+def _get_partialrope(**kwargs):
+    """Instantiate a PartialRotaryEmbedding object"""
+    return PartialRotaryEmbedding(
+        kv_channels=kwargs["kv_channels"],
+        rotary_percent=kwargs["rotary_percent"],
+        rotary_base=kwargs["rotary_base"],
+        rotary_dtype=kwargs["rotary_dtype"],
+        seq_len_interpolation_factor=kwargs["seq_len_interpolation_factor"],
+        max_position_embeddings=kwargs["original_max_position_embeddings"],
+        rotary_cos_format=kwargs["rotary_cos_format"],
+    )
+
+
 # Note: When adding a new RoPE class, add the mapping of function here
 ROPE_FUNCTION = {
     'rope': _get_default,
     'llama': _get_llama3,
     'yarn': _get_yarn,
+    'partial_rope': _get_partialrope,
 }
 
 
@@ -93,7 +108,7 @@ def get_rope(
         seq_len_interpolation_factor: float = None,
         position_embedding_type: str = 'rope',
         original_max_position_embeddings: int = 4096,
-        rotary_cos_format: int = 2,
+        rotary_cos_format: str = "rotate_half",
         **kwargs,
 ) -> RotaryEmbedding:
     """Obtain an instantiation object of RoPE class based on `position_embedding_type`"""
