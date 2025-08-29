@@ -55,6 +55,11 @@ def special_case_process(api_str, signature, obj):
         signature = re.sub(" +", " ", signature)
         signature = re.findall(r"\((.*?)\):", signature)[0]
         signature = f"({signature.strip()})"
+    if "parallel_core.inference.tensor_parallel.quantization" in api_str or \
+            "UnquantizedGroupedLinearMethod.create_weights" in api_str:
+        signature = re.sub(r"dict\[.*?\]", "dict", signature)
+        signature = re.sub(r"type\[.*?\]", "type", signature)
+        signature = re.sub(r"list\[.*?\]", "list", signature)
     return signature
 
 
