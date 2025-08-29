@@ -30,7 +30,7 @@ from mindspore import ops, mint
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
-from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, build_model
+from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, compile_model
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
     replace_rank_id_in_ckpt_name,
@@ -426,7 +426,16 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                                                               'hybrid_parallel']:
         # build net if parallel mode is auto_parallel
         logger.info(".........Building model.........")
-        build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
+        compile_model(
+            model=model,
+            dataset=dataset,
+            mode=config.context.mode,
+            sink_mode=config.runner_config.sink_mode,
+            epoch=config.runner_config.epochs,
+            sink_size=config.runner_config.sink_size,
+            do_eval=do_eval, do_predict=do_predict
+        )
+
         if config.only_save_strategy:
             logger.info("Only_save_strategy is True, model.compile() finished, system exit! ")
             sys.exit(0)
