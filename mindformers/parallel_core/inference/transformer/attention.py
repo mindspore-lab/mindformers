@@ -181,7 +181,8 @@ class Attention(nn.Cell):
                                                config=self.config,
                                                layer_number=self.layer_number)
         self.rotary_embedding = RotaryEmbedding(kv_channels=self.hidden_size_per_attention_head,
-                                                rotary_percent=self.partial_rotary_factor, rotary_cos_format=2)
+                                                rotary_percent=self.partial_rotary_factor,
+                                                rotary_cos_format=self.config.rotary_cos_format)
 
         self.linear_proj = build_module(
             submodules.linear_proj,

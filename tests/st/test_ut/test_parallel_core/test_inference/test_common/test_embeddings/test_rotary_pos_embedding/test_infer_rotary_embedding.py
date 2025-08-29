@@ -35,41 +35,41 @@ ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 ROPE_SINGLE_CARD_TEST_CASES = [
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 2, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: TRUE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: TRUE
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 2, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
         {"query": "rope_q_emb1_for_prefill", "key": "rope_k_emb1_for_prefill"},
         False,
     ),
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 1, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: FALSE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: FALSE
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 1, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False},
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False},
         {"query": "rope_q_emb1_for_decode", "key": "rope_k_emb1_for_decode"},
         False,
     ),
     (
         # 并行策略: 单卡, batch_size: 1, seq_length: 2, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: TRUE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: TRUE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: TRUE
         # expected result: 抛异常报错。
         {"batch_size": 1, "seq_length": 2, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": True, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
         {},
         True,
     ),
     (
         # 并行策略: 单卡, batch_size: 1, seq_length: 2, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: 1.1, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: TRUE
+        # seq_len_interpolation_factor: 1.1, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: TRUE
         # expected result: 抛异常报错。
         {"batch_size": 1, "seq_length": 2, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": 1.1, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True},
         {},
         True,
     ),
@@ -79,24 +79,24 @@ LLAMA3_ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 LLAMA3_ROPE_SINGLE_CARD_TEST_CASES = [
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 2, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: TRUE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: TRUE
         # scaling_factor: 8.0, low_freq_factor: 1.0, high_freq_factor: 4.0, orig_max_position: 512
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 2, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True,
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True,
          "scaling_factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "orig_max_position": 512},
         {"query": "llama3_rope_q_emb1_for_prefill", "key": "llama3_rope_k_emb1_for_prefill"},
         False
     ),
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 1, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: FALSE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: FALSE
         # scaling_factor: 8.0, low_freq_factor: 1.0, high_freq_factor: 4.0, orig_max_position: 512
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 1, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False,
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False,
          "scaling_factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "orig_max_position": 512},
         {"query": "llama3_rope_q_emb1_for_decode", "key": "llama3_rope_k_emb1_for_decode"},
         False,
@@ -107,12 +107,12 @@ YARN_ROPE_SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
 YARN_ROPE_SINGLE_CARD_TEST_CASES = [
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 2, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: TRUE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: TRUE
         # scaling_factor: 8.0, orig_max_position: 512, beta_fast: 32, beta_slow: 1, mscale: 1.0, mscale_all_dim: 0.0
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 2, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True,
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": True,
          "scaling_factor": 8.0, "orig_max_position": 512, "beta_fast": 32, "beta_slow": 1,
          "mscale": 1.0, "mscale_all_dim": 0.0},
         {"query": "yarn_rope_q_emb1_for_prefill", "key": "yarn_rope_k_emb1_for_prefill"},
@@ -120,12 +120,12 @@ YARN_ROPE_SINGLE_CARD_TEST_CASES = [
     ),
     (
         # 并行策略: 单卡, batch_size: 2, seq_length: 1, kv_channels: 32, rotary_percent: 1.0, rotary_interleaved: FALSE,
-        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:2, max_position_embedding: 1024, is_prefill: FALSE
+        # seq_len_interpolation_factor: NONE, rotary_base: 10000, rotary_cos_format:"rotate_half", max_position_embedding: 1024, is_prefill: FALSE
         # scaling_factor: 8.0, orig_max_position: 512, beta_fast: 32, beta_slow: 1, mscale: 1.0, mscale_all_dim: 0.0
         # expected result: 功能跑通。
         {"batch_size": 2, "seq_length": 1, "kv_channels": KV_CHANNELS, "rotary_percent": ROTARY_PERCENT,
          "rotary_interleaved": False, "seq_len_interpolation_factor": None, "rotary_base": 10000,
-         "rotary_cos_format": 2, "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False,
+         "rotary_cos_format": "rotate_half", "max_position_embedding": MAX_POSITION_EMBEDDING, "is_prefill": False,
          "scaling_factor": 8.0, "orig_max_position": 512, "beta_fast": 32, "beta_slow": 1,
          "mscale": 1.0, "mscale_all_dim": 0.0},
         {"query": "yarn_rope_q_emb1_for_decode", "key": "yarn_rope_k_emb1_for_decode"},

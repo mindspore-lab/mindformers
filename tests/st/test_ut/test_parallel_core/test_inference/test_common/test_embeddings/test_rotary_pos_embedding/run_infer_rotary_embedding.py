@@ -197,7 +197,7 @@ def main():
     parser.add_argument("--rotary_interleaved", type=lambda x: x.lower() == "true", default=False)
     parser.add_argument("--seq_len_interpolation_factor", type=float, default=None)
     parser.add_argument("--rotary_base", type=float, default=10000.0)
-    parser.add_argument("--rotary_cos_format", type=int, default=2)
+    parser.add_argument("--rotary_cos_format", type=str, default="rotate_half")
     parser.add_argument("--max_position_embedding", type=int, default=1024)
     parser.add_argument("--is_prefill", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--scaling_factor", type=float, default=None)

@@ -38,7 +38,7 @@ from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
 from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs, split_loaded_weight,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
-                                                               deal_linear_kv_down_weight)
+                                                               deal_linear_kv_down_weight, split_fusion_loaded_weight)
 from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import (QuantizeMethodBase,
                                                                                           QuantizationConfig)
 
@@ -453,6 +453,10 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         tp_size = self.tp_group.size
         shard_size = 0
         shard_offset = 0
+        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            loaded_weight = loaded_weight[:].squeeze(-1)
+
         if loaded_shard_id is not None:
             if loaded_shard_id == 'gating':
                 array_id = 0
@@ -461,12 +465,16 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             shard_offset = sum(self.output_sizes[:array_id]) // tp_size
             shard_size = self.output_sizes[array_id] // tp_size
 
-        start_idx = tp_rank * shard_size
-        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
-            loaded_weight = loaded_weight[:].squeeze(-1)
-        loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                            start_idx, shard_size)
+            start_idx = tp_rank * shard_size
+            loaded_weight = split_loaded_weight(loaded_weight, output_dim,
+                                                start_idx, shard_size)
+        else: # deal fusion weight
+            shard_sizes = [output_sizes // tp_size for output_sizes in self.output_sizes]
+            start_idxs = [shard_sizes[0] * tp_rank] + \
+                [shard_sizes[i+1] * tp_rank + self.output_sizes[i] for i in range(len(shard_sizes)-1)]
+            loaded_weight = split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes)
+            shard_size = sum(shard_sizes)
+
         expected_shape = list(param.shape)
         expected_shape[output_dim] = shard_size
         expected_shape = tuple(expected_shape)

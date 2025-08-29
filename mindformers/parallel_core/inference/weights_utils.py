@@ -226,3 +226,17 @@ def get_quant_config(model_config: Union[dict, MindFormerConfig, PretrainedConfi
     quant_cls = get_quantization_config(model_config.quantization_config['quant_method'])
     hf_quant_config = model_config.quantization_config
     return quant_cls(hf_quant_config)
+
+
+def split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes):
+    """
+    Read numpy slice data based on axis0 and slice range.
+    loaded_weight: PySafeSlice object
+    start_idxs: weight shard start slice indexes
+    shard_sizes: weight shard sizes
+    """
+    loaded_weight_parts = []
+    for start_idx, shard_size in zip(start_idxs, shard_sizes):
+        loaded_weight_parts.append(loaded_weight[start_idx:start_idx + shard_size])
+    perrank_ffn_weight = np.concatenate(loaded_weight_parts, axis=0)
+    return perrank_ffn_weight

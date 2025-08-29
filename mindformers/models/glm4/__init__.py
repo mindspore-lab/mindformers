@@ -12,20 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Enums for transformer."""
-__all__ = ['AttnMaskType']
+"""glm4 model"""
 
-from enum import Enum, unique
-
-
-class AttnMaskType(Enum):
-    padding = 1
-    causal = 2
-    no_mask = 3
-    padding_causal = 4
-
-
-@unique
-class RotaryPosEmbMode(Enum):
-    interleaved = 3
-    rotate_half = 2
+from .utils import Glm4PreTrainedModel
+from .configuration_glm4 import Glm4Config
+from .modeling_glm4 import Glm4ForCausalLM
+from .modeling_glm4_infer import InferenceGlm4ForCausalLM

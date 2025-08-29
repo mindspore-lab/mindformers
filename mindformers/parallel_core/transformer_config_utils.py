@@ -293,6 +293,7 @@ COMMON_CONFIG_MAPPING = {
     "rotary_seq_len_interpolation_factor": "rotary_seq_len_interpolation_factor",
     "use_rope_scaling": "use_rope_scaling",
     "rope_scaling": "rope_scaling",
+    "rotary_cos_format": "rotary_cos_format",
     "input_layout": "input_layout",
     "sparse_mode": "sparse_mode",
     "use_alibi_mask": "use_alibi_mask",
