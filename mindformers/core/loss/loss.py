@@ -27,7 +27,6 @@ from mindspore import log as logger
 from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
 from mindformers.core.context.build_context import Context, get_context
-from mindformers.version_control import is_dump_supported
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
@@ -260,7 +259,6 @@ class CrossEntropyLoss(nn.Cell):
         if self.monitor_device_local_loss:
             self.device_local_loss = get_device_local_loss()
         self.dump_local_loss = (
-            is_dump_supported() and
             bool(get_auto_parallel_context("dump_local_norm_path")) and
             self.monitor_local_loss
         )
