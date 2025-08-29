@@ -57,7 +57,7 @@ class SharedExpertMLP(MLP):
             submodules=submodules,
             is_expert=True,
             delay_allreduce=True,
-            tp_group=model_comm_pgs.globals if not config.use_alltoall else None,
+            tp_group=model_comm_pgs.tp_dp if not config.use_alltoall else None,
             quant_config=quant_config,
             prefix=prefix)
 

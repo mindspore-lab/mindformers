@@ -60,7 +60,7 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
             )
         if is_initialized():
             self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tp_dp'])
         else:
             self.model_comm_pgs = default_model_comm_pgs
 

@@ -25,10 +25,7 @@ from mindspore.communication import init, get_rank, get_group_size
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
-from mindformers.parallel_core.inference.parallel_state import (
-    initialize_model_parallel,
-    get_world_group,
-)
+from mindformers.parallel_core.inference import parallel_state as ps
 from mindformers.parallel_core.inference.base_models.gpt.moe_module_spec import get_moe_module_spec
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.utils import (
@@ -86,20 +83,21 @@ class MoERunner:
         self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
             init()
-            initialize_model_parallel(
+            ps.initialize_model_parallel(
                 data_parallel_size=self.dp_group_size,
                 expert_model_parallel_size=self.ep_group_size,
                 tensor_model_parallel_size=self.tp_group_size,
                 order='tp-ep-dp',
             )
             self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp'])
+                required_groups=['globals', 'tp', 'moe_ep', 'moe_tp', 'dp', 'tp_dp'])
 
         # rank info
         self.global_rank = self.model_comm_pgs.globals.rank
         self.tp_rank = self.model_comm_pgs.tp.rank
         self.ep_rank = self.model_comm_pgs.moe_ep.rank
         self.moe_tp_rank = self.model_comm_pgs.moe_tp.rank
+        self.tp_dp_rank = self.model_comm_pgs.tp_dp.rank
         self.ep_start = self.ep_rank * self.num_experts_per_partition
         self.ep_stop = (self.ep_rank + 1) * self.num_experts_per_partition
 
@@ -220,7 +218,7 @@ class MoERunner:
         output = net(self.input, attn_unpadding_idx, ffn_padding_idx)
 
         if self.dp_group_size > 1:
-            output = gather_from_model_parallel_region(output, get_world_group(), dim=0)
+            output = gather_from_model_parallel_region(output, ps.get_world_group(), dim=0)
 
         output_ms = {"output": output}
 
