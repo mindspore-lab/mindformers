@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Union
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
-from mindspore.ops.auto_generate import Mul, AddExt, SplitWithSize, Reshape
+from mindspore.ops.auto_generate import Mul, AddExt, SplitWithSize, Reshape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.parallel_core.training_graph.activation import get_activation
 from mindformers.parallel_core.training_graph.device_matrix import layout
@@ -124,6 +124,7 @@ class MLP(nn.Cell):
         self.split = SplitWithSize()
         self.reshape = Reshape()
         self.add = AddExt()
+        self.transpose = Transpose()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(self.config)
@@ -209,7 +210,11 @@ class MLPInterleaved(MLP):
         if self.gated_linear_unit:
             seq, bs, ffn_hidden_size = intermediate_parallel.shape
             intermediate_parallel = self.reshape(intermediate_parallel, (seq, bs, ffn_hidden_size // 2, 2))
-            if self.activation_type == 'swiglu' or self.activation_type == 'fusedswiglu':
+            if self.activation_type == 'fusedswiglu':
+                intermediate_parallel = self.transpose(intermediate_parallel, (0, 1, 3, 2))
+                intermediate_parallel = self.activation_func(intermediate_parallel, -2)
+                intermediate_parallel = self.reshape(intermediate_parallel, (seq, bs, ffn_hidden_size // 2))
+            elif self.activation_type == 'swiglu':
                 intermediate_parallel = self.activation_func(intermediate_parallel)
                 intermediate_parallel = self.reshape(intermediate_parallel, (seq, bs, ffn_hidden_size // 2))
             else:
@@ -232,7 +237,8 @@ class MLPInterleaved(MLP):
             self.mul.shard((layout("cp", "dp", "tp"), layout("cp", "dp", "tp")))
             self.split.shard((layout("cp", "dp", "tp", "None"),))
             if self.activation_type == 'fusedswiglu':
-                self.activation_func.swiglu.shard((layout("cp", "dp", "tp", "None"),))
+                self.transpose.shard((layout("cp", "dp", "tp", "None"),))
+                self.activation_func.swiglu.shard((layout("cp", "dp", "None", "tp"),))
             if self.activation_type == 'swiglu':
                 self.activation_func.silu.shard((layout("cp", "dp", "tp", "None"),))
                 self.activation_func.split.shard((layout("cp", "dp", "tp", "None"),))

@@ -4254,7 +4254,7 @@
         "signature": "(config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig = None)"
     },
     "mindformers.parallel_core.training_graph.activation.FusedSwiGlu.construct": {
-        "signature": "(self, x: mindspore.common.tensor.Tensor) -> mindspore.common.tensor.Tensor"
+        "signature": "(self, x: mindspore.common.tensor.Tensor, dim=-1) -> mindspore.common.tensor.Tensor"
     },
     "mindformers.parallel_core.training_graph.activation.GELU": {
         "signature": "(config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig = None, approximate: bool = True)"
