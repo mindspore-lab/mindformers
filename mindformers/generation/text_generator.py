@@ -46,6 +46,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 from mindformers.generation.parallel_decoding_mcore import la_pre_process
 from mindformers.parallel_core.inference.utils import (
     get_tp_world_size,
@@ -157,6 +158,8 @@ class GenerationMixin:
                 num_blocks, block_size, num_groups, head_dim = kv_cache_shape
                 merge_dim = num_groups * head_dim
                 kv_cache_shape = (num_blocks, block_size, merge_dim)
+
+            use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
             key_cache = []
             value_cache = []
             for _ in range(tansformer_config.num_layers):
@@ -165,10 +168,16 @@ class GenerationMixin:
                 if is_310p():
                     k_cache = ops.auto_generate.format_cast(k_cache, format_type['nz'])
                     v_cache = ops.auto_generate.format_cast(v_cache, format_type['nz'])
+                if use_ringmla:
+                    k_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.kv_lora_rank,),
+                                         dtype=compute_dtype)
+                    v_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.qk_pos_emb_head_dim,),
+                                         dtype=compute_dtype)
                 key_cache.append(k_cache)
                 value_cache.append(v_cache)
             self.key_cache = mutable(key_cache)
-            self.value_cache = mutable(value_cache) if not tansformer_config.multi_latent_attention else None
+            self.value_cache = mutable(value_cache) if not tansformer_config.multi_latent_attention \
+                                                       or use_ringmla else None
 
     def _set_lower_triangle_mask(self):
         """Initial attention mask."""

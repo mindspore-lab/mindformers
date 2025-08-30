@@ -18,6 +18,7 @@ from typing import Dict
 from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
 
 from mindformers.models.utils import jit
+from mindformers.parallel_core.inference.utils import use_ms_custom_ops
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
 from mindformers.parallel_core.inference.parallel_state import (
@@ -68,6 +69,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
+        self.use_fused_mla = use_ms_custom_ops() and self.config.quantization_config is not None
+        config.use_fused_mla = self.use_fused_mla
         quant_config = get_quant_config(self.config, self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
@@ -75,6 +78,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         self.compute_dtype = config.compute_dtype
 
         self.is_prefill = True
+        self.is_chunked = False
         if isinstance(self.config.parallel_decoding_params, Dict):
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
@@ -230,4 +234,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             weight_name = weight_name.replace('.input_zp', '.input_offset')
             weight_name = weight_name.replace('.weight_scale', '.w_scale')
             weight_name = weight_name.replace('.weight_offset', '.w_offset')
+        if self.use_fused_mla:
+            weight_name = weight_name.replace('.input_layernorm.', '.self_attention.input_layernorm.')
         return weight_name

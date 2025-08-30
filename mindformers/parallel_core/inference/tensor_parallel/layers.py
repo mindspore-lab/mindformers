@@ -167,15 +167,16 @@ class LinearBase(ms.nn.Cell):
     def construct(self, input_: ms.Tensor) -> ms.Tensor:
         raise NotImplementedError
 
-    def format_to_nz(self, param, merge_count=1):
+    def format_to_nz(self, param, merge_count=1, move_to_cpu=False):
         current_count = self.param_load_counts.get(param.name, 0) + 1
         self.param_load_counts[param.name] = current_count
 
         if current_count == merge_count:
             cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
+            if move_to_cpu:
+                cast_weight = cast_weight.move_to("CPU")
             param.set_data(cast_weight)
             del self.param_load_counts[param.name]
-
 
 class ColumnParallelLinear(LinearBase):
     r"""
@@ -502,9 +503,9 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[1])} and "
                 f"the shape of weight is{loaded_weight.shape}")
-        if is_310p() and param.name.endswith("weight"):
-            # format cast after load gate and hidden
-            loaded_shard_num = 2
+        # format cast after load q, kv
+        loaded_shard_num = 2 # gating/hidden
+        if (is_310p() or self.config.use_fused_mla) and param.name.endswith("weight"):
             self.format_to_nz(param, loaded_shard_num)
 
 
@@ -977,10 +978,10 @@ class ReplicatedLinear(LinearBase):
             loaded_weight = loaded_weight.squeeze(-1)
         if loaded_shard_id is not None and output_dim is not None:
             if loaded_shard_id == 'q_down':
-                offset = 0
+                offset = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
                 size = self.config.q_lora_rank
             if loaded_shard_id == 'kv_down':
-                offset = self.config.q_lora_rank
+                offset = 0
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
                 rope_transition = self.quant_config is None or self.quant_config.is_modelslim
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight,
@@ -1011,6 +1012,9 @@ class ReplicatedLinear(LinearBase):
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
             param.set_data(ms.from_numpy(loaded_weight))
+        if self.config.use_fused_mla and param.name.endswith("weight"):
+            move_to_cpu = self.config.use_fused_mla and ms.get_context('mode') == ms.PYNATIVE_MODE
+            self.format_to_nz(param, 2, move_to_cpu=move_to_cpu)
 
 
 class VocabParallelEmbedding(nn.Cell):

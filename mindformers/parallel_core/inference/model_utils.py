@@ -28,6 +28,7 @@ from mindformers.parallel_core.inference.parallel_state import is_pipeline_first
 from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.version_control import is_310p
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 
 
@@ -60,7 +61,8 @@ class InferModelMixin(ModelMixin):
             return mutable(cache_list)
 
         key_cache = get_input()
-        value_cache = get_input() if not self.model.config.multi_latent_attention else None
+        use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
+        value_cache = get_input() if not self.model.config.multi_latent_attention or use_ringmla else None
 
         if not hasattr(self, 'model_comm_pgs'):
             raise RuntimeError(
@@ -108,6 +110,18 @@ class InferModelMixin(ModelMixin):
         for layer in self.model.decoder.layers:
             if self.config.use_flash_attention:
                 layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
+
+    def add_flags_chunked(self, is_chunked):
+        r"""
+        is_chunked enable inferring chunked-prefill phase from vLLM
+        Add customized attributes for specific cells in the model when the use_past is enabled.
+        """
+        self.add_flags(is_chunked=is_chunked)
+        self.model.add_flags(is_chunked=is_chunked)
+        self.model.decoder.add_flags(is_chunked=is_chunked)
+        for layer in self.model.decoder.layers:
+            layer.self_attention.add_flags(is_chunked=is_chunked)
+            layer.self_attention.core_attention.add_flags(is_chunked=is_chunked)
 
     def load_weights(self, weights_path=None, weights: Iterable[Tuple[str, Tensor]] = None):
         r"""

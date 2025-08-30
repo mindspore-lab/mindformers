@@ -27,6 +27,7 @@ import mindspore as ms
 from mindspore import Tensor, ops, Parameter, mint
 from mindspore.communication import get_group_size
 
+from mindformers.version_control import is_310p
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.parallel_state import (get_data_parallel_group,
                                                                 get_tensor_model_parallel_world_size,
@@ -359,3 +360,16 @@ def get_num_layers_and_offset(config):
                 layer_list[-i] += 1
         return int(layer_list[pp_rank]), int(sum(layer_list[:pp_rank]))
     return num_layers, 0
+
+def use_ms_custom_ops():
+    """
+    Determine whether has custom ops
+    """
+    try:
+        # pylint: disable=W0611
+        import ms_custom_ops
+    except ModuleNotFoundError:
+        # environment need install ms_custom_ops package
+        return False
+
+    return not is_310p()
