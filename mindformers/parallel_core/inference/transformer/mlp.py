@@ -121,7 +121,8 @@ class MLP(nn.Cell):
             self.input_size,
             ffn_hidden_size,
             config=self.config,
-            bias=self.config.add_bias_linear,
+            bias=(self.config.add_bias_linear if self.config.add_mlp_fc1_bias_linear
+                  is None else self.config.add_mlp_fc1_bias_linear),
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,
@@ -140,7 +141,8 @@ class MLP(nn.Cell):
             self.config.ffn_hidden_size,
             self.config.hidden_size,
             config=self.config,
-            bias=self.config.add_bias_linear,
+            bias=(self.config.add_bias_linear if self.config.add_mlp_fc2_bias_linear
+                  is None else self.config.add_mlp_fc2_bias_linear),
             is_expert=is_expert,
             transpose_b=True,
             compute_dtype=self.config.compute_dtype,

@@ -113,7 +113,10 @@ def get_rope(
 ) -> RotaryEmbedding:
     """Obtain an instantiation object of RoPE class based on `position_embedding_type`"""
     if position_embedding_type not in ROPE_FUNCTION.keys():
-        raise ValueError(f"RoPE type {position_embedding_type} is not supported")
+        raise ValueError(f"RoPE type {position_embedding_type} is not supported, "
+                         f"if you wish to successfully execute this task, "
+                         f"you can implement this function or remove the rope_scaling "
+                         f"configuration in the model configuration file config.json.")
     rotary_emb = ROPE_FUNCTION.get(position_embedding_type)(
         config=config,
         kv_channels=hidden_dim,
