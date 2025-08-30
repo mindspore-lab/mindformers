@@ -610,11 +610,23 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         if ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v":
             if self.virtual_pipeline_model_parallel_size != 2:
-                raise ValueError("When zero_bubble_v is enabled, pp_interleave_num must be set to 2.")
+                raise ValueError(
+                    f"When zero_bubble_v is enabled, pp_interleave_num must be set to 2. "
+                    f"But get {self.virtual_pipeline_model_parallel_size}.")
             if self.pipeline_model_parallel_size < 2:
-                raise ValueError("When zero_bubble_v is enabled, pp must be greater than or equal to 2.")
+                raise ValueError(
+                    f"When zero_bubble_v is enabled, pp must be greater than or equal to 2. "
+                    f"But get {self.pipeline_model_parallel_size}.")
             if self.micro_batch_num < 2 * self.pipeline_model_parallel_size:
-                raise ValueError("When zero_bubble_v is enabled, micro_batch_num >= 2 * stage_num must be met.")
+                raise ValueError(
+                    f"When zero_bubble_v is enabled, micro_batch_num({self.micro_batch_num}) >= 2 * stage_num"
+                    f"({self.pipeline_model_parallel_size}) must be met.")
+            if isinstance(self.recompute, (list, tuple)):
+                if all(isinstance(item, (int, bool)) for item in self.recompute) or len(self.recompute) < 2:
+                    raise ValueError(
+                        "When zero_bubble_v is enabled, "
+                        "'recompute' must provide explicit 2D configuration for each interleave, "
+                        "such as [[stage0_recompute, stage1_recompute], [stage0_recompute, stage1_recompute]].")
 
 
 @dataclass
