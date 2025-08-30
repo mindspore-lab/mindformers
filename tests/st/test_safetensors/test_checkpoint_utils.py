@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from mindformers.tools.register import MindFormerConfig
-from mindformers.trainer.utils import build_model
+from mindformers.trainer.utils import compile_model
 from mindformers.utils.load_checkpoint_utils import CkptFormat, _get_checkpoint_mode, CheckpointFileMode, \
     _check_checkpoint_path
 
@@ -61,14 +61,30 @@ class TestBuildModel:
         config = MindFormerConfig(**self.config)
         config.runner_config.sink_mode = False
         with pytest.raises(ValueError):
-            build_model(config, None, None, False, False)
+            compile_model(
+                model=None,
+                dataset=None,
+                mode=config.context.mode,
+                sink_mode=config.runner_config.sink_mode,
+                epoch=config.runner_config.epochs,
+                sink_size=config.runner_config.sink_size,
+                do_eval=False, do_predict=False
+            )
 
     @patch('mindspore.context.get_auto_parallel_context')
     def test_build_model_infer_predict_layout_when_do_eval_is_true(self, mock_get_auto_parallel_context):
         """test build model infer predict layout when do eval is true"""
         mock_get_auto_parallel_context.return_value = 'auto_parallel'
         config = MindFormerConfig(**self.config)
-        build_model(config, self.model, self.dataset, True, False)
+        compile_model(
+            model=self.model,
+            dataset=self.dataset,
+            mode=config.context.mode,
+            sink_mode=config.runner_config.sink_mode,
+            epoch=config.runner_config.epochs,
+            sink_size=config.runner_config.sink_size,
+            do_eval=True, do_predict=False
+        )
         self.model.infer_predict_layout.assert_called_once_with(*self.dataset)
 
     @patch('mindspore.context.get_auto_parallel_context')
@@ -78,7 +94,15 @@ class TestBuildModel:
         config = MindFormerConfig(**self.config)
         model = MagicMock()
         dataset = MagicMock()
-        build_model(config, model, dataset, False, True)
+        compile_model(
+            model=model,
+            dataset=dataset,
+            mode=config.context.mode,
+            sink_mode=config.runner_config.sink_mode,
+            epoch=config.runner_config.epochs,
+            sink_size=config.runner_config.sink_size,
+            do_eval=False, do_predict=True
+        )
         model.infer_predict_layout.assert_called_once_with(*dataset)
 
     @patch('mindspore.context.get_auto_parallel_context')
@@ -86,7 +110,15 @@ class TestBuildModel:
         """test build model build"""
         mock_get_auto_parallel_context.return_value = 'auto_parallel'
         config = MindFormerConfig(**self.config)
-        build_model(config, self.model, self.dataset, False, False)
+        compile_model(
+            model=self.model,
+            dataset=self.dataset,
+            mode=config.context.mode,
+            sink_mode=config.runner_config.sink_mode,
+            epoch=config.runner_config.epochs,
+            sink_size=config.runner_config.sink_size,
+            do_eval=False, do_predict=False
+        )
         self.model.build.assert_called_once_with(train_dataset=self.dataset, epoch=1, sink_size=1)
 
 
