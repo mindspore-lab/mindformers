@@ -69,17 +69,18 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
     for param in model.trainable_params():
         if param.name in decay_parameters_names:
             group_name = 'decay'
+            weight_decay_ = weight_decay
         else:
             group_name = 'no_decay'
-            weight_decay = 0.
+            weight_decay_ = 0.
 
         if group_name not in parameter_group_names:
             parameter_group_names[group_name] = {
-                "weight_decay": weight_decay,
+                "weight_decay": weight_decay_,
                 "params": [],
             }
             parameter_group_vars[group_name] = {
-                "weight_decay": weight_decay,
+                "weight_decay": weight_decay_,
                 "params": [],
             }
             if isinstance(dynamic_lr_schedule, LearningRateSchedule):
