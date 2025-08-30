@@ -38,8 +38,8 @@ class FusedSwiGlu(nn.Cell):
         super(FusedSwiGlu, self).__init__()
         self.swiglu = Swiglu_op()
 
-    def construct(self, x: Tensor) -> Tensor:
-        return self.swiglu(x, -1)
+    def construct(self, x: Tensor, dim=-1) -> Tensor:
+        return self.swiglu(x, dim)
 
 
 class SwiGlu(nn.Cell):
