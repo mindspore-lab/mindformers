@@ -15,6 +15,7 @@
 """Router For MoE."""
 from abc import ABC, abstractmethod
 
+import numpy as np
 from mindspore import nn, ops
 from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
@@ -82,6 +83,8 @@ class Router(ABC, nn.Cell):
 class TopKRouter(Router):
     """Route each token to the top-k experts."""
 
+    SUPPORTED_LOAD_BALANCING_TYPES = ["sub_seq_aux_loss", "seq_aux_loss", "gbs_aux_loss"]
+
     def __init__(self, config: TransformerConfig):
         """Initialize the zero token dropping router.
 
@@ -130,12 +133,48 @@ class TopKRouter(Router):
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
         self.reduce_mean_aux_3d = MeanExt()
         self.reduce_mean_aux_2d = MeanExt()
+        self.original_tp = config.tensor_model_parallel_size
         self.mul_aux_2d = Mul()
         self.onehot_aux = OneHotExt()
         self.mul_noshard = Mul()
         self.add_loss = AddExt()
-        self.aux_loss_config = dict(zip(config.aux_loss_types, config.aux_loss_factors))
-        self.aux_loss_factor = self.aux_loss_config.get("expert", 0.0)
+
+        self.moe_router_load_balancing_type = config.moe_router_load_balancing_type
+        self.moe_aux_loss_coeff = config.moe_aux_loss_coeff
+
+        if self.moe_router_load_balancing_type not in self.SUPPORTED_LOAD_BALANCING_TYPES:
+            raise ValueError(
+                f"Unsupported moe_router_load_balancing_type: {self.moe_router_load_balancing_type}. "
+                f"Valid options are {self.SUPPORTED_LOAD_BALANCING_TYPES}"
+            )
+
+        # full_seq_aux_loss
+        if self.moe_router_load_balancing_type == "seq_aux_loss" and config.seq_split_num > 1:
+            raise ValueError("Currently, seqpipe do not support self.moe_router_load_balancing_type=='seq_aux_loss'.")
+        self.reduce_mean_sp = ReduceMean(keep_dims=True)
+        self.mul_sp = Mul()
+        self.ones_sp = Tensor(np.ones(shape=(1, self.original_tp, 1), dtype=np.float32), mstype.float32)
+
+        # gbs_aux_loss
+        self.reduce_mean_dp = ReduceMean(keep_dims=False)
+        self.reduce_mean_dp.recompute(False)
+        self.mul_dp = Mul()
+        self.mul_dp.recompute(False)
+        self.ones_dp = Tensor(np.ones(shape=(1, self.dp, 1), dtype=np.float32), mstype.float32)
+
+        self.fi_accu = Parameter(
+            initializer('zeros', (self.expert_dim), mstype.float32),
+            requires_grad=False,
+            parallel_optimizer=False
+        )
+        self.assignadd = AssignAdd()
+        self.assignadd.recompute(False)
+        self.div = Div()
+        self.div.recompute(False)
+        self.sum_accu = ReduceSum()
+        self.sum_accu.recompute(False)
+        self.add_accu = AddExt()
+        self.add_accu.recompute(False)
 
         # shard all the ops
         if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
@@ -222,6 +261,25 @@ class TopKRouter(Router):
         mask = self.cast(mask, mstype.float32)
         # The shape change is: (dp, E) <- (dp, kN, E)
         fi = self.reduce_mean_aux_3d(mask, 1)
+
+        if self.moe_router_load_balancing_type == "seq_aux_loss":
+
+            fi = self.reduce_mean_sp(fi.reshape(self.dp // self.original_tp, self.original_tp, -1), 1)
+
+            fi = self.mul_sp(fi, self.ones_sp).reshape(self.dp, -1)
+        elif self.moe_router_load_balancing_type == "gbs_aux_loss":
+
+            dp_mean_fi = self.reduce_mean_dp(fi.reshape(self.dp, -1), 0)
+
+            fi_accu = self.add_accu(self.fi_accu, dp_mean_fi)
+
+            dp_pp_mean_fi = self.div(fi_accu, self.sum_accu(fi_accu))
+
+            dp_pp_mean_fi = dp_pp_mean_fi.reshape(1, 1, -1)
+
+            fi = self.mul_dp(dp_pp_mean_fi, self.ones_dp).reshape(self.dp, -1)
+            self.assignadd(self.fi_accu, dp_mean_fi)
+
         # The shape change is: p*f  (dp) <- (dp, E)
         expert_load_loss = self.reduce_mean_aux_2d(self.mul_aux_2d(pi, fi))
         # alpha*E \sum_i^E (f_i * P_i)
@@ -236,7 +294,7 @@ class TopKRouter(Router):
         router_coeff, expert_index, router_prob_for_aux = self.routing(router_logits)
         # 3. expert load balancing
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
-        router_aux_loss = self._expert_load_balancing(router_prob_for_aux, expert_index, self.aux_loss_factor)
+        router_aux_loss = self._expert_load_balancing(router_prob_for_aux, expert_index, self.moe_aux_loss_coeff)
 
         return expert_index, router_coeff, router_aux_loss
 
@@ -287,3 +345,12 @@ class TopKRouter(Router):
         self.onehot_aux.shard(in_strategy=(layout(dp, "None"), layout(), layout(), layout(), layout()),
                               out_strategy=(layout(dp, "None", "None"),))
         self.add_loss.shard((layout("None",), layout()))
+
+        self.reduce_mean_sp.shard(((self.dp // self.original_tp, 1, 1),))
+        self.mul_sp.shard(((self.dp // self.original_tp, 1, 1), (1, 1, 1)))
+        self.reduce_mean_dp.shard(((1, 1),))
+        self.mul_dp.shard(((1, 1, 1), (1, 1, 1)))
+        self.assignadd.shard(((1,), (1,)))
+        self.div.shard(((1,), ()))
+        self.sum_accu.shard(((1,),))
+        self.add_accu.shard(((1,), (1,)))

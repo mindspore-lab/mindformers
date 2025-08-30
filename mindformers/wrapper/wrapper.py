@@ -47,6 +47,77 @@ _grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()
 
 
+# pylint: disable=W0212
+def get_real_models(network):
+    """
+    Extracts the core model from a potentially nested network wrapper.
+    This function traverses through nested 'network' attributes and, if present,
+    the '_backbone' attribute to retrieve the underlying real model object.
+    Args:
+        network (object): The network or model object, possibly wrapped.
+    Returns:
+        object: The innermost, real model object after unwrapping.
+    """
+    while hasattr(network, 'network'):
+        network = network.network
+    if hasattr(network, '_backbone'):
+        network = network._backbone
+    while hasattr(network, 'network'):
+        network = network.network
+    return network
+
+
+def get_aux_loss_scale(transformer_config):
+    """
+    Calculate the total auxiliary loss scale for Mixture of Experts (MoE) layers based on the transformer configuration.
+    This function determines the number of MoE layers in the model according to the `moe_layer_freq` parameter,
+    and then multiplies it by the auxiliary loss coefficient to compute the total auxiliary loss scale.
+    Args:
+        transformer_config: An object containing the following attributes:
+            - moe_aux_loss_coeff (float): Coefficient for the auxiliary loss.
+            - moe_layer_freq (int, list, or None): Frequency or pattern of MoE layers.
+            - num_layers (int): Total number of layers in the transformer.
+    Returns:
+        float: The total auxiliary loss scale for all MoE layers.
+    Raises:
+        ValueError: If `moe_layer_freq` is not an int, list, or None.
+    """
+    moe_aux_loss_coeff = transformer_config.moe_aux_loss_coeff
+    moe_layer_freq = transformer_config.moe_layer_freq
+    num_layers = transformer_config.num_layers
+
+    # Get number of MoE layers
+    if moe_layer_freq is None:
+        num_moe_layers = num_layers
+    elif isinstance(moe_layer_freq, int):
+        moe_layer_pattern = [1 if (i % moe_layer_freq == 0) else 0 for i in range(num_layers)]
+        num_moe_layers = sum(moe_layer_pattern)
+    elif isinstance(moe_layer_freq, list):
+        num_moe_layers = sum(moe_layer_freq)
+    else:
+        raise ValueError(f"Invalid moe_layer_freq: {moe_layer_freq}")
+
+    return num_moe_layers * moe_aux_loss_coeff
+
+
+def _reset_accu_gbs_fi(network):
+    """
+    Reset the accumulated FI tensor of each MoE router back to zeros.
+
+    This method traverses down through nested `network` objects until it reaches
+    the backbone. For each layer that contains a `router` module, its
+    `fi_accu` parameter is reassigned to a zero tensor.
+
+    Args:
+        network (nn.Cell): Training network backbone containing decoder layers.
+    """
+    model = network.get_gpt_model()
+    if hasattr(model, "reset_accu_gbs_fi"):
+        model.reset_accu_gbs_fi()
+    else:
+        raise NotImplementedError(f"network: {network} does not Implemented function `reset_accu_gbs_fi`")
+
+
 @_grad_scale.register("Tensor", "Tensor")
 def tensor_grad_scale(scale, grad):
     return F.cast(grad, mstype.float32) * reciprocal(scale)
@@ -213,10 +284,15 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         # loss
         self.use_legacy = is_legacy_model()
         self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
+
+        real_network = get_real_models(self.network)
+        transformer_config = real_network.get_gpt_transformer_config() if not self.use_legacy else None
+
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
             self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
+            self.aux_loss_scale = get_aux_loss_scale(transformer_config)
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -328,7 +404,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             grad_scale_factor = self.grad_scale_factor
 
         if self.print_separate_loss:
-            F.assign_add(self.aux_loss_parameter, aux_loss)
+            F.assign_add(self.aux_loss_parameter, aux_loss / self.aux_loss_scale)
             F.assign_add(self.mtp_loss_parameter, mtp_loss)
             F.assign_add(self.lm_loss_parameter, lm_loss)
         return loss, grads, grad_scale_factor
@@ -473,6 +549,15 @@ class GradAccumulationCellWithMultiOutputs(nn.Cell):
             self.add_list.append(self.add)
         self._get_attr_from_cell(network)
 
+        # reset for gbs_aux_loss
+        real_network = get_real_models(self.network)
+        self.use_legacy = is_legacy_model()
+        transformer_config = real_network.get_gpt_transformer_config() if not self.use_legacy else None
+        self.is_reset_accu_gbs_fi = bool(
+            not self.use_legacy and
+            transformer_config.moe_router_load_balancing_type == "gbs_aux_loss"
+        )
+
     def construct(self, *inputs):
         """Construct function for pipeline with multiple outputs."""
         ret = None
@@ -520,6 +605,9 @@ class GradAccumulationCellWithMultiOutputs(nn.Cell):
                     ret5 = self.add_list[i](ret5, output[4])
                 else:
                     ret5 = output[4]
+
+        if self.is_reset_accu_gbs_fi:
+            _reset_accu_gbs_fi(get_real_models(self.network))
 
         if not isinstance(output, tuple):
             return ret
@@ -652,6 +740,15 @@ class PipelineCellWithMultiOutputs(nn.Cell):
             self.add_list.append(self.add)
         self._get_attr_from_cell(network)
 
+        # reset for gbs_aux_loss
+        self.use_legacy = is_legacy_model()
+        real_network = get_real_models(self.network)
+        transformer_config = real_network.get_gpt_transformer_config() if not self.use_legacy else None
+        self.is_reset_accu_gbs_fi = bool(
+            not self.use_legacy and
+            transformer_config.moe_router_load_balancing_type == "gbs_aux_loss"
+        )
+
     def construct(self, *inputs):
         """
         Construct function for pipeline with multiple input
@@ -706,6 +803,9 @@ class PipelineCellWithMultiOutputs(nn.Cell):
                     ret5 = self.add_list[i](ret5, output[4])
                 else:
                     ret5 = output[4]
+
+        if self.is_reset_accu_gbs_fi:
+            _reset_accu_gbs_fi(get_real_models(self.network))
 
         if not isinstance(output, tuple):
             return ret
@@ -837,13 +937,17 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.global_norm_spike_threshold = global_norm_spike_threshold
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
 
-        # loss
         self.use_legacy = is_legacy_model()
+        real_network = get_real_models(self.network)
+        transformer_config = real_network.get_gpt_transformer_config() if not self.use_legacy else None
+
+        # loss
         self.print_separate_loss = bool(print_separate_loss and not self.use_legacy)
         if self.print_separate_loss:
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
             self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
+            self.aux_loss_scale = get_aux_loss_scale(transformer_config)
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
@@ -966,7 +1070,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             grad_scale_factor = self.grad_scale_factor
 
         if self.print_separate_loss:
-            F.assign_add(self.aux_loss_parameter, aux_loss)
+            F.assign_add(self.aux_loss_parameter, aux_loss / self.aux_loss_scale)
             F.assign_add(self.mtp_loss_parameter, mtp_loss)
             F.assign_add(self.lm_loss_parameter, lm_loss)
         return loss, grads, grad_scale_factor

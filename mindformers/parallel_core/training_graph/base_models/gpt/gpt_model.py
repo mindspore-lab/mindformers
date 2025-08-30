@@ -307,6 +307,9 @@ class GPTModel(nn.Cell):
                 self.step_over_expert_num = \
                     Tensor([config.micro_batch_num / config.num_moe_experts], ms.float32)
                 self.zeros_tensor = ms.Tensor(np.zeros([config.num_moe_experts]), ms.float32)
+        if config.moe_router_load_balancing_type == "gbs_aux_loss":
+            self.zeros_tensor = ms.Tensor(np.zeros([config.num_moe_experts]), ms.float32)
+            self.assign_aux = aclnn_ops.Assign()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -562,6 +565,12 @@ class GPTModel(nn.Cell):
                 expert_loads.append((f"mtp.layers.{i - num_layers}.transformer_layer.mlp.router", expert_load_data))
         return expert_loads
 
+    def reset_accu_gbs_fi(self,):
+        num_layers = self.config.num_layers
+        for i in range(num_layers):
+            if hasattr(self.decoder.layers[i].mlp, "router"):
+                self.assign_aux(self.decoder.layers[i].mlp.router.fi_accu, self.zeros_tensor)
+
     def shard(self, config: TransformerConfig):
         """parallel shard."""
         dp = config.data_parallel_size
@@ -576,6 +585,10 @@ class GPTModel(nn.Cell):
         self.mul.shard(in_strategy=mul_in_strategy)
         self.concat_prefix.shard(((dp, 1, cp, 1), (dp, 1, cp, 1)))
         self.transpose.shard(((cp, dp, tp),))
+
+        if config.moe_router_load_balancing_type == "gbs_aux_loss":
+            self.assign_aux.shard(((1,), (1,)))
+
         pipeline_stage = config.pipeline_model_parallel_size
         if pipeline_stage > 1:
             self.embedding.pipeline_stage = 0
