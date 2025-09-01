@@ -21,11 +21,11 @@ import importlib.util
 import os
 import re
 import shutil
-import signal
 import sys
 import tempfile
 import warnings
 import threading
+import signal
 from pathlib import Path
 from types import ModuleType
 import typing
@@ -156,13 +156,22 @@ def get_imports(filename: Union[str, os.PathLike]) -> List[str]:
     with open(filename, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # filter out try/except block so in custom code we can have try/except imports
-    content = re.sub(r"\s*try\s*:\s*.*?\s*except\s*.*?:", "", content, flags=re.MULTILINE | re.DOTALL)
+    try:
+        signal.signal(signal.SIGALRM, lambda signum, frame: (_ for _ in ()).throw(
+            TimeoutError(f"There has questions with the import-related code in file {filename}."))
+                      )
+        signal.alarm(3)  # should finish in 3 seconds
+        # filter out try/except block so in custom code we can have try/except imports
+        content = re.sub(r"\s*try\s*:\s*.*?\s*except\s*.*?:", "", content, flags=re.MULTILINE | re.DOTALL)
 
-    # Imports of the form `import xxx`
-    imports = re.findall(r"^\s*import\s+(\S+)\s*$", content, flags=re.MULTILINE)
-    # Imports of the form `from xxx import yyy`
-    imports += re.findall(r"^\s*from\s+(\S+)\s+import", content, flags=re.MULTILINE)
+        # Imports of the form `import xxx`
+        imports = re.findall(r"^\s*import\s+(\S+)\s*$", content, flags=re.MULTILINE)
+        # Imports of the form `from xxx import yyy`
+        imports += re.findall(r"^\s*from\s+(\S+)\s+import", content, flags=re.MULTILINE)
+        signal.alarm(0)
+    except TimeoutError as e:
+        imports = []
+        logger.warning(f"{e} Please check and fix it.")
     # Only keep the top-level module
     imports = [imp.split(".")[0] for imp in imports if not imp.startswith(".")]
     return list(set(imports))
