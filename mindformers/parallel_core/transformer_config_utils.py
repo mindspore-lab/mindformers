@@ -388,10 +388,10 @@ COMMON_CONFIG_MAPPING = {
     "use_fused_ops_topkrouter": "use_fused_ops_topkrouter",
     "use_shared_expert_gating": "use_shared_expert_gating",
     "topk_method": "topk_method",
-    "enable_deredundency": "enable_deredundency",
     "npu_nums_per_device": "npu_nums_per_device",
     "callback_moe_droprate": "callback_moe_droprate",
     "moe_init_method_std": "moe_init_method_std",
+    "moe_router_force_expert_balance": "moe_router_force_expert_balance",
 
     # Context Parallel
     # not changes
