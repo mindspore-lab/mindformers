@@ -528,9 +528,9 @@ class MFLossMonitor(Callback):
             throughput_info = ''
 
         if cb_params.dataset_sink_mode:
-            loss = "loss: %5.3f, " % loss
+            loss_info = "loss: %5.3f, " % loss
         else:
-            loss = "loss:[%5.3f/%5.3f], " % (loss, np.mean(self.loss_list))
+            loss_info = "loss:[%5.3f/%5.3f], " % (loss, np.mean(self.loss_list))
         if self.print_separate_loss:
             separate_loss = "lm_loss: %5.3f, " % main_loss
             if self.is_moe_model:
@@ -540,7 +540,7 @@ class MFLossMonitor(Callback):
         else:
             separate_loss = ""
         if current_lr is not None:
-            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss + separate_loss +
+            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss_info + separate_loss +
                         "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                         cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch,
                         int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
@@ -549,7 +549,7 @@ class MFLossMonitor(Callback):
                 self.tensor_writer.add_scalar('learning-rate vs samples', float(current_lr),
                                               global_step=global_step * self.global_batch_size)
         else:
-            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss + separate_loss +
+            logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], " + loss_info + separate_loss +
                         "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                         cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch,
                         int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
