@@ -185,32 +185,17 @@ def _get_src_file_suffix(config):
     return config.load_checkpoint, file_suffix
 
 
-def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
-                                     do_predict=False, optimizer=None):
-    """load different format checkpoint interface."""
-    logger.info(f"......Start load checkpoint from {config.load_ckpt_format}......")
-    if config.load_ckpt_async:
-        logger.warning("The configuration 'load_ckpt_async=True' is not supported for safetensor files currently.")
-    config.load_checkpoint = _check_checkpoint_path(config.load_checkpoint)
+def get_load_checkpoint_files(config):
+    """get load checkpoint files"""
+    distill_enabled = config.distill_config is not None
     load_checkpoint = config.load_checkpoint
-    logger.info(f"Load checkpoint from {config.load_checkpoint}.")
-
-    pet_config = config.model.model_config.get("pet_config")
-    if pet_config and pet_config.pet_type == "slora" and network.lora_list:
-        raise ValueError(f"slora only support .ckpt file, {config.load_ckpt_format} file will be compatible soon.")
     ckpt_file_mode = _get_checkpoint_mode(config)
     validate_config_with_file_mode(ckpt_file_mode, config.use_parallel, config.auto_trans_ckpt)
-    # reduce compile time in prediction
-    if do_eval or do_predict:
-        logger.info("Set network.set_train=False, reduce compile time in prediction.")
-        network.set_train(False)
-
     load_checkpoint_files = []
-    strategy_path = ms.get_auto_parallel_context('strategy_ckpt_save_file')
     if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
         logger.info(f"......Use single checkpoint file mode......")
-        load_checkpoint_files = [config.load_checkpoint]
-    if ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
+        load_checkpoint_files = [load_checkpoint]
+    elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
         logger.info(f"......Use multi checkpoint file mode......")
         load_checkpoint_files = glob(
             os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
@@ -229,7 +214,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
                               unified_safetensors_path,
                               use_parallel=config.use_parallel,
                               file_suffix=file_suffix,
-                              remove_redundancy=config.get('remove_redundancy', False))
+                              remove_redundancy=config.get('remove_redundancy', False),
+                              clear_output=not distill_enabled)
             load_checkpoint = unified_safetensors_path
             load_checkpoint_files = glob(
                 os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
@@ -249,7 +235,27 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
                     sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
                 logger.info(f"......file_suffix={file_suffix}, sf_file_name={sf_file_name}......")
             load_checkpoint_files = glob(sf_file_name, recursive=False)
+    return load_checkpoint_files, load_checkpoint
 
+
+def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
+                                     do_predict=False, optimizer=None):
+    """load different format checkpoint interface."""
+    logger.info(f"......Start load checkpoint from {config.load_ckpt_format}......")
+    if config.load_ckpt_async:
+        logger.warning("The configuration 'load_ckpt_async=True' is not supported for safetensor files currently.")
+    config.load_checkpoint = _check_checkpoint_path(config.load_checkpoint)
+    logger.info(f"Load checkpoint from {config.load_checkpoint}.")
+
+    pet_config = config.model.model_config.get("pet_config")
+    if pet_config and pet_config.pet_type == "slora" and network.lora_list:
+        raise ValueError(f"slora only support .ckpt file, {config.load_ckpt_format} file will be compatible soon.")
+    # reduce compile time in prediction
+    if do_eval or do_predict:
+        logger.info("Set network.set_train=False, reduce compile time in prediction.")
+        network.set_train(False)
+    strategy_path = ms.get_auto_parallel_context('strategy_ckpt_save_file')
+    load_checkpoint_files, load_checkpoint = get_load_checkpoint_files(config)
     # use resume_training in train/finetune mode
     if config.resume_training or (config.get('remove_redundancy', False) and not do_predict):
         # pylint: disable=W0212
@@ -315,7 +321,7 @@ def validate_config_with_file_mode(ckpt_file_mode, use_parallel, auto_trans_ckpt
 
 
 def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_parallel=False,
-                      file_suffix=None, remove_redundancy=False):
+                      file_suffix=None, remove_redundancy=False, clear_output=True):
     """merge strategy and unified safetensors."""
     logger.info("Start unify safetensors.")
     if is_main_rank():
@@ -332,10 +338,28 @@ def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_paral
         )
         unify_time_end = time.time()
         logger.info("Time spent unifying safetensors: %.2fs", unify_time_end - unify_time_start)
-        clear_auto_trans_output()
+        if clear_output:
+            clear_auto_trans_output()
     if use_parallel:
         barrier()
     logger.info("Unified safetensors finished.")
+
+
+def _convert_map_dict_with_name_map(convert_map_dict, name_map=None):
+    """do additional name map to the result of convert_map_dict func"""
+    if isinstance(name_map, dict):
+        return lambda source_dict, **kwargs: \
+            {name_map.get(k, k): v for k, v in convert_map_dict(source_dict, **kwargs).items()}
+    return convert_map_dict
+
+
+def map_weight_name(params_dict, name_map):
+    """convert the params name with name_map"""
+    if isinstance(name_map, dict):
+        for k, v in name_map.items():
+            weight = params_dict.pop(k, None)
+            if weight is not None:
+                params_dict[v] = weight
 
 
 def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_ckpt_path, optimizer):
@@ -355,8 +379,14 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 except Exception as e:
                     raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
                 if is_main_rank():
-                    _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
+                    convert_map_dict = _convert_map_dict_with_name_map(origin_network.convert_map_dict, config.name_map)
+                    _convert_index_json(load_ckpt_path, load_ckpt_path, convert_map_dict, False)
                 barrier()
+            if config.name_map:
+                name_map = name_map or {}
+                for k, v in config.name_map.items():
+                    origin_map = name_map.pop(k, k)
+                    name_map[v] = origin_map
             addition_args["name_map"] = name_map
         ms.load_distributed_checkpoint(
             network=network,
@@ -372,6 +402,8 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 raise FileNotFoundError(rf"No hyper_param.safetensors in given dir: {load_ckpt_path}")
             logger.info("......Start load hyper param into optimizer......")
             hyper_param_dict = ms.load_checkpoint(ckpt_file_name=hyper_param_file, format='safetensors')
+            # make hyper_param_dict key map
+            map_weight_name(hyper_param_dict, config.name_map)
             update_global_step(config, hyper_param_dict)
             ms.load_param_into_net(optimizer, hyper_param_dict)
     else:
@@ -392,6 +424,8 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         if optimizer and config.resume_training:
             logger.info("......Start load hyper param into optimizer......")
             update_global_step(config, params_dict)
+        # make parameter_dict key map
+        map_weight_name(params_dict, config.name_map)
         ms.load_param_into_net(network, params_dict, remove_redundancy=remove_redundancy)
 
 

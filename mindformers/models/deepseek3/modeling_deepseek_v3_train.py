@@ -44,8 +44,8 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
         if transformer_config.mtp_num_layers is not None:
             mtp_block_spec = get_gpt_mtp_block_spec(transformer_config, transformer_layer_spec)
         self.model = GPTModel(
-            transformer_config,
-            transformer_layer_spec,
+            config=transformer_config,
+            transformer_layer_spec=transformer_layer_spec,
             vocab_size=transformer_config.vocab_size,
             max_sequence_length=transformer_config.max_position_embeddings,
             position_embedding_type=transformer_config.position_embedding_type,

@@ -57,7 +57,7 @@ from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 
-from mindformers.core.context.build_context import is_legacy_model
+from mindformers.core.context.build_context import is_legacy_model, is_distillation_training
 from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -112,13 +112,12 @@ def _check_mspti_is_on():
 
 def _get_separate_loss():
     """callback drop rate."""
-    aux_loss = parameter_register.get("aux_loss").asnumpy()
-    mtp_loss = parameter_register.get("mtp_loss").asnumpy()
-    lm_loss = parameter_register.get("lm_loss").asnumpy()
-    parameter_register.clear("aux_loss")
-    parameter_register.clear("mtp_loss")
-    parameter_register.clear("lm_loss")
-    return lm_loss, aux_loss, mtp_loss
+    loss_dict = {}
+    for key, value in parameter_register.items():
+        logger.debug(f"extract `{key}` from registered parameter.")
+        loss_dict[key] = value.asnumpy()
+        parameter_register.clear(key)
+    return loss_dict
 
 
 def _get_loss_output(output):
@@ -308,12 +307,14 @@ class MFLossMonitor(Callback):
         loss = self._fix_loss_for_parallel(loss)
         self.loss_list.append(loss)
 
-        lm_loss, aux_loss, mtp_loss = None, None, None
+        lm_loss, aux_loss, mtp_loss, kl_loss = None, None, None, None
         if self.print_separate_loss:
-            lm_loss, aux_loss, mtp_loss = _get_separate_loss()
-            lm_loss = self._fix_loss_for_parallel(lm_loss, print_warning=False)
-            aux_loss = self._fix_loss_for_parallel(aux_loss, print_warning=False)
-            mtp_loss = self._fix_loss_for_parallel(mtp_loss, print_warning=False)
+            loss_dict = _get_separate_loss()
+            lm_loss = self._fix_loss_for_parallel(loss_dict["lm_loss"], print_warning=False)
+            aux_loss = self._fix_loss_for_parallel(loss_dict["aux_loss"], print_warning=False)
+            mtp_loss = self._fix_loss_for_parallel(loss_dict["mtp_loss"], print_warning=False)
+            if is_distillation_training():
+                kl_loss = self._fix_loss_for_parallel(loss_dict["kl_loss"], print_warning=False)
 
         if not overflow:
             overflow = "False"
@@ -357,7 +358,7 @@ class MFLossMonitor(Callback):
             self.print_output_info(cb_params, cur_epoch_num, origin_epochs, throughput,
                                    cur_step_num, steps_per_epoch, loss, per_step_seconds,
                                    overflow, scaling_sens, time_remain, percent, global_norm,
-                                   lm_loss, aux_loss, mtp_loss)
+                                   lm_loss, aux_loss, mtp_loss, kl_loss)
 
         if auto_parallel:
             set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
@@ -470,8 +471,8 @@ class MFLossMonitor(Callback):
                     full_model_flops, shard_model_flops)
 
     def print_output_info(self, cb_params, cur_epoch_num, origin_epochs, throughput,
-                          cur_step_num, steps_per_epoch, loss, per_step_seconds,
-                          overflow, scaling_sens, time_remain, percent, global_norm, main_loss, extra_loss, mtp_loss):
+                          cur_step_num, steps_per_epoch, loss, per_step_seconds, overflow,
+                          scaling_sens, time_remain, percent, global_norm, main_loss, extra_loss, mtp_loss, kl_loss):
         """print output information."""
         if self.learning_rate is not None:
             if isinstance(self.learning_rate, (float, Tensor, np.ndarray)):
@@ -537,6 +538,8 @@ class MFLossMonitor(Callback):
                 separate_loss += "aux_loss: %5.3f, " % extra_loss
             if self.is_mtp_model:
                 separate_loss += "mtp_loss: %5.3f, " % mtp_loss
+            if is_distillation_training():
+                separate_loss += "kl_loss: %5.3f, " % kl_loss
         else:
             separate_loss = ""
         if current_lr is not None:
@@ -1282,7 +1285,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.global_batch_size = global_batch_size
         # this list records parameters which will be ignored when saving ckpt.
         self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache',
-                            '_device_local_norm', '_device_local_loss', 'expert_load']
+                            '_device_local_norm', '_device_local_loss', 'expert_load', 'teacher_model']
 
         self.save_info_list = defaultdict(
             lambda: {
@@ -2454,6 +2457,8 @@ class TopkBiasBalanceCallback(Callback):
         """update topk bias tensor during training."""
         while hasattr(network, "network"):
             network = network.network
+        if hasattr(network, 'student_model'):
+            network = network.student_model
         if hasattr(network, "update_topk_bias"):
             expert_loads = network.update_topk_bias(self.gradient_accumulation_steps)
             if self.tensor_writer is not None and self.write_expert_load_to_tensorboard:
@@ -2532,9 +2537,11 @@ class MoEDropRateCallback(Callback):
 
     def _callback_droprate(self, network):
         """callback drop rate."""
+        while hasattr(network, "network"):
+            network = network.network
+        if hasattr(network, 'student_model'):
+            network = network.student_model
         for i in range(self.num_layers):
-            while hasattr(network, "network"):
-                network = network.network
             if hasattr(network.model.layers[i].feed_forward, "routed_experts"):
                 if hasattr(network.model.layers[i].feed_forward.routed_experts, "router"):
                     fi = network.model.layers[i].feed_forward.routed_experts.router.router.fi_parameter.value()

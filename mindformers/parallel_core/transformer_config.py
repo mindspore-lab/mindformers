@@ -8,6 +8,7 @@ from typing import Callable, List, Optional, Union
 
 import mindspore as ms
 from mindformers.tools.logger import logger
+from mindformers.core.context.build_context import is_distillation_training
 from mindformers.parallel_core.mf_model_config import MFModelConfig, convert_str_to_mstype
 from mindformers.parallel_core.model_parallel_config import ModelParallelConfig
 from mindformers.parallel_core.utils.init_method import init_method_normal, scaled_init_method_normal
@@ -484,7 +485,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if self.apply_query_key_layer_scaling:
             self.attention_softmax_in_fp32 = True
 
-        if self.expert_model_parallel_size > 1 and self.num_moe_experts is None:
+        if self.expert_model_parallel_size > 1 and self.num_moe_experts is None and not is_distillation_training():
             raise ValueError('num_moe_experts must be non None to use expert-parallel.')
 
         if self.num_moe_experts is not None and self.num_moe_experts <= 0:

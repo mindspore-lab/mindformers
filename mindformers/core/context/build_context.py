@@ -609,3 +609,13 @@ def is_legacy_model():
         if is_use_legacy is not None:
             return is_use_legacy
     return True
+
+
+def is_distillation_training():
+    """Determine whether it is distillation training."""
+    mf_ctx_instance = MFContextOperator.get_mf_ctx_instance()
+    if mf_ctx_instance is not None:
+        distill_enabled = mf_ctx_instance.get_context("distill_enabled")
+        if distill_enabled is not None:
+            return distill_enabled
+    return False

@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers context."""
-from .build_context import (
-    build_context,
-    build_mf_context,
-    get_context,
-    init_context,
-    set_context,
-    is_distillation_training,
-    is_legacy_model
-)
 
-__all__ = ['build_context', 'get_context', 'init_context', 'set_context']
+"""modules init"""
+
+from .distill_config import DistillationConfig
+from .distill_model import DistillationModel
+
+__all__ = ['DistillationConfig', 'DistillationModel']

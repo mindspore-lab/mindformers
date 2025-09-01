@@ -490,6 +490,7 @@ class MFContextConfig(BaseArgsConfig):
         'only_save_strategy',
         'run_mode',
         'use_legacy',
+        "distill_enabled",
         'exclude_cann_cpu',
         'train_precision_sync',
         'infer_precision_sync',

@@ -14,6 +14,7 @@
 # ============================================================================
 """Build Model API."""
 from mindformers.core.context import is_legacy_model
+from mindformers.distill import DistillationModel
 from mindformers.generation.generation_config import GenerationConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_config import build_model_config, get_model_config
@@ -85,6 +86,7 @@ def build_network(
     ckpt_cfg = config.model_config.checkpoint_name_or_path
     pet_config = config.model_config.pet_config
     quant_config = config.model_config.quantization_config
+    distill_config = default_args.pop("distill_config", None)
     network = build_model(config, default_args=default_args)
     if network.can_generate() and config.get("pretrained_model_dir", None):
         network.generation_config = GenerationConfig.from_pretrained(
@@ -104,6 +106,14 @@ def build_network(
             config.model_config.checkpoint_name_or_path = None
         network.checkpoint_name_or_path = ckpt_cfg
         network = get_pet_model(network, pet_config)
+    if distill_config:
+        teacher_config = distill_config.teacher_config
+        parallel_config = default_args.get("parallel_config", None)
+        teacher_network = build_network(teacher_config.model,
+                                        default_args={"parallel_config": parallel_config,
+                                                      "moe_config": teacher_config.moe_config})
+        network = DistillationModel(distill_config, network, teacher_network)
+
     return network
 
 

@@ -30,7 +30,8 @@ from mindspore import ops, mint
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
-from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, build_model
+from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, build_model, \
+    map_weight_name
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
     replace_rank_id_in_ckpt_name,
@@ -695,9 +696,13 @@ def load_ckpt(config, network, optimizer=None, model=None, future=None):
                     int(checkpoint_dict["global_step"]), resume_global_step)
         checkpoint_dict["global_step"] = Parameter([resume_global_step])
 
+    # make parameter_dict key map
+    map_weight_name(checkpoint_dict, config.name_map)
+
     # pylint: disable=W0212
     if config.remove_redundancy:
-        not_load_network_params = load_param_into_net(model._train_network, checkpoint_dict, remove_redundancy=True)
+        network = network if model is None else model._train_network
+        not_load_network_params = load_param_into_net(network, checkpoint_dict, remove_redundancy=True)
         logger.info("Network parameters are not loaded: %s", not_load_network_params)
     else:
         not_load_network_params = load_param_into_net(network, checkpoint_dict)
