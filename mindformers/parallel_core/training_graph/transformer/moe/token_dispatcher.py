@@ -195,8 +195,8 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         sorted_expert_ids, dispatch_idx = ops.sort(expert_ids.astype(ms.float32))
         sorted_expert_ids = sorted_expert_ids.astype(ms.int32)
         router_coeff = router_coeff.reshape(-1)  # [nK] <-- [n,k]
-        sorted_router_coeff = ops.gather(
-            router_coeff, dispatch_idx, axis=0, batch_dims=0)
+        sorted_router_coeff = IndexSelect()(
+            router_coeff, 0, dispatch_idx)
         dispatch_idx = ops.Depend()(dispatch_idx, sorted_router_coeff)
         dispatch_idx_floordiv_k = dispatch_idx // chosen_expert_num
         sorted_expert_ids = ops.Depend()(sorted_expert_ids, dispatch_idx_floordiv_k)
@@ -205,12 +205,11 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         x = ops.AllGather(group=self.oep_group)(x)
         idx = mask.reshape(-1).nonzero()
         idx = idx.reshape(-1)
-        dispatch_idx = ops.gather(dispatch_idx_floordiv_k,
-                                  idx, axis=0, batch_dims=0)
-        sorted_expert_ids = ops.gather(
-            sorted_expert_ids, idx, axis=0, batch_dims=0)
-        sorted_router_coeff = ops.gather(
-            sorted_router_coeff, idx, axis=0, batch_dims=0)
+        dispatch_idx = IndexSelect()(dispatch_idx_floordiv_k, 0, idx)
+        sorted_expert_ids = IndexSelect()(
+            sorted_expert_ids, 0, idx)
+        sorted_router_coeff = IndexSelect()(
+            sorted_router_coeff, 0, idx)
         x = x.reshape(-1, hidden_size)
         return x, dispatch_idx, sorted_expert_ids, sorted_router_coeff
 
@@ -266,7 +265,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         exsl = self.d2h(exsl, "CPU", True)
         exrl = self.d2h(exrl, "CPU", True)
         excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
-        x = ops.gather(x, exdispatch_idx, axis=0, batch_dims=0)
+        x = IndexSelect()(x, 0, exdispatch_idx)
 
         # 3. inner alltoallv
         x = ops.AlltoAllV(group=self.iep_group, block_size=hidden_size)(x.reshape(-1), exsl, exrl).reshape(
@@ -278,7 +277,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         # 4. resort
         _, sort_map = ops.sort(expert_id.astype(ms.float32))
         _, unsort_map = ops.sort(sort_map.astype(ms.float32))
-        x = ops.gather(x, sort_map, axis=0, batch_dims=0)
+        x = IndexSelect()(x, 0, sort_map)
 
         ctx = (router_coeff, unsort_map, exrl, exsl, excombine_whiteboard, exdispatch_idx, x_orig_shape)
         return x, exgl, ctx
@@ -291,7 +290,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         """Restores the expert output to its original ordering."""
         probs, unsort_map, exrl, exsl, excombine_whiteboard, exdispatch_idx, x_orig_shape = ctx
         # -4. unresort
-        x = ops.gather(tokens, unsort_map, axis=0, batch_dims=0)
+        x = IndexSelect()(tokens, 0, unsort_map)
 
         # -3. allToAllv
         hidden_size = x_orig_shape[-1]
