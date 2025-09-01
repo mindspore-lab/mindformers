@@ -289,7 +289,7 @@ class MFModelConfig:
     npu_nums_per_device: int = 8
     """Set NPU ranks for each device."""
 
-    use_pad_tokens: bool = False
+    use_pad_tokens: bool = True
     """If True, gmm pads an additional protection token to avoid 0-token calculation."""
 
     callback_moe_droprate: bool = False
