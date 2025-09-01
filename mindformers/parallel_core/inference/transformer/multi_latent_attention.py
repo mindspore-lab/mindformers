@@ -36,6 +36,7 @@ from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
 from mindspore.ops.operations._infer_ops import QuantV2
 import mindspore as ms
+from mindspore.ops.auto_generate import contiguous
 
 from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
@@ -234,6 +235,7 @@ class MultiLatentAttention(Attention):
                                         mint.transpose(out_absorb, -2, -1))
             core_attn_out = mint.transpose(core_attn_out, -3, -2)
 
+        core_attn_out = contiguous(core_attn_out)
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================
         # apply output projection. [t, h]
