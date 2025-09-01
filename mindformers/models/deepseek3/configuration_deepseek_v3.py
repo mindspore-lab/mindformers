@@ -143,8 +143,6 @@ class DeepseekV3Config(PretrainedConfig):
         rotary_dtype="fp32",
         hidden_dropout=0.0,
         use_flash_attention=True,
-        aux_loss_factors=[0.0001],
-        aux_loss_types=['expert'],
         moe_router_enable_expert_bias=True,
         normalization="RMSNorm",
         add_bias_linear=False,

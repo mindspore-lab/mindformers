@@ -528,15 +528,15 @@ class MFLossMonitor(Callback):
             throughput_info = ''
 
         if cb_params.dataset_sink_mode:
-            loss_info = "loss: %5.3f, " % loss
+            loss_info = "loss: %5.6f, " % loss
         else:
-            loss_info = "loss:[%5.3f/%5.3f], " % (loss, np.mean(self.loss_list))
+            loss_info = "loss:[%5.6f/%5.6f], " % (loss, np.mean(self.loss_list))
         if self.print_separate_loss:
-            separate_loss = "lm_loss: %5.3f, " % main_loss
+            separate_loss = "lm loss: %5.6f, " % main_loss
             if self.is_moe_model:
-                separate_loss += "aux_loss: %5.3f, " % extra_loss
+                separate_loss += "load_balancing_loss: %5.6f, " % extra_loss
             if self.is_mtp_model:
-                separate_loss += "mtp_loss: %5.3f, " % mtp_loss
+                separate_loss += "mtp_loss: %5.6f, " % mtp_loss
         else:
             separate_loss = ""
         if current_lr is not None:

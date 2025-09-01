@@ -317,12 +317,6 @@ class MFModelConfig:
                                                       \--k dense layers--/
     """
 
-    aux_loss_types: list = None
-    """List of auxiliary loss types."""
-
-    aux_loss_factors: list = None
-    """List of auxiliary loss factors."""
-
     moe_router_enable_expert_bias: bool = False
     """
     TopK routing with dynamic per-expert bias in the aux-loss-free load balancing strategy.
