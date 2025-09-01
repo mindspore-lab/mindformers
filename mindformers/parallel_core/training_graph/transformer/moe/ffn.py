@@ -88,6 +88,7 @@ class FFNGroupedGEMM(nn.Cell):
         elif self.moe_token_dispatcher_type == "alltoall_deredundency":
             self.token_dispatcher = MoEAlltoAllDeredundencyTokenDispatcher(config)
             self.stride_slice = StridedSlice()
+            self.stride_slice.add_prim_attr('self_define_shard', True)
         else:
             raise ValueError(
                 f"Unsupported moe_token_dispatcher_type: "
@@ -171,7 +172,10 @@ class FFNGroupedGEMM(nn.Cell):
         mp0 = "None"
         dp = "dp_cp"
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
-            self.stride_slice.shard((layout(dp, "None", "None"),))
+            self.stride_slice.shard(
+                in_strategy=(layout(dp, "None", "None"),),
+                out_strategy=(layout(dp, "None", "None"),)
+            )
 
         self.morphed_forward.shard(
             in_strategy=(
