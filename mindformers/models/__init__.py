@@ -77,6 +77,11 @@ from .glm4_moe import (
     Glm4MoePreTrainedModel,
     Glm4MoeForCausalLM,
 )
+from .telechat2 import (
+    Telechat2Config,
+    Telechat2PreTrainedModel,
+    TeleChat2ForCausalLM,
+)
 from .tokenization_utils import (
     PreTrainedTokenizer,
     PreTrainedTokenizerBase

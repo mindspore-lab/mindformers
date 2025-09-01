@@ -170,6 +170,16 @@ class MFModelConfig:
     (QKV projections, after core attention, and two in MLP layer).
     """
 
+    add_mlp_fc1_bias_linear: bool = None
+    """
+    Include a bias term in fc1 linear in MLP layer.
+    """
+
+    add_mlp_fc2_bias_linear: bool = None
+    """
+    Include a bias term in fc2 linear in MLP layer.
+    """
+
     gated_linear_unit: bool = False
     """Use a gated linear unit for the first linear layer in the MLP."""
 
@@ -373,9 +383,6 @@ class MFModelConfig:
 
     parallel_decoding_params: dict = None
     """Parameters used when hardware decoding."""
-
-    softmax_compute_dtype: str = 'float32'
-    """Data type for computing softmax during attention computation."""
 
     pre_process: bool = True
     """When using pipeline parallel, indicate whether it's the first stage."""

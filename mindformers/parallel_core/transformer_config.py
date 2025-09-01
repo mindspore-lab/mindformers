@@ -165,6 +165,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     This should be True if apply_query_key_layer_scaling is True.
     """
 
+    softmax_compute_dtype: str = 'float32'
+    """Data type for computing softmax during attention computation."""
+
     disable_bf16_reduced_precision_matmul: bool = False
     """If True, prevent matmul from using reduced precision accumulation when using BF16."""
 
@@ -595,7 +598,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                                  f"than 'num_layers'({self.num_layers}).")
 
         if isinstance(self.rope_scaling, dict):
-            self.position_embedding_type = self.rope_scaling.pop("type")
+            self.position_embedding_type = (self.rope_scaling.pop("type", None) or
+                                            self.rope_scaling.pop("rope_type", None))
             self.rotary_scaling_factor = self.rope_scaling.pop("factor")
             self.max_position_embeddings = self.rope_scaling.pop("original_max_position_embeddings",
                                                                  None) or self.seq_length
