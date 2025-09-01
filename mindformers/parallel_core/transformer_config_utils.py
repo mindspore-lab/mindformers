@@ -326,6 +326,7 @@ COMMON_CONFIG_MAPPING = {
     # Fusion
     ("use_fused_rope", "apply_rope_fusion"): "apply_rope_fusion",
     ("use_fused_swiglu", "bias_swiglu_fusion"): "bias_swiglu_fusion",
+    ("use_fused_ops_permute", "moe_permute_fusion"): "moe_permute_fusion",
     # not changes
     "bias_activation_fusion": "bias_activation_fusion",
     "masked_softmax_fusion": "masked_softmax_fusion",
@@ -379,7 +380,6 @@ COMMON_CONFIG_MAPPING = {
     "moe_enable_deepep": "moe_enable_deepep",
     "moe_per_layer_logging": "moe_per_layer_logging",
     "moe_pad_expert_input_to_capacity": "moe_pad_expert_input_to_capacity",
-    "moe_permute_fusion": "moe_permute_fusion",
     "moe_apply_probs_on_input": "moe_apply_probs_on_input",
     "comp_comm_parallel": "comp_comm_parallel",
     "comp_comm_parallel_degree": "comp_comm_parallel_degree",
@@ -389,7 +389,6 @@ COMMON_CONFIG_MAPPING = {
     "topk_method": "topk_method",
     "enable_deredundency": "enable_deredundency",
     "npu_nums_per_device": "npu_nums_per_device",
-    "use_fused_ops_permute": "use_fused_ops_permute",
     "callback_moe_droprate": "callback_moe_droprate",
     "moe_init_method_std": "moe_init_method_std",
 
