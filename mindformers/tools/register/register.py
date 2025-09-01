@@ -319,7 +319,7 @@ class MindFormerRegister:
             ValueError: Can't find class `class_name` of type `module_type` in the registry.
         """
         if module_type == MindFormerModuleType.CONFIG:
-            model_type = cfg.pop('model_type')
+            model_type = cfg.get('model_type', None)
             obj_type = cls.get_cls(module_type, model_type)
         elif module_type == MindFormerModuleType.MODELS:
             architectures = cfg.pop('architectures')

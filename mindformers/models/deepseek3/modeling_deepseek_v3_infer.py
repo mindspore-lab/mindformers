@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Deepseek-V3 models' APIs."""
+import os
+import json
 from typing import Dict
 
 from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
@@ -27,7 +29,9 @@ from mindformers.parallel_core.inference.parallel_state import (
 )
 from mindformers.parallel_core.inference.utils import update_comm_config
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
-from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
+from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import (
+    get_gpt_decoder_block_spec, get_gpt_layer_local_spec)
+from mindformers.parallel_core.inference.transformer.multi_token_prediction import get_mtp_layer_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.quantization.utils import get_quant_config
@@ -48,6 +52,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
     def __init__(self, config: DeepseekV3Config):
         super().__init__(config, auto_prefix=False)
+        if config.model_type == "deepseek_v3":
+            setattr(config, "num_nextn_predict_layers", 0)
+
         self.config = config
         config: MLATransformerConfig = self.convert_to_transformer_config(
             self.config,
@@ -83,13 +90,35 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
-        self.model = GPTModel(
-            config=config,
-            transformer_layer_spec=get_gpt_decoder_block_spec(
+
+        if not self.is_mtp_model():
+            transformer_block_layer_spec = get_gpt_decoder_block_spec(
                 config=config,
                 normalization=config.normalization,
                 qk_l2_norm=False,
-            ),
+            )
+            mtp_layer_spec = None
+        else:
+            self.quant_config = None    # weight is not quantized
+            self.use_fused_mla = False
+            transformer_block_layer_spec = None
+            transformer_layer_spec = get_gpt_layer_local_spec(
+                num_experts=config.num_moe_experts,
+                moe_grouped_gemm=True,
+                qk_layernorm=config.qk_layernorm,
+                gated_linear_unit=config.gated_linear_unit,
+                multi_latent_attention=config.multi_latent_attention,
+                normalization=config.normalization,
+                use_flash_attention=config.use_flash_attention,
+                qk_l2_norm=False,
+                use_alltoall=config.use_alltoall,
+                use_fused_mla=config.use_fused_mla,
+            )
+            mtp_layer_spec = get_mtp_layer_spec(transformer_layer_spec, config.normalization)
+
+        self.model = GPTModel(
+            config=config,
+            transformer_layer_spec=transformer_block_layer_spec,
             vocab_size=self.vocab_size,
             max_sequence_length=self.max_position_embeddings,
             position_embedding_type=config.position_embedding_type,
@@ -98,6 +127,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             post_process=config.post_process,
             model_comm_pgs=self.model_comm_pgs,
             quant_config=self.quant_config,
+            mtp_block_spec=mtp_layer_spec,
         )
 
     def add_flags_custom_mcore(self, is_prefill):
@@ -113,9 +143,13 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         self.add_flags(is_prefill=is_prefill)
         self.model.add_flags(is_prefill=is_prefill)
         self.model.decoder.add_flags(is_prefill=is_prefill)
-        for layer in self.model.decoder.layers:
-            layer.self_attention.add_flags(is_prefill=is_prefill)
-            layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
+        if not self.is_mtp_model():
+            for layer in self.model.decoder.layers:
+                layer.self_attention.add_flags(is_prefill=is_prefill)
+                layer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
+        else:
+            self.model.decoder.transformer.self_attention.add_flags(is_prefill=is_prefill)
+            self.model.decoder.transformer.self_attention.core_attention.add_flags(is_prefill=is_prefill)
 
     @jit
     def construct(
@@ -185,6 +219,33 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             value_cache=value_cache,
         )
         return logits
+
+    def get_weights_files(self, weights_path):
+        if not self.is_mtp_model():
+            return super().get_weights_files(weights_path)
+
+        # for mtp model, only load weights of layer-61
+        param_map = None
+        layer_id = self.config.num_hidden_layers
+        map_files = [file for file in os.listdir(weights_path) if file.endswith("index.json")]
+        for file in map_files:
+            param_json_path = os.path.join(weights_path, file)
+            with open(param_json_path, "r") as f:
+                param_map = json.load(f)['weight_map']
+                if any(f'layers.{layer_id}.' in layer_name for layer_name in param_map.keys()):
+                    break
+
+        if param_map is None:
+            raise FileNotFoundError(f"No weights file found at {weights_path} for mtp model.")
+
+        weights_files = {param_map[layer_name] for layer_name in param_map.keys()
+                         if f'layers.{layer_id}.' in layer_name}
+
+        weights_files = [
+            os.path.join(weights_path, file)
+            for file in weights_files
+        ]
+        return weights_files
 
     def convert_name(self, weight_name):
         r"""
