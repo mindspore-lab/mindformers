@@ -59,7 +59,7 @@ class InferModelMixin(ModelMixin):
             return mutable(cache_list)
 
         key_cache = get_input()
-        value_cache = get_input()
+        value_cache = get_input() if not self.model.config.multi_latent_attention else None
 
         if not hasattr(self, 'model_comm_pgs'):
             raise RuntimeError(

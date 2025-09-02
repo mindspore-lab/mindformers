@@ -973,7 +973,9 @@ class ReplicatedLinear(LinearBase):
         size = None
         output_dim = getattr(param, "output_dim", None)
         loaded_weight = loaded_weight[:]
-        if loaded_shard_id is not None and output_dim is not None:
+        if param.name.endwith('w_scale') and len(loaded_weight.shape) == 2:
+            loaded_weight = loaded_weight.squeeze(-1)
+        if loaded_shard_id is not None:
             if loaded_shard_id == 'q_down':
                 offset = 0
                 size = self.config.q_lora_rank
