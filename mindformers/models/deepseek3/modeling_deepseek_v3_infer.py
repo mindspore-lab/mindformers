@@ -25,7 +25,7 @@ from mindformers.parallel_core.inference.parallel_state import (
     is_initialized,
     initialize_model_parallel
 )
-from mindformers.parallel_core.inference.utils import update_comm_config
+from mindformers.parallel_core.inference.utils import update_comm_config, use_ms_custom_ops
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
@@ -70,7 +70,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
-        self.use_fused_mla = False
+        self.use_fused_mla = use_ms_custom_ops() and self.config.quantization_config is not None
         config.use_fused_mla = self.use_fused_mla
         self.quant_config = get_quant_config(self.config.to_dict(), self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
