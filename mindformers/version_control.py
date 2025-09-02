@@ -66,10 +66,6 @@ def get_predict_lazy_inline(func):
 
 def get_lazy_inline(func):
     """Lazy inline decorator."""
-    logger.info("The environment variables ENABLE_LAZY_INLINE and ENABLE_LAZY_INLINE_NO_PIPELINE will be deprecated "
-                "in a future release. The lazy_inline feature will be directly controlled by the presence of the "
-                "decorator.")
-
     @wraps(func)
     def decorator(*args, **kwargs):
         sig = inspect.signature(func)
@@ -80,29 +76,6 @@ def get_lazy_inline(func):
         model_config = kwargs.get('config')
         if model_config and hasattr(model_config, 'disable_lazy_inline'):
             disable_lazy_inline = model_config.disable_lazy_inline
-        stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
-        pipeline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
-
-        if os.getenv("ENABLE_LAZY_INLINE", "1") == "0":
-            logger.info("The Lazy Inline compilation acceleration feature is turned off, due to the "
-                        "environment variable ENABLE_LAZY_INLINE is set to 0.")
-            func(*args, **kwargs)
-            return
-
-        if stand_alone:
-            logger.info("The Lazy Inline compilation acceleration feature does not support single-card mode."
-                        "This feature is disabled by default. ENABLE_LAZY_INLINE=1 does not take effect.")
-            func(*args, **kwargs)
-            return
-
-        if not pipeline_parallel and os.getenv("ENABLE_LAZY_INLINE_NO_PIPELINE", "0") == "0":
-            logger.info("The Lazy Inline compilation acceleration feature "
-                        "only works in pipeline parallel mode (pipeline_stage > 1). "
-                        "Current pipeline stage=1, the feature is disabled by default. "
-                        "You can also enable lazy inline without pipeline parallel, by setting "
-                        "environment variable `export ENABLE_LAZY_INLINE_NO_PIPELINE=1`.")
-            func(*args, **kwargs)
-            return
 
         if disable_lazy_inline:
             logger.info("The Lazy Inline compilation acceleration feature has been called, "

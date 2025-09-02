@@ -410,6 +410,9 @@ class MFModelConfig:
 
     quantization_config: dict = None
 
+    disable_lazy_inline: bool = False
+    """Whether to disable Lazy Inline compilation acceleration."""
+
     def __post_init__(self):
         self.parallel_config = default_transformer_config
 
