@@ -308,9 +308,11 @@ class MindIEModelRunner:
 
         cpu_kv_shape = (self.cpu_num_blocks, block_size, self.num_kv_heads, self.head_size)
         self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
-                                      name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
+                                      name=f"key_host_{i}", requires_grad=False).init_data() \
+                                        for i in range(self.num_layers)]
         self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
-                                        name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
+                                        name=f"value_host_{i}", requires_grad=False).init_data() \
+                                            for i in range(self.num_layers)]
 
     def load_checkpoint(self, network_delay_inited):
         """load checkpoint into model"""
