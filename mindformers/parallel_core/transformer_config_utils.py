@@ -368,8 +368,8 @@ COMMON_CONFIG_MAPPING = {
     ("enable_gmm_safe_tokens", "use_pad_tokens"): "use_pad_tokens",
     "moe_shared_expert_intermediate_size": "moe_shared_expert_intermediate_size",
     ("n_shared_experts", "shared_expert_num"): "shared_expert_num",
-    ("aux_loss_types", "moe_router_load_balancing_type"): "moe_router_load_balancing_type",
-    ("aux_loss_factors", "moe_aux_loss_coeff"): "moe_aux_loss_coeff",
+    "moe_router_load_balancing_type": "moe_router_load_balancing_type",
+    "moe_aux_loss_coeff": "moe_aux_loss_coeff",
     # not changes
     "moe_layer_freq": "moe_layer_freq",
     "first_k_dense_replace": "first_k_dense_replace",
