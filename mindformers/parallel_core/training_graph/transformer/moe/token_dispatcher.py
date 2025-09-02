@@ -24,9 +24,9 @@ import mindspore.mint as mint
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast
+from mindspore.ops.operations.comm_ops import AlltoAllVC
+from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
 from mindformers.parallel_core.transformer_config import TransformerConfig
-
 
 _OEP_GROUP_NAME = {}
 _IEP_GROUP_NAME = {}
@@ -42,6 +42,10 @@ class MoETokenDispatcher:
         Initialize the MoE Token Dispatcher.
         """
         self.config = config
+        self.use_pad_tokens = config.use_pad_tokens
+        self.expert_num = config.num_moe_experts
+        self.ep = config.expert_model_parallel_size
+
         self.num_out_tokens = None
         self.ep_group = self._ep_group()
 
@@ -106,6 +110,130 @@ class MoETokenDispatcher:
         raise NotImplementedError("Restore function not implemented.")
 
 
+class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
+    """
+    Implements a forward pass functionality without redundancy and  mainly used in processing input data x within
+    an expert network (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication,
+    resorting, grouped matrix multiplication (GroupedMM), and its reverse operation.
+    """
+
+    def __init__(self, config):
+        """
+        Initialize the AlltoAll token dispatcher.
+
+        Args:
+            config (TransformerConfig): Configuration for the transformer model.
+        """
+        super().__init__(config)
+
+        self.reshape_op = Reshape().add_prim_attr("recompute", False)
+        self.mod_op = ops.Mod().add_prim_attr("recompute", False)  # aclnn operator
+        self.zeros_op = Zeros().add_prim_attr("recompute", True)
+        self.transpose_op = Transpose().add_prim_attr("recompute", False)
+        self.cast_op = Cast().add_prim_attr("recompute", False)
+        self.reduce_sum_op = ReduceSum().add_prim_attr("recompute", False)
+        self.masked_select_op = MaskedSelect().add_prim_attr("recompute", False)
+        self.sum_op = ReduceSum().add_prim_attr("recompute", False)
+        self.cumsum_op = CumsumExt().add_prim_attr("recompute", False)
+        self.index_add_op = ops.IndexAdd(axis=0).add_prim_attr("recompute", False)  # aclnn operator
+        self.index_select_op = IndexSelect().add_prim_attr("recompute", False)
+
+    def token_permutation(
+            self,
+            tokens: Tensor,
+            probs: Tensor,
+            routing_map: Tensor
+    ):
+        x_shape_origin = tokens.shape
+        hidden_size = x_shape_origin[2]
+        expert_num = self.expert_num
+        local_expert_num = expert_num // self.ep
+        indices = self.reshape_op(routing_map, (-1, routing_map.shape[-1]))
+        probs = self.cast_op(self.reshape_op(probs, (-1, probs.shape[-1])), ms.bfloat16)
+        num_tokens = indices.shape[0]  # (N, k)
+
+        # 1 dispatch
+        local_map_info = self.zeros_op((num_tokens, expert_num), probs.dtype)
+        local_map_info = mint.scatter(local_map_info, 1, indices, probs)  # (N, E)
+        local_map_info = self.reshape_op(local_map_info, (-1, self.ep, local_expert_num))  # (N, ep, local_E)
+        local_map_info = self.transpose_op(local_map_info, (1, 0, 2))  # (ep, N, local_E)
+        global_map_info = self.reshape_op(
+            ops.AlltoAll(split_count=self.ep, split_dim=0, concat_dim=0, group=self.ep_group)(local_map_info),
+            (-1, local_expert_num))  # (N*ep, local_E)
+
+        # calculate send receive list
+        send = mint.any(local_map_info, dim=-1)  # (ep, N) <-- (ep, N, local_E)
+        receive = mint.any(self.reshape_op(global_map_info, (self.ep, num_tokens, local_expert_num)),
+                           dim=-1)  # (ep, N) <-- (ep, N, local_E)
+        send_list = self.cast_op(send.sum(dim=-1, keepdim=False), ms.int64)  # (ep) <-- (ep, N)
+        receive_list = self.cast_op(receive.sum(dim=-1, keepdim=False), ms.int64)  # (ep) <-- (ep, N)
+
+        send_list = ops.AllGather(group=self.ep_group)(send_list)
+        receive_list = ops.AllGather(group=self.ep_group)(receive_list)
+        send_list_reshape = self.reshape_op(send_list, (self.ep, -1))
+        receive_list_reshape = self.reshape_op(receive_list, (self.ep, -1))
+        send_list_reshape = self.d2h(send_list_reshape, "CPU", True)
+        receive_list_reshape = self.d2h(receive_list_reshape, "CPU", True)
+
+        # gather for all2allv
+        send = ops.Depend()(send, (send_list_reshape, receive_list_reshape))
+        select_index = self.mod_op(mint.nonzero(send.ravel()).ravel(), num_tokens)
+        tokens = tokens.reshape((-1, tokens.shape[-1]))
+        local_x = tokens.index_select(0, select_index)  # gather (-1, h)
+
+        global_x = AlltoAllVC(group=self.ep_group, block_size=hidden_size)(local_x.reshape(-1),
+                                                                           send_list_reshape)
+        global_x_shape = global_x.shape
+
+        # gather for gmm
+        global_map_info = self.transpose_op(global_map_info, (1, 0))  # (local_E, N*ep) <-- (N*ep, local_E)
+        mask_idx = mint.any(global_map_info, 0).broadcast_to((local_expert_num, num_tokens * self.ep))
+        mask_idx_shape = self.reduce_sum_op(self.cast_op(mask_idx, ms.int32)) // local_expert_num
+        global_map_info = self.masked_select_op(global_map_info, mask_idx)
+
+        global_map_info = self.reshape_op(global_map_info, (local_expert_num, -1))  # (local_E, N*ep)
+        token_id_recover = self.reshape_op(mint.nonzero(self.reshape_op(global_map_info, (-1,))), (-1,))
+        probs = self.index_select_op(global_map_info.ravel(), 0, token_id_recover)
+        token_id_recover = self.mod_op(token_id_recover, mask_idx_shape)
+        global_map = self.cast_op(self.sum_op(self.cast_op(global_map_info.bool(), ms.int32), axis=1), ms.int32)
+        group_list = self.cast_op(self.cumsum_op(global_map, 0), ms.int64)  # (Local_E, N) -> (local_E)
+
+        global_x = global_x.reshape((-1, hidden_size))
+        global_x = global_x.index_select(0, token_id_recover)  # gather
+
+        ctx = (probs, global_x_shape, token_id_recover, receive_list_reshape, num_tokens, select_index, x_shape_origin)
+
+        return global_x, group_list, ctx
+
+    def token_unpermutation(
+            self,
+            tokens,
+            ctx
+    ):
+        probs, global_x_shape, token_id_recover, receive_list_reshape, num_tokens, select_index, x_shape_origin = ctx
+        hidden_size = tokens.shape[-1]
+        tokens = tokens.reshape((-1, hidden_size))
+        tokens = tokens * probs.unsqueeze(-1)
+        # 3 combine
+        permutated_local_input_tokens = self.zeros_op(global_x_shape, ms.float32)
+        permutated_local_input_tokens = self.reshape_op(permutated_local_input_tokens,
+                                                        (-1, hidden_size))
+        permutated_local_input_tokens = self.index_add_op(permutated_local_input_tokens,
+                                                          self.cast_op(token_id_recover, ms.int32),
+                                                          self.cast_op(tokens, ms.float32))
+        permutated_local_input_tokens = self.cast_op(permutated_local_input_tokens, tokens.dtype)
+        permutated_global_input_tokens = AlltoAllVC(group=self.ep_group, block_size=hidden_size)(
+            permutated_local_input_tokens.reshape(-1), receive_list_reshape)
+        permutated_global_input_tokens = self.reshape_op(permutated_global_input_tokens, (-1, hidden_size))
+        output = self.zeros_op((num_tokens, hidden_size), dtype=ms.float32)
+        output = self.cast_op(
+            self.index_add_op(output, self.cast_op(select_index, ms.int32),
+                              self.cast_op(permutated_global_input_tokens, ms.float32)),
+            tokens.dtype)
+        output = output.reshape(x_shape_origin)
+        return output
+
+
 class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
     """
     Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
@@ -121,10 +249,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
             config (TransformerConfig): Configuration for the transformer model.
         """
         super().__init__(config)
-        self.ep = config.expert_model_parallel_size
         self.rank_id = get_rank()
-        self.expert_num = config.num_moe_experts
-        self.use_pad_tokens = config.use_pad_tokens
 
         self.outer_dp = self.config.data_parallel_size // self.ep
         self.inner_dp = self.ep
@@ -329,13 +454,10 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         """
         super().__init__(config)
 
-        self.expert_num = config.num_moe_experts
-        self.use_pad_tokens = config.use_pad_tokens
         self.moe_permute_fusion = config.moe_permute_fusion
         self.hidden_size = config.hidden_size
         self.moe_router_topk = config.moe_router_topk
 
-        self.ep = config.expert_model_parallel_size
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size
 
         # compute parameters
