@@ -829,7 +829,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         shard_size = self.num_attention_heads_per_partition
         start_idx = tp_rank * shard_size
         if shard_dim is not None:
-            loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+            loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size, param.dtype)
         else:
             loaded_weight = loaded_weight[:]
         loaded_weight = loaded_weight.squeeze(-1)

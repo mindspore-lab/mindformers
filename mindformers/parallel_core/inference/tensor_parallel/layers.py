@@ -378,13 +378,14 @@ class ColumnParallelLinear(LinearBase):
                 loaded_weight = deal_linear_q_up_weight(loaded_weight,
                                                         self.config,
                                                         shard_dim,
-                                                        shard_size=shard_size,
+                                                        shard_size,
+                                                        param.dtype,
                                                         rope_transition=rope_transition)
             if loaded_shard_id == 'kv_up':
-                loaded_weight = deal_linear_kv_up_weight(loaded_weight, self.config, shard_dim, shard_size=shard_size)
+                loaded_weight = deal_linear_kv_up_weight(loaded_weight, self.config, shard_dim, shard_size, param.dtype)
         else:
             start_idx = tp_rank * shard_size
-            loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+            loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size, param.dtype)
 
         if loaded_weight.shape == ():
             loaded_weight = loaded_weight.reshape(1)
@@ -477,7 +478,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
             loaded_weight = loaded_weight[:].squeeze(-1)
         loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                            start_idx, shard_size)
+                                            start_idx, shard_size, param.dtype)
         expected_shape = list(param.shape)
         expected_shape[output_dim] = shard_size
         expected_shape = tuple(expected_shape)
@@ -596,7 +597,7 @@ class QKVParallelLinear(ColumnParallelLinear):
             shard_id = tp_rank // self.num_kv_head_replicas
         start_idx = shard_id * shard_size
         loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                            start_idx, shard_size)
+                                            start_idx, shard_size, param.dtype)
         loaded_weight = ms.from_numpy(loaded_weight)
 
         if param.name.endswith("weight"):
@@ -802,7 +803,7 @@ class RowParallelLinear(LinearBase):
             loaded_weight = loaded_weight[:].squeeze(-1)
 
         loaded_weight = split_loaded_weight(loaded_weight, input_dim,
-                                            start_idx, shard_size)
+                                            start_idx, shard_size, param.dtype)
 
         # Special case for loading scales off disk, which often do not
         # have a shape (such as in the case of AutoFP8).
@@ -1134,7 +1135,7 @@ class VocabParallelEmbedding(nn.Cell):
         start_idx = self.vocab_start_index
         shard_size = self.num_embeddings_per_partition
         loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                            start_idx, shard_size)
+                                            start_idx, shard_size, param.dtype)
         if loaded_weight.shape[output_dim] != shard_size:
             raise ValueError(
                 f"{param.name}.shape should be equal to loaded_weight.shape,"

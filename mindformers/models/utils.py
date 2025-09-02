@@ -48,6 +48,12 @@ format_type = {
     "nz": 29,
 }
 
+ms_type_to_np_310p = {
+    "Float16": np.float16,
+    "BFloat16": np.float16,
+    "Float32": np.float32
+}
+
 def convert_mstype(ms_type: str = "float16"):
     """Convert the string type to MindSpore type."""
     if isinstance(ms_type, mstype.Float):

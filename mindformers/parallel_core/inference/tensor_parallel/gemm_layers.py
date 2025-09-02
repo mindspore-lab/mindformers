@@ -368,7 +368,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             shard_dim -= 1 # Remove the expert dimension for 2D weights.
         tp_rank = self.tp_group.rank
         start_idx = tp_rank * shard_size
-        loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+        loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size, param.dtype)
         # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
         # The shape of param is [moe_ffn_hidden_size, hidden_size]
         # So must be transposed.
@@ -611,7 +611,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
         # The shape of param is [moe_ffn_hidden_size, hidden_size]
         # So must be transposed.
-        loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size).T
+        loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size, param.dtype).T
         if not loaded_weight.shape:
             loaded_weight = loaded_weight.reshape(1)
         if loaded_weight.shape == (shard_size, param.shape[2]):
