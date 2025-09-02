@@ -72,6 +72,7 @@ from .utils import (
     transform_and_load_checkpoint,
     load_resume_context_from_checkpoint,
     get_last_checkpoint,
+    preload_ckpt
 )
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
@@ -947,7 +948,6 @@ class BaseTrainer:
         self.eval_dataset = kwargs.get('eval_dataset', None)
         self.compute_metrics = compute_metrics if compute_metrics else self.compute_metrics
         construct_args_key = config.train_dataset.pop("construct_args_key", None)
-
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
@@ -985,6 +985,10 @@ class BaseTrainer:
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0
+
+        # preload ckpt format file via MindIO
+        if config.load_checkpoint and config.load_ckpt_format == "ckpt":
+            preload_ckpt(config)
 
         # check if skip datasets
         if config.data_skip_steps or config.resume_training:

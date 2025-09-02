@@ -27,6 +27,7 @@ from mindspore import context, load_checkpoint, load_param_into_net, load_checkp
 from mindspore import set_seed as ms_set_seed
 from mindspore import Parameter
 from mindspore import ops, mint
+from mindspore.common.file_system import _init_mindio, mindio_preload, set_mindio_server_info
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
@@ -37,7 +38,8 @@ from mindformers.tools.utils import (
     replace_tk_to_mindpet,
     check_shared_disk,
     get_device_num_per_node,
-    format_path
+    format_path,
+    is_main_rank
 )
 from mindformers.tools.ckpt_transform import TransformCkpt
 from mindformers.models.base_model import BaseModel
@@ -117,6 +119,39 @@ class WrapperType(BaseEnum):
     MFWRAPPER = 'mf_wrapper'
     TRAINONESTEP = 'wrapper'
     TRAINONESTEPWITHLOSSSCALE = 'loss_scale_wrapper'
+
+
+def preload_ckpt(config):
+    """Preload data into memory using MindIO for faster access."""
+    rank_id = get_real_rank() if get_real_rank() else 0
+    ckpt_path = config.load_checkpoint
+    mindio_pool_capacity = config.get("mindio_pool_capacity", 128)
+    set_mindio_server_info(mindio_pool_capacity)
+    if hasattr(_init_mindio(), "preload"):
+        logger.info("MindIO is initialized successfully!")
+    else:
+        return
+    if not os.path.realpath(ckpt_path) or not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {ckpt_path}")
+    if os.path.isfile(ckpt_path):
+        # only preload the ckpt file once.
+        if is_main_rank() or f"rank_{rank_id}" in ckpt_path:
+            logger.info(f"MindIO preloading `{ckpt_path}`...")
+            mindio_preload(ckpt_path)
+    elif os.path.isdir(ckpt_path) and check_ckpt_file_exist(ckpt_path):
+        for ckpt_file in os.listdir(ckpt_path):
+            # only preload every ckpt file once in rank_0 process.
+            if ckpt_file.endswith('.ckpt') and is_main_rank():
+                checkpoint_path = os.path.join(ckpt_path, ckpt_file)
+                logger.info(f"MindIO preloading `{checkpoint_path}`...")
+                mindio_preload(checkpoint_path)
+    elif os.path.isdir(ckpt_path) and check_rank_folders(ckpt_path, rank_id):
+        # preload ckpt file of rank in corresponding rank process.
+        checkpoint_path = get_distribute_checkpoint_path(ckpt_path)
+        logger.info(f"MindIO preloading `{checkpoint_path}`...")
+        mindio_preload(checkpoint_path)
+    else:
+        raise ValueError(f"{ckpt_path} is not a valid path to load checkpoint when auto_trans_ckpt is False.")
 
 
 def set_seed(seed: int = 0):
