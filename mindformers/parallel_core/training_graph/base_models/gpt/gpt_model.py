@@ -596,8 +596,13 @@ class GPTModel(nn.Cell):
             if self.is_zbv:
                 self.output_layer.pipeline_stage = 0
                 self.output_layer.pipeline_segment = 1
+                if self.mtp_process:
+                    self.mtp.pipeline_stage = 0
+                    self.mtp.pipeline_segment = 1
             else:
                 self.output_layer.pipeline_stage = pipeline_stage - 1
+                if self.mtp_process:
+                    self.mtp.pipeline_stage = pipeline_stage - 1
         self.morphed_reshape.shard(
             in_strategy=(
                 layout("dp", "cp", "tp"),
