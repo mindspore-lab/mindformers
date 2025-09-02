@@ -29,8 +29,8 @@ import mindspore.ops.operations as P
 from mindspore import Tensor, Parameter, nn, ops, mint
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (
@@ -361,7 +361,8 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
     def _load_sharded_weight(self, param, loaded_weight, shard_id, expert_id, weight_is_3d, weight_needs_transpose):
         """Load sharded weight for w1 or w3."""
         # Handle modelslim weight_scale adaptation
-        if not weight_is_3d and param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+        if not weight_is_3d and param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 \
+                and loaded_weight.get_shape()[1] == 1:
             loaded_weight = loaded_weight[:].squeeze(-1)
             weight_needs_transpose = False
 
@@ -386,7 +387,10 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         update_indices = self._get_update_indices(param, expert_id, shard_id, shard_size, param_output_dim,
                                                   weight_is_3d)
         param.init_data()
-        param[tuple(update_indices)] = ms.from_numpy(loaded_weight)
+        if param.dtype == ms.qint4x2 or param.dtype == ms.uint64:
+            param.asnumpy()[tuple(update_indices)] = loaded_weight
+        else:
+            param[tuple(update_indices)] = ms.from_numpy(loaded_weight)
 
     def _get_shard_dim(self, param, weight_needs_transpose, param_output_dim, weight_is_3d):
         """Determine the shard dimension for splitting the loaded weight."""
@@ -598,22 +602,29 @@ class RowParallelGroupedLinear(GroupedLinearBase):
 
         if not param.name.endswith("weight") and shard_dim is None:
             # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 \
+               and loaded_weight.get_shape()[1] == 1:
                 loaded_weight = loaded_weight[:].squeeze(-1)
             param.init_data()
             param[expert_id] = ms.from_numpy(loaded_weight[:])
             return
         shard_id_to_sharded_dim = {"w2": 0}
+        shard_id_to_sharded_dim_int4 = {"w2": -1}
         shard_dim = shard_id_to_sharded_dim.get(shard_id)
+        shard_dim_int4 = shard_id_to_sharded_dim_int4.get(shard_id)
         full_load = len(loaded_weight.get_shape()) == 3
         if full_load:
             shard_dim += 1
 
         param.init_data()
-        expert_data = param.data if full_load else param.data[expert_id]
 
         # Case model weights
-        shard_size = expert_data.shape[shard_dim]
+        if param.dtype == ms.qint4x2:
+            shard_size = loaded_weight.get_shape()[shard_dim_int4] // self.tensor_parallel_group_size
+        else:
+            expert_data = param.data if full_load else param.data[expert_id]
+            shard_size = expert_data.shape[shard_dim]
+
         # Because this weight shape is two-dimensional,
         # but the dimension splitting in the network is defined based on three dimensions,
         # so the splitting dimension needs to be subtracted by 1.
@@ -628,7 +639,10 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             loaded_weight = loaded_weight.reshape(1)
         if loaded_weight.shape == (shard_size, param.shape[2]):
             param.init_data()
-            param[expert_id] = ms.from_numpy(loaded_weight)
+            if param.dtype == ms.qint4x2:
+                param.asnumpy()[expert_id] = loaded_weight
+            else:
+                param[expert_id] = ms.from_numpy(loaded_weight)
         else:
             raise ValueError(
                 f"'param.data.shape' should be equal to 'loaded_weight.shape',"

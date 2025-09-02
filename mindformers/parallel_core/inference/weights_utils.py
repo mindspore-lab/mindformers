@@ -13,18 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """weights utils."""
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 import numpy as np
 
 import mindspore as ms
 from mindspore import Parameter
 
-from mindformers.tools.register import MindFormerConfig
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
                                                                 get_tensor_model_parallel_rank)
-from mindformers.parallel_core.inference.tensor_parallel.quantization import get_quantization_config
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizationConfig
-from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.version_control import is_310p
 
 
@@ -227,12 +223,6 @@ def make_expert_params_mapping(
             params_mapping.append(weight_mapping)
             params_mapping.append(other_param_mapping)
     return params_mapping
-
-
-def get_quant_config(model_config: Union[dict, MindFormerConfig, PretrainedConfig]) -> QuantizationConfig:
-    quant_cls = get_quantization_config(model_config.quantization_config['quant_method'])
-    hf_quant_config = model_config.quantization_config
-    return quant_cls(hf_quant_config)
 
 
 def split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes):

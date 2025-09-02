@@ -29,7 +29,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTMod
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-from mindformers.parallel_core.inference.weights_utils import get_quant_config
+from mindformers.parallel_core.inference.quantization.utils import get_quant_config
 from .configuration_deepseek_v3 import DeepseekV3Config
 
 
@@ -68,6 +68,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
+        quant_config = get_quant_config(self.config, self.weight_mapping)
         self.pad_token_id = self.config.pad_token_id
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
@@ -78,9 +79,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
-        quant_config = None
-        if self.config.quantization_config is not None:
-            quant_config = get_quant_config(self.config)
         self.model = GPTModel(
             config=config,
             transformer_layer_spec=get_gpt_decoder_block_spec(
@@ -192,7 +190,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         weight_name = super().convert_name(weight_name)
         # Do extra conversion for quantization parameters.
 
-        if self.config.quantization_config is not None:
+        # After osl supports mcore calibration, the following conversion map should be removed.
+        if self.config.quantization is not None:
             weight_name = weight_name.replace('model.tok_embeddings.embedding_weight',
                                               'embedding.word_embeddings.weight')
             weight_name = weight_name.replace('model.norm_out.', 'decoder.final_layernorm.')

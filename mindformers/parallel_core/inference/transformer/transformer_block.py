@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.transformer_layer import BaseTransformerLayer

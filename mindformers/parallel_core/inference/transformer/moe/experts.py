@@ -24,8 +24,8 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
 from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import UnquantizedGroupedLinearMethod
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizeMethodBase
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
@@ -128,7 +128,6 @@ class GroupedMLP(nn.Cell):
             gate, hidden = mint.split(intermediate_parallel,
                                       (self.ffn_hidden_size_per_partition,
                                        self.ffn_hidden_size_per_partition), -1)
-            gate = gate.contiguous()
             gate = self.activation_func(gate) if self.activation_type else gate
             intermediate_parallel = mint.mul(hidden, gate)
         else:

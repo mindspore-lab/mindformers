@@ -108,11 +108,15 @@ def get_model_config(
                 config.pretrained_model_dir, model_config
             )
             model_config = merged_model_config
+            if not default_args:
+                default_args = {}
+            default_args['pretrained_model_dir'] = config.get_value("pretrained_model_dir", "")
+            if not model_config.get("quantization"):
+                quant_config = model_config.get("quantization_config", None)
+                if quant_config and quant_config.get("quant_method", None):
+                    model_config['quantization'] = quant_config.get("quant_method")
         else:
             model_config = config.model_config
-        if model_config.get("quantization_config", None):
-            quant_config = model_config.get("quantization_config")
-            config.model_config.quantization_config = quant_config
         return MindFormerRegister.get_instance_from_cfg(
             model_config, MindFormerModuleType.CONFIG, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

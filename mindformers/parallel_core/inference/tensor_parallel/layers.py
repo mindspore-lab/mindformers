@@ -39,8 +39,8 @@ from mindformers.parallel_core.inference.parallel_state import ProcessGroup, def
 from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs, split_loaded_weight,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
                                                                deal_linear_kv_down_weight, split_fusion_loaded_weight)
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import (QuantizeMethodBase,
-                                                                                          QuantizationConfig)
+from mindformers.parallel_core.inference.quantization.base_config import (QuantizeMethodBase,
+                                                                          QuantizationConfig)
 from mindformers.version_control import is_310p
 from mindformers.models.utils import format_type
 
@@ -973,9 +973,9 @@ class ReplicatedLinear(LinearBase):
         size = None
         output_dim = getattr(param, "output_dim", None)
         loaded_weight = loaded_weight[:]
-        if param.name.endwith('w_scale') and len(loaded_weight.shape) == 2:
+        if param.name.endswith('w_scale') and len(loaded_weight.shape) == 2 and loaded_weight.shape[1] == 1:
             loaded_weight = loaded_weight.squeeze(-1)
-        if loaded_shard_id is not None:
+        if loaded_shard_id is not None and output_dim is not None:
             if loaded_shard_id == 'q_down':
                 offset = 0
                 size = self.config.q_lora_rank

@@ -23,23 +23,26 @@ __all__ = [
 
 from typing import Literal, get_args
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization.base_config import QuantizationConfig
+from mindformers.parallel_core.inference.quantization.base_config import QuantizationConfig
 
 
 QuantizationBackends = Literal[
-    "mindspore"
+    "ascend",
+    "golden-stick"
 ]
 
 QUANTIZATION_METHODS: list[str] = list(get_args(QuantizationBackends))
 
 
 def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
+    """get_quantization_config"""
     if quantization not in QUANTIZATION_METHODS:
         raise ValueError(f"Invalid quantization method: {quantization}")
 
-    from mindformers.parallel_core.inference.tensor_parallel.quantization.mindspore.config import MindSporeConfig
+    from mindformers.parallel_core.inference.quantization.golden_stick.config import GoldenStickConfig
     backend_to_config: dict[str, type[QuantizationConfig]] = {
-        "mindspore": MindSporeConfig,
+        "ascend": GoldenStickConfig,
+        "golden-stick": GoldenStickConfig,
     }
 
     return backend_to_config[quantization]

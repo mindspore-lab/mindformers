@@ -19,7 +19,7 @@ from copy import deepcopy
 from typing import Optional
 
 from mindspore import mint
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.inference.transformer.activation import get_act_func

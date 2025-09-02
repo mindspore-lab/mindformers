@@ -23,7 +23,7 @@ from typing import Union, Optional
 
 from mindspore import nn, mint
 
-from mindformers.parallel_core.inference.tensor_parallel.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
@@ -160,7 +160,6 @@ class MLP(nn.Cell):
             gate, hidden = mint.split(intermediate_parallel,
                                       (self.ffn_hidden_size_per_partition,
                                        self.ffn_hidden_size_per_partition), -1)
-            gate = gate.contiguous()
             gate = self.activation_func(gate) if self.activation_type else gate
             intermediate_parallel = mint.mul(hidden, gate)
         else:
