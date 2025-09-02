@@ -85,7 +85,7 @@ class ADGenDataset:
     """ADGen Dataset"""
 
     def __init__(self, dataset_dir, origin_columns, phase="train"):
-        r"""
+        """
         ADGen Dataset
 
         Args:
@@ -160,7 +160,7 @@ class ADGenFromRemoteDataset:
     """ADGen Dataset"""
 
     def __init__(self, dataset_path, origin_columns, data_files, phase="train", token=None):
-        r"""
+        """
         ADGen Dataset
 
         Args:

@@ -96,7 +96,7 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
                   context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None,
                   attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None,
                   ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
-        r"""
+        """
         model forward.
 
         Args:

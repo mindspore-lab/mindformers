@@ -123,7 +123,7 @@ def run_cmd(command, pipeline=None):
 
 
 class TrainingDataset:
-    r"""
+    """
     Training DataLoader API.
 
     Args:

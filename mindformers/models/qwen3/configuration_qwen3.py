@@ -26,7 +26,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG, legacy=False, search_names='qwen3')
 class Qwen3Config(PretrainedConfig):
-    r"""
+    """
     This is the configuration class to store the configuration of a [`Qwen3Model`]. It is used to instantiate a
     Qwen3 model according to the specified arguments, defining the model architecture. Instantiating a configuration
     with the defaults will yield a similar configuration to that of

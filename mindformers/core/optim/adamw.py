@@ -80,7 +80,7 @@ def _check_param_value(betas, eps, weight_decay, prim_name):
 
 
 class AdamW(Optimizer):
-    r"""
+    """
     This is the implementation of AdamW.
 
     Args:

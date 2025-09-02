@@ -54,7 +54,7 @@ def init_lora_method(method, param_init_dtype: dtype = dtype.float32):
 
 # pylint: disable=C0103
 class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
-    r"""
+    """
     The LoRA layer with weight sliced in column dimension.
 
     Args:
@@ -84,14 +84,14 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
             The values of str refer to the function `initializer`. Default: 'zeros'.
 
     Inputs:
-        - **input_** (Tensor) - Tensor of shape :math:`(*, input\_size)`. The `input_size` in `Args` should be equal
-          to :math:`input\_size` in `Inputs`.
-        - **weight** (Tensor) - Tensor of shape :math:`(input\_size, output\_size)`/:math`(output\_size, input\_size)`.
-          Default: None.
+        - **input_** (Tensor) - Tensor of shape :math:`(*, input\\_size)`. The `input_size` in `Args` should be equal
+          to :math:`input\\_size` in `Inputs`.
+        - **weight** (Tensor) - Tensor of shape
+        :math:`(input\\_size, output\\_size)`/:math:`(output\\_size, input\\_size)`. Default: None.
 
     Outputs:
-        - **output** (Tensor): Result of linear with shape :math:`(*, output\_size)`.
-        - **output_bias** (Tensor): Bias parameter when `skip_bias_add=True` with shape :math:`(output\_size)`.
+        - **output** (Tensor): Result of linear with shape :math:`(*, output\\_size)`.
+        - **output_bias** (Tensor): Bias parameter when `skip_bias_add=True` with shape :math:`(output\\_size)`.
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
@@ -232,7 +232,7 @@ class ColumnParallelLinearWithLoRA(ColumnParallelLinear):
 
 
 class RowParallelLinearWithLoRA(RowParallelLinear):
-    r"""
+    """
     The LoRA layer with weight sliced in column dimension.
 
     Args:
@@ -241,16 +241,11 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
         config (TransformerConfig): The config of the transformer model.
         init_method (Callable): The initialization method. Default: None
         bias (bool): Whether to include bias in the linear layer. Default: True.
-        gather_output (bool): Whether to gather the output. Default: False.
         stride (int): The stride of the linear layer. Default: 1.
         keep_master_weight_for_test (bool): Whether to keep master weight for test. Default: False.
         skip_bias_add (bool): Whether to skip bias add. Default: False.
-        skip_weight_param_allocation (bool): Whether to skip weight parameter allocation. Default: False.
-        embedding_activation_buffer (List[Tensor]): The buffer for embedding activation. Default: None.
-        grad_output_buffer (List[Tensor]): The buffer for gradient output. Default: None.
         is_expert (bool): Whether to use expert mode. Default: False.
         tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
-        disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
         transpose_b (bool): Whether to transpose the weight matrix. Default: True.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
         lora_rank (int): The value of rank. Default: 8.
@@ -262,14 +257,14 @@ class RowParallelLinearWithLoRA(RowParallelLinear):
             The values of str refer to the function `initializer`. Default: 'zeros'.
 
     Inputs:
-        - **input_** (Tensor) - Tensor of shape :math:`(*, input\_size)`. The `input_size` in `Args` should be equal
-          to :math:`input\_size` in `Inputs`.
-        - **weight** (Tensor) - Tensor of shape :math:`(input\_size, output\_size)`/:math`(output\_size, input\_size)`.
-          Default: None.
+        - **input_** (Tensor) - Tensor of shape :math:`(*, input\\_size)`. The `input_size` in `Args` should be equal
+          to :math:`input\\_size` in `Inputs`.
+        - **weight** (Tensor) -
+        Tensor of shape :math:`(input\\_size, output\\_size)`/:math:`(output\\_size, input\\_size)`. Default: None.
 
     Outputs:
-        - **output** (Tensor): Result of linear with shape :math:`(*, output\_size)`.
-        - **output_bias** (Tensor): Bias parameter when `skip_bias_add=True` with shape :math:`(output\_size)`.
+        - **output** (Tensor): Result of linear with shape :math:`(*, output\\_size)`.
+        - **output_bias** (Tensor): Bias parameter when `skip_bias_add=True` with shape :math:`(output\\_size)`.
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.

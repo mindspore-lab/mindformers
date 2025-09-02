@@ -175,7 +175,7 @@ class AutoImageProcessor:
     @classmethod
     @experimental_mode_func_checker(EXP_ERROR_MSG)
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
-        r"""
+        """
         Instantiate one of the image processor classes of the library from a pretrained model vocabulary.
 
         The image processor class to instantiate is selected based on the `model_type` property of the config object

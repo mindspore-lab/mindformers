@@ -660,20 +660,20 @@ class SeLU(Cell):
 
 
 class SiLU(Cell):
-    r"""
+    """
     Sigmoid Linear Unit activation function.
 
     Applies the silu linear unit function element-wise.
 
     .. math::
 
-        \text{SiLU}(x) = x * \sigma(x),
+        \\text{SiLU}(x) = x * \\sigma(x),
 
-    where :math:`x_i` is input, :math:`\sigma(x)` is Sigmoid function.
+    where :math:`x_i` is input, :math:`\\sigma(x)` is Sigmoid function.
 
     .. math::
 
-        \text{sigmoid}(x_i) = \frac{1}{1 + \exp(-x_i)},
+        \\text{sigmoid}(x_i) = \\frac{1}{1 + \\exp(-x_i)},
 
     SiLU Activation Function Graph:
 
@@ -708,14 +708,15 @@ class SiLU(Cell):
 
 
 class Tanh(Cell):
-    r"""
+    """
     Applies the Tanh function element-wise, returns a new tensor with the hyperbolic tangent of the elements of input,
     The input is a Tensor with any valid shape.
 
     Tanh function is defined as:
 
     .. math::
-        tanh(x_i) = \frac{\exp(x_i) - \exp(-x_i)}{\exp(x_i) + \exp(-x_i)} = \frac{\exp(2x_i) - 1}{\exp(2x_i) + 1},
+        tanh(x_i) =
+        \\frac{\\exp(x_i) - \\exp(-x_i)}{\\exp(x_i) + \\exp(-x_i)} = \\frac{\\exp(2x_i) - 1}{\\exp(2x_i) + 1},
 
     where :math:`x_i` is an element of the input Tensor.
 
@@ -864,7 +865,7 @@ class Hardtanh(Cell):
 
 
 class GELU(Cell):
-    r"""
+    """
     Gaussian error linear unit activation function.
 
     Applies GELU function to each element of the input. The input is a Tensor with any valid shape.
@@ -888,11 +889,11 @@ class GELU(Cell):
 
             If `approximate` is ``True``, The gaussian error linear activation is:
 
-            :math:`0.5 * x * (1 + tanh(\sqrt(2 / \pi) * (x + 0.044715 * x^3)))`
+            :math:`0.5 * x * (1 + tanh(\\sqrt(2 / \\pi) * (x + 0.044715 * x^3)))`
 
             else, it is:
 
-            :math:`x * P(X <= x) = 0.5 * x * (1 + erf(x / \sqrt(2)))`, where P(X) ~ N(0, 1).
+            :math:`x * P(X <= x) = 0.5 * x * (1 + erf(x / \\sqrt(2)))`, where P(X) ~ N(0, 1).
 
     Inputs:
         - **x** (Tensor) - The input of GELU with data type of float16 or float32.
@@ -1183,13 +1184,13 @@ class PReLU(Cell):
 
 
 class HSwish(Cell):
-    r"""
+    """
     Applies hswish-type activation element-wise. The input is a Tensor with any valid shape.
 
     Hard swish is defined as:
 
     .. math::
-        \text{hswish}(x_{i}) = x_{i} * \frac{ReLU6(x_{i} + 3)}{6},
+        \\text{hswish}(x_{i}) = x_{i} * \\frac{ReLU6(x_{i} + 3)}{6},
 
     HSwish Activation Function Graph:
 
@@ -1276,13 +1277,13 @@ class HSigmoid(Cell):
 
 
 class LogSigmoid(Cell):
-    r"""
+    """
     Applies logsigmoid activation element-wise. The input is a Tensor with any valid shape.
 
     Logsigmoid is defined as:
 
     .. math::
-        \text{logsigmoid}(x_{i}) = \log(\frac{1}{1 + \exp(-x_i)}),
+        \\text{logsigmoid}(x_{i}) = \\log(\\frac{1}{1 + \\exp(-x_i)}),
 
     where :math:`x_{i}` is the element of the input.
 

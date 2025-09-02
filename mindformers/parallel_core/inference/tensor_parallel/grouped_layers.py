@@ -165,15 +165,15 @@ class GroupedLinearBase(nn.Cell):
 
 
 class ColumnParallelGroupedLinear(GroupedLinearBase):
-    r"""
+    """
     The group linear layer with weight sliced on second dimension by tensor parallel size.
     This layer implements the operation as:
 
     .. math::
-        \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
+        \\text{outputs} = \\text{inputs} * \\text{weight} + \\text{bias},
 
-    where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-    and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
+    where :math:`inputs` is the input tensors, :math:`\\text{weight}` is a weight matrix created by the layer,
+    and :math:`\\text{bias}` is a bias vector created by the layer (only if has_bias is True).
 
     Args:
         num_local_experts (int): The number of local expert.
@@ -193,11 +193,11 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-          to :math:`in\_channels` in `Inputs`.
+        - **x** (Tensor) - Tensor of shape :math:`(*, in\\_channels)`. The `input_size` in `Args` should be equal
+          to :math:`in\\_channels` in `Inputs`.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        Tensor of shape :math:`(*, out\\_channels)`.
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.

@@ -104,7 +104,7 @@ class SFTDataLoader:
 
 
 class SFTDataSet:
-    r"""
+    """
     SFT DataSet API.
 
     Args:

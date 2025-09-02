@@ -1176,7 +1176,7 @@ class GenerationMixin:
               encoder_output: Optional[Tensor] = None,
               target_mask: Optional[Tensor] = None,
               **model_kwargs):
-        r"""
+        """
         Do infer and return logits on next position, can choose do prefill or decode predict.
 
         Args:
@@ -1481,7 +1481,7 @@ class GenerationMixin:
                     prefill: bool = True,
                     is_finished: List[bool] = None,
                     **model_kwargs):
-        r"""
+        """
         Do infer and return logits on next position, can choose do prefill or decode predict.
 
         Args:

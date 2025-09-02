@@ -108,7 +108,7 @@ class InferModelMixin(ModelMixin):
         logger.info(f"Set dynamic input for {self.__class__.__name__}")
 
     def add_flags_custom_mcore(self, is_prefill):
-        r"""
+        """
         Add flag to distinguish fa and pa.
 
         Args:
