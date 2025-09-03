@@ -54,9 +54,9 @@ class LayerNorm(nn.Cell):
         self.hidden_size = hidden_size
 
         self.gamma = Parameter(initializer('ones', hidden_size, self.compute_type), name="gamma",
-                               parallel_optimizer=False)
+                               parallel_optimizer=False, requires_grad=False)
         self.beta = Parameter(initializer('zeros', hidden_size, self.compute_type), name="beta",
-                              parallel_optimizer=False)
+                              parallel_optimizer=False, requires_grad=False)
 
         self.layer_norm = P.LayerNorm(begin_norm_axis=-1, begin_params_axis=-1, epsilon=eps)
         self.cast = P.Cast()
@@ -102,7 +102,7 @@ class RMSNorm(nn.Cell):
         self.eps = eps
 
         self.weight = Parameter(initializer('ones', (hidden_size,), dtype=self.compute_type), name="weight",
-                                parallel_optimizer=False)
+                                parallel_optimizer=False, requires_grad=False)
 
         self.cast = P.Cast()
         self.norm = P.RmsNorm(eps)

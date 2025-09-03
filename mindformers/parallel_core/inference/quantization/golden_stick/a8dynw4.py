@@ -55,7 +55,7 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
             self.matmul = GroupedMatmulV4()
             if not extra_weight_attrs.get('skip_weight_param_allocation', False):
                 weight_shape = (num_local_experts, self.input_size_per_partition, self.output_size_per_partition // 2)
-                weight = Parameter(initializer('ones', weight_shape, mindspore.qint4x2))
+                weight = Parameter(initializer('ones', weight_shape, mindspore.qint4x2), requires_grad=False)
                 set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
                 set_weight_attrs(weight, extra_weight_attrs)
                 return weight
@@ -63,12 +63,14 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
             w_scale_shape = (num_local_experts, self.input_size_per_partition // group_size,
                              self.output_size_per_partition)
             w_scale_dtype = mindspore.uint64
-            w_scale = Parameter(initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale")
+            w_scale = Parameter(
+                initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
             set_weight_attrs(w_scale, {"input_dim": 1, "output_dim": 2})
             set_weight_attrs(w_scale, extra_weight_attrs)
 
-            gmm_bias = Parameter(initializer("zeros", (w_scale_shape[0], w_scale_shape[-1]), mindspore.float32),
-                                 name="gmm_bias")
+            gmm_bias = Parameter(
+                initializer("zeros", (w_scale_shape[0], w_scale_shape[-1]), mindspore.float32),
+                name="gmm_bias", requires_grad=False)
             set_weight_attrs(gmm_bias, {"output_dim": 1})
             set_weight_attrs(gmm_bias, extra_weight_attrs)
 
@@ -77,11 +79,12 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
         else:
             self.matmul = WeightQuantBatchMatmul(False, True, group_size)
             weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
-            weight = Parameter(initializer('ones', weight_shape, mindspore.int8))
+            weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
 
             w_scale_shape = (output_size_per_partition,)
             w_scale_dtype = mindspore.bfloat16 if params_dtype == mindspore.bfloat16 else mindspore.float32
-            w_scale = Parameter(initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale")
+            w_scale = Parameter(
+                initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
 
             set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
             set_weight_attrs(w_scale, {"output_dim": 0})
