@@ -253,9 +253,6 @@ class MFModelConfig:
     mask_func_type: str = "attn_mask_fill"
     """Mask function type to use for the attention layer."""
 
-    use_fused_ops_permute: bool = False
-    """If True, use fused ops for permutation."""
-
     ####################################################
     # MoE Configuration Items For MindSpore Transformers
     ####################################################
