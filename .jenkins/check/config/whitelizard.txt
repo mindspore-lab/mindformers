@@ -40,3 +40,6 @@ mindformers/mindformers/models/tokenization_utils_base.py:truncate_sequences
 mindformers/mindformers/parallel_core/inference/transformer/multi_latent_attention.py:__init__
 mindformers/mindformers/tools/hub/dynamic_module_utils.py:get_cached_module_file
 mindformers/mindformers/tools/hub/dynamic_module_utils.py:get_class_from_dynamic_module
+mindformers/mindformers/models/llama/llama_config.py:__init__
+mindformers/research/deepseek3/deepseek3_config.py:__init__
+mindformers/research/telechat2/telechat_config.py:__init__
