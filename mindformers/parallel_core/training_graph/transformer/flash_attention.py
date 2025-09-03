@@ -321,7 +321,7 @@ class FlashAttention(Cell):
         cp = 1 if config is None else config.context_parallel_size
 
         self.bnsd_transpose.shard((layout("cp", "dp", "tp", "None"),))
-        self.bsh_transpose.shard(((cp, dp, tp),))
+        self.bsh_transpose.shard((layout("cp", "dp", "tp"),))
         self.merge_head_transpose.shard((layout("dp", "tp", "cp", "None"),))
         self.fa_out_transpose.shard((layout("dp", "cp", "tp"),))
 
