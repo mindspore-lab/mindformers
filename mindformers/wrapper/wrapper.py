@@ -67,25 +67,21 @@ def get_real_models(network):
     return network
 
 
-def get_aux_loss_scale(transformer_config):
+def get_aux_loss_scale(moe_aux_loss_coeff, moe_layer_freq, num_layers):
     """
-    Calculate the total auxiliary loss scale for Mixture of Experts (MoE) layers based on the transformer configuration.
-    This function determines the number of MoE layers in the model according to the `moe_layer_freq` parameter,
-    and then multiplies it by the auxiliary loss coefficient to compute the total auxiliary loss scale.
+    Calculate the total auxiliary loss scale for Mixture of Experts (MoE) layers.
+
     Args:
-        transformer_config: An object containing the following attributes:
-            - moe_aux_loss_coeff (float): Coefficient for the auxiliary loss.
-            - moe_layer_freq (int, list, or None): Frequency or pattern of MoE layers.
-            - num_layers (int): Total number of layers in the transformer.
+        moe_aux_loss_coeff (float): Coefficient for the auxiliary loss.
+        moe_layer_freq (int, list, or None): Frequency or pattern of MoE layers.
+        num_layers (int): Total number of layers in the transformer.
+
     Returns:
         float: The total auxiliary loss scale for all MoE layers.
+
     Raises:
         ValueError: If `moe_layer_freq` is not an int, list, or None.
     """
-    moe_aux_loss_coeff = transformer_config.moe_aux_loss_coeff
-    moe_layer_freq = transformer_config.moe_layer_freq
-    num_layers = transformer_config.num_layers
-
     # Get number of MoE layers
     if moe_layer_freq is None:
         num_moe_layers = num_layers
@@ -292,7 +288,11 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
             self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
-            self.aux_loss_scale = get_aux_loss_scale(transformer_config)
+            self.aux_loss_scale = get_aux_loss_scale(
+                transformer_config.moe_aux_loss_coeff,
+                transformer_config.moe_layer_freq,
+                transformer_config.num_layers
+            )
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -947,7 +947,11 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             self.aux_loss_parameter = parameter_register.register("aux_loss", Tensor([0], mstype.float32))
             self.mtp_loss_parameter = parameter_register.register("mtp_loss", Tensor([0], mstype.float32))
             self.lm_loss_parameter = parameter_register.register("lm_loss", Tensor([0], mstype.float32))
-            self.aux_loss_scale = get_aux_loss_scale(transformer_config)
+            self.aux_loss_scale = get_aux_loss_scale(
+                transformer_config.moe_aux_loss_coeff,
+                transformer_config.moe_layer_freq,
+                transformer_config.num_layers
+            )
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
