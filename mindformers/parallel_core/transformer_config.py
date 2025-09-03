@@ -615,6 +615,14 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 "When using bias_swiglu_fusion, hidden_act must be swiglu."
             )
 
+        if (self.moe_router_load_balancing_type is not None
+                and not isinstance(self.moe_router_load_balancing_type, str)):
+            raise TypeError("moe_router_load_balancing_type must be a string, "
+                            f"but got {type(self.moe_router_load_balancing_type)}.")
+
+        if self.moe_aux_loss_coeff is not None and not isinstance(self.moe_aux_loss_coeff, (float, int)):
+            raise TypeError(f"moe_aux_loss_coeff must be a float or int, but got {type(self.moe_aux_loss_coeff)}.")
+
         if ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v":
             if self.virtual_pipeline_model_parallel_size != 2:
                 raise ValueError(
