@@ -23,6 +23,7 @@ from mindformers.parallel_core.inference.parallel_state import (get_tensor_model
                                                                 get_tensor_model_parallel_rank)
 from mindformers.version_control import is_310p
 from mindformers.tools.logger import logger
+from mindformers.models.utils import ms_type_to_np_310p
 
 def set_weight_attrs(
         weight: Parameter,
@@ -37,12 +38,10 @@ def set_weight_attrs(
 def default_weight_loader(param: Parameter, loaded_weight: Any) -> None:
     """Default weight loader."""
     loaded_weight = loaded_weight[:]
-    loaded_weight = loaded_weight.astype(np.float16) \
-        if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
     param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
 
 
-def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
+def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size, param_dtype):
     """
     Read numpy slice data based on axis and slice range.
     :loaded_weight: PySafeSlice object
@@ -52,21 +51,19 @@ def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
     """
     if shard_dim is None:
         loaded_weight = loaded_weight[:]
-        loaded_weight = loaded_weight.astype(np.float16) \
-            if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
-        return loaded_weight
-
-    end_idx = start_idx + shard_size
-    if shard_dim == 0:
-        loaded_weight = loaded_weight[start_idx:end_idx]
-    elif shard_dim == 1:
-        loaded_weight = loaded_weight[:, start_idx:end_idx]
-    elif shard_dim == 2:
-        loaded_weight = loaded_weight[:, :, start_idx:end_idx]
     else:
-        raise ValueError("shard_dim:{} is not supported.".format(shard_dim))
-    loaded_weight = loaded_weight.astype(np.float16) \
-        if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
+        end_idx = start_idx + shard_size
+        if shard_dim == 0:
+            loaded_weight = loaded_weight[start_idx:end_idx]
+        elif shard_dim == 1:
+            loaded_weight = loaded_weight[:, start_idx:end_idx]
+        elif shard_dim == 2:
+            loaded_weight = loaded_weight[:, :, start_idx:end_idx]
+        else:
+            raise ValueError("shard_dim:{} is not supported.".format(shard_dim))
+
+    if is_310p():
+        loaded_weight = loaded_weight.astype(ms_type_to_np_310p[str(param_dtype)])
     return loaded_weight
 
 
@@ -78,7 +75,7 @@ def infer_trans_rope_weight(weight, qk_pos_emb_head_dim):
     return weight
 
 
-def deal_linear_q_up_weight(weight, config, shard_dim, shard_size, rope_transition=False):
+def deal_linear_q_up_weight(weight, config, shard_dim, shard_size, param_dtype, rope_transition=False):
     """Splits the linear_q_up weights from source checkpoint.
 
     Args:
@@ -102,13 +99,13 @@ def deal_linear_q_up_weight(weight, config, shard_dim, shard_size, rope_transiti
                 weight.reshape(-1)
 
     start_idx = tp_rank * shard_size
-    loaded_weight = split_loaded_weight(weight, shard_dim, start_idx, shard_size)
+    loaded_weight = split_loaded_weight(weight, shard_dim, start_idx, shard_size, param_dtype)
     if loaded_weight.shape[-1] == 1 and len(loaded_weight.shape) == 2:
         loaded_weight = loaded_weight.reshape(-1)
     return loaded_weight
 
 
-def deal_linear_kv_up_weight(weight, config, shard_dim, shard_size):
+def deal_linear_kv_up_weight(weight, config, shard_dim, shard_size, param_dtype):
     """Splits the linear_kv_up weights from source checkpoint.
 
     Args:
@@ -143,11 +140,11 @@ def deal_linear_kv_up_weight(weight, config, shard_dim, shard_size):
     # value_k_nope
     value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1])
     k_start_idx = tp_rank * k_shard_size
-    value_k_nope = split_loaded_weight(value_k_nope, shard_dim, k_start_idx, k_shard_size)
+    value_k_nope = split_loaded_weight(value_k_nope, shard_dim, k_start_idx, k_shard_size, param_dtype)
     # value_v_nope
     value_v = value_v.reshape(-1, value_v.shape[-1])
     v_start_idx = tp_rank * v_shard_size
-    value_v = split_loaded_weight(value_v, shard_dim, v_start_idx, v_shard_size)
+    value_v = split_loaded_weight(value_v, shard_dim, v_start_idx, v_shard_size, param_dtype)
     weight = np.concatenate((value_k_nope, value_v), 0)
     return weight
 
