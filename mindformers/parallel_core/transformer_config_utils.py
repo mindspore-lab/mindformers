@@ -233,6 +233,7 @@ COMMON_CONFIG_MAPPING = {
     "param_sync_func": "param_sync_func",
     "num_microbatches_with_partial_activation_checkpoints": "num_microbatches_with_partial_activation_checkpoints",
     "print_separate_loss": "print_separate_loss",
+    "disable_lazy_inline": "disable_lazy_inline",
 
     # CPU Offloading
     ("swap", "cpu_offloading"): "cpu_offloading",

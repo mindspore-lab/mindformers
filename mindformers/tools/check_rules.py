@@ -272,16 +272,6 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
             config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
 
 
-def _check_env(config):
-    """check environment"""
-    fine_grain_interleave = config.model.model_config.fine_grain_interleave
-    if fine_grain_interleave and fine_grain_interleave > 1:
-        if os.getenv("ENABLE_LAZY_INLINE", "1") == '0':
-            os.environ["ENABLE_LAZY_INLINE"] = '1'
-            logger.warning(f"ENABLE_LAZY_INLINE must be set in environment when use fine_grain_interleave"
-                           f" (export ENABLE_LAZY_INLINE=1)")
-
-
 def _rule_recompute(pp, recompute, key):
     if isinstance(recompute, list) and len(recompute) > pp:
         if all(isinstance(n, int) for n in recompute):
@@ -365,7 +355,6 @@ def check_rules(config, mode='train', **kwargs):
     _check_mode(config, mode, **kwargs)
     _check_full_batch()
     _check_parallel(config)
-    _check_env(config)
     _check_recompute(config)
     _check_config_campacity(config)
     _check_swap(config)
