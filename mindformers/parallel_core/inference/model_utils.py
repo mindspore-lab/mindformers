@@ -37,11 +37,13 @@ class InferModelMixin(ModelMixin):
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
     """
 
+    def get_mutable_hidden_states(self):
+        return None if is_pipeline_first_stage() else Tensor(shape=[None, None], dtype=self.compute_dtype)
+
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
         dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_hidden_states = None if is_pipeline_first_stage() else Tensor(
-            shape=[None, None], dtype=self.compute_dtype)
+        dynamic_hidden_states = self.get_mutable_hidden_states()
         dynamic_positions = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
@@ -54,8 +56,7 @@ class InferModelMixin(ModelMixin):
             if fa3_quant_layer is None:
                 fa3_quant_layer = set()
             cache_list = []
-            num_layers = len(self.model.decoder.layers)
-            for num_layer in range(num_layers):
+            for num_layer in range(self.transformer_config.num_layers):
                 kv_cache_dtype = mstype.int8 if fa3_quant and num_layer in fa3_quant_layer else \
                                 self.compute_dtype
                 if need_nz:
