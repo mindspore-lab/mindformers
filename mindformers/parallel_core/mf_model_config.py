@@ -405,6 +405,9 @@ class MFModelConfig:
     use_alltoall: bool = False
     """Whether to enable use_alltoall"""
 
+    use_fused_mla: bool = False
+    """Whether to enable use_fused_mla"""
+
     quantization_config: dict = None
 
     def __post_init__(self):
