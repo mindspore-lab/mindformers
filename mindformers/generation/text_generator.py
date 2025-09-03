@@ -123,7 +123,6 @@ class GenerationMixin:
 
             num_heads = tansformer_config.num_attention_heads
             num_query_groups = tansformer_config.num_query_groups or num_heads
-            compute_dtype = tansformer_config.compute_dtype
 
             tp_group_size = get_tp_world_size()
             # When kv heads < tp size, will replicate kv heads
@@ -154,30 +153,44 @@ class GenerationMixin:
                     num_query_groups_per_partition,
                     hidden_size_per_attention_head
                     )
-            if is_310p():
-                num_blocks, block_size, num_groups, head_dim = kv_cache_shape
-                merge_dim = num_groups * head_dim
-                kv_cache_shape = (num_blocks, block_size, merge_dim)
-
             use_ringmla = getattr(self, 'use_fused_mla', False) and get_tensor_model_parallel_world_size() < 16
-            key_cache = []
-            value_cache = []
-            for _ in range(tansformer_config.num_layers):
-                k_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
-                v_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
-                if is_310p():
-                    k_cache = ops.auto_generate.format_cast(k_cache, format_type['nz'])
-                    v_cache = ops.auto_generate.format_cast(v_cache, format_type['nz'])
-                if use_ringmla:
-                    k_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.kv_lora_rank,),
-                                         dtype=compute_dtype)
-                    v_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.qk_pos_emb_head_dim,),
-                                         dtype=compute_dtype)
-                key_cache.append(k_cache)
-                value_cache.append(v_cache)
+            key_cache, value_cache = self._generate_kv_cache(tansformer_config, kv_cache_shape, use_ringmla)
             self.key_cache = mutable(key_cache)
             self.value_cache = mutable(value_cache) if not tansformer_config.multi_latent_attention \
                                                        or use_ringmla else None
+
+    def _generate_kv_cache(self, tansformer_config, kv_cache_shape, use_ringmla):
+        """generate empty kv_cache"""
+        fa3_quant = self.model.quant_config.fa3_quant if self.model.quant_config else False
+        fa3_quant_layer = self.model.quant_config.fa3_quant_layer if self.model.quant_config else set()
+        compute_dtype = tansformer_config.compute_dtype
+        if fa3_quant and not use_ringmla:
+            raise ValueError(f'For fa3_quant, it is necessary to set use_ringmla to True.')
+        key_cache = []
+        value_cache = []
+        if is_310p():
+            num_blocks, block_size, num_groups, head_dim = kv_cache_shape
+            merge_dim = num_groups * head_dim
+            kv_cache_shape = (num_blocks, block_size, merge_dim)
+        for num_layer in range(tansformer_config.num_layers):
+            if fa3_quant:
+                k_cache_dtype = mstype.int8 if num_layer in fa3_quant_layer else compute_dtype
+                k_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.kv_lora_rank,), dtype=k_cache_dtype)
+                v_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.qk_pos_emb_head_dim,),
+                                     dtype=compute_dtype)
+            elif use_ringmla:
+                k_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.kv_lora_rank,), dtype=compute_dtype)
+                v_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.qk_pos_emb_head_dim,),
+                                     dtype=compute_dtype)
+            else:
+                k_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
+                v_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
+            if is_310p() or fa3_quant:
+                k_cache = ops.auto_generate.format_cast(k_cache, format_type['nz'])
+                v_cache = ops.auto_generate.format_cast(v_cache, format_type['nz'])
+            key_cache.append(k_cache)
+            value_cache.append(v_cache)
+        return key_cache, value_cache
 
     def _set_lower_triangle_mask(self):
         """Initial attention mask."""
