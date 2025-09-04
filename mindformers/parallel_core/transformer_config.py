@@ -349,7 +349,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
     moe_token_dispatcher_type: str = "alltoall"
     """The type of token dispatcher to use. The default is 'alltoall'.
-    Options are 'alltoall' and 'alltoall_deredundency'."""
+    Options are 'alltoall', 'alltoall_deredundency' and 'alltoall_zero_redundancy'."""
 
     moe_enable_deepep: bool = False
     """[Experimental] Enable DeepEP for efficient token dispatching and combine in MoE models."""

@@ -21,7 +21,7 @@ from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
-from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher, MoEAlltoAllDeredundencyTokenDispatcher
+from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher, MoEAlltoAllDeredundencyTokenDispatcher, MoEAlltoAllZeroRedundancyTokenDispatcher
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -89,6 +89,8 @@ class FFNGroupedGEMM(nn.Cell):
             self.token_dispatcher = MoEAlltoAllDeredundencyTokenDispatcher(config)
             self.stride_slice = StridedSlice()
             self.stride_slice.add_prim_attr('self_define_shard', True)
+        elif self.moe_token_dispatcher_type == "alltoall_zero_redundancy":
+            self.token_dispatcher = MoEAlltoAllZeroRedundancyTokenDispatcher(config)
         else:
             raise ValueError(
                 f"Unsupported moe_token_dispatcher_type: "
