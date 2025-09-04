@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Lora model for all llm model"""
+import os
+import json
 import numpy as np
 
 import mindspore.common.dtype as mstype
@@ -22,6 +24,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 class LoraModel(PreTrainedModel):
@@ -179,6 +182,34 @@ class LoraModel(PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                         dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+
+    def save_pet_config(self, save_path: str):
+        """
+        Convert self.config.pet_config to PEFT format and save as JSON.
+        """
+        pet_config = self.config.pet_config
+
+        peft_config = {
+            "base_model_name_or_path": "none",
+            "bias": "none",
+            "lora_alpha": int(pet_config.get("lora_alpha", 0)),
+            "lora_bias": False,
+            "lora_dropout": float(pet_config.get("lora_dropout", 0.)),
+            "peft_type": "LORA",
+            "r": int(pet_config.get("lora_rank", 0)),
+            "target_modules": pet_config.get("target_modules", "").split("|"),
+            "task_type": "CAUSAL_LM",
+        }
+
+        dir_name = os.path.dirname(save_path)
+        if dir_name and not os.path.exists(dir_name):
+            os.makedirs(dir_name, exist_ok=True)
+
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(peft_config, f, indent=2, ensure_ascii=False)
+
+        set_safe_mode_for_file_or_dir([dir_name, save_path])
+        logger.info(f"LORA config saved to {save_path}")
 
     def to_embeddings(self, tokens):
         return self.network.to_embeddings(tokens)
