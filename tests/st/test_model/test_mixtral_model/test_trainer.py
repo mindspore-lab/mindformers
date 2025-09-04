@@ -33,14 +33,11 @@ from tests.utils.model_tester import create_tokenizer
 
 ms.set_context(mode=0)
 
-_, tokenizer_model_path = create_tokenizer()
-
 
 def generator_train():
     """train dataset generator"""
     seq_len = 513
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    # input_mask = np.ones_like(input_ids)
     train_data = (input_ids)
     for _ in range(16):
         yield train_data
@@ -50,7 +47,6 @@ def generator_eval():
     """eval dataset generator"""
     seq_len = 512
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    # input_mask = np.ones_like(input_ids)
     train_data = (input_ids)
     for _ in range(16):
         yield train_data
@@ -64,6 +60,7 @@ class TestMixtralTrainerMethod:
 
     def setup_method(self):
         """init task trainer."""
+        _, tokenizer_model_path = create_tokenizer()
         args = TrainingArguments(batch_size=4, num_train_epochs=1)
         train_dataset = GeneratorDataset(generator_train, column_names=["input_ids"])
         eval_dataset = GeneratorDataset(generator_eval, column_names=["input_ids"])
