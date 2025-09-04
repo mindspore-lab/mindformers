@@ -593,7 +593,7 @@ class BaseTrainer:
             self.config.processor.image_processor, default_args=default_args)
         return self.image_processor
 
-    def create_optimizer_scheduler(self, network, layer_scale=False):
+    def create_optimizer_scheduler(self, network, model_params: set, layer_scale=False):
         """Create the optimizer for training."""
         logger.info(".........Build Optimizer From Config..........")
         # learning rate scale for multi-nodes training
@@ -609,7 +609,9 @@ class BaseTrainer:
                                                         weight_decay,
                                                         lr_schedule,
                                                         layer_scale=layer_scale,
-                                                        layer_decay=layer_decay)
+                                                        layer_decay=layer_decay,
+                                                        optimizer_type=self.config.optimizer.type,
+                                                        model_params=model_params)
         if lr_schedule is not None:
             self.optimizer = build_optim(
                 self.config.optimizer,
@@ -626,19 +628,23 @@ class BaseTrainer:
                 default_args={"params": group_params})
         return self.optimizer
 
-    def create_optimizer_scheduler_without_param_init(self, network, layer_scale=False):
+    def create_optimizer_scheduler_without_param_init(self, network, model_params: set, layer_scale=False):
         """Create the optimizer for training without initialize parameters."""
         self.optimizer_delay_inited = False
         if check_delay_init_valid():
             from mindspore.nn.utils import no_init_parameters
             with no_init_parameters():
-                optimizer = self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+                optimizer = self.create_optimizer_scheduler(network=network,
+                                                            model_params=model_params,
+                                                            layer_scale=layer_scale)
             logger.info("Parameters are not initialized during optimizer initialization.")
             self.optimizer_delay_inited = True
             return optimizer
         logger.info("Parameters are initialized during optimizer initialization, "
                     "due to delay initialization is not available.")
-        return self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+        return self.create_optimizer_scheduler(network=network,
+                                               model_params=model_params,
+                                               layer_scale=layer_scale)
 
     def create_lr_scheduler(self, learning_scale: bool = False, scale_factor: int = 256):
         """Create the learning rate scheduler."""
@@ -1054,6 +1060,14 @@ class BaseTrainer:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
+        model_params = set()
+        if self.config.optimizer.type in ("PmaAdamW", "FusedPmaAdamW"):
+            if hasattr(network, "get_model_parameters"):
+                model_params.update(network.get_model_parameters())
+            else:
+                raise NotImplementedError(f"The {type(network)} has not implemented the interface: "
+                                          f"get_model_parameters.")
+
         is_moe_model = False
         is_mtp_model = False
         if not is_legacy_model():
@@ -1088,9 +1102,11 @@ class BaseTrainer:
         logger.info(".........Build Optimizer For Train..........")
         if optimizer is None:
             if config.load_checkpoint:
-                optimizer = self.create_optimizer_scheduler_without_param_init(network, layer_scale=config.layer_scale)
+                optimizer = self.create_optimizer_scheduler_without_param_init(network,
+                                                                               model_params,
+                                                                               layer_scale=config.layer_scale)
             else:
-                optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
+                optimizer = self.create_optimizer_scheduler(network, model_params, layer_scale=config.layer_scale)
 
         # build model wrapper
         logger.info(".........Build Running Wrapper From Config For Train..........")

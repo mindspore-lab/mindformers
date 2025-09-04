@@ -49,6 +49,7 @@ from mindformers.parallel_core.training_graph.transformer.transformer_block impo
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.tools.logger import logger
+from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
 
 
@@ -601,3 +602,18 @@ class GPTModel(nn.Cell):
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in gpt model ."""
+        params = set()
+        current_pipeline_stage = get_current_rank_stage()
+        if ms.get_auto_parallel_context('pipeline_stages') > 1:
+            if current_pipeline_stage == self.output_layer.pipeline_stage:
+                params.update(get_model_parameters(self.output_layer))
+            if current_pipeline_stage == self.mtp.pipeline_stage:
+                params.update(get_model_parameters(self.mtp))
+            params.update(self.decoder.get_model_parameters())
+            params.update(get_model_parameters(self.embedding))
+        else:
+            params.update(get_model_parameters(self))
+        return params

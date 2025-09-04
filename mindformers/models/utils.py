@@ -19,8 +19,10 @@ from functools import wraps
 from typing import Union
 import mindspore.common.dtype as mstype
 import mindspore as ms
+from mindspore import nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.communication import get_rank, get_group_size
 
 from ..tools.utils import get_predict_run_mode, is_pynative
 from ..version_control import get_lazy_inline, get_predict_lazy_inline
@@ -41,6 +43,33 @@ str_to_ms_type = {
     "bfloat16": mstype.bfloat16,
     "int8": mstype.int8
 }
+
+def get_current_rank_stage():
+    """get current pipeline stage."""
+    pipeline_stages = ms.get_auto_parallel_context('pipeline_stages')
+    rank_id = get_rank()
+    device_num = get_group_size()
+    per_stage_device_num = device_num // pipeline_stages
+    return rank_id // per_stage_device_num
+
+
+def  get_model_parameters(cell: nn.Cell):
+    """get all parameters in cell."""
+    params = []
+    for _, sub_cell in cell.cells_and_names():
+        if isinstance(sub_cell, nn.Cell):
+            for param in sub_cell.trainable_params():
+                params.append(param)
+    return params
+
+def is_current_pipeline_stage(layer: nn.Cell, current_pipeline_stage):
+    """judge the layer belongs to the current pipeline state."""
+    if not hasattr(layer, "pipeline_stage"):
+        raise ValueError(f"You should set the pipeline_stage for the {type(layer)}")
+    if current_pipeline_stage == layer.pipeline_stage:
+        return True
+    return False
+
 
 
 def convert_mstype(ms_type: str = "float16"):
