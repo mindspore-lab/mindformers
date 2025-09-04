@@ -35,6 +35,7 @@ from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
+from mindspore.nn.utils import no_init_parameters
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
 from mindformers.core.context.build_context import is_legacy_model
@@ -76,7 +77,7 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
-from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid, check_tsp_valid, check_is_reboot_node
+from ..version_control import check_tft_valid, check_tre_valid, check_tsp_valid, check_is_reboot_node
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -107,7 +108,7 @@ class BaseTrainer:
                                         stderr=subprocess.PIPE, encoding='utf-8')
         host_name = host_name_output.stdout.strip()
         host_ip = host_ip_output.stdout.strip().split(' ')[0]
-        logger.info(f"host_name: %s, host_ip: %s" % (host_name, host_ip))
+        logger.info("host_name: %s, host_ip: %s" % (host_name, host_ip))
 
         if model_name is None:
             model_name = "model name unspecified."
@@ -198,8 +199,8 @@ class BaseTrainer:
 
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             if pp == 1 and micro_batch_num > 1:
-                logger.warning(f"When pipeline parallel is not enabled, "
-                               f"config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")
+                logger.warning("When pipeline parallel is not enabled, "
+                               "config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")
                 micro_batch_num = self.config.parallel_config.micro_batch_num = 1
             if full_batch:
                 if ds_stra != 'full_batch':
@@ -470,17 +471,11 @@ class BaseTrainer:
 
     def create_network_without_param_init(self, default_args: dict = None):
         """Create the network for task trainer without initialize parameters."""
-        self.network_delay_inited = False
-        if check_delay_init_valid():
-            from mindspore.nn.utils import no_init_parameters
-            with no_init_parameters():
-                network = self.create_network(default_args=default_args)
-            logger.info("Parameters are not initialized during model initialization.")
-            self.network_delay_inited = True
-            return network
-        logger.info("Parameters are initialized during model initialization, "
-                    "due to delay initialization is not available.")
-        return self.create_network(default_args=default_args)
+        with no_init_parameters():
+            network = self.create_network(default_args=default_args)
+        logger.info("Parameters are not initialized during model initialization.")
+        self.network_delay_inited = True
+        return network
 
     @staticmethod
     def warp_data_order_with_tool_cells(network, construct_args_key):
@@ -617,17 +612,11 @@ class BaseTrainer:
 
     def create_optimizer_scheduler_without_param_init(self, network, layer_scale=False):
         """Create the optimizer for training without initialize parameters."""
-        self.optimizer_delay_inited = False
-        if check_delay_init_valid():
-            from mindspore.nn.utils import no_init_parameters
-            with no_init_parameters():
-                optimizer = self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
-            logger.info("Parameters are not initialized during optimizer initialization.")
-            self.optimizer_delay_inited = True
-            return optimizer
-        logger.info("Parameters are initialized during optimizer initialization, "
-                    "due to delay initialization is not available.")
-        return self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+        with no_init_parameters():
+            optimizer = self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+        logger.info("Parameters are not initialized during optimizer initialization.")
+        self.optimizer_delay_inited = True
+        return optimizer
 
     def create_lr_scheduler(self, learning_scale: bool = False, scale_factor: int = 256):
         """Create the learning rate scheduler."""
@@ -1427,7 +1416,7 @@ class BaseTrainer:
                 if self.config.load_ckpt_format == 'safetensors':
                     network.load_weights(config.load_checkpoint)
                 else:
-                    raise ValueError(f'The process of MCore does not support the weights of ckpt.')
+                    raise ValueError('The process of MCore does not support the weights of ckpt.')
             else:
                 if config.load_checkpoint or config.only_save_strategy:
                     if ms.context.get_auto_parallel_context('parallel_mode') in \

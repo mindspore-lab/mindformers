@@ -18,7 +18,7 @@ import inspect
 from functools import wraps
 
 import mindspore as ms
-from mindspore import nn, mint
+from mindspore import nn
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
 from mindspore._c_expression import MSContext
@@ -210,37 +210,6 @@ def check_valid_mindspore_gs():
     return True
 
 
-def get_scatter():
-    """
-    Return:
-        `Scatter()` when MindSpore Version is less than 2.4.0.
-        `mint.scatter` when MindSpore Version is 2.4.0 or later.
-    """
-    if is_version_ge(ms.__version__, "2.4.0"):
-        return mint.scatter
-    return Scatter()
-
-
-def check_delay_init_valid():
-    """check mindspore version is valid for delay init"""
-    version_valid = is_version_ge(ms.__version__, "2.4.1")
-    if not version_valid:
-        logger.warning(f"Current MindSpore version does not support parameter delay initialization. "
-                       f"Please upgrade to 2.4.1 or later version.")
-        return False
-    return True
-
-
-def check_stress_detect_valid():
-    """check mindspore version is valid for stress detect"""
-    version_valid = is_version_ge(ms.__version__, "2.4.10")
-    if not version_valid:
-        logger.warning(f"Current MindSpore version does not support stress detect "
-                       f", please upgrade to 2.4.10 or later version.")
-        return False
-    return True
-
-
 def check_tft_valid():
     """check tft is valid"""
     env_enable = os.getenv("MS_ENABLE_TFT", "")
@@ -317,11 +286,6 @@ def check_moveto_op_support():
 def check_moev3_valid():
     """Check whether the current MindSpore version is valid for MoeV3."""
     return is_version_ge(ms.__version__, "2.6.0")
-
-
-def check_delay_initialization_support():
-    """check mindspore version if use delay initialization"""
-    return is_version_ge(ms.__version__, "2.4.10")
 
 
 def check_safetensors_addition_param_support():
