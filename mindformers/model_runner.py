@@ -26,6 +26,7 @@ from mindspore import Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
+from mindspore.nn.utils import no_init_parameters
 
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
@@ -39,7 +40,7 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.generation.parallel_decoding import parallel_decoding_control
-from mindformers.version_control import check_delay_init_valid, need_nz
+from mindformers.version_control import need_nz
 from mindformers.models import build_processor, PretrainedConfig
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
@@ -263,7 +264,7 @@ class MindIEModelRunner:
             self.config.context.device_id = npu_device_ids[0]
 
         build_context(self.config)
-        logger.info(f"Build context finished.")
+        logger.info("Build context finished.")
         self.use_legacy = is_legacy_model()
 
         if self.is_multi_modal_model:
@@ -285,23 +286,17 @@ class MindIEModelRunner:
             self.tokenizer = self.processor.tokenizer
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=False, use_fast=True)
-        logger.info(f"Build tokenizer finished.")
+        logger.info("Build tokenizer finished.")
 
         # build model
-        network_delay_inited = False
-        if check_delay_init_valid():
-            from mindspore.nn.utils import no_init_parameters
-            with no_init_parameters():
-                self.model = AutoModel.from_config(self.model_config)
-            network_delay_inited = True
-            logger.info("Parameters are not initialized during model initialization.")
-        else:
+        with no_init_parameters():
             self.model = AutoModel.from_config(self.model_config)
+        logger.info("Parameters are not initialized during model initialization.")
         if npu_mem_size == -1 and str(type(self.model).__name__) not in self.dynamic_kv_cache_whitelist:
             raise ValueError("npu_mem_size=-1 only support in parallel mode")
-        logger.info(f"Build model finished.")
+        logger.info("Build model finished.")
 
-        self.load_checkpoint(network_delay_inited)
+        self.load_checkpoint()
 
         if not self.use_legacy or self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
@@ -314,7 +309,7 @@ class MindIEModelRunner:
                                         name=f"value_host_{i}", requires_grad=False).init_data() \
                                             for i in range(self.num_layers)]
 
-    def load_checkpoint(self, network_delay_inited):
+    def load_checkpoint(self):
         """load checkpoint into model"""
         ms_model = ms.Model(self.model)
         batch_size = self.model_config.batch_size
@@ -329,9 +324,8 @@ class MindIEModelRunner:
             transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         else:
             logger.warning("No checkpoint loaded. Network will be inited randomly.")
-        if network_delay_inited:
-            self.model.init_parameters_data()
-        logger.info(f"Load checkpoints finished.")
+        self.model.init_parameters_data()
+        logger.info("Load checkpoints finished.")
 
     def update_model_config(self, plugin_params):
         """update model config"""
@@ -622,7 +616,7 @@ def _check_valid_safetensors_path(path):
     if not isinstance(path, str) or isinstance(path, os.PathLike):
         raise ValueError(f"path must be a str, but got {path} as type {type(path)}.")
     if not os.path.exists(path):
-        raise ValueError(f"path does not exist.")
+        raise ValueError("path does not exist.")
     if contains_safetensors_files(path):
         return
-    raise ValueError(f"load_checkpoint is not a valid path for safetensors.")
+    raise ValueError("load_checkpoint is not a valid path for safetensors.")

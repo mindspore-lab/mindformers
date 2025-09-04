@@ -23,7 +23,6 @@ import mindspore as ms
 from mindspore import Tensor, mint
 from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 
-from mindformers.version_control import get_scatter
 from .utils import log_softmax, softmax, topk
 from ..tools.logger import logger
 
@@ -59,7 +58,7 @@ class LogitsProcessor:
 
     def __init__(self):
         self.use_numpy = run_using_numpy()
-        self.scatter = get_scatter()
+        self.scatter = mint.scatter
 
     def selected_scatter(self, input_tensor, dim, index, src):
         if isinstance(self.scatter, Scatter):

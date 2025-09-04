@@ -56,6 +56,7 @@ from mindspore.communication.management import create_group, get_group_size, get
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
+from mindspore.utils import stress_detect
 
 from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
@@ -74,7 +75,7 @@ from mindformers.tools.utils import (
 )
 from mindformers.utils.parameter_register import parameter_register
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
-from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
+from mindformers.version_control import is_version_ge, check_arf_status
 from mindformers.parallel_core.training_graph.loss_func import (
     get_device_local_loss,
     reset_device_local_loss,
@@ -836,9 +837,9 @@ class TrainingStateMonitor(Callback):
                 logger.info(f"Current global norm {global_norm} is greater equal than "
                             f"threshold {self.global_norm_spike_threshold}, stop training...")
                 barrier_world()
-                logger.info(f"Call barrier before throw TREError.")
+                logger.info("Call barrier before throw TREError.")
                 ms.runtime.synchronize()
-                logger.info(f"All stream execution completed.")
+                logger.info("All stream execution completed.")
                 raise RuntimeError("TREError occurred......")
             self.abnormal_global_norms[str(global_step)].append(global_norm.item())
             logger.info(f"The global norm {global_norm} of step {global_step} is still greater or equal "
@@ -897,14 +898,14 @@ class TrainingStateMonitor(Callback):
         if self.print_struct is None:
             self.print_struct = False
         if not (isinstance(self.target, list) and self.target and all([isinstance(i, str) for i in self.target])):
-            raise TypeError(f"The value of 'target' should be a list of str.")
+            raise TypeError("The value of 'target' should be a list of str.")
         if not isinstance(self.invert, bool):
-            raise TypeError(f"The value of 'invert' should be bool.")
+            raise TypeError("The value of 'invert' should be bool.")
         if (self.throughput_baseline is not None and
                 not (isinstance(self.throughput_baseline, (int, float)) and self.throughput_baseline > 0)):
-            raise ValueError(f"The value of 'throughput_baseline' should be None or positive number.")
+            raise ValueError("The value of 'throughput_baseline' should be None or positive number.")
         if not isinstance(self.print_struct, bool):
-            raise TypeError(f"The value of 'print_struct' should be bool.")
+            raise TypeError("The value of 'print_struct' should be bool.")
         attrs = ['local_norm_format', 'local_loss_format', 'device_local_norm_format', 'device_local_loss_format',
                  'optimizer_state_format', 'weight_state_format']
         for attr in attrs:
@@ -993,7 +994,7 @@ class TrainingStateMonitor(Callback):
                     continue
                 data = np.load(os.path.join(self.dump_path, f), allow_pickle=False)
                 if prefix == 'device_local_norm':
-                    self._output(f'device_local_norm', data, self.dump_step, self.device_local_norm_format)
+                    self._output('device_local_norm', data, self.dump_step, self.device_local_norm_format)
                 elif prefix == 'local_loss':
                     # collect all local loss if there are more than one local loss within one step
                     local_losses[suffix] = local_losses.get(suffix, [])
@@ -1556,8 +1557,7 @@ class CheckpointMonitor(ModelCheckpoint):
         for rank in cur_dp:
             save_param_names = single_params.get(rank)
             if save_param_names == param_layout.keys():
-                logger.warning(
-                    f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
+                logger.warning("For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
             param_layout_set = set(param_layout.keys()) if parallel_mode else set()
             cur_file = re.sub(r'rank_\d+', f'rank_{rank}', cur_file)
             self._tft_save_ckpt(param_layout_set, save_param_names, cur_file, append_dict, network)
@@ -1605,8 +1605,7 @@ class CheckpointMonitor(ModelCheckpoint):
                 save_param_names = single_params.get(rank_id)
                 param_layout_set = set(param_layout.keys())
                 if save_param_names == param_layout.keys():
-                    logger.warning(
-                        f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
+                    logger.warning("For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
 
                 def choice_func(x):
                     return (x not in param_layout_set or (save_param_names is not None and x in save_param_names)) \
@@ -1875,7 +1874,7 @@ class ProfileMonitor(Callback):
         rank_id = get_real_rank()
         self.pipeline_rank_ids = get_pipeline_rank_ids() if self.profile_pipeline else None
         if self.pipeline_rank_ids == [-1]:
-            raise ValueError(f"Device num should be divided by pipeline stage num.")
+            raise ValueError("Device num should be divided by pipeline stage num.")
 
         if self._is_profile_required(rank_id):
             if not output_path:
@@ -2357,7 +2356,6 @@ class StressDetectCallBack(Callback):
         self.detection_interval = detection_interval
         self.num_detections = num_detections
         self.steps_per_epoch = dataset_size
-        self.ms_version_valid = check_stress_detect_valid()
 
         if self.detection_interval > self.steps_per_epoch:
             logger.warning(f"detection_interval = {self.detection_interval} is bigger than "
@@ -2375,14 +2373,12 @@ class StressDetectCallBack(Callback):
         cur_step_num = callback_params.cur_step_num
         # stress detect
         detect_ret_list = []
-        if self.ms_version_valid:
-            from mindspore.utils import stress_detect
 
-            if cur_step_num % self.detection_interval == 0:
-                logger.info("Start to stress detect")
-                for _ in range(self.num_detections):
-                    ret = stress_detect()
-                    detect_ret_list.append(ret)
+        if cur_step_num % self.detection_interval == 0:
+            logger.info("Start to stress detect")
+            for _ in range(self.num_detections):
+                ret = stress_detect()
+                detect_ret_list.append(ret)
 
             self.log_stress_detect_result(detect_ret_list)
 
@@ -2621,8 +2617,8 @@ class StressTestModelMonitor(Callback):
         if not isinstance(self.compare_interval_steps, int) or self.compare_interval_steps < 1:
             logger.warning(f"For StressTestMonitor, compare_interval_steps must be an integer greater than or equal"
                            f" to 1, but got {self.compare_interval_steps}.")
-            logger.warning(f"Skipping interval steps comparison, only the last step result will be compared."
-                           f" compare_interval_steps is set to None")
+            logger.warning("Skipping interval steps comparison, only the last step result will be compared."
+                           " compare_interval_steps is set to None")
             self.compare_interval_steps = None
         self.stress_test_log_dir = stress_test_log_dir
         self.check_stresslog_interval_time = check_stresslog_interval_time
@@ -2685,7 +2681,7 @@ class StressTestModelMonitor(Callback):
                 logger.warning(f"Check the sub task workers log for rank {rank_id} for more details.")
         barrier()
 
-        logger.info(f"Stress tests ended, now starting to collect and compare results")
+        logger.info("Stress tests ended, now starting to collect and compare results")
 
         # If compare_interval_steps is None, only compare the last step result, and check for its validity.
         if not self.compare_interval_steps:
@@ -2727,7 +2723,7 @@ class StressTestModelMonitor(Callback):
 
         gathered_results, _ = all_gather_into_tensor(last_step_results) # <class 'mindspore.common.tensor.Tensor'>
         gathered_results = gathered_results.asnumpy()   # <class 'numpy.ndarray'>
-        logger.debug(f"Collected last step results are gathered_results.")
+        logger.debug("Collected last step results are gathered_results.")
         logger.info("Last step results are collected from each rank, now starting to compare last step results")
 
         rank0_result = gathered_results[0]
@@ -2834,7 +2830,7 @@ class StressTestModelMonitor(Callback):
             value_pairs = [val[1] for val in disc_values]
             logger.warning(f"STRESS TEST FAILED. DISCREPANCIES found in epoch {epoch_step[0]}, "
                            f"step {epoch_step[1]}: ranks {indices}, (loss, global_norm) = {value_pairs}")
-        logger.warning(f"Check the workers log of the problematic rank for detailed results")
+        logger.warning("Check the workers log of the problematic rank for detailed results")
         return False
 
     def get_value_from_line(self, line, pattern):

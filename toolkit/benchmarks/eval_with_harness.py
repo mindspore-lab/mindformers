@@ -24,6 +24,7 @@ from tqdm import tqdm
 import mindspore
 from mindspore import Model, Tensor
 from mindspore.common import initializer
+from mindspore.nn.utils import no_init_parameters
 
 from lm_eval import utils
 from lm_eval.__main__ import cli_evaluate
@@ -43,7 +44,6 @@ from mindformers import (
 )
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools import set_output_path
-from mindformers.version_control import check_delay_initialization_support
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
 eval_logger = utils.eval_logger
@@ -179,7 +179,7 @@ class MFLM(TemplateLM):
             self._config.model.model_config.moe_config = self._config.moe_config
 
         build_context(self._config)
-        eval_logger.info(f"Build context finished.")
+        eval_logger.info("Build context finished.")
         build_parallel_config(self._config)
 
         return self._config
@@ -187,15 +187,9 @@ class MFLM(TemplateLM):
     # pylint: disable=W0212
     def _create_model(self, config) -> None:
         """Initialize Model"""
-        sig = False
-        if check_delay_initialization_support():
-            sig = True
-            from mindspore.nn.utils import no_init_parameters
-            with no_init_parameters():  # Delay initialization
-                self._model = AutoModel.from_config(config)
-        else:
+        with no_init_parameters():  # Delay initialization
             self._model = AutoModel.from_config(config)
-        eval_logger.info(f"Build model finished.")
+        eval_logger.info("Build model finished.")
 
         if not config.load_checkpoint:
             raise Exception("There is no model ckpt in the model directory.")
@@ -206,14 +200,13 @@ class MFLM(TemplateLM):
         input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
         infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
-        if sig:
-            self._model.init_parameters_data()
+        self._model.init_parameters_data()
         eval_logger.info("----------------Load checkpoint finished----------------")
 
     def _create_tokenizer(self, pretrained: str) -> None:
         """Initialize Tokenizer"""
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained)
-        eval_logger.info(f"Build tokenizer finished.")
+        eval_logger.info("Build tokenizer finished.")
 
     def tok_encode(
             self, string: str, left_truncate_len: Optional[int] = None, add_special_tokens=None
