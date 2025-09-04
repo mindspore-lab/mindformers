@@ -112,7 +112,7 @@ class VocabParallelEmbedding(nn.Cell):
             if self.num_embeddings % tp != 0:
                 self.gather.shard(((1, 1), (dp * cp,)))
             else:
-                self.gather.shard(((tp, 1), (1,)))
+                self.gather.shard(((tp, 1), (dp * cp,)))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
