@@ -17,3 +17,7 @@
 
 class TrainModelMixin:
     """General interfaces for train models."""
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in model ."""
+        return self.model.get_model_parameters()

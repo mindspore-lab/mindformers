@@ -1582,3 +1582,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             key_list (list): key word list of concat weights.
         """
         logger.info(f"{cls.__name__} does not support qkv concat check, skipping...")
+
+    def get_model_parameters(self):
+        raise NotImplementedError("You should implement the interface: get_model_parameters.")
