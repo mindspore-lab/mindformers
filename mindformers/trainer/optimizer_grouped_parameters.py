@@ -25,11 +25,23 @@ from mindformers.core.lr import LearningRateWiseLayer
 from mindformers.tools.logger import logger
 from .utils import check_keywords_in_name
 
+def filter_current_stage_parameters(model, model_params):
+    """Get current rank trainable parameters in model while use PMA."""
+    if not model_params:
+        raise ValueError("The model got empty trainable parameters, "
+                         "please check the get_model_parameters method.")
+    for _, cell in model.cells_and_names():
+        for param in cell.trainable_params():
+            if param not in model_params:
+                param.requires_grad = False
 
 def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
                                      weight_decay: float = 0.0,
                                      dynamic_lr_schedule: Optional[LearningRateSchedule] = None,
-                                     layer_scale: bool = False, layer_decay: float = 1.0):
+                                     layer_scale: bool = False,
+                                     layer_decay: float = 1.0,
+                                     optimizer_type="AdamW",
+                                     model_params=None):
     """Get grouped parameters of the network for training."""
     if not isinstance(model, (Cell, PreTrainedModel)):
         raise TypeError(f"model type should be PreTrainedModel, but get {type(model)}")
@@ -44,6 +56,10 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
         logger.info('No weight decay keywords: %s', skip_keywords)
 
     decay_parameters_names = []
+
+    if optimizer_type in ("PmaAdamW", "FusedPmaAdamW"):
+        filter_current_stage_parameters(model, model_params)
+
     for param in model.trainable_params():
         if skip_params or skip_keywords:
             if param.name in skip_params:

@@ -16,6 +16,7 @@
 from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor, dtype as mstype
+from mindformers.models.utils import is_current_pipeline_stage, get_current_rank_stage
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -158,6 +159,7 @@ class TransformerBlock(nn.Cell):
                                                 config=config,
                                                 dim=config.hidden_size,
                                                 eps=config.layernorm_epsilon)
+            self.final_layernorm.pipeline_stage = self.layers[-1].pipeline_stage
         else:
             self.final_layernorm = None
 
@@ -202,3 +204,17 @@ class TransformerBlock(nn.Cell):
         if self.post_layer_norm:
             if config.sequence_parallel or cp > 1:
                 self.final_layernorm.shard(config, in_strategy=(layout("cp_tp", "dp", "None"), layout("None",)))
+
+    def get_model_parameters(self):
+        """ get current rank parameters in cell. """
+        params = []
+        current_pipeline_stage = get_current_rank_stage()
+        for layer in self.layers:
+            if is_current_pipeline_stage(layer, current_pipeline_stage):
+                for param in layer.trainable_params():
+                    params.append(param)
+        if self.post_layer_norm:
+            if is_current_pipeline_stage(self.final_layernorm, current_pipeline_stage):
+                for param in self.final_layernorm.trainable_params():
+                    params.append(param)
+        return params
