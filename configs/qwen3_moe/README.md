@@ -144,7 +144,6 @@ train_dataset: &train_dataset
 master_ip=192.168.1.1
 node_rank=0
 port=50001
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3_moe/pretrain_qwen3_moe_30b_a3b_4k.yaml \
 --auto_trans_ckpt False \
@@ -464,7 +463,6 @@ master_ip=192.168.1.1
 node_rank=0
 port=50001
 
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3/pretrain_qwen3_32b_4k.yaml \
 --auto_trans_ckpt False \
@@ -481,7 +479,6 @@ master_ip=192.168.1.1
 node_rank=1
 port=50001
 
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml \
 --auto_trans_ckpt False \

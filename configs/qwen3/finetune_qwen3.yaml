@@ -9,7 +9,7 @@ resume_training: False
 use_parallel: True
 run_mode: 'finetune'
 use_legacy: False
-pretrained_model_dir: &pretrained_model_dir "/path/to/Qwen3-32B"
+pretrained_model_dir: "/path/to/Qwen3-32B"
 
 # Trainer configuration
 trainer:
@@ -64,7 +64,6 @@ train_dataset: &train_dataset
         seq_length: 4096
         padding: False
         tokenizer:
-          pretrained_model_dir: *pretrained_model_dir
           trust_remote_code: True
           padding_side: 'right'
       - type: PackingHandler
