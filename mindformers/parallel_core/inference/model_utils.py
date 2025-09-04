@@ -54,7 +54,7 @@ class InferModelMixin(ModelMixin):
             if fa3_quant_layer is None:
                 fa3_quant_layer = set()
             cache_list = []
-            num_layers = self.transformer_config.num_layers if not self.is_mtp_model() else \
+            num_layers = len(self.model.decoder.layers) if not self.is_mtp_model() else \
                 self.transformer_config.mtp_num_layers
             for num_layer in range(num_layers):
                 kv_cache_dtype = mstype.int8 if fa3_quant and num_layer in fa3_quant_layer else \
