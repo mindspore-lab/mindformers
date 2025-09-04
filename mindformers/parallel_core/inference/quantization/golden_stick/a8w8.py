@@ -102,9 +102,9 @@ class A8W8LinearMethod(LinearMethodBase):
         """
         if not self.is_modelslim:
             return
-        input_offset = layer.input_offset.asnumpy()
-        layer.input_offset = Parameter(
-            Tensor(input_offset, dtype=mindspore.int8), name=layer.input_offset.name, requires_grad=False)
+        input_scale = 1 / layer.input_scale.asnumpy()
+        layer.input_scale = Parameter(
+            Tensor(input_scale, dtype=mindspore.bfloat16), name=layer.input_scale.name, requires_grad=False)
 
     def apply(self,
               layer: mindspore.nn.Cell,

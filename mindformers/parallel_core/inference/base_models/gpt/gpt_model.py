@@ -116,6 +116,7 @@ class GPTModel(nn.Cell):
         super(GPTModel, self).__init__()
         self.check_support(fp16_lm_cross_entropy, rope_scaling, mtp_block_spec)
         self.config = config
+        self.quant_config = quant_config
         self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length

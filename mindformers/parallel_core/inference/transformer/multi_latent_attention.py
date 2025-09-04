@@ -29,10 +29,16 @@ import numpy as np
 from mindspore import mint, ops, Tensor, dtype, Parameter
 from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
+from mindspore.ops.operations._infer_ops import QuantV2
+import mindspore as ms
 
+try:
+    import ms_custom_ops
+except ModuleNotFoundError:
+    pass
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
-from mindformers.parallel_core.inference.utils import divide, get_tp_world_size
+from mindformers.parallel_core.inference.utils import divide, get_tp_world_size, use_ms_custom_ops
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 from mindformers.parallel_core.inference.transformer.attention import Attention
@@ -43,6 +49,7 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rota
     _yarn_get_mscale
 )
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.inference.weights_utils import set_weight_attrs, split_loaded_weight
 
 
 @dataclass
@@ -541,13 +548,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_beta = None
         self.qkv_down_proj_input_offset = None
         self.q_up_proj_input_offset = None
-        self.use_ringmla = get_tensor_model_parallel_world_size() < 16
-        try:
-            # pylint: disable=W0611
-            import ms_custom_op
-        except ModuleNotFoundError:
-            # environment need install ms_custom_ops package
-            self.use_ringmla = False
+        self.use_ringmla = use_ms_custom_ops() and get_tensor_model_parallel_world_size() < 16
 
         self.mla = ops.auto_generate.Mla()
         self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
@@ -584,18 +585,18 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.qk_descale = None
         self.pv_descale = None
         if not self.use_ringmla:
-            # cache shape: [blockNum,blockSize,1,576]
+            # cache dtype and shape: bf16 [blockNum,blockSize,1,576]
             self.cache_mode = 0
         elif self.is_fa3_quant_layer:
-            # fa3 quant layers
-            # cache shape: [blockNum,blockSize,1,1,512]
+            # fa3 quant layers, kvcache need nz
+            # cache dtype and shape: int8 [blockNum,blockSize,512], bf16 [blockNum,blockSize,64]
             self.cache_mode = 2
         elif self.fa3_quant:
             # fa3 no quant layers, kvcache also need nz
-            # cache shape: [blockNum, headNum*512/32,block_size, 32]
+            # cache dtype and shape: bf16 [blockNum, block_size,512], bf16 [blockNum,blockSize,64]
             self.cache_mode = 3
         else:
-            # cache shape: [blockNum, headNum*512/16,block_size, 16]
+            # cache dtype and shape: bf16 [blockNum, block_size,1,512], bf16 [blockNum,blockSize,1,64]
             self.cache_mode = 1
 
     def process_weights_after_loading(self) -> None:
