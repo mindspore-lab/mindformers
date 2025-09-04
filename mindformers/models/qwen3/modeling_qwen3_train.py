@@ -95,9 +95,9 @@ class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
             ms_weight_dict: converted weight dict.
 
         """
-        qkv_concat = kwargs.get("model_config").qkv_concat
 
         use_contiguous_weight_layout_attention = self.transformer_config.use_contiguous_weight_layout_attention
+        use_interleaved_weight_layout_mlp = self.transformer_config.use_interleaved_weight_layout_mlp
 
         ms_weight_dict = {}
         # QKV weight keys
@@ -112,43 +112,44 @@ class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
             k = self.convert_name(k)
             ms_weight_dict.update({k: v})
 
-            if qkv_concat:
-                part = k.split('.')
-                # Get Q/K/V Keys
-                if part[-2] == 'linear_q':
-                    wq_keys.append(k)
-                if part[-2] == 'linear_k':
-                    wk_keys.append(k)
-                if part[-2] == 'linear_v':
-                    wv_keys.append(k)
-                # Get FFN Keys in MLP
-                if part[-2] == 'gating':
-                    w1_keys.append(k)
-                if part[-2] == 'hidden':
-                    w3_keys.append(k)
+            part = k.split('.')
+            # Get Q/K/V Keys
+            if part[-2] == 'linear_q':
+                wq_keys.append(k)
+            if part[-2] == 'linear_k':
+                wk_keys.append(k)
+            if part[-2] == 'linear_v':
+                wv_keys.append(k)
+            # Get FFN Keys in MLP
+            if part[-2] == 'gating':
+                w1_keys.append(k)
+            if part[-2] == 'hidden':
+                w3_keys.append(k)
 
-        if qkv_concat:
-            qkv_dict = kwargs.get('qkv_dict', None)
-            condition = kwargs.get('condition', None)
+        qkv_dict = kwargs.get('qkv_dict', None)
+        condition = kwargs.get('condition', None)
 
-            if use_contiguous_weight_layout_attention:
-                logger.info("Concat QKV and FFN weight in contiguous weight layout attention.")
-                self.concat_qkv_weight_infer(wq_keys, wk_keys, wv_keys, qkv_dict, condition, ms_weight_dict)
-                self.concat_ffn_weight_infer(w1_keys, w3_keys, qkv_dict, condition, ms_weight_dict)
-            else:
-                logger.info("Concat QKV and FFN weight without contiguous weight layout attention.")
-                self.concat_qkv_weight_megatron(
-                    wq_keys=wq_keys, wk_keys=wk_keys, wv_keys=wv_keys,
-                    qkv_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
-                    head_dim=self.transformer_config.kv_channels,
-                    n_kv_heads=self.transformer_config.num_query_groups,
-                    num_attention_heads=self.transformer_config.num_attention_heads
-                )
-                self.concat_ffn_weight_megatron(
-                    w1_keys=w1_keys, w3_keys=w3_keys,
-                    ffn_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
-                    ffn_hidden_size=self.transformer_config.ffn_hidden_size
-                )
+        if use_contiguous_weight_layout_attention:
+            logger.info("Concat QKV weight in contiguous weight layout attention.")
+            self.concat_qkv_weight_infer(wq_keys, wk_keys, wv_keys, qkv_dict, condition, ms_weight_dict)
+        else:
+            logger.info("Concat QKV weight without contiguous weight layout attention.")
+            self.concat_qkv_weight_megatron(
+                wq_keys=wq_keys, wk_keys=wk_keys, wv_keys=wv_keys,
+                qkv_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
+                head_dim=self.transformer_config.kv_channels,
+                n_kv_heads=self.transformer_config.num_query_groups,
+                num_attention_heads=self.transformer_config.num_attention_heads)
+        if use_interleaved_weight_layout_mlp:
+            logger.info("Concat FFN weight in interleaved weight layout MLP.")
+            self.concat_ffn_weight_megatron(
+                w1_keys=w1_keys, w3_keys=w3_keys,
+                ffn_weight_dict=qkv_dict, condition=condition, ms_weight_dict=ms_weight_dict,
+                ffn_hidden_size=self.transformer_config.ffn_hidden_size
+            )
+        else:
+            logger.info("Concat FFN weight without interleaved weight layout MLP.")
+            self.concat_ffn_weight_infer(w1_keys, w3_keys, qkv_dict, condition, ms_weight_dict)
 
         return ms_weight_dict
 

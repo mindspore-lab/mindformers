@@ -195,5 +195,8 @@ class LoraModel(PreTrainedModel):
     def obtain_name_map(self, load_checkpoint_files):
         return self.network.obtain_name_map(load_checkpoint_files)
 
+    def get_gpt_transformer_config(self,):
+        return self.network.get_gpt_transformer_config()
+
     def construct(self, *inputs, **kwargs):
         return self.network(*inputs, **kwargs)
