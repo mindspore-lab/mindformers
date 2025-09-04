@@ -25,6 +25,8 @@ MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
+如果对MindSpore Transformers的技术感兴趣，或者想参与贡献代码，欢迎加入[MindSpore Transformers SIG](https://www.mindspore.cn/sig/MindSpore%20Transformers)。
+
 ### 模型列表
 
 当前MindSpore Transformers全量的模型列表如下：

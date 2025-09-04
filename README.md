@@ -25,6 +25,8 @@ For details about MindSpore Transformers tutorials and API documents, see **[Min
 
 If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
 
+If you're interested in MindSpore Transformers technology or wish to contribute code, we welcome you to join the [MindSpore Transformers SIG](https://www.mindspore.cn/sig/MindSpore%20Transformers/en).
+
 ### Models List
 
 The following table lists models supported by MindSpore Transformers.
