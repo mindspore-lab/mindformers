@@ -293,9 +293,6 @@ class MFModelConfig:
     topk_method: str = "greedy"
     """Method to use for top-k routing."""
 
-    enable_deredundency: bool = False
-    """This parameter is used for inter-machine communication masking and performance optimization features."""
-
     npu_nums_per_device: int = 8
     """Set NPU ranks for each device."""
 
@@ -321,6 +318,11 @@ class MFModelConfig:
     See https://arxiv.org/abs/2408.15664 for details.
     """
 
+    moe_router_force_expert_balance: bool = False
+    """
+    Whether to force expert balance in router.
+    This option is only used in performance testing, not for general use.
+    """
 
     ################################################
     # Training Parameters for MindSpore Transformers
