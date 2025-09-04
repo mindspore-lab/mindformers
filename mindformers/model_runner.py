@@ -359,6 +359,7 @@ class MindIEModelRunner:
 
         kvcache_dtype = config.compute_dtype
         if hasattr(self.model_config, "quantization_config") and \
+            self.model_config.quantization_config and \
                 self.model_config.quantization_config.kvcache_dtype in str_to_ms_type:
             kvcache_dtype = self.model_config.quantization_config.kvcache_dtype
         self.dtype = convert_mstype(kvcache_dtype)
