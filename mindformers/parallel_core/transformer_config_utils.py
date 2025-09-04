@@ -394,6 +394,11 @@ COMMON_CONFIG_MAPPING = {
     "moe_init_method_std": "moe_init_method_std",
     "moe_router_force_expert_balance": "moe_router_force_expert_balance",
 
+    "enable_expert_relocation": "enable_expert_relocation",
+    "expert_relocation_initial_iteration": "expert_relocation_initial_iteration",
+    "expert_relocation_freq": "expert_relocation_freq",
+    "print_expert_load": "print_expert_load",
+
     # Context Parallel
     # not changes
     "context_parallel_algo": ("cp_comm_type", get_cp_comm_type),

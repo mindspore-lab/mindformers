@@ -60,6 +60,8 @@ from mindformers.core.callback.callback import (
     MFLossMonitor,
     TrainingStateMonitor,
     CheckpointMonitor,
+    ExpertMigrateCallback,
+    ExpertParallelManager,
     ColdHotExpertMonitor,
     TopkBiasBalanceCallback
 )
@@ -87,7 +89,8 @@ CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer"]
 CALLBACK_HAS_SORT = [
-    MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, TopkBiasBalanceCallback, CheckpointMonitor
+    MFLossMonitor, TrainingStateMonitor, ExpertMigrateCallback, ColdHotExpertMonitor,
+    TopkBiasBalanceCallback, CheckpointMonitor
 ]
 
 
@@ -1240,6 +1243,32 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
+
+        if config.model.model_config.enable_expert_relocation or config.model.model_config.print_expert_load:
+            rank_id = get_rank()
+            ep = config.parallel_config.expert_parallel
+            expert_nums = config.model.model_config.num_experts
+            expert_size = config.model.model_config.moe_intermediate_size * config.model.model_config.hidden_size
+            ep_group = [i + rank_id // ep * ep for i in range(ep)]
+            manager = ExpertParallelManager(ep_group, rank_id, expert_nums, expert_size)
+            save_checkpoint_steps = -1
+            for callback in config.callbacks:
+                if callback['type'] == 'CheckpointMonitor':
+                    save_checkpoint_steps = callback['save_checkpoint_steps']
+            expert_relocation = ExpertMigrateCallback(
+                enable_expert_relocation=config.model.model_config.enable_expert_relocation,
+                expert_relocation_initial_iteration=config.model.model_config.expert_relocation_initial_iteration,
+                expert_relocation_freq=config.model.model_config.expert_relocation_freq,
+                print_expert_load=config.model.model_config.print_expert_load,
+                manager=manager,
+                config=config,
+                save_checkpoint_steps=save_checkpoint_steps)
+            ckpt_callback_idx = -1
+            for i, callback in enumerate(callbacks):
+                if isinstance(callback, CheckpointMonitor):
+                    ckpt_callback_idx = i
+                    break
+            callbacks.insert(ckpt_callback_idx, expert_relocation)
 
         if config.moe_config.enable_cold_hot_expert:
             save_checkpoint_steps = -1

@@ -21,11 +21,15 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
 import mindspore.mint as mint
+from mindspore import Parameter
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
 from mindspore.ops.operations.comm_ops import AlltoAllVC
-from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
+from mindspore.ops.auto_generate import (
+    CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast,
+    Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
+)
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 _OEP_GROUP_NAME = {}
@@ -47,17 +51,17 @@ class MoETokenDispatcher:
         self.ep = config.expert_model_parallel_size
 
         self.num_out_tokens = None
+        self.rank_id = get_rank()
         self.ep_group = self._ep_group()
 
         self.d2h = ops.MoveTo().add_prim_attr("recompute", False)
 
     def _ep_group(self):
         """Get expert model parallel group."""
-        rank_id = get_rank()
         ep = self.config.expert_model_parallel_size
 
-        rank_start = rank_id // ep * ep
-        rand_end = rank_id // ep * ep + ep
+        rank_start = self.rank_id // ep * ep
+        rand_end = self.rank_id // ep * ep + ep
         rank_list = [i for i in range(rank_start, rand_end)]
 
         rank_list_str = "-".join([str(i) for i in range(rank_start, rand_end)])
@@ -265,6 +269,11 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         self.oep_group = self._get_oep_group_name()
         self.iep_group = self._get_iep_group_name()
 
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
+            self.num_tokens_per_expert = Parameter(
+                Tensor(np.zeros((self.expert_num)), dtype=ms.int32), requires_grad=False)
+            self.assign = ops.Assign()
+
     def _get_oep_group_name(self):
         """
         Generates a unique group name for a set of ranks involved in outer expert partitioning (oep)
@@ -368,6 +377,11 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
             expert_id.reshape(-1), self.expert_num, Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)
         )
         excounter = excounter.sum(axis=0)[self.a: self.b]
+
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
+            num_tokens_per_expert_new = ops.cast(excounter, ms.int32)
+            self.assign(self.num_tokens_per_expert, num_tokens_per_expert_new.reshape(self.expert_num))
+
         local_excounter = ops.AlltoAllV(group=self.iep_group, block_size=1)(excounter.reshape(-1), iepones, iepones)
         exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
         exgl = ops.cast(
@@ -471,6 +485,11 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.cumsum = CumsumExt()
         self.sort = SortExt()
 
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
+            self.num_tokens_per_expert = Parameter(
+                Tensor(np.zeros((self.expert_num)), dtype=ms.int32), requires_grad=False)
+            self.assign = ops.Assign()
+
     def preprocess(self, num_local_tokens_per_expert):
         """
         Preprocess token routing map for AlltoAll communication and token permutation.
@@ -479,21 +498,25 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         It also initializes the necessary data structures for AlltoAll communication, such as input
         and output splits, and the mapping between global tokens and local experts.
         """
-        num_global_tokens_per_expert = ops.AlltoAll(
-            split_count=self.ep,
-            split_dim=-1,
-            concat_dim=-2,
-            group=self.ep_group)(num_local_tokens_per_expert)
+        local_expert_start = (self.rank_id % self.ep) * (self.expert_num // self.ep)
+        local_expert_end = local_expert_start + (self.expert_num // self.ep)
+        local_expert_indices = mint.arange(local_expert_start, local_expert_end)
 
+        num_global_tokens_per_expert = ops.AllGather(group=self.ep_group)(num_local_tokens_per_expert)
+        num_global_tokens_per_local_expert = IndexSelect()(num_global_tokens_per_expert, -1, local_expert_indices)
         # [ep, E/ep]  -->  [ep]
         input_splits = ops.cast(
             num_local_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
         # [ep, E/ep]  --> [ep]
         output_splits = ops.cast(
-            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+            num_global_tokens_per_local_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
         # [ep, E/ep]  --> (E/ep) int64
         tokens_per_expert = ops.cast(self.cumsum(
-            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+            num_global_tokens_per_local_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
+            num_tokens_per_expert_new = ops.cast(num_global_tokens_per_expert.sum(dim=0, keepdim=False), ms.int32)
+            self.assign(self.num_tokens_per_expert, num_tokens_per_expert_new.reshape(self.expert_num))
 
         input_splits = ops.Depend()(input_splits, output_splits)
         input_splits = ops.Depend()(input_splits, tokens_per_expert)
