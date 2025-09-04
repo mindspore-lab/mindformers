@@ -164,6 +164,8 @@ class Qwen3MoeConfig(PretrainedConfig):
             pad_token_id=151643,
             block_size=32,
             num_blocks=1024,
+            moe_router_score_function="softmax",
+            moe_router_enable_expert_bias=False,
             normalization='RMSNorm',
             add_bias_linear=False,
             gated_linear_unit=True

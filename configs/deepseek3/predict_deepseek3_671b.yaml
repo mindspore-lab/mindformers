@@ -24,6 +24,7 @@ model:
     softmax_compute_dtype: "float32"
     rotary_dtype: "bfloat16"
     params_dtype: "bfloat16"
+    moe_router_fusion: True
     block_size: 128
     num_blocks: 512
 

@@ -393,6 +393,7 @@ COMMON_CONFIG_MAPPING = {
     "callback_moe_droprate": "callback_moe_droprate",
     "moe_init_method_std": "moe_init_method_std",
     "moe_router_force_expert_balance": "moe_router_force_expert_balance",
+    "moe_router_fusion": "moe_router_fusion",
 
     # Context Parallel
     # not changes
