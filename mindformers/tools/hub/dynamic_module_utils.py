@@ -30,6 +30,7 @@ from pathlib import Path
 from types import ModuleType
 import typing
 from typing import Any, Dict, List, Optional, Union
+import regex
 
 from mindformers.tools.hub.hub import (
     OPENMIND_DYNAMIC_MODULE_NAME,
@@ -157,12 +158,8 @@ def get_imports(filename: Union[str, os.PathLike]) -> List[str]:
         content = f.read()
 
     try:
-        signal.signal(signal.SIGALRM, lambda signum, frame: (_ for _ in ()).throw(
-            TimeoutError(f"There has questions with the import-related code in file {filename}."))
-                      )
-        signal.alarm(3)  # should finish in 3 seconds
         # filter out try/except block so in custom code we can have try/except imports
-        content = re.sub(r"\s*try\s*:\s*.*?\s*except\s*.*?:", "", content, flags=re.MULTILINE | re.DOTALL)
+        content = regex.sub(r"\s*try\s*:\s*.*?\s*except\s*.*?:", "", content, flags=re.MULTILINE | re.DOTALL, timeout=3)
 
         # Imports of the form `import xxx`
         imports = re.findall(r"^\s*import\s+(\S+)\s*$", content, flags=re.MULTILINE)
