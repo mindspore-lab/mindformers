@@ -53,27 +53,29 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
             self.matmul = GroupedMatmulV4()
             if not extra_weight_attrs.get('skip_weight_param_allocation', False):
                 shape = (num_local_experts, input_size_per_partition, output_size_per_partition)
-                weight = Parameter(initializer('ones', shape, mindspore.int8))
+                weight = Parameter(initializer('ones', shape, mindspore.int8), requires_grad=False)
                 set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
                 set_weight_attrs(weight, extra_weight_attrs)
                 return weight
 
             w_scale_shape = (num_local_experts, output_size_per_partition)
             w_scale_dtype = mindspore.bfloat16 if params_dtype == mindspore.bfloat16 else mindspore.float32
-            w_scale = Parameter(initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale")
+            w_scale = Parameter(
+                initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
             set_weight_attrs(w_scale, {"output_dim": 1})
             set_weight_attrs(w_scale, extra_weight_attrs)
 
         else:
             self.matmul = QuantBatchMatmul(transpose_x1=False, transpose_x2=True, dtype=params_dtype)
             weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
-            weight = Parameter(initializer('ones', weight_shape, mindspore.int8))
+            weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
             set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
             set_weight_attrs(weight, extra_weight_attrs)
 
             w_scale_shape = (output_size_per_partition,)
             w_scale_dtype = mindspore.bfloat16 if params_dtype == mindspore.bfloat16 else mindspore.float32
-            w_scale = Parameter(initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale")
+            w_scale = Parameter(
+                initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
             set_weight_attrs(w_scale, {"output_dim": 0})
             set_weight_attrs(w_scale, extra_weight_attrs)
 

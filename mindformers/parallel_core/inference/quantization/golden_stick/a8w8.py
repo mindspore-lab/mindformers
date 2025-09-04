@@ -47,12 +47,13 @@ class A8W8LinearMethod(LinearMethodBase):
                                        transpose_x2=True,
                                        dtype=self.params_dtype)
         weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
-        weight = Parameter(initializer('ones', weight_shape, mindspore.int8))
+        weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
         deq_scale_shape = self.output_size_per_partition
         scale_dtype = mindspore.float32
-        deq_scale = Parameter(initializer('ones', deq_scale_shape, scale_dtype), name="deq_scale")
+        deq_scale = Parameter(
+            initializer('ones', deq_scale_shape, scale_dtype), name="deq_scale", requires_grad=False)
         shape = (self.output_size_per_partition,)
-        quant_bias = Parameter(initializer('zeros', shape, mindspore.int32), name="quant_bias")
+        quant_bias = Parameter(initializer('zeros', shape, mindspore.int32), name="quant_bias", requires_grad=False)
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
         set_weight_attrs(deq_scale, {"output_dim": 0})
         set_weight_attrs(quant_bias, {"output_dim": 0})
@@ -63,16 +64,21 @@ class A8W8LinearMethod(LinearMethodBase):
 
         if not self.is_modelslim:
             input_scale_shape = (input_size_per_partition,)
-            input_scale = Parameter(initializer('ones', input_scale_shape, self.params_dtype), name="input_scale")
-            input_offset = Parameter(initializer('zeros', input_scale_shape, mindspore.int8), name="input_offset")
+            input_scale = Parameter(
+                initializer('ones', input_scale_shape, self.params_dtype), name="input_scale", requires_grad=False)
+            input_offset = Parameter(
+                initializer('zeros', input_scale_shape, mindspore.int8), name="input_offset", requires_grad=False)
             set_weight_attrs(input_offset, {"input_dim": 0})
             set_weight_attrs(input_scale, {"input_dim": 0})
         else:
             input_scale_shape = (1,)
-            input_scale = Parameter(initializer('ones', input_scale_shape, self.params_dtype), name="input_scale")
-            input_offset = Parameter(initializer('zeros', input_scale_shape, self.params_dtype), name="input_offset")
+            input_scale = Parameter(
+                initializer('ones', input_scale_shape, self.params_dtype), name="input_scale", requires_grad=False)
+            input_offset = Parameter(
+                initializer('zeros', input_scale_shape, self.params_dtype),
+                name="input_offset", requires_grad=False)
             beta_shape = (input_size_per_partition,)
-            beta = Parameter(initializer('zeros', beta_shape, self.params_dtype), name="beta")
+            beta = Parameter(initializer('zeros', beta_shape, self.params_dtype), name="beta", requires_grad=False)
             set_weight_attrs(beta, {"input_dim": 0})
             set_weight_attrs(beta, extra_weight_attrs)
 
@@ -97,7 +103,8 @@ class A8W8LinearMethod(LinearMethodBase):
         if not self.is_modelslim:
             return
         input_offset = layer.input_offset.asnumpy()
-        layer.input_offset = Parameter(Tensor(input_offset, dtype=mindspore.int8), name=layer.input_offset.name)
+        layer.input_offset = Parameter(
+            Tensor(input_offset, dtype=mindspore.int8), name=layer.input_offset.name, requires_grad=False)
 
     def apply(self,
               layer: mindspore.nn.Cell,
