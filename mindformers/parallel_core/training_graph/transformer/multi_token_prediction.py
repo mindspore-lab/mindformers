@@ -160,7 +160,6 @@ class MultiTokenPredictionLayer(nn.Cell):
         )
 
         self.concat = Concat(axis=-1)
-        self.concat_mp = Concat(axis=-1)
         self.cast = Cast()
         self.reshape = Reshape()
 
@@ -171,12 +170,15 @@ class MultiTokenPredictionLayer(nn.Cell):
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
         cp = self.config.context_parallel_size
-        self.concat.shard(((cp, dp, 1), (cp, dp, 1)))
-        self.concat_mp.shard(((dp, tp, 1), (dp, tp, 1)))
+        self.concat.add_prim_attr("self_define_shard", True)
+        self.concat.shard(in_strategy=((layout("cp", "dp", "None"), layout("cp", "dp", "None")),),
+                          out_strategy=(layout("cp", "dp", "None"),))
         if self.use_seq_parallel and cp == 1:
             self.enorm.shard(config, in_strategy=(layout("tp", "dp", "None"), layout("None",)))
             self.hnorm.shard(config, in_strategy=(layout("tp", "dp", "None"), layout("None",)))
-            self.concat.shard(((tp, dp, 1), (tp, dp, 1)))
+            self.concat.add_prim_attr("self_define_shard", True)
+            self.concat.shard(in_strategy=((layout(("cp", "tp"), "dp", "None"), layout(("cp", "tp"), "dp", "None")),),
+                              out_strategy=(layout(("cp", "tp"), "dp", "None"),))
             self.eh_proj.matmul.shard(((dp * tp, 1), (1, 1)))
             self.final_layernorm.shard(config, in_strategy=(layout("tp", "dp", "None"), layout("None",)))
 
