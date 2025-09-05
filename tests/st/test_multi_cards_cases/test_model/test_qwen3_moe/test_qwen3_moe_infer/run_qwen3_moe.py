@@ -51,15 +51,15 @@ def test_qwen3_30b_a3b_predict_mcore(device_num: int = 1):
     batch_datas = {1: {"prompt": "Give me a short introduction to large language model.",
                        "answer": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
                                  "Give me a short introduction to large language model.<|im_end|>\n"
-                                 "<|im_start|>assistant\n使用網路電話及imageNamePREFIXesっきりtic不来/rem/rem/rem/rem/rem"
-                                 "/rem/rem/rem/rem/rem … الفند.bootstrapcdn…the…the…the…the…the組�,"
-                                 "eg,eg,eg,eg,eg,eg,eg,eg"},
+                                 "<|im_start|>assistant\n使用網路.bootstrapcdn…the…the…the…the…the…the…the"
+                                 "當您在../../../角落角落角落角落角落角落角落角落角落角落角落角落 Câm瀏瀏"
+                                 "iska#__#__#__#__#__#__#__#__"},
                    4: {"prompt": "Please introduce some scenic spots in Beijing.",
                        "answer": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
                                  "Please introduce some scenic spots in Beijing.<|im_end|>\n<|im_start|>assistant\n"
-                                 "使用網路電話及imageNamePREFIXesっきりtic不来/rem/rem/rem/rem/rem/rem/rem/rem/rem/rem/rem"
-                                 "/rem/remいらっoryanthaIdealized,いらっory prêt.bootstrapcdn…theメー�,.\n\n"
-                                 "enticate/cal/cal"},
+                                 "使用網路電話及imageNamePREFIXesっきりtic不来/rem/rem/rem/rem/rem/rem/rem/rem/rem/rem "
+                                 "… الفند.bootstrapcdn…the…the…the…the…the other reason reason reason reason(ver"
+                                 "当地人(local.getLocal(local…)"},
                    }
     for batch_size, batch_data in batch_datas.items():
         messages = [

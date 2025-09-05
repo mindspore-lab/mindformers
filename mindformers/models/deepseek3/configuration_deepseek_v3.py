@@ -143,6 +143,7 @@ class DeepseekV3Config(PretrainedConfig):
         rotary_dtype="fp32",
         hidden_dropout=0.0,
         use_flash_attention=True,
+        moe_router_score_function="sigmoid",
         moe_router_enable_expert_bias=True,
         normalization="RMSNorm",
         add_bias_linear=False,
@@ -150,6 +151,7 @@ class DeepseekV3Config(PretrainedConfig):
     ))
     @ignore_and_delete_parameter(extra_ignore_param=[
         ('ep_size', NotSupportedInfo.useless),
+        ('scoring_func', NotSupportedInfo.useless),
     ])
     def __init__(
             self,

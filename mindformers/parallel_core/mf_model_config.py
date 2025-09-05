@@ -324,6 +324,11 @@ class MFModelConfig:
     This option is only used in performance testing, not for general use.
     """
 
+    moe_router_score_function: str = "softmax"
+    """Score function for MoE routing. Can be "softmax" or "sigmoid"."""
+
+    moe_router_fusion: bool = False
+    """Fuse ops in routing and aux loss calculation."""
     ################################################
     # Training Parameters for MindSpore Transformers
     ################################################

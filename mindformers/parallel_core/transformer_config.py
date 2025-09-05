@@ -305,9 +305,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     Defaults to None, which means no scaling.
     """
 
-    moe_router_score_function: str = "softmax"
-    """Score function for MoE routing. Can be "softmax" or "sigmoid"."""
-
     moe_router_dtype: str = "float32"
     """
     Data type for routing and expert output weighted averaging.

@@ -165,6 +165,8 @@ class Glm4MoeConfig(PretrainedConfig):
             pad_token_id=151643,
             block_size=32,
             num_blocks=1024,
+            moe_router_score_function="sigmoid",
+            moe_router_enable_expert_bias=True,
             normalization='RMSNorm',
             add_bias_linear=False,
             gated_linear_unit=True

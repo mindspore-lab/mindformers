@@ -14,17 +14,16 @@
 # ============================================================================
 """Expert Router."""
 from typing import Optional
-import numpy as np
 
 import mindspore as ms
-from mindspore import Tensor, nn, Parameter, ops, mint
+from mindspore import Tensor, nn, Parameter, ops
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
-from mindspore.ops.auto_generate import FusedAddTopKDiv
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
+from mindformers.parallel_core.inference.transformer.moe.moe_utils import topk_routing_with_score_function
 
 
 __all__ = [
@@ -128,20 +127,18 @@ class TopKRouter(Router):
             config (TransformerConfig): The configuration for the transformer model.
         """
         super().__init__(config=config, model_comm_pgs=model_comm_pgs)
-        self.config = config
-        self.n_group = config.moe_router_num_groups
-        self.topk_group = config.moe_router_group_topk
-        self.group_topk_inner = 2
-        self.num_experts_chosen = config.moe_router_topk
-        self.moe_router_topk_scaling_factor = 1.0 if config.moe_router_topk_scaling_factor is None else \
-            config.moe_router_topk_scaling_factor
-        self.moe_router_enable_expert_bias = config.moe_router_enable_expert_bias
+        if self.config.moe_router_fusion and not self.config.moe_router_group_topk:
+            raise NotImplementedError("fused ops implementation for topk routing is not supported currently.")
 
-        self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
-        self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
-        set_weight_attrs(self.expert_bias, {"weight_loader": self.weight_loader})
+        self.topk = self.config.moe_router_topk
+        self.score_function = self.config.moe_router_score_function
 
-        self.fused_add_topk_div = FusedAddTopKDiv()
+        self.enable_expert_bias = self.config.moe_router_enable_expert_bias
+        if self.enable_expert_bias:
+            self.expert_bias = Parameter(initializer('zeros', (self.num_experts), mstype.float32))
+            set_weight_attrs(self.expert_bias, {"weight_loader": self.weight_loader})
+        else:
+            self.expert_bias = None
 
     def routing(self, logits: Tensor):
         """Top-k routing function
@@ -150,43 +147,35 @@ class TopKRouter(Router):
             logits (Tensor): Logits tensor after gating.
 
         Returns:
-            probs (Tensor): The probabilities of token to experts assignment.
+            expert_weight (Tensor): The probabilities of token to experts assignment.
             routing_map (Tensor): The mapping of token to experts assignment,
                 with shape [num_tokens, num_experts].
-            origin_probs (Tensor): The probabilities of token to experts assignment before add bias.
         """
-        gating_logits = self.gating(self.cast(logits, self.router_dense_type))
-        gating_logits = self.cast(gating_logits, mstype.float32)
-        if self.config.moe_router_group_topk:
-            expert_weight, expert_index = \
-                self.fused_add_topk_div(
-                    gating_logits,
-                    self.expert_bias,
-                    self.n_group,
-                    self.topk_group,
-                    self.group_topk_inner,
-                    self.num_experts_chosen,
-                    0,
-                    True,
-                    self.config.moe_router_topk_scaling_factor)
-        else:
-            score = mint.sigmoid(gating_logits)
-            scores_for_choice = score + self.expert_bias.unsqueeze(0)
-            _, expert_index = mint.topk(scores_for_choice, self.config.moe_router_topk, dim=-1)
-            expert_weight = score.gather(1, expert_index)
-            expert_index = self.cast(expert_index, mstype.int32)
-            expert_weight = mint.div(expert_weight, mint.sum(expert_weight, -1, True))
-            expert_weight = mint.mul(self.moe_router_topk_scaling_factor, expert_weight)
+        expert_weight, routing_map = topk_routing_with_score_function(
+            logits,
+            self.topk,
+            num_experts=self.config.num_moe_experts,
+            num_groups=self.config.moe_router_num_groups,
+            group_topk=self.config.moe_router_group_topk,
+            scaling_factor=self.config.moe_router_topk_scaling_factor,
+            score_function=self.score_function,
+            expert_bias=self.expert_bias,
+            norm_topk_prob=self.config.norm_topk_prob,
+            fused=self.config.moe_router_fusion,
+        )
 
-        return expert_weight, expert_index
+        return expert_weight, routing_map
 
     def construct(self, input_tensor: Tensor):
         """
         Forward pass of the router.
 
         Args:
-            input (torch.Tensor): Input tensor with shape [num_tokens, hidden_size].
+            input_tensor (torch.Tensor): Input tensor with shape [num_tokens, hidden_size].
         """
-        expert_weight, expert_index = self.routing(input_tensor)
+        logits = self.gating(self.cast(input_tensor, self.router_dense_type))
+        logits = self.cast(logits, mstype.float32)
 
-        return expert_weight, expert_index
+        expert_weight, routing_map = self.routing(logits)
+
+        return expert_weight, routing_map
