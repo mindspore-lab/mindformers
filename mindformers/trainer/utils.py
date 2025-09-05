@@ -31,7 +31,8 @@ from mindspore.common.file_system import _init_mindio, mindio_preload, set_mindi
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
-from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, compile_model
+from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors
+from mindformers.checkpoint.utils import compile_model
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
     replace_rank_id_in_ckpt_name,
@@ -460,7 +461,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
         # build net if parallel mode is auto_parallel
-        logger.info(".........Building model.........")
         compile_model(
             model=model,
             dataset=dataset,

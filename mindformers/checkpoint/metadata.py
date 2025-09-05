@@ -25,8 +25,8 @@ from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 from mindformers.checkpoint.sharded_tensor import ShardedTensor, get_sharded_tensor_list_from_strategy_metadata
 from mindformers.checkpoint.utils import (
     get_checkpoint_name,
-    get_metadata_filename,
-    get_sharded_tensor_shard_id
+    get_sharded_tensor_shard_id,
+    FileType
 )
 
 tensor_to_ms_type = {str(dtype): dtype for dtype in all_types}
@@ -164,8 +164,7 @@ def save_metadata(sharded_tensor_metas, param_file_mappings, meta_data_path):
         raise OSError(f"Failed to write metadata file '{meta_data_path}': {str(e)}") from e
 
 
-
-def load_metadata(checkpoints_path, iteration):
+def load_metadata(metadata_file: str):
     """
     Load sharded tensor metadata and parameter file mappings from a metadata.json file.
 
@@ -175,11 +174,7 @@ def load_metadata(checkpoints_path, iteration):
     for checkpoint loading operations.
 
     Args:
-        checkpoints_path (str): Path to the directory containing checkpoint files and metadata.
-            The function will look for a metadata.json file in this directory.
-
-        iteration (int): Training iteration number used to locate the specific metadata file.
-            This corresponds to the iteration number used when the metadata was saved.
+        metadata_file (str): Path to the metadata.json under checkpoint directory.
 
     Returns:
         A tuple containing two dictionaries:
@@ -199,8 +194,6 @@ def load_metadata(checkpoints_path, iteration):
 
         KeyError: If required metadata fields are missing from the JSON structure.
     """
-    metadata_file = get_metadata_filename(checkpoints_path, iteration)
-
     try:
         with open(metadata_file, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
@@ -282,9 +275,9 @@ def get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_
         # Get mappings of parameter file of current rank.
         for sharded_tensor in cur_rank_sharded_tensor_list:
             if model_keys and sharded_tensor.key not in list(model_keys):
-                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Optimizer')
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.OPTIMIZER)
             else:
-                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, 'Model')
+                ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.MODEL)
 
             param_file_mappings.append(
                 (ckpt_name + '.safetensors', cur_npu_rank, (sharded_tensor.key, sharded_tensor.global_offset))

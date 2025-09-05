@@ -27,7 +27,8 @@ from mindformers.checkpoint.utils import (
     _reverse_sharded_tensor_shard_id,
     get_checkpoint_iter_dir,
     get_metadata_filename,
-    get_checkpoint_name
+    get_checkpoint_name,
+    FileType
 )
 
 
@@ -55,7 +56,7 @@ class BalancedSaveStrategy():
     """
 
     def __init__(self, network, user_prefix=None, do_cache_distribution=False, checkpoint_path=None,
-                 filter_func=None, file_type="Model"):
+                 filter_func=None, file_type=FileType.MODEL):
         """
         Initialize the BalancedSaveStrategy object.
         """
@@ -237,7 +238,8 @@ class BalancedSaveStrategy():
             origin_metadata_file = get_metadata_filename(self.checkpoint_path, iteration)
 
             if os.path.exists(origin_metadata_file):
-                origin_shard_metadata, origin_param_file_mapping = load_metadata(self.checkpoint_path, iteration)
+                origin_shard_metadata, origin_param_file_mapping = load_metadata(
+                    get_metadata_filename(self.checkpoint_path, iteration))
                 shard_to_metadata.append(list(origin_shard_metadata.values()))
                 for param_id, storage in origin_param_file_mapping.items():
                     for storage_item in storage:
