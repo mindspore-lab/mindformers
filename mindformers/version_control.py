@@ -29,6 +29,21 @@ from .tools.utils import is_version_ge
 from .tools.logger import logger
 
 
+def get_all2allvc():
+    """Return AlltoAllVC operation if available, otherwise return a dummy class."""
+    class DummyAlltoAllVC:
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError(
+                f"AlltoAllVC is not supported in MindSpore version {ms.__version__}. "
+                f"Please ensure moe_token_dispatcher_type is not set to 'alltoall_zero_redundancy'."
+            )
+    try:
+        from mindspore.ops.operations.comm_ops import AlltoAllVC
+    except ImportError:
+        AlltoAllVC = DummyAlltoAllVC
+    return AlltoAllVC
+
+
 def is_910a():
     device = MSContext.get_instance().get_ascend_soc_version()
     return device in ['910a', 'ascend910']
