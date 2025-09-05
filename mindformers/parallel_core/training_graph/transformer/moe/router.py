@@ -15,11 +15,12 @@
 """Router For MoE."""
 from abc import ABC, abstractmethod
 
+import numpy as np
 from mindspore import nn, ops
 from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
-from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt, Dense, MeanExt
+from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt, Dense, MeanExt, Tile
 # these ops are not supported in auto_generate
 from mindspore.ops.operations import Shape, ReduceSum, ReduceMean
 from mindspore.parallel._utils import _get_parallel_mode
@@ -51,6 +52,8 @@ class Router(ABC, nn.Cell):
         self.expert_dim = config.num_moe_experts
         self.num_experts_chosen = config.moe_router_topk
         self.moe_router_dtype = config.moe_router_dtype
+        self.force_expert_balance = config.moe_router_force_expert_balance
+        self.seq_length = config.seq_length
 
         weight_shape = (self.expert_dim, self.hidden_size)
         self.weight = Parameter(config.init_method(weight_shape), name='weight')
@@ -137,6 +140,12 @@ class TopKRouter(Router):
         self.aux_loss_config = dict(zip(config.aux_loss_types, config.aux_loss_factors))
         self.aux_loss_factor = self.aux_loss_config.get("expert", 0.0)
 
+        if self.force_expert_balance:
+            self.tile = Tile()
+            self.add = AddExt()
+            self.balance_router_porb = Tensor(self.generate_balance_router_prob(config.data_parallel_size),
+                                              self.moe_router_dtype)
+
         # shard all the ops
         if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
@@ -155,6 +164,10 @@ class TopKRouter(Router):
         """
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob = self.gating_activation(logits)
+        if self.force_expert_balance:
+            multiple = router_prob.shape[1] // self.balance_router_porb.shape[1]
+            balance_router_porb = self.tile(self.balance_router_porb, (1, multiple, 1))
+            router_prob = self.add(self.mul(0, router_prob), balance_router_porb)
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob_for_aux = self._normalize(router_prob) if self.use_gating_sigmoid else router_prob
         # (dp, N, k) fp32,  (dp, N, k) int32 <-- (dp, N, E) fp32
@@ -228,6 +241,19 @@ class TopKRouter(Router):
         expert_load_loss = self.mul_noshard(expert_load_loss, alpha * self.expert_dim ** 2)
         return expert_load_loss
 
+    def generate_balance_router_prob(self, data_parallel):
+        """generate balanced router prob."""
+        total_elements = data_parallel * self.seq_length * self.expert_dim
+        balance_router_prob = np.zeros(total_elements)
+        big_period = int(self.expert_dim / self.num_experts_chosen * self.expert_dim)
+        local_period = self.expert_dim + self.num_experts_chosen
+        for i in range(total_elements):
+            local_index = i % big_period
+            if local_index % local_period == 0:
+                balance_router_prob[i: i + self.num_experts_chosen] = 1
+        balance_router_prob = balance_router_prob.reshape((self.dp, -1, self.expert_dim))
+        return balance_router_prob
+
     def construct(self, inputs):
         """Construct function of TopKRouter."""
         # 1. gating
@@ -287,3 +313,7 @@ class TopKRouter(Router):
         self.onehot_aux.shard(in_strategy=(layout(dp, "None"), layout(), layout(), layout(), layout()),
                               out_strategy=(layout(dp, "None", "None"),))
         self.add_loss.shard((layout("None",), layout()))
+
+        if self.force_expert_balance:
+            self.add.shard((layout(dp, "None", "None"), layout(dp, "None", "None")))
+            self.tile.shard((layout(dp, "None", "None"),))
