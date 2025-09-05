@@ -14,7 +14,6 @@
 # ============================================================================
 """test stress detect."""
 import unittest
-from unittest.mock import patch
 import pytest
 import mindspore as ms
 from mindformers.core.callback import StressDetectCallBack
@@ -38,8 +37,7 @@ class TestStressDetectCallBack(unittest.TestCase):
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    @patch('mindformers.version_control.check_stress_detect_valid', return_value=True)
-    def test_log_stress_detect_result_passed(self, _):
+    def test_log_stress_detect_result_passed(self):
         """
         Feature: StressDetectCallBack
         Description: Test StressDetectCallBack log_stress_detect_result
@@ -65,8 +63,7 @@ class TestStressDetectCallBack(unittest.TestCase):
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    @patch('mindformers.version_control.check_stress_detect_valid', return_value=True)
-    def test_log_stress_detect_result_voltage_error(self, _):
+    def test_log_stress_detect_result_voltage_error(self):
         """
         Feature: StressDetectCallBack
         Description: Test StressDetectCallBack log_stress_detect_result
@@ -88,8 +85,7 @@ class TestStressDetectCallBack(unittest.TestCase):
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    @patch('mindformers.version_control.check_stress_detect_valid', return_value=True)
-    def test_log_stress_detect_result_other_error(self, _):
+    def test_log_stress_detect_result_other_error(self):
         """
         Feature: StressDetectCallBack
         Description: Test StressDetectCallBack log_stress_detect_result
