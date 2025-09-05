@@ -419,7 +419,6 @@ class Came(Optimizer):
     @jit
     def construct(self, gradients):
         """construct of came optimizer."""
-        gradients = self.flatten_gradients(gradients)
         lr = self.get_lr()
         self.assignadd(self.global_step, self.global_step_increase_tensor)
         F.assign_add(self.step, 1)

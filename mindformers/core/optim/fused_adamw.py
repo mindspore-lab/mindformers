@@ -205,7 +205,6 @@ class FusedAdamW(Optimizer):
 
     def construct(self, gradients):
         """forward process"""
-        grads = self.flatten_gradients(gradients)
         weight_decay = self.get_weight_decay()
         lr = self.get_lr()
         self.assignadd(self.global_step, self.global_step_increase_tensor)
@@ -215,21 +214,21 @@ class FusedAdamW(Optimizer):
                 optim_result = self.hyper_map(
                     F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
                               self.eps, self.global_step),
-                    lr, weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    lr, weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq, self.optim_filter,
                     self.max_exp_avg_sq
                 )
             else:
                 optim_result = self.hyper_map(
                     F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
                               self.eps, self.global_step, lr),
-                    weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq, self.optim_filter,
                     self.max_exp_avg_sq
                 )
         else:
             optim_result = self.hyper_map(
                 F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
                           self.eps, self.global_step, lr, weight_decay),
-                self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter, self.max_exp_avg_sq
+                self._parameters, gradients, self.exp_avg, self.exp_avg_sq, self.optim_filter, self.max_exp_avg_sq
             )
 
         return optim_result

@@ -193,7 +193,6 @@ class AdamW(Optimizer):
 
     def construct(self, gradients):
         """forward process"""
-        gradients = self.flatten_gradients(gradients)
         weight_decay = self.get_weight_decay()
         lr = self.get_lr()
         self.assignadd(self.global_step, self.global_step_increase_tensor)
