@@ -785,15 +785,23 @@ class IndexedDatasetBuilder(object):
         Args:
             tensor (numpy.ndarray): The document to add
 
-            lengths (List[int]): The lengths of each item in the document
+            lengths (Union[int, List[int]]): The lengths of each item in the document
 
             modes (Optional[List[int]], optional): The modes for each item in the document. Defaults to None.
         """
-        self.data_file.write(np_array.tobytes(order="C"))
-        self.sequence_lengths.extend(lengths)
-        self.document_indices.append(len(self.sequence_lengths))
-        if self.multimodal:
+        if isinstance(lengths, int):
+            if not self.multimodal:
+                raise ValueError("Cannot pass lengths as int when multimodal is False")
             self.sequence_modes.extend(modes if modes is not None else [0] * lengths)
+        elif isinstance(lengths, list):
+            if not isinstance(np_array, numpy.ndarray):
+                np_array = numpy.array(np_array)
+
+            self.data_file.write(np_array.tobytes(order="C"))
+            self.sequence_lengths.extend(lengths)
+            self.document_indices.append(len(self.sequence_lengths))
+        else:
+            raise ValueError("lengths must be an int or a list of ints")
 
     def end_document(self) -> None:
         """Finalize the document, for use with IndexedDatasetBuilder.add_item"""
