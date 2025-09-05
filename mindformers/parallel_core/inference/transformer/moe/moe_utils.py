@@ -121,7 +121,8 @@ def topk_routing_with_score_function(
         if group_topk:
             fused_add_topk_div = FusedAddTopKDiv()
             # Fused operator requires that bias must be tensor and cannot be none
-            expert_bias = expert_bias or mint.zeros((num_experts,), dtype=mstype.float32)
+            expert_bias = expert_bias if expert_bias is not None else \
+                            mint.zeros((num_experts,), dtype=mstype.float32)
             return fused_add_topk_div(
                 logits,
                 expert_bias,
