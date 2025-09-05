@@ -515,7 +515,6 @@ class FusedMLASelfAttention(MLASelfAttention):
             quant_config=quant_config,
             prefix=prefix
         )
-        self.mla_preprocess = ops.auto_generate.MlaPreprocess()
         self.is_modelslim = quant_config.is_modelslim
         self.fa3_quant = quant_config.fa3_quant
         self.fa3_quant_layer = quant_config.fa3_quant_layer
@@ -528,8 +527,10 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_beta = None
         self.qkv_down_proj_input_offset = None
         self.q_up_proj_input_offset = None
+        self.qkv_down_weight = None
+        self.q_up_weight = None
+        self.input_format = 1 if self.fa3_quant else 0
         self.use_ringmla = get_tensor_model_parallel_world_size() < 16
-        self.mla = ops.auto_generate.Mla()
         self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
                            if self.softmax_scale is None else self.softmax_scale
         self.ring_mla_mask = Tensor(np.triu(np.ones((512, 512), dtype=np.float16), 1), dtype.bfloat16)
@@ -605,6 +606,8 @@ class FusedMLASelfAttention(MLASelfAttention):
                                                  dtype=dtype.int8)
         self.q_up_proj_input_offset = Tensor(self.linear_q_up_proj.input_offset.asnumpy(),
                                              dtype=dtype.int8)
+        self.qkv_down_weight = ms.jit(ms_custom_ops.trans_data)(self.linear_qkv_down_proj.weight, transdata_type=1)
+        self.q_up_weight = ms.jit(ms_custom_ops.trans_data)(self.linear_q_up_proj.weight, transdata_type=1)
         if not self.is_fa3_quant_layer:
             return
         qnope_scale = self.qnope_scale.asnumpy()
@@ -638,10 +641,10 @@ class FusedMLASelfAttention(MLASelfAttention):
                     quant_kv_compressed = self.quant(kv_compressed, self.quant_ctkv_scale, self.ctkv_offset, False,
                                                      "ROUND", dtype.int8)
                     kv_out = ms_custom_ops.reshape_and_cache(quant_kv_compressed, k_pos_emb, key_cache, value_cache,
-                                                             slot_mapping, 1)
+                                                             slot_mapping, self.input_format, head_num=1)
                 else:
                     kv_out = ms_custom_ops.reshape_and_cache(kv_compressed, k_pos_emb, key_cache, value_cache,
-                                                             slot_mapping, 1)
+                                                             slot_mapping, self.input_format, head_num=1)
                 q_no_pe = self.depend(q_no_pe, kv_out)
             else:
                 key_states_cache = mint.cat((kv_compressed, k_pos_emb), dim=-1)
@@ -672,13 +675,13 @@ class FusedMLASelfAttention(MLASelfAttention):
         out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
                                         self.config.v_head_dim, self.config.kv_lora_rank)
 
-        states = self.mla_preprocess(
+        states = ms_custom_ops.mla_preprocess(
             hidden_states,
             self.input_layernorm_weight,
             self.qkv_down_beta,
             self.qkv_down_proj_input_scale,
             self.qkv_down_proj_input_offset,
-            self.linear_qkv_down_proj.weight,
+            self.qkv_down_weight,
             self.linear_qkv_down_proj.quant_bias,
             self.q_layernorm_weight,
             self.q_up_beta,
@@ -691,7 +694,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             rotary_pos_cos,
             key_cache,
             slot_mapping,
-            self.linear_q_up_proj.weight,
+            self.q_up_weight,
             self.linear_q_up_proj.quant_bias,
             q_absorb,
             self.linear_qkv_down_proj.deq_scale,
@@ -760,28 +763,8 @@ class FusedMLASelfAttention(MLASelfAttention):
             )
             # compute_prefill_context
             if self.is_chunked:
-                k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                               Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
-                r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                               Tensor([1, self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
-                # fa3_quant kvcache format is nz (shape is three dims)
-                # paged_cache_load + nz now has error in the network
-                # by the reshape ops, Identity ops is inserted for nz to nd
-                # to temporarily avoid paged_cache_load errors
-                if self.fa3_quant:
-                    num_blocks, block_size, _ = key_cache.shape
-                    key_cache = key_cache.reshape(num_blocks, block_size, 1, self.config.kv_lora_rank)
-                    value_cache = value_cache.reshape(num_blocks, block_size, 1, self.config.qk_pos_emb_head_dim)
-                # for fa3_quant_layer, need to dequant the key_cache
-                if self.is_fa3_quant_layer:
-                    key_cache = self.cast(key_cache, dtype.bfloat16)
-                    key_cache = key_cache / self.quant_ctkv_scale
-                load_out = ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
-                                                          context_lens_tensor, k_cache, r_cache)
-                k_cache = self.depend(k_cache, load_out)
-
+                k_cache, r_cache = self.kv_cache_loader(key_cache, value_cache, block_tables, context_lens_tensor)
                 k_no_pe, k_pos_emb, value = self.split_kv(k_cache, r_cache)
-
                 context_lens_cpu = ops.move_to(context_lens_tensor, "CPU")
                 core_attn_out, _ = ms_custom_ops.ring_mla(
                     query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
@@ -794,10 +777,10 @@ class FusedMLASelfAttention(MLASelfAttention):
                     calc_type=0, #"CALC_TYPE_FISRT_RING",
                     )
         else:
-            core_attn_out, _ = self.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
-                                        self.qk_descale, self.pv_descale,
-                                        q_seq_lens, batch_valid_length, self.num_attention_heads_per_partition,
-                                        self.scale_value)
+            core_attn_out, _ = ms_custom_ops.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
+                                                 self.qk_descale, self.pv_descale, q_seq_lens, batch_valid_length,
+                                                 self.num_attention_heads_per_partition, self.scale_value,
+                                                 kv_head_num=1, mask_type=0, input_format=self.input_format)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
             core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
@@ -811,6 +794,57 @@ class FusedMLASelfAttention(MLASelfAttention):
         output = self.linear_proj(core_attn_out)
 
         return output
+
+    def kv_cache_loader(self, key_cache, value_cache, block_tables, context_lens_tensor):
+        "load kv cache using paged_cache_load"
+        # for fa3_quant_layer, need to dequant the key_cache
+        # since paged_cache_load is not supported for loading k cache and v cache
+        # in different format(e.g. int8 for k cache and bfloat16 for v cache;
+        # None for k cache and bfloat16 for v cache), fa_qaunt_layer requires to use
+        # empty tensor and paged_cache_load twice
+        if self.is_fa3_quant_layer:
+            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([self.config.kv_lora_rank]))), dtype=dtype.int8)
+            r_cache_ = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                            Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.int8)
+            value_cache_ = mint.zeros(value_cache.shape, dtype=dtype.int8)
+            load_out_k = ms_custom_ops.paged_cache_load(key_cache, value_cache_, block_tables,
+                                                        context_lens_tensor, k_cache, r_cache_, None, 1)
+            k_cache = self.depend(k_cache, load_out_k)
+            k_cache = self.cast(k_cache, dtype.bfloat16)
+            k_cache = k_cache / self.quant_ctkv_scale
+
+            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
+            k_cache_ = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                            Tensor([self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
+            key_cache_ = mint.zeros(key_cache.shape, dtype=dtype.bfloat16)
+            load_out_r = ms_custom_ops.paged_cache_load(key_cache_, value_cache, block_tables,
+                                                        context_lens_tensor, k_cache_, r_cache, None, 1)
+            r_cache = self.depend(r_cache, load_out_r)
+        elif self.fa3_quant:
+            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
+            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
+            load_out = ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
+                                                      context_lens_tensor, k_cache, r_cache, None, 1)
+            k_cache = self.depend(k_cache, load_out)
+        else:
+            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
+            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
+                                           Tensor([1, self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
+            load_out = ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
+                                                      context_lens_tensor, k_cache, r_cache, None, 0)
+            k_cache = self.depend(k_cache, load_out)
+
+        if self.fa3_quant:
+            context_len, _ = k_cache.shape
+            k_cache = k_cache.reshape(context_len, 1, self.config.kv_lora_rank)
+            r_cache = r_cache.reshape(context_len, 1, self.config.qk_pos_emb_head_dim)
+
+        return k_cache, r_cache
 
     def weight_loader(self, param, loaded_weight):
         """

@@ -27,6 +27,11 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
+try:
+    import ms_custom_ops
+except ModuleNotFoundError:
+    # environment need install ms_custom_ops package
+    pass
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -176,13 +181,16 @@ class GenerationMixin:
                 k_cache_dtype = mstype.int8 if num_layer in fa3_quant_layer else compute_dtype
                 k_cache = mint.zeros(kv_cache_shape[:-2] + (512,), dtype=k_cache_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-2] + (64,), dtype=compute_dtype)
+                k_cache = ms.jit(ms_custom_ops.trans_data)(k_cache, transdata_type=1)
+                v_cache = ms.jit(ms_custom_ops.trans_data)(v_cache, transdata_type=1)
             elif use_ringmla:
                 k_cache = mint.zeros(kv_cache_shape[:-1] + (512,), dtype=compute_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-1] + (64,), dtype=compute_dtype)
             else:
                 k_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
                 v_cache = mint.zeros(kv_cache_shape, dtype=compute_dtype)
-            if is_310p() or fa3_quant:
+            # 310p nd-to-nz precess only supports format_cast
+            if is_310p():
                 k_cache = ops.auto_generate.format_cast(k_cache, format_type['nz'])
                 v_cache = ops.auto_generate.format_cast(v_cache, format_type['nz'])
             key_cache.append(k_cache)
