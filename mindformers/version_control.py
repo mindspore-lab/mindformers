@@ -76,10 +76,16 @@ def get_lazy_inline(func):
         model_config = kwargs.get('config')
         if model_config and hasattr(model_config, 'disable_lazy_inline'):
             disable_lazy_inline = model_config.disable_lazy_inline
-
+        stand_alone = ms.get_auto_parallel_context("parallel_mode") == "stand_alone"
         if disable_lazy_inline:
             logger.info("The Lazy Inline compilation acceleration feature has been called, "
                         "and the feature is disabled by default.")
+            func(*args, **kwargs)
+            return
+
+        if stand_alone:
+            logger.info("The Lazy Inline compilation acceleration feature does not support single-card mode."
+                        "This feature is disabled by default.")
             func(*args, **kwargs)
             return
 
