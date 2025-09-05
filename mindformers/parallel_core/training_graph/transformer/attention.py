@@ -143,7 +143,7 @@ class Attention(nn.Cell):
         self.use_attention_mask = True if self.config.use_attention_mask is None else self.config.use_attention_mask
 
         # Define ulysses context parallel related parameters
-        self.cp_ds = 1
+        self.cp_ds = self.config.hierarchical_context_parallel_sizes
         self.cp_co = self.cp // self.cp_ds
 
         if self.hidden_size % self.num_heads != 0:
@@ -287,8 +287,9 @@ class Attention(nn.Cell):
             value = self._ulysses_kv_a2a(value)
         elif self.cp > 1:
             # Merge heads for query and key
-            query = self._merge_heads(query)
-            key = self._merge_heads(key)
+            query = self.reshape(query, (seq_len, bs, -1))
+            key = self.reshape(key, (seq_len, bs, -1))
+            value = self.reshape(value, (seq_len, bs, -1))
         else:
             value = self.reshape(value, (seq_len, bs, self.kv_num_heads, self.head_dim))
             key, value = self._cat_prefix(key, value, prefix_keys_values)
@@ -353,22 +354,6 @@ class Attention(nn.Cell):
             key = self.cat((past_key, key))
             value = self.cat((past_value, value))
         return key, value
-
-    def _merge_heads(self, x):
-        """
-        Convert a 4D input tensor to a 3D output tensor.
-
-        Inputs:
-            x: input tensor
-
-        Output:
-            x_merge: the 3D output tensor
-        """
-        x = self.merge_head_transpose(x, (0, 2, 1, 3))  # dp,tp,cp,1 -> dp,cp,tp,1
-        bs, seq_len, n_head, head_dim = self.shape(x)
-        new_shape = (bs, seq_len, n_head * head_dim)
-        x_merge = self.reshape(x, new_shape)
-        return x_merge
 
     def _repeat_kv(self, x, rep):
         if rep == 1:

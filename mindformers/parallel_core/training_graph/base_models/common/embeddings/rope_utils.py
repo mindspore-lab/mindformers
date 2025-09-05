@@ -167,30 +167,42 @@ class ApplyRotaryPosEmb(nn.Cell):
 
     def shard(self, config: TransformerConfig):
         """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""
-        dp = config.data_parallel_size if config and config.data_parallel_size is not None else 1
-        tp = config.tensor_model_parallel_size if config and config.tensor_model_parallel_size is not None else 1
+        self.cos.add_prim_attr("self_define_shard", True)
+        self.sin.add_prim_attr("self_define_shard", True)
+        self.slice.add_prim_attr("self_define_shard", True)
+        self.strideslice.add_prim_attr("self_define_shard", True)
+        self.cat.add_prim_attr("self_define_shard", True)
 
-        self.mul_mscale.shard(((1, 1, 1, 1), (1,)))
-        self.cos.shard(((1, 1, 1, 1),))
-        self.sin.shard(((1, 1, 1, 1),))
+        self.mul_mscale.shard(in_strategy=(layout("None", "None", "None", "None"), layout("None",)))
+        self.cos.shard(in_strategy=(layout("None", "None", "None", "None"),),
+                       out_strategy=(layout("None", "None", "None", "None"),)
+                       )
+        self.sin.shard(in_strategy=(layout("None", "None", "None", "None"),),
+                       out_strategy=(layout("None", "None", "None", "None"),)
+                       )
+
         if not self.for_k_pos_emb:
             self.split.shard((layout("cp", "dp", "tp", "None"),))
             self.neg.shard((layout("cp", "dp", "tp", "None"),))
             self.add.shard((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")))
-            strategy_in = (1, dp, tp, 1)
-            self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))
-            self.slice.shard((strategy_in,))
-            self.strideslice.shard((strategy_in,))
-            self.cat.shard((strategy_in, strategy_in))
+            self.mul.shard(in_strategy=(layout("None", "dp", "tp", "None"), layout("None", "None", "None", "None")))
+            self.slice.shard(in_strategy=(layout("None", "dp", "tp", "None"),),
+                             out_strategy=(layout("None", "dp", "tp", "None"),))
+            self.strideslice.shard(in_strategy=(layout("None", "dp", "tp", "None"),),
+                                   out_strategy=(layout("None", "dp", "tp", "None"),))
+            self.cat.shard(in_strategy=((layout("None", "dp", "tp", "None"), layout("None", "dp", "tp", "None")),),
+                           out_strategy=(layout("None", "dp", "tp", "None"),))
         else:
             self.split.shard((layout("cp", "dp", "None", "None"),))
             self.neg.shard((layout("cp", "dp", "None", "None"),))
             self.add.shard((layout("cp", "dp", "None", "None"), layout("cp", "dp", "None", "None")))
-            strategy_in = (1, dp, 1, 1)
-            self.mul.shard(in_strategy=(strategy_in, (1, 1, 1, 1)))
-            self.slice.shard((strategy_in,))
-            self.strideslice.shard((strategy_in,))
-            self.cat.shard((strategy_in, strategy_in))
+            self.mul.shard(in_strategy=(layout("None", "dp", "None", "None"), layout("None", "None", "None", "None")))
+            self.slice.shard(in_strategy=(layout("None", "dp", "None", "None"),),
+                             out_strategy=(layout("None", "dp", "None", "None"),))
+            self.strideslice.shard(in_strategy=(layout("None", "dp", "None", "None"),),
+                                   out_strategy=(layout("None", "dp", "None", "None"),))
+            self.cat.shard(in_strategy=((layout("None", "dp", "None", "None"), layout("None", "dp", "None", "None")),),
+                           out_strategy=(layout("None", "dp", "None", "None"),))
 
         if self.apply_rope_fusion:
             self.rope.shard(in_strategy=(layout("cp", "dp", "tp", "None"),

@@ -175,20 +175,21 @@ class RankGenerator:
         self.dp = dp
         self.pp = pp
         self.cp = cp
-        if self.cp != 1:
-            raise ValueError(f"For now context parallel is not supported, but got cp={cp}.")
-        self.world_size = tp * dp * pp * ep
+        self.world_size = tp * dp * pp * ep * cp
 
         self.name_to_size = {
             "tp": self.tp,
             "pp": self.pp,
             "dp": self.dp,
             "ep": self.ep,
+            "cp": self.cp,
         }
         self.order = order
         order = order.lower()
 
         for name, size in self.name_to_size.items():
+            if name == "cp" and size != 1:
+                order = order + '-' + name
             if name not in order and size != 1:
                 raise RuntimeError(
                     f"The size of ({name}) is ({size}), but you haven't specified the order ({self.order})."
@@ -310,6 +311,7 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
                               data_parallel_size: int = 1,
                               pipeline_model_parallel_size: int = 1,
                               expert_model_parallel_size: int = 1,
+                              context_parallel_size: Optional[int] = 1,
                               order: str = "tp-ep-pp-dp",) -> None:
     """Initialize model data parallel groups.
 
@@ -331,6 +333,9 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
             The number of Mixture of Experts parallel GPUs in each expert
             parallel group.
 
+        context_parallel_size (int, default = 1):
+            The number of context parallel groups.
+
         order (str, default="tp-ep-pp-dp"):
             The order of the parallel configuration. It can be `tp`, `dp`, `pp` or `ep`.
             For example, if the order is `tp-ep-pp-dp`, it means that the tensor parallel
@@ -344,7 +349,8 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
         )
     rank_id = get_rank()
     world_size = get_group_size()
-    total_model_size = data_parallel_size * tensor_model_parallel_size * pipeline_model_parallel_size
+    total_model_size = data_parallel_size * tensor_model_parallel_size \
+        * pipeline_model_parallel_size * context_parallel_size
 
     if world_size % expert_model_parallel_size != 0:
         raise ValueError(
@@ -364,7 +370,7 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
                                    ep=1,
                                    dp=data_parallel_size,
                                    pp=pipeline_model_parallel_size,
-                                   cp=1,
+                                   cp=context_parallel_size,
                                    order=order)
 
     def create_process_group(token: str, group_name_prefix: str) -> Union[ProcessGroup, None]:

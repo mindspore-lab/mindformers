@@ -64,6 +64,13 @@ def func_infer_shape(*args):
     output_shape = [int(shape_value), args[0][-1]]
     return output_shape
 
+def func_infer_shape_labels_and_masks(*args):
+    """infer_shape for Morph."""
+    input_shape = args[0]
+    shape_value = np.prod(input_shape)
+    output_shape = [int(shape_value)]
+    return output_shape
+
 
 class GPTModel(nn.Cell):
     """GPT Transformer language model.
@@ -182,8 +189,10 @@ class GPTModel(nn.Cell):
         self.tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
         self.dp = config.data_parallel_size if config.data_parallel_size is not None else 1
         self.pp = config.pipeline_model_parallel_size if config.pipeline_model_parallel_size is not None else 1
+        self.cp = config.context_parallel_size if config.context_parallel_size is not None else 1
+
         initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
-                                  pipeline_model_parallel_size=self.pp)
+                                  pipeline_model_parallel_size=self.pp, context_parallel_size=self.cp)
 
         # Internally generates AttentionMask.
         self.casual_mask = CausalMaskGenerate(
@@ -293,8 +302,17 @@ class GPTModel(nn.Cell):
         self.assign = aclnn_ops.Assign()
 
         # init morphed layer
-        self.morphed_reshape = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
-            "self_define_shard", True)
+        self.morphed_reshape_logits = Morph(
+            self.forward_func_logits,
+            func_infer_shape,
+            func_infer_dtype
+            ).add_prim_attr("self_define_shard", True)
+
+        self.morphed_reshape_labels_and_masks = Morph(
+            self.forward_func_labels_and_masks,
+            func_infer_shape_labels_and_masks,
+            func_infer_dtype
+            ).add_prim_attr("self_define_shard", True)
 
         # update topk-bias
         if config.moe_router_enable_expert_bias:
@@ -388,7 +406,7 @@ class GPTModel(nn.Cell):
         logits, _ = self.output_layer(hidden_states, output_weight)
         if logits.ndim > 2:
             logits = self.transpose(logits, (1, 0, 2))
-            logits = self.morphed_reshape(logits)
+            logits = self.morphed_reshape_logits(logits)
         logits = self.cast(logits, dtype.float32)
 
         if not self.training:
@@ -402,9 +420,14 @@ class GPTModel(nn.Cell):
             return numerator0, denominator0, numerator1, denominator1, extra_loss * denominator0
         return loss, mtp_loss, extra_loss
 
-    def forward_func(self, input_):
+    def forward_func_logits(self, input_):
         """Morphed forward."""
         output = self.reshape(input_, (-1, input_.shape[-1]))
+        return output
+
+    def forward_func_labels_and_masks(self, input_):
+        """Morphed forward."""
+        output = self.reshape(input_, (-1,))
         return output
 
     def language_model(
@@ -509,8 +532,8 @@ class GPTModel(nn.Cell):
             loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
         label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
         loss_mask = self.mul(loss_mask, label_mask)
-        loss_mask = self.reshape(loss_mask, (-1,))
-        labels = self.reshape(labels, (-1,))
+        loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
+        labels = self.morphed_reshape_labels_and_masks(labels)
         if self.config.use_eod_attn_mask_compression or self.config.use_attn_mask_compression:
             attention_mask = self.casual_mask()
         elif attention_mask is None:
@@ -603,12 +626,20 @@ class GPTModel(nn.Cell):
                 self.output_layer.pipeline_stage = pipeline_stage - 1
                 if self.mtp_process:
                     self.mtp.pipeline_stage = pipeline_stage - 1
-        self.morphed_reshape.shard(
+        self.morphed_reshape_logits.shard(
             in_strategy=(
                 layout("dp", "cp", "tp"),
             ),
             out_strategy=(
                 layout("dp_cp", "tp"),
+            )
+        )
+        self.morphed_reshape_labels_and_masks.shard(
+            in_strategy=(
+                layout("dp", "cp"),
+            ),
+            out_strategy=(
+                layout("dp_cp"),
             )
         )
 
