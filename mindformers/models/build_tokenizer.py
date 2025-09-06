@@ -17,6 +17,7 @@
 import os.path
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+from mindformers.core.context.build_context import get_context
 from ..mindformer_book import MindFormerBook
 
 
@@ -71,6 +72,8 @@ def build_tokenizer(
     if not use_legacy:
         from transformers import AutoTokenizer
         pretrained_model_dir = kwargs.get("pretrained_model_dir", None)
+        if not pretrained_model_dir:
+            pretrained_model_dir = get_context('pretrained_model_dir')
         if not pretrained_model_dir:
             raise ValueError("The current interface supports passing a local folder path, "
                              "but the provided path is empty or None.")
