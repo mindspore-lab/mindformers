@@ -384,6 +384,32 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     shared_expert_num: int = 0
     """Number of shared experts."""
 
+    enable_expert_relocation: bool = False
+    """
+    Enable dynamic expert relocation for load balancing in MoE models.
+    When enabled, experts will be dynamically redistributed across devices
+    based on their load history to improve training efficiency and load balance.
+    The default setting is False.
+    """
+    expert_relocation_initial_iteration: int = 20
+    """
+    The initial iteration to start expert relocation.
+    Expert relocation will begin after this many training iterations.
+    The default value is 20.
+    """
+    expert_relocation_freq: int = 50
+    """
+    Frequency of expert relocation in training iterations.
+    Expert relocation will be performed every N iterations after the initial iteration.
+    The default value is 50.
+    """
+    print_expert_load: bool = False
+    """
+    Whether to print expert load information.
+    When enabled, detailed expert load statistics will be printed during training.
+    The default setting is False.
+    """
+
     ##################
     # Context Parallel
     ##################
