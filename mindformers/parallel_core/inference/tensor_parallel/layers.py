@@ -43,10 +43,6 @@ from mindformers.parallel_core.inference.quantization.base_config import (Quanti
                                                                           QuantizationConfig)
 from mindformers.version_control import is_310p
 from mindformers.models.utils import format_type
-try:
-    import ms_custom_ops
-except ModuleNotFoundError:
-    pass
 
 
 class LinearMethodBase(QuantizeMethodBase):
@@ -182,6 +178,7 @@ class LinearBase(ms.nn.Cell):
             if is_310p():
                 cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
             else:
+                import ms_custom_ops
                 cast_weight = ms.jit(ms_custom_ops.trans_data)(param, transdata_type=1)
             if move_to_cpu:
                 cast_weight = cast_weight.move_to("CPU")
