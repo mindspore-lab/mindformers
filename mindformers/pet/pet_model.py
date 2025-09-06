@@ -14,9 +14,10 @@
 # ============================================================================
 """Pet model for llm model."""
 from typing import Union
-
+import os
 from mindspore._checkparam import args_type_check
 
+from mindformers.tools.utils import get_output_root_path
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.constants import PetType
 from mindformers.pet.models.lora import LoraModel
@@ -61,6 +62,7 @@ class PetModel(PreTrainedModel):
         else:
             pet_type = config.pet_type
             pet_config = config
+        self.pet_type = pet_type
         self.config.pet_config = pet_config
         # pylint: disable=W0212
         self._support_list = base_model._support_list
@@ -72,6 +74,8 @@ class PetModel(PreTrainedModel):
         else:
             PetAdapter.freeze_pretrained_model(self.network, pet_type, pet_config.freeze_include,
                                                pet_config.freeze_exclude)
+
+        self.save_pet_config(os.path.join(get_output_root_path(), "adapter_config.json"))
 
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
         return self.network.update_model_kwargs_before_generate(input_ids, model_kwargs)
@@ -108,6 +112,15 @@ class PetModel(PreTrainedModel):
 
     def get_gpt_transformer_config(self,):
         return self.network.get_gpt_transformer_config()
+
+    def save_pet_config(self, save_path):
+        if hasattr(self.network, "save_pet_config"):
+            self.network.save_pet_config(save_path)
+        else:
+            logger.warning(
+                f"PET type '{self.pet_type}' does not implement `save_pet_config`. "
+                f"Skip saving adapter config to {save_path}."
+            )
 
     def construct(self, *inputs, **kwargs):
         return self.network(*inputs, **kwargs)
