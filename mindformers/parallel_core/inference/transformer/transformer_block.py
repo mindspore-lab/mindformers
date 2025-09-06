@@ -100,7 +100,8 @@ class TransformerBlock(nn.Cell):
 
 
     Inputs:
-        - **hidden_states** (Tensor) - Input tensor.
+        - **decoder_input** (Tensor) - Input tensor.
+        - **hidden_states** (Tensor) - Input hidden_states tensor.
         - **attention_mask** (Tensor) - Tensor of attention mask.
         - **context (Tensor)** - Context tensor for cross-attention.
           Reserved parameter, is not currently supported. Default: None.

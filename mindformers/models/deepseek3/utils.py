@@ -51,6 +51,15 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
         ('.post_attention_layernorm.', '.pre_mlp_layernorm.'),
         ('model.norm.', 'decoder.final_layernorm.'),
         ('lm_head.', 'output_layer.'),
+        # mtp layer: for deepseekv3, only layer 61`
+        ('model.layers.61.enorm.', 'decoder.enorm.'),
+        ('model.layers.61.hnorm.', 'decoder.hnorm.'),
+        ('model.layers.61.eh_proj.', 'decoder.eh_proj.'),
+        ('model.layers.61.embed_tokens.', 'embedding.word_embeddings.'),
+        ('model.layers.61.shared_head.norm.', 'decoder.final_layernorm.'),
+        ('model.layers.61.shared_head.head.', 'output_layer.'),
+        ('model.layers.61.', 'decoder.transformer.'),
+        # transformer layers
         ('model.layers.', 'decoder.layers.')
     ]
 

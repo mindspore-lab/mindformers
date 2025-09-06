@@ -40,8 +40,8 @@ class InferModelMixin(ModelMixin):
     def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
         dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_hidden_states = None if is_pipeline_first_stage() else Tensor(
-            shape=[None, None], dtype=self.compute_dtype)
+        dynamic_hidden_states = None if is_pipeline_first_stage() and not self.is_mtp_model() else \
+            Tensor(shape=[None, None], dtype=self.compute_dtype)
         dynamic_positions = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
@@ -54,7 +54,8 @@ class InferModelMixin(ModelMixin):
             if fa3_quant_layer is None:
                 fa3_quant_layer = set()
             cache_list = []
-            num_layers = len(self.model.decoder.layers)
+            num_layers = self.transformer_config.num_layers if not self.is_mtp_model() else \
+                self.transformer_config.mtp_num_layers
             for num_layer in range(num_layers):
                 kv_cache_dtype = mstype.int8 if fa3_quant and num_layer in fa3_quant_layer else \
                                 self.compute_dtype
@@ -131,9 +132,21 @@ class InferModelMixin(ModelMixin):
         self.add_flags(is_chunked=is_chunked)
         self.model.add_flags(is_chunked=is_chunked)
         self.model.decoder.add_flags(is_chunked=is_chunked)
-        for layer in self.model.decoder.layers:
-            layer.self_attention.add_flags(is_chunked=is_chunked)
-            layer.self_attention.core_attention.add_flags(is_chunked=is_chunked)
+        if not self.is_mtp_model():
+            for layer in self.model.decoder.layers:
+                layer.self_attention.add_flags(is_chunked=is_chunked)
+                layer.self_attention.core_attention.add_flags(is_chunked=is_chunked)
+        else:
+            self.model.decoder.transformer.self_attention.add_flags(is_chunked=is_chunked)
+            self.model.decoder.transformer.self_attention.core_attention.add_flags(is_chunked=is_chunked)
+
+    def get_weights_files(self, weights_path):
+        weights_files = [
+            os.path.join(weights_path, file)
+            for file in os.listdir(weights_path)
+            if file.endswith(".safetensors")
+        ]
+        return weights_files
 
     def load_weights(self, weights_path=None, weights: Iterable[Tuple[str, Tensor]] = None):
         r"""
@@ -151,11 +164,7 @@ class InferModelMixin(ModelMixin):
                 )
             self.model.load_weights(weights)
         else:
-            weights_files = [
-                os.path.join(weights_path, file)
-                for file in os.listdir(weights_path)
-                if file.endswith(".safetensors")
-            ]
+            weights_files = self.get_weights_files(weights_path)
 
             if not weights_files:
                 raise ValueError(f"No .safetensors files found in {weights_path}")

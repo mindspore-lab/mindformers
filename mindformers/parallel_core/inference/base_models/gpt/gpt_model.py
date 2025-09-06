@@ -21,7 +21,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.utils.spec_utils import ModuleSpec
+from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.base_models.common.embeddings.language_model_embedding import \
     LanguageModelEmbedding
@@ -114,10 +114,11 @@ class GPTModel(nn.Cell):
             quant_config: Optional[QuantizationConfig] = None,
     ):
         super(GPTModel, self).__init__()
-        self.check_support(fp16_lm_cross_entropy, rope_scaling, mtp_block_spec)
+        self.check_support(fp16_lm_cross_entropy, rope_scaling)
         self.config = config
         self.quant_config = quant_config
         self.transformer_layer_spec: ModuleSpec = transformer_layer_spec
+        self.mtp_block_spec: ModuleSpec = mtp_block_spec
         self.vocab_size = vocab_size
         self.max_sequence_length = max_sequence_length
         self.pre_process = pre_process
@@ -142,16 +143,12 @@ class GPTModel(nn.Cell):
         self.is_prefill = True
         self.is_chunked = False
         self.return_hidden_states = False  # For serving, return hidden_states early and skip output_layer
+        self.is_mtp_model = self.mtp_block_spec is not None
 
-        if position_embedding_type != "none":
-            self.position_embedding_type = position_embedding_type
-        else:
-            self.position_embedding_type = getattr(self.config, 'position_embedding_type')
+        self.position_embedding_type = position_embedding_type if position_embedding_type != "none" else \
+            getattr(self.config, 'position_embedding_type')
 
-        if hasattr(self.config, 'rotary_base'):
-            self.rotary_base = self.config.rotary_base
-        else:
-            self.rotary_base = rotary_base
+        self.rotary_base = self.config.rotary_base if hasattr(self.config, 'rotary_base') else rotary_base
 
         if self.pre_process:
             self.embedding = LanguageModelEmbedding(
@@ -173,13 +170,17 @@ class GPTModel(nn.Cell):
         )
 
         # Transformer
-        self.decoder = TransformerBlock(
-            config=self.config,
-            spec=transformer_layer_spec,
-            post_process=is_pipeline_last_stage(),
-            model_comm_pgs=model_comm_pgs,
-            quant_config=quant_config,
-        )
+        if not self.is_mtp_model:
+            self.decoder = TransformerBlock(
+                config=self.config,
+                spec=transformer_layer_spec,
+                post_process=is_pipeline_last_stage(),
+                model_comm_pgs=model_comm_pgs,
+                quant_config=quant_config,
+            )
+        else:
+            self.decoder = build_module(self.mtp_block_spec, config=config,
+                                        model_comm_pgs=model_comm_pgs, quant_config=quant_config)
 
         # Output
         if self.post_process:
@@ -200,15 +201,13 @@ class GPTModel(nn.Cell):
 
         self.set_modules({"model": self})
 
-    def check_support(self, fp16_lm_cross_entropy, rope_scaling, mtp_block_spec):
+    def check_support(self, fp16_lm_cross_entropy, rope_scaling):
         """Check support for GPTModel."""
         if fp16_lm_cross_entropy:
             raise NotImplementedError("For GPTModel, `fp16_lm_cross_entropy` is not supported")
         if rope_scaling:
             raise NotImplementedError("For GPTModel, `rope_scaling` is not supported. "
                                       "Please use `rope_type` to control the selection of extrapolation algorithm.")
-        if mtp_block_spec:
-            raise NotImplementedError("For GPTModel, `mtp_block_spec` is not supported")
 
     def set_modules(self, model_dicts: Dict[str, nn.Cell]):
         self.modules_dict = model_dicts
@@ -270,9 +269,10 @@ class GPTModel(nn.Cell):
                 raise ValueError("When pre_process is False, hidden_states must be provided.")
             decoder_input = self.cast(hidden_states, self.compute_dtype)
 
+        hidden_states = (decoder_input,) if not self.is_mtp_model else (decoder_input, hidden_states)
         # Run decoder.
         hidden_states = self.decoder(
-            hidden_states=decoder_input,
+            *hidden_states,
             attention_mask=attention_mask,
             rotary_pos_cos=rotary_pos_cos,
             rotary_pos_sin=rotary_pos_sin,
