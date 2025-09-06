@@ -27,10 +27,6 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-try:
-    import ms_custom_ops
-except ModuleNotFoundError:
-    pass
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -178,6 +174,7 @@ class GenerationMixin:
             kv_cache_shape = (num_blocks, block_size, merge_dim)
         for num_layer in range(tansformer_config.num_layers):
             if fa3_quant:
+                import ms_custom_ops
                 k_cache_dtype = mstype.int8 if num_layer in fa3_quant_layer else compute_dtype
                 k_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.kv_lora_rank,), dtype=k_cache_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.qk_pos_emb_head_dim,),
