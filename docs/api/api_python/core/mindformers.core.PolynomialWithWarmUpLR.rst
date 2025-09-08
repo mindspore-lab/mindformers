@@ -1,7 +1,7 @@
 mindformers.core.PolynomialWithWarmUpLR
 =======================================
 
-.. py:class:: mindformers.core.PolynomialWithWarmUpLR(learning_rate: float, total_steps: int, warmup_steps: int = None, lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0., warmup_ratio: float = None, decay_steps: int = None, **kwargs)
+.. py:class:: mindformers.core.PolynomialWithWarmUpLR(learning_rate, total_steps, warmup_steps=None, lr_end=1e-7, power=1.0, warmup_lr_init=0., warmup_ratio=None, decay_steps=None, **kwargs)
 
     带有预热阶段的多项式衰减学习率。
 

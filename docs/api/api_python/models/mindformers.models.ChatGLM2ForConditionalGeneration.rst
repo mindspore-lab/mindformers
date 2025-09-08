@@ -1,7 +1,7 @@
 mindformers.models.ChatGLM2ForConditionalGeneration
 =========================================================================
 
-.. py:class:: mindformers.models.ChatGLM2ForConditionalGeneration(config: ChatGLM2Config, **kwargs)
+.. py:class:: mindformers.models.ChatGLM2ForConditionalGeneration(config, **kwargs)
 
     在线计算并提供执行ChatGLM2训练时的损失值和逻辑值。
 

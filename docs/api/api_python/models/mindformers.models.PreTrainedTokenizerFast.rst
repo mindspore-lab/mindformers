@@ -49,7 +49,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回：
             dict，添加的词元。
 
-    .. py:method:: convert_ids_to_tokens(ids: Union[int, List[int]], skip_special_tokens: bool = False)
+    .. py:method:: convert_ids_to_tokens(ids, skip_special_tokens=False)
 
         使用词汇表和添加的词元将单个索引或索引序列转换为词元或词元序列。
 
@@ -60,7 +60,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回：
             `str` 或 `List[str]`，解码后的词元或词元序列。
 
-    .. py:method:: convert_tokens_to_ids(tokens: Union[str, List[str]])
+    .. py:method:: convert_tokens_to_ids(tokens)
 
         使用词汇表将词元字符串（或词元序列）转换为单个整数id（或id序列）。
 
@@ -77,7 +77,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回：
             dict，添加的词元。
 
-    .. py:method:: num_special_tokens_to_add(pair: bool = False)
+    .. py:method:: num_special_tokens_to_add(pair=False)
 
         返回在编码带有特殊词元的序列时添加的词元数量。
 
@@ -90,7 +90,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回：
             `int`，添加到序列中的特殊词元数量。
 
-    .. py:method:: set_truncation_and_padding(padding_strategy: PaddingStrategy, truncation_strategy: TruncationStrategy, max_length: int, stride: int, pad_to_multiple_of: Optional[int])
+    .. py:method:: set_truncation_and_padding(padding_strategy, truncation_strategy, max_length, stride, pad_to_multiple_of)
 
         定义快速分词器的截断和填充策略，并在之后恢复分词器设置。
 

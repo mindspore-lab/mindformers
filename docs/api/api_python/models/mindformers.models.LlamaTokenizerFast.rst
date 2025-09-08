@@ -33,7 +33,7 @@ mindformers.models.LlamaTokenizerFast
         返回：
             - 返回一个列表，其中包含在序列两端插入特殊词元后的词元ID。
 
-    .. py:method:: save_vocabulary(save_directory: str, filename_prefix: Optional[str] = None)
+    .. py:method:: save_vocabulary(save_directory, filename_prefix=None)
 
         将词汇表保存到指定目录。此方法用于从慢速分词器中导出词汇表文件。
 

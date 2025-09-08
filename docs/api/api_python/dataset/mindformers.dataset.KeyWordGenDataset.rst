@@ -1,7 +1,7 @@
 mindformers.dataset.KeyWordGenDataset
 =====================================
 
-.. py:class:: mindformers.dataset.KeyWordGenDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, tokenizer: Union[dict, Callable] = None, input_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, repeat: int = 1, ignore_pad_token_for_loss: bool = True, max_source_length: int = None, max_target_length: int = None, phase: str = 'train', version: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)
+.. py:class:: mindformers.dataset.KeyWordGenDataset(dataset_config=None, data_loader=None, tokenizer=None, input_columns=None, batch_size=8, drop_remainder=True, num_parallel_workers=8, repeat=1, ignore_pad_token_for_loss=True, max_source_length=None, max_target_length=None, phase='train', version=1, seed=0, prefetch_size=1, numa_enable=False, auto_tune=False, filepath_prefix='./autotune', autotune_per_step=10, profile=False, **kwargs)
 
     关键词生成数据集。
     根据不同的 `phase` 配置，数据集会生成不同的输出列。

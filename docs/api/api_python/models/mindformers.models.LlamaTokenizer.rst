@@ -1,7 +1,7 @@
 mindformers.models.LlamaTokenizer
 ================================================
 
-.. py:class:: mindformers.models.LlamaTokenizer(vocab_file, unk_token="<unk>", bos_token="<s>", eos_token="</s>", pad_token="<unk>", sp_model_kwargs: Optional[Dict[str, Any]]=None, add_bos_token=True, add_eos_token=False, clean_up_tokenization_spaces=False, legacy=True, **kwargs)
+.. py:class:: mindformers.models.LlamaTokenizer(vocab_file, unk_token="<unk>", bos_token="<s>", eos_token="</s>", pad_token="<unk>", sp_model_kwargs=None, add_bos_token=True, add_eos_token=False, clean_up_tokenization_spaces=False, legacy=True, **kwargs)
 
     基于字节级字节对编码（Byte-Pair-Encoding）构建Llama分词器。
     默认未设置填充词元，因为原始模型中没有填充词元。
@@ -21,7 +21,7 @@ mindformers.models.LlamaTokenizer
     返回：
         `LlamaTokenizer` 实例。
 
-    .. py:method:: build_inputs_with_special_tokens(token_ids_0: List[int], token_ids_1: Optional[List[int]] = None)
+    .. py:method:: build_inputs_with_special_tokens(token_ids_0, token_ids_1=None)
 
         当前为将特殊词元插入到输入标识符中。
 
@@ -32,7 +32,7 @@ mindformers.models.LlamaTokenizer
         返回：
             插入特殊词元后的词元ID列表。
 
-    .. py:method:: create_token_type_ids_from_sequences(token_ids_0: List[int], token_ids_1: Optional[List[int]] = None)
+    .. py:method:: create_token_type_ids_from_sequences(token_ids_0, token_ids_1=None)
 
         使用传递的两个序列创建一个掩码，用于序列对分类任务。一个ALBERT序列对掩码的格式如下：
 
@@ -50,7 +50,7 @@ mindformers.models.LlamaTokenizer
         返回：
             一个根据给定序列由整数 ``0`` 和 ``1`` 组成的列表，其中 ``0`` 表示词元来自序列 `token_ids_0`， ``1`` 表示词元来自序列 `token_ids_1` 。
 
-    .. py:method:: get_special_tokens_mask(token_ids_0: List[int], token_ids_1: Optional[List[int]] = None, already_has_special_tokens:bool=False)
+    .. py:method:: get_special_tokens_mask(token_ids_0, token_ids_1=None, already_has_special_tokens=False)
 
         从还未添加特殊词元的词元列表中检索序列ID。在使用分词器的 `prepare_for_model` 方法添加特殊词元时调用此方法。
 

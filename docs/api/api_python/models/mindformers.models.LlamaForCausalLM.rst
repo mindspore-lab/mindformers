@@ -1,7 +1,7 @@
 mindformers.models.LlamaForCausalLM
 =========================================================================
 
-.. py:class:: mindformers.models.LlamaForCausalLM(config: LlamaConfig = None)
+.. py:class:: mindformers.models.LlamaForCausalLM(config=None)
 
     在线计算并提供执行LLama训练时的损失值和逻辑值。
 

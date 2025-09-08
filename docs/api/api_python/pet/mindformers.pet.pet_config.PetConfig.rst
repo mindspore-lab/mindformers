@@ -1,7 +1,7 @@
 mindformers.pet.pet_config.PetConfig
 ====================================
 
-.. py:class:: mindformers.pet.pet_config.PetConfig(pet_type: str = None, **kwargs)
+.. py:class:: mindformers.pet.pet_config.PetConfig(pet_type=None, **kwargs)
 
     低参微调（Pet）算法的配置基类。
 

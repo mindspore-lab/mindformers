@@ -1,7 +1,7 @@
 mindformers.modules.OpParallelConfig
 ====================================
 
-.. py:class:: mindformers.modules.OpParallelConfig(data_parallel=1, model_parallel=1, use_seq_parallel=False, context_parallel=1, select_recompute=False, context_parallel_algo: str = "colossalai_cp")
+.. py:class:: mindformers.modules.OpParallelConfig(data_parallel=1, model_parallel=1, use_seq_parallel=False, context_parallel=1, select_recompute=False, context_parallel_algo="colossalai_cp")
 
     算子并行的配置，用于设置算子级并行的方式。
 

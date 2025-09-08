@@ -149,7 +149,7 @@ mindformers.TrainingArguments
     返回：
         TrainingArguments类的实例。
 
-    .. py:method:: convert_args_to_mindformers_config(task_config: MindFormerConfig = None)
+    .. py:method:: convert_args_to_mindformers_config(task_config=None)
 
         把训练参数转换成MindFormers的config类型。
 
@@ -180,7 +180,7 @@ mindformers.TrainingArguments
         返回：
             TransformerRecomputeConfig实例。
 
-    .. py:method:: get_warmup_steps(num_training_steps: int)
+    .. py:method:: get_warmup_steps(num_training_steps)
 
         获取线性预热阶段的步数。
 
@@ -190,7 +190,7 @@ mindformers.TrainingArguments
         返回：
             warmup_steps的值，即预热阶段步数。
 
-    .. py:method:: set_dataloader(train_batch_size: int = 8, eval_batch_size: int = 8, drop_last: bool = False, num_workers: int = 0, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, sampler_seed: Optional[int] = None, **kwargs)
+    .. py:method:: set_dataloader(train_batch_size=8, eval_batch_size=8, drop_last=False, num_workers=0, ignore_data_skip=False, data_skip_steps=None, sampler_seed=None, **kwargs)
 
         设置与创建dataloader相关的参数。
 
@@ -204,7 +204,7 @@ mindformers.TrainingArguments
             - **sampler_seed** (int, 可选) - 数据采样中的随机数种子。如果未设置，用于数据采样的随机生成器将使用与 `self.seed` 相同的种子。这可用于确保数据采样的可重复性，独立于模型的seed。默认值： ``None`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_logging(strategy: Union[str, IntervalStrategy] = 'steps', steps: int = 500, **kwargs)
+    .. py:method:: set_logging(strategy='steps', steps=500, **kwargs)
 
         设置与日志相关的参数。
 
@@ -213,7 +213,7 @@ mindformers.TrainingArguments
             - **steps** (int, 可选) - 两次日志之间间隔的步数，在 `strategy` 值为 `steps` 时生效。默认值： ``500`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_lr_scheduler(name: Union[str, LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, **kwargs)
+    .. py:method:: set_lr_scheduler(name='linear', num_epochs=3.0, warmup_lr_init=0.0, warmup_epochs=None, warmup_ratio=None, warmup_steps=0, total_steps=-1, **kwargs)
 
         设置与学习率调度器相关的参数。
 
@@ -227,7 +227,7 @@ mindformers.TrainingArguments
             - **total_steps** (int, 可选) - 总步数。默认值： ``-1`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_optimizer(name: Union[str, OptimizerType] = 'AdamW', learning_rate: float = 5e-5, lr_end: float = 1e-6, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-8, **kwargs)
+    .. py:method:: set_optimizer(name='AdamW', learning_rate=5e-5, lr_end=1e-6, weight_decay=0, beta1=0.9, beta2=0.999, epsilon=1e-8, **kwargs)
 
         设置与优化器相关的参数。
 
@@ -241,7 +241,7 @@ mindformers.TrainingArguments
             - **epsilon** (float, 可选) - adam优化器的epsilon超参。默认值： ``1e-8`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_save(strategy: Union[str, IntervalStrategy] = 'steps', steps: int = 500, total_limit: Optional[int] = None, on_each_node: bool = True, **kwargs)
+    .. py:method:: set_save(strategy='steps', steps=500, total_limit=None, on_each_node=True, **kwargs)
 
         设置与checkpoint保存相关的参数。
 
@@ -252,7 +252,7 @@ mindformers.TrainingArguments
             - **on_each_node** (bool, 可选) - 在多节点分布式训练时，控制在每个节点上保存权重或者只在主节点上保存。默认值： ``True`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_training(learning_rate: float = 5e-5, batch_size: int = 8, weight_decay: float = 0, num_epochs: float = 3.0, gradient_accumulation_steps: int = 1, seed: int = 42, **kwargs)
+    .. py:method:: set_training(learning_rate=5e-5, batch_size=8, weight_decay=0, num_epochs=3.0, gradient_accumulation_steps=1, seed=42, **kwargs)
 
         设置与训练相关的所有参数。调用该方法时候会自动设置 `self.do_train` 为True。
 

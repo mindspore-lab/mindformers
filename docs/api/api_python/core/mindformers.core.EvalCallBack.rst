@@ -1,7 +1,7 @@
 mindformers.core.EvalCallBack
 =============================
 
-.. py:class:: mindformers.core.EvalCallBack(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)
+.. py:class:: mindformers.core.EvalCallBack(eval_func, step_interval=100, epoch_interval=-1)
 
     在训练期间评估模型的回调函数。
 

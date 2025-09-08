@@ -1,7 +1,7 @@
 mindformers.models.multi_modal.ModalContentTransformTemplate
 =========================================================================
 
-.. py:class:: mindformers.models.multi_modal.ModalContentTransformTemplate(output_columns: List[str] = None, tokenizer = None, mode = "predict", vstack_columns: List[str] = None, modal_content_padding_size = 1, max_length = 2048, **kwargs)
+.. py:class:: mindformers.models.multi_modal.ModalContentTransformTemplate(output_columns=None, tokenizer=None, mode="predict", vstack_columns=None, modal_content_padding_size=1, max_length=2048, **kwargs)
 
     转换模态内容模板的基类，可以被特定的模型实现。子类可以通过重写 ``build_conversion_input_text`` 、 ``update_result_before_output`` 、 ``batch`` 、 ``post_process`` 方法来达到模型的期望值。
 
@@ -26,7 +26,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
         返回：
             字典类型，用于存储批量化后的数据。
 
-    .. py:method:: build_conversation_input_text(raw_inputs, result_recorder: DataRecord)
+    .. py:method:: build_conversation_input_text(raw_inputs, result_recorder)
         :classmethod:
 
         在推理模式下，将传入的文本数据处理成对话的形式，通常被子类继承使用。
@@ -47,7 +47,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
             - **result_recorder** (DataRecord) -  结果数据记录器，用于记录在推理过程中想要保存的数据，数值通过调用 ``DataRecord`` 的 ``put`` 方法进行数据存储。
             - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
 
-    .. py:method:: build_modal_context(input_ids, result_recorder: DataRecord, **kwargs)
+    .. py:method:: build_modal_context(input_ids, result_recorder, **kwargs)
 
         根据模态生成器的要求，对输入的数据进行处理，最终返回经过处理的数据。
 
@@ -59,7 +59,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
         返回：
             列表类型，经过处理后的数据。
 
-    .. py:method:: get_need_update_output_items(result: DataRecord)
+    .. py:method:: get_need_update_output_items(result)
         :staticmethod:
 
         获取需要更新的输出项。
@@ -81,7 +81,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
         返回：
             列表类型，包含所有解码后的文本字符串。
 
-    .. py:method:: process_predict_query(query_ele_list: List[Dict], result_recorder: DataRecord)
+    .. py:method:: process_predict_query(query_ele_list, result_recorder)
 
         在推理模式下，通过遍历找到相应的模态构建器并对其进行处理。
 
@@ -92,7 +92,7 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
         返回：
             数组类型，经过每个模态生成器处理过的文本结果。
 
-    .. py:method:: process_train_item(conversation_list: List[List], result_recorder: DataRecord)
+    .. py:method:: process_train_item(conversation_list, result_recorder)
 
         在训练模式下，通过遍历找到相应的模态构建器并对其进行处理。
 
