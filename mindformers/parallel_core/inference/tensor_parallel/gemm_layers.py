@@ -39,7 +39,7 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (
     scatter_to_model_parallel_region
 )
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
-from mindformers.parallel_core.inference.weights_utils import split_loaded_weight
+from mindformers.parallel_core.inference.weights_utils import split_loaded_weight, cpu_offload_weights_params
 
 
 class GroupedLinearMethodBase(QuantizeMethodBase):
@@ -341,6 +341,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                                   expert_id,
                                   weight_is_3d,
                                   weight_needs_transpose)
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
     def _determine_transpose_need(self, loaded_weight, weight_is_3d, param):
         """Determine if the loaded weight needs transposition."""
@@ -648,3 +649,4 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                 f"'param.data.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[2])} and "
                 f"the shape of weight is{loaded_weight.shape}")
+        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)

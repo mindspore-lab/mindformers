@@ -22,6 +22,7 @@ from mindspore import Parameter
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
                                                                 get_tensor_model_parallel_rank)
 from mindformers.version_control import is_310p
+from mindformers.tools.logger import logger
 
 
 def set_weight_attrs(
@@ -237,3 +238,21 @@ def split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes):
         loaded_weight_parts.append(loaded_weight[start_idx:start_idx + shard_size])
     perrank_ffn_weight = np.concatenate(loaded_weight_parts, axis=0)
     return perrank_ffn_weight
+
+
+# pylint: disable=W0212
+def cpu_offload_weights_params(param: Parameter = None, cpu_offloading_weights: bool = False):
+
+    """
+    Offload parameter weights to CPU memory.
+
+    Args:
+        param: Model parameter object that needs to support _offload() method
+        cpu_offloading_weights: Boolean value controlling whether to enable CPU offloading functionality
+
+    Returns:
+        None
+    """
+    if cpu_offloading_weights:
+        param._offload()
+        logger.debug(f'Offload {param.name} to CPU memory.')

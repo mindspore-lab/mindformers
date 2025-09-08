@@ -97,6 +97,7 @@ def get_model_config(
         config = copy.deepcopy(config)
         use_model_config = config.get_value("model_config", None)
         use_pretrained_model_dir = config.get_value("pretrained_model_dir", None)
+        cpu_offloading_weights = config.get_value("cpu_offloading_weights", False)
         if not use_pretrained_model_dir and not use_model_config:
             return None
         if use_pretrained_model_dir:
@@ -117,6 +118,7 @@ def get_model_config(
                     model_config['quantization'] = quant_config.get("quant_method")
         else:
             model_config = config.model_config
+        model_config.update({'cpu_offloading_weights': cpu_offloading_weights})
         return MindFormerRegister.get_instance_from_cfg(
             model_config, MindFormerModuleType.CONFIG, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
