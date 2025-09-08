@@ -612,6 +612,11 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     f"moe_router_group_topk ({self.moe_router_group_topk}) should be smaller than "
                     f"moe_router_num_groups ({self.moe_router_num_groups})."
                 )
+                assert self.moe_router_topk % self.moe_router_group_topk == 0, (
+                    f"`moe_router_topk` must be divisible by `moe_router_group_topk`. "
+                    f"Got moe_router_topk={self.moe_router_topk} and "
+                    f"moe_router_group_topk={self.moe_router_group_topk}."
+                )
 
         if (
                 self.num_moe_experts is not None
