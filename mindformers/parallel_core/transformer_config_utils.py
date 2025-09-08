@@ -241,6 +241,7 @@ COMMON_CONFIG_MAPPING = {
     # not changes
     "op_swap": "op_swap",
     "default_prefetch": "default_prefetch",
+    "cpu_offloading_weights": "cpu_offloading_weights",
 
     # TransformerConfig
     # Model Architecture

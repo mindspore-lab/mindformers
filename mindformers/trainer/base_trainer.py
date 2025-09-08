@@ -466,6 +466,8 @@ class BaseTrainer:
         logger.info(".........Build Network From Config..........")
         if self.config.get("pretrained_model_dir", None):
             self.config.model.pretrained_model_dir = self.config.pretrained_model_dir
+        if self.config.get("cpu_offloading_weights", False):
+            self.config.model.cpu_offloading_weights = self.config.cpu_offloading_weights
         if self.config.get("generation_config", None):
             self.config.model.generation_config = self.config.generation_config
         network = build_network(self.config.model, default_args=default_args)

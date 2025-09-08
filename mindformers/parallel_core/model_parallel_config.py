@@ -155,6 +155,9 @@ class ModelParallelConfig:
     Default: None.
     """
 
+    cpu_offloading_weights: bool = False
+    """Enable offload of the weights or not. Default: False. Only used for predict mode."""
+
     op_swap: Optional[Union[list, dict]] = None
     """
     Configuration for operator swapping.
