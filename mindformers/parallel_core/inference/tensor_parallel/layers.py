@@ -39,7 +39,8 @@ from mindformers.parallel_core.inference.parallel_state import ProcessGroup, def
 from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs, split_loaded_weight,
                                                                deal_linear_q_up_weight, deal_linear_kv_up_weight,
                                                                deal_linear_kv_down_weight, split_fusion_loaded_weight,
-                                                               cpu_offload_weights_params)
+                                                               cpu_offload_weights_params, deal_training_ffn_weight,
+                                                               deal_training_qkv_weight)
 from mindformers.parallel_core.inference.quantization.base_config import (QuantizeMethodBase,
                                                                           QuantizationConfig)
 from mindformers.version_control import is_310p
@@ -468,19 +469,10 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             prefix=prefix
         )
 
-    def weight_loader(self,
-                      param,
-                      loaded_weight,
-                      loaded_shard_id: Optional[str] = None):
+    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True):
         output_dim = getattr(param, "output_dim", None)
         tp_rank = self.tp_group.rank
         tp_size = self.tp_group.size
-        shard_size = 0
-        shard_offset = 0
-        # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-        if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
-            loaded_weight = loaded_weight[:].squeeze(-1)
-
         if loaded_shard_id is not None:
             if loaded_shard_id == 'gating':
                 array_id = 0
@@ -490,28 +482,40 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             shard_size = self.output_sizes[array_id] // tp_size
 
             start_idx = tp_rank * shard_size
-            loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                                start_idx, shard_size)
-        else: # deal fusion weight
-            shard_sizes = [output_sizes // tp_size for output_sizes in self.output_sizes]
-            start_idxs = [shard_sizes[0] * tp_rank] + \
-                [shard_sizes[i+1] * tp_rank + self.output_sizes[i] for i in range(len(shard_sizes)-1)]
-            loaded_weight = split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes)
-            shard_size = sum(shard_sizes)
+            # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
+            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2:
+                loaded_weight = loaded_weight[:].squeeze(-1)
+            loaded_weight = split_loaded_weight(loaded_weight, output_dim, start_idx, shard_size)
 
-        expected_shape = list(param.shape)
-        expected_shape[output_dim] = shard_size
-        expected_shape = tuple(expected_shape)
-        if loaded_weight.shape == expected_shape:
+            expected_shape = list(param.shape)
+            expected_shape[output_dim] = shard_size
+            expected_shape = tuple(expected_shape)
+            if loaded_weight.shape != expected_shape:
+                raise ValueError(
+                    f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                    f" but got the shape of param is {expected_shape} and "
+                    f"the shape of weight is{loaded_weight.shape}")
             indices = [slice(None)] * len(param.shape)
             indices[output_dim] = slice(shard_offset, shard_offset + shard_size)
             param.init_data()
             param[tuple(indices)] = ms.from_numpy(loaded_weight)
         else:
-            raise ValueError(
-                f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                f" but got the shape of param is {(shard_size, param.shape[1])} and "
-                f"the shape of weight is{loaded_weight.shape}")
+            if is_hf_weight:
+                shard_sizes = [output_sizes // tp_size for output_sizes in self.output_sizes]
+                start_idxs = [shard_sizes[0] * tp_rank] + \
+                             [shard_sizes[i + 1] * tp_rank + self.output_sizes[i] for i in range(len(shard_sizes) - 1)]
+                loaded_weight = split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes)
+            else:
+                loaded_weight = loaded_weight[:]
+                loaded_weight = deal_training_ffn_weight(loaded_weight, self.config)
+
+            if loaded_weight.shape != param.shape:
+                raise ValueError(
+                    f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                    f" but got the shape of param is {param.shape} and "
+                    f"the shape of weight is{loaded_weight.shape}")
+            param.set_data(ms.from_numpy(loaded_weight))
+
         # format cast after load q, kv
         loaded_shard_num = 2 # gating/hidden
         if is_310p() and param.name.endswith("weight"):
@@ -598,45 +602,53 @@ class QKVParallelLinear(ColumnParallelLinear):
             prefix=prefix
         )
 
-    def weight_loader(self,
-                      param,
-                      loaded_weight,
-                      loaded_shard_id: Optional[str] = None):
+    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None):
         output_dim = getattr(param, "output_dim", None)
         tp_rank = self.tp_group.rank
-        if loaded_shard_id == "q":
-            shard_offset = 0
-            shard_size = self.num_heads * self.head_size
-        elif loaded_shard_id == "k":
-            shard_offset = self.num_heads * self.head_size
-            shard_size = self.num_kv_heads * self.head_size
-        elif loaded_shard_id == "v":
-            shard_offset = (self.num_heads +
-                            self.num_kv_heads) * self.head_size
-            shard_size = self.num_kv_heads * self.head_size
+        if loaded_shard_id is not None:
+            if loaded_shard_id == "q":
+                shard_offset = 0
+                shard_size = self.num_heads * self.head_size
+            elif loaded_shard_id == "k":
+                shard_offset = self.num_heads * self.head_size
+                shard_size = self.num_kv_heads * self.head_size
+            elif loaded_shard_id == "v":
+                shard_offset = (self.num_heads +
+                                self.num_kv_heads) * self.head_size
+                shard_size = self.num_kv_heads * self.head_size
 
-        if loaded_shard_id == "q":
-            shard_id = tp_rank
+            if loaded_shard_id == "q":
+                shard_id = tp_rank
+            else:
+                shard_id = tp_rank // self.num_kv_head_replicas
+            start_idx = shard_id * shard_size
+            loaded_weight = split_loaded_weight(loaded_weight, output_dim,
+                                                start_idx, shard_size)
+            loaded_weight = ms.from_numpy(loaded_weight)
+
+            if param.name.endswith("weight"):
+                if loaded_weight.shape != (shard_size, param.shape[1]):
+                    raise ValueError(
+                        f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                        f" but got the shape of param is {(shard_size, param.shape[1])} and "
+                        f"the shape of weight is{loaded_weight.shape}")
+            if param.name.endswith("bias"):
+                if loaded_weight.shape != (shard_size,):
+                    raise ValueError(
+                        f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                        f" but got the shape of param is {(shard_size,)} and "
+                        f"the shape of weight is{loaded_weight.shape}")
+            param[shard_offset:shard_offset + shard_size] = loaded_weight
         else:
-            shard_id = tp_rank // self.num_kv_head_replicas
-        start_idx = shard_id * shard_size
-        loaded_weight = split_loaded_weight(loaded_weight, output_dim,
-                                            start_idx, shard_size)
-        loaded_weight = ms.from_numpy(loaded_weight)
+            loaded_weight = loaded_weight[:]
+            loaded_weight = deal_training_qkv_weight(loaded_weight, self.config)
 
-        if param.name.endswith("weight"):
-            if loaded_weight.shape != (shard_size, param.shape[1]):
+            if loaded_weight.shape != param.shape:
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                    f" but got the shape of param is {(shard_size, param.shape[1])} and "
+                    f" but got the shape of param is {param.shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
-        if param.name.endswith("bias"):
-            if loaded_weight.shape != (shard_size,):
-                raise ValueError(
-                    f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                    f" but got the shape of param is {(shard_size,)} and "
-                    f"the shape of weight is{loaded_weight.shape}")
-        param[shard_offset:shard_offset + shard_size] = loaded_weight
+            param.set_data(ms.from_numpy(loaded_weight))
         if is_310p() and param.name.endswith("weight"):
             # format cast after load q,k,v
             loaded_shard_num = 3
