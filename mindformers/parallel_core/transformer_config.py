@@ -516,6 +516,14 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if self.expert_model_parallel_size > 1 and self.num_moe_experts is None:
             raise ValueError('num_moe_experts must be non None to use expert-parallel.')
 
+        if self.moe_token_dispatcher_type == "alltoall_deredundency" and \
+            (self.expert_model_parallel_size < self.npu_nums_per_device):
+            raise ValueError(
+                f"expert_model_parallel_size must be greater than or equal to npu_nums_per_device when using "
+                f"'alltoall_deredundency', but got expert_model_parallel_size={self.expert_model_parallel_size} "
+                f"< npu_nums_per_device={self.npu_nums_per_device}."
+            )
+
         if self.num_moe_experts is not None and self.num_moe_experts <= 0:
             raise ValueError('num_moe_experts must be non-negative.')
 
