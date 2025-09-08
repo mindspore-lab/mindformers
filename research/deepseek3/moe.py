@@ -295,7 +295,7 @@ class SharedMLP(nn.Cell):
         else:
             gate = self.w1(x)
             hidden = self.w3(x)
-        gate = self.act_func(gate)
+        gate = self.act_func(gate.contiguous())
         hidden = mint.mul(hidden, gate)
         output = self.w2(hidden)
         return output
@@ -392,7 +392,7 @@ class SharedParallelMLP(nn.Cell):
         else:
             gate = self.w1(x)
             hidden = self.w3(x)
-        gate = self.act_func(gate)
+        gate = self.act_func(gate.contiguous())
         hidden = mint.mul(hidden, gate)
         output = self.w2(hidden)
         return output
@@ -666,7 +666,7 @@ class RoutedParallelMLP(nn.Cell):
         else:
             gate = self.w1(x, group_list=group_list)
             hidden = self.w3(x, group_list=group_list)
-        gate = self.act_func(gate)
+        gate = self.act_func(gate.contiguous())
         hidden = mint.mul(hidden, gate)
         output = self.w2(hidden, group_list)
         return output
