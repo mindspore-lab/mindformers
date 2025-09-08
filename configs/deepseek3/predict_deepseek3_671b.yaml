@@ -27,6 +27,7 @@ model:
     moe_router_fusion: True
     block_size: 128
     num_blocks: 512
+    use_fused_mla: False
 
 # mindspore context init config
 context:
