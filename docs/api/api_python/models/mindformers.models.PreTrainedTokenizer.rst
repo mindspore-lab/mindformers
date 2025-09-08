@@ -61,7 +61,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             dict，添加的词元。
 
-    .. py:method:: convert_ids_to_tokens(ids: Union[int, List[int]], skip_special_tokens: bool = False)
+    .. py:method:: convert_ids_to_tokens(ids, skip_special_tokens=False)
 
         使用词汇表和添加的词元，将单个索引或索引序列转换为词元或词元序列。
 
@@ -72,7 +72,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             解码的词元或词元列表，类型为 `str` 或 `List[str]` 。
 
-    .. py:method:: convert_tokens_to_ids(tokens: Union[str, List[str]])
+    .. py:method:: convert_tokens_to_ids(tokens)
 
         使用词汇表将词元字符串（或词元序列）转换为单个整数索引（或索引序列）。
 
@@ -89,7 +89,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             dict: 添加的词元。
 
-    .. py:method:: num_special_tokens_to_add(pair: bool = False)
+    .. py:method:: num_special_tokens_to_add(pair=False)
 
         返回在编码序列时添加的特殊词元的数量。
 
@@ -102,7 +102,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             序列中添加的特殊词元的数量。
 
-    .. py:method:: prepare_for_tokenization(text: str, **kwargs)
+    .. py:method:: prepare_for_tokenization(text, **kwargs)
 
         在分词前进行必要的转换。
 
@@ -113,7 +113,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             一个类型为 `Tuple[str, dict]` 的元组，表示准备好的文本和未使用的kwargs。
 
-    .. py:method:: tokenize(text: TextInput, pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs)
+    .. py:method:: tokenize(text=None, add_special_tokens=False, **kwargs)
 
         将字符串转换为词元序列，使用分词器。
 

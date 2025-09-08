@@ -1,7 +1,7 @@
 mindformers.models.PreTrainedModel
 ==============================================
 
-.. py:class:: mindformers.models.PreTrainedModel(config: PretrainedConfig, *inputs, **kwargs)
+.. py:class:: mindformers.models.PreTrainedModel(config, *inputs, **kwargs)
 
     所有预训练模型的基类。负责存储模型的配置信息，提供加载、下载、保存模型的方法以及调整输入嵌入层大小和在模型的自注意力机制中进行剪枝的通用方法。
 
@@ -18,7 +18,7 @@ mindformers.models.PreTrainedModel
         返回：
             Bool类型，True（或False），表示模型可以（或不可以）执行 ``.generate()`` 生成序列。
 
-    .. py:method:: from_pretrained(pretrained_model_name_or_dir: str, *model_args, **kwargs)
+    .. py:method:: from_pretrained(pretrained_model_name_or_dir, *model_args, **kwargs)
         :classmethod:
 
         通过 ``pretrained_model_name_or_dir`` 实例化模型。如果用户传入模型名称，会下载模型权重，或者在给定路径的目录中加载权重（仅支持单机模式，分布式模式有待开发）。
@@ -46,7 +46,7 @@ mindformers.models.PreTrainedModel
         参数：
             - **auto_class** (Union[str, type], 可选) - 用于注册一个新模型的自动类。默认值： ``AutoModel``。
 
-    .. py:method:: save_pretrained(save_directory: Union[str, os.PathLike], save_name: str = "mindspore_model", **kwargs)
+    .. py:method:: save_pretrained(save_directory, save_name="mindspore_model", **kwargs)
 
         保存模型权重和配置文件（仅支持单机模式，分布式模式有待开发）。
 

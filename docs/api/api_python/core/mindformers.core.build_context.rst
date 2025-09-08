@@ -1,7 +1,7 @@
 mindformers.core.build_context
 ==============================
 
-.. py:function:: mindformers.core.build_context(config: Union[dict, MindFormerConfig, TrainingArguments])
+.. py:function:: mindformers.core.build_context(config)
 
     基于config创建运行环境的context。
 

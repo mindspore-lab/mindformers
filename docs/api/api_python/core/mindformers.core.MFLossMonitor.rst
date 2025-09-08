@@ -1,7 +1,7 @@
 mindformers.core.MFLossMonitor
 ==============================
 
-.. py:class:: mindformers.core.MFLossMonitor(learning_rate: Optional[Union[float, LearningRateSchedule]] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)
+.. py:class:: mindformers.core.MFLossMonitor(learning_rate=None, per_print_times=1, micro_batch_num=1, micro_batch_interleave_num=1, origin_epochs=None, dataset_size=None, initial_epoch=0, initial_step=0, global_batch_size=0, gradient_accumulation_steps=1, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False)
 
     监控训练过程中loss等相关参数的回调函数。
 

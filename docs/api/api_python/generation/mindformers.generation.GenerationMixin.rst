@@ -5,7 +5,7 @@ mindformers.generation.GenerationMixin
 
     一个提供自回归文本生成的所有函数的类，作为PreTrainedModel的混入（mixin）使用。
 
-    .. py:method:: chat(tokenizer: PreTrainedTokenizer, query: str, history: Optional[List[Dict[str, str]]] = None, system_role_name: Optional[str] = "system", user_role_name: Optional[str] = "user", assistant_role_name: Optional[str] = "assistant", instruction: Optional[str] = "", max_length: Optional[int] = 512, max_new_tokens: Optional[int] = None, min_length: Optional[int] = 0, min_new_tokens: Optional[int] = None, do_sample: Optional[bool] = True, temperature: Optional[float] = 1.0, top_k: Optional[int] = 50, top_p: Optional[float] = 1.0, repetition_penalty: Optional[float] = 1.0)
+    .. py:method:: chat(tokenizer, query, history=None, system_role_name="system", user_role_name="user", assistant_role_name="assistant", instruction="", max_length=512, max_new_tokens=None, min_length=0, min_new_tokens=None, do_sample=True, temperature=1.0, top_k=50, top_p=1.0, repetition_penalty=1.0)
 
         基于大型语言模型的对话文本生成推理。通过提供的分词器添加聊天模板后，将使用 `generate()` 对用户的查询进行推断。
 
@@ -30,7 +30,7 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数， `response` 表示本次会话中大模型的回复结果， `history` 表示对话历史。
 
-    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: np.ndarray, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, key_cache: Optional[List[Tensor]] = None, value_cache: Optional[List[Tensor]] = None, **model_kwargs)
+    .. py:method:: forward(input_ids, valid_length_each_example, block_tables=None, slot_mapping=None, prefill=None, use_past=False, encoder_mask=None, encoder_output=None, target_mask=None, key_cache=None, value_cache=None, **model_kwargs)
 
         模型前向传播的过程。
 
@@ -51,7 +51,7 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数，`res` 返回前向传播处理后的结果，`current_index` 记录序列的当前索引。
 
-    .. py:method:: generate(input_ids: Optional[Union[List[int], List[List[int]]]], generation_config: Optional[GenerationConfig] = None, logits_processor: Optional[LogitsProcessorList] = None, streamer: Optional[BaseStreamer] = None, seed: Optional[int] = None, **kwargs)
+    .. py:method:: generate(input_ids, generation_config=None, logits_processor=None, streamer=None, seed=None, **kwargs)
 
         可以根据给定的input ids（即数字id数组，本质是词元索引）来生成词汇。
 
@@ -81,7 +81,7 @@ mindformers.generation.GenerationMixin
         返回：
             生成的一个词元索引列表。
 
-    .. py:method:: infer(input_ids: Union[List[int], List[List[int]]], valid_length_each_example: np.ndarray, generation_config: GenerationConfig = None, logits_processor: Optional[LogitsProcessorList] = None, logits_warper: Optional[LogitsProcessorList] = None, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
+    .. py:method:: infer(input_ids, valid_length_each_example, generation_config=None, logits_processor=None, logits_warper=None, block_tables=None, slot_mapping=None, prefill=True, is_finished=None, encoder_mask=None, encoder_output=None, target_mask=None, **model_kwargs)
 
         用于对下一个位置做推断并返回其置信度，可以选择来用做预填充或解码预测。
 
@@ -103,7 +103,7 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数，`next_token` 表示生成的下一个词元，`is_finished` 表示当前批次是否完成了序列生成任务。
 
-    .. py:method:: postprocess(input_ids, is_finished, res, generation_config: GenerationConfig, valid_length_each_example, current_index: Optional[Union[List[int], List[List[int]]]], logits_processor: Optional[LogitsProcessorList] = None, logits_warper: Optional[LogitsProcessorList] = None, need_gather_logits: bool = True)
+    .. py:method:: postprocess(input_ids, is_finished, res, generation_config, valid_length_each_example, current_index, logits_processor=None, logits_warper=None, need_gather_logits=True)
 
         模型生成输出的后处理。
 

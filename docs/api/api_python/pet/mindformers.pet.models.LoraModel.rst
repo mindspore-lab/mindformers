@@ -1,7 +1,7 @@
 mindformers.pet.models.LoraModel
 ================================
 
-.. py:class:: mindformers.pet.models.LoraModel(config: LoraConfig, base_model: PreTrainedModel)
+.. py:class:: mindformers.pet.models.LoraModel(config, base_model)
 
     LLM的LoRA模型。提供了一种灵活且高效的方式来调整和优化预训练模型，为基础预训练模型添加LoRA结构。
 

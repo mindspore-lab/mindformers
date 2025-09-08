@@ -1,7 +1,7 @@
 mindformers.core.ConstantWithCoolDownLR
 =======================================
 
-.. py:class:: mindformers.core.ConstantWithCoolDownLR(learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, keep_steps: int = 0, decay_steps: int = None, decay_ratio: float = None, total_steps: int = None, num_cycles: float = 0.5, lr_end1: float = 0, final_steps: int = 0, lr_end2: float = None, **kwargs)
+.. py:class:: mindformers.core.ConstantWithCoolDownLR(learning_rate, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, keep_steps=0, decay_steps=None, decay_ratio=None, total_steps=None, num_cycles=0.5, lr_end1=0, final_steps=0, lr_end2=None, **kwargs)
 
     分段式学习率。
 

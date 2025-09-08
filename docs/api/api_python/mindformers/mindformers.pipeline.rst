@@ -1,7 +1,7 @@
 mindformers.pipeline
 =====================
 
-.. py:function:: mindformers.pipeline(task: str = None,model: Optional[Union[str, PreTrainedModel, Model, Tuple[str, str]]] = None,tokenizer: Optional[PreTrainedTokenizerBase] = None,image_processor: Optional[BaseImageProcessor] = None,audio_processor: Optional[BaseAudioProcessor] = None,backend: Optional[str] = "ms",**kwargs: Any)
+.. py:function:: mindformers.pipeline(task=None, model=None, tokenizer=None, image_processor=None, audio_processor=None, backend="ms", **kwargs)
 
     通过流水线执行套件中已集成任务和模型的推理流程。
 

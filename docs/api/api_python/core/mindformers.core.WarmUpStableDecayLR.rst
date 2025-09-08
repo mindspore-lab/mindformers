@@ -1,7 +1,7 @@
 mindformers.core.WarmUpStableDecayLR
 ====================================
 
-.. py:class:: mindformers.core.WarmUpStableDecayLR(learning_rate: float, lr_end: float = 1e-7, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, decay_start_steps: int = None, decay_start_ratio: float = None, **kwargs)
+.. py:class:: mindformers.core.WarmUpStableDecayLR(learning_rate, lr_end=1e-7, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, total_steps=None, decay_start_steps=None, decay_start_ratio=None, **kwargs)
 
     带稳定衰减的预热学习率调度器。
 

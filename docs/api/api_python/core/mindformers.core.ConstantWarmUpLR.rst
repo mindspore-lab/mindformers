@@ -1,7 +1,7 @@
 mindformers.core.ConstantWarmUpLR
 =================================
 
-.. py:class:: mindformers.core.ConstantWarmUpLR(learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, **kwargs)
+.. py:class:: mindformers.core.ConstantWarmUpLR(learning_rate, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, total_steps=None, **kwargs)
 
     恒定预热学习率。
 

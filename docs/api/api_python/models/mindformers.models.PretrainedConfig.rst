@@ -18,7 +18,7 @@ mindformers.models.PretrainedConfig
     返回：
         PretrainedConfig类实例。
 
-    .. py:method:: from_dict(config_dict: Dict[str, Any], **kwargs)
+    .. py:method:: from_dict(config_dict, **kwargs)
         :classmethod:
 
         从参数字典实例化 PretrainedConfig。
@@ -29,7 +29,7 @@ mindformers.models.PretrainedConfig
         返回：
             PretrainedConfig, 从这些参数实例化的配置对象。
 
-    .. py:method:: from_json_file(json_file: Union[str, os.PathLike])
+    .. py:method:: from_json_file(json_file)
         :classmethod:
 
         从 JSON 文件的路径实例化 PretrainedConfig。
@@ -53,7 +53,7 @@ mindformers.models.PretrainedConfig
         返回：
             PretrainedConfig: 继承自 PretrainedConfig 的模型配置。
 
-    .. py:method:: get_config_dict(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs)
+    .. py:method:: get_config_dict(pretrained_model_name_or_path, **kwargs)
         :classmethod:
 
         从 'pretrained_model_name_or_path' 解析到一个参数字典，用于使用 :func:`mindformers.models.PretrainedConfig.from_dict` 实例化 PretrainedConfig。
@@ -86,7 +86,7 @@ mindformers.models.PretrainedConfig
         返回：
             dict: 包含此配置实例的所有属性的字典。
 
-    .. py:method:: to_json_file(json_file_path: Union[str, os.PathLike], use_diff: bool = True)
+    .. py:method:: to_json_file(json_file_path, use_diff=True)
 
         将此实例保存到 JSON 文件。
 
@@ -94,7 +94,7 @@ mindformers.models.PretrainedConfig
             - **json_file_path** (Union[str, os.PathLike]) - 此配置实例参数将被保存的 JSON 文件路径。
             - **use_diff** (bool, 可选) - 如果设置为 True，仅序列化配置实例与默认 :class:`mindformers.models.PretrainedConfig` 的差异到 JSON 文件。默认值： ``True`` 。
 
-    .. py:method:: to_json_string(use_diff: bool = True)
+    .. py:method:: to_json_string(use_diff=True)
 
         将此实例序列化为 JSON 字符串。
 

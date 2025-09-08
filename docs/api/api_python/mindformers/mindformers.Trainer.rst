@@ -1,7 +1,7 @@
 mindformers.Trainer
 ====================
 
-.. py:class:: mindformers.Trainer(args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None, task: Optional[str] = 'general', model: Optional[Union[str, PreTrainedModel]] = None, model_name: Optional[str] = None, tokenizer: Optional[PreTrainedTokenizerBase] = None, train_dataset: Optional[Union[str, BaseDataset, Dataset, Iterable]] = None, eval_dataset: Optional[Union[str, BaseDataset, Dataset, Iterable]] = None, data_collator: Optional[Callable] = None, optimizers: Optional[Optimizer] = None, compute_metrics: Optional[Union[dict, set]] = None, callbacks: Optional[Union[Callback, List[Callback]]] = None, eval_callbacks: Optional[Union[Callback, List[Callback]]] = None, pet_method: Optional[str] = '', image_processor: Optional[BaseImageProcessor] = None, audio_processor: Optional[BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)
+.. py:class:: mindformers.Trainer(args=None, task='general', model=None, model_name=None, tokenizer=None, train_dataset=None, eval_dataset=None, data_collator=None, optimizers=None, compute_metrics=None, callbacks=None, eval_callbacks=None, pet_method='', image_processor=None, audio_processor=None, save_config=False, reset_model=False)
 
     Trainer是通用的任务执行组件，通过参数中的task名称或者配置文件可以指定任务并且初始化一个与该任务相关的trainer实例。用户可以通过封装trainer实例中的train、finetune、evaluate和predict来实现不同的任务。同时，用户还可以自定义model、optimizer、dataset、tokenizer、processor、train_one_step、callback、metric等。
 
@@ -43,7 +43,7 @@ mindformers.Trainer
     异常：
         - **KeyError** - `task` 或者 `model` 参数不支持。
 
-    .. py:method:: evaluate(eval_dataset: Optional[Union[str, BaseDataset, Dataset, Iterable]] = None, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, **kwargs)
+    .. py:method:: evaluate(eval_dataset=None, eval_checkpoint=False, auto_trans_ckpt=None, src_strategy=None, transform_process_num=None, **kwargs)
 
         Trainer中执行评估的API，在设置了用户自定义的配置后，通过调用Trainer实例的evaluate方法来执行评估。
 
@@ -58,7 +58,7 @@ mindformers.Trainer
         异常：
             - **TypeError** - `eval_checkpoint` 不是bool或者str类型。
 
-    .. py:method:: finetune(finetune_checkpoint: Optional[Union[str, bool]] = False, resume_from_checkpoint: Optional[Union[str, bool]] = None, resume_training: Optional[Union[bool, str]] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: bool = False)
+    .. py:method:: finetune(finetune_checkpoint=False, resume_from_checkpoint=None, resume_training=None, ignore_data_skip=None, data_skip_steps=None, auto_trans_ckpt=None, src_strategy=None, transform_process_num=None, do_eval=False)
 
         Trainer中执行微调的API，在设置了用户自定义的配置后，通过调用Trainer实例的finetune方法来执行微调。
 
@@ -76,7 +76,7 @@ mindformers.Trainer
         异常：
             - **TypeError** - `load_checkpoint` 不是bool或者str类型。
 
-    .. py:method:: predict(predict_checkpoint: Optional[Union[str, bool]] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, input_data: Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]] = None, batch_size: int = None, **kwargs)
+    .. py:method:: predict(predict_checkpoint=None, auto_trans_ckpt=None, src_strategy=None, transform_process_num=None, input_data=None, batch_size=None, **kwargs)
 
         Trainer中执行预测的API，在设置了用户自定义的配置后，通过调用Trainer实例的predict方法来执行预测。
 
@@ -96,7 +96,7 @@ mindformers.Trainer
             - **TypeError** - `predict_checkpoint` 不是bool或者str类型。
             - **TypeError** - `input_data` 不是Tensor、np.ndarray、Image、str或者list类型。
 
-    .. py:method:: train(train_checkpoint: Optional[Union[str, bool]] = False, resume_from_checkpoint: Optional[Union[str, bool]] = None, resume_training: Optional[Union[bool, str]] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)
+    .. py:method:: train(train_checkpoint=False, resume_from_checkpoint=None, resume_training=None, ignore_data_skip=None, data_skip_steps=None, auto_trans_ckpt=None, src_strategy=None, transform_process_num=None, do_eval=False)
 
         Trainer中执行训练的API，在设置了用户自定义的配置后，通过调用Trainer实例的train方法来执行训练。
 

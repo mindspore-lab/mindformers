@@ -1,7 +1,7 @@
 mindformers.core.LinearWithWarmUpLR
 ===================================
 
-.. py:class:: mindformers.core.LinearWithWarmUpLR(learning_rate: float, total_steps: int, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, **kwargs)
+.. py:class:: mindformers.core.LinearWithWarmUpLR(learning_rate, total_steps, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, **kwargs)
 
     线性预热学习率。
 

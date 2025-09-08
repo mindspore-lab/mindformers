@@ -1,7 +1,7 @@
 mindformers.core.TrainingStateMonitor
 =====================================
 
-.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)
+.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs, config=None, step_interval=1, dataset_size=None, initial_epoch=0, initial_step=0, global_batch_size=0, check_for_nan_in_loss_and_grad=False, use_skip_data_by_global_norm=False, embedding_size=4096, use_local_norm=False)
 
     监控训练过程中指标变化的回调函数。
 
