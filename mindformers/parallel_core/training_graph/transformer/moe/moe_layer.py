@@ -184,7 +184,8 @@ class MoELayer(BaseMoELayer):
         expert_index, router_coeff, router_aux_loss = self.router(x_reshaped)
 
         if self.config.enable_expert_relocation:
-            expert_index = self.expert_mapping[expert_index]
+            expert_index = ms.mint.index_select(self.expert_mapping, 0,
+                                                expert_index.reshape(-1)).reshape(expert_index.shape)
 
         # 2. permute + experts + unpermute
         experts_output = self.experts(x_reshaped, router_coeff, expert_index)
@@ -220,17 +221,13 @@ class MoELayer(BaseMoELayer):
         Args:
             num_tokens_per_expert: Array containing number of tokens assigned to each expert.
         """
-        if self.config.enable_expert_relocation:
-            # map back the num_tokens to the original order of experts
-            num_tokens_per_expert_origin = num_tokens_per_expert[self.expert_mapping]
-        else:
-            num_tokens_per_expert_origin = num_tokens_per_expert
         # update expert load
         expert_load_history_cnt_new = self.expert_load_history_cnt + 1
         expert_load_new = ops.cast((self.expert_load_history * self.expert_load_history_cnt
-                                    + num_tokens_per_expert_origin) / (expert_load_history_cnt_new), ms.float32)
+                                    + num_tokens_per_expert) / (expert_load_history_cnt_new), ms.float32)
 
-        self.expert_load_history.set_data(expert_load_new)
+        expert_load_gathered = self.gather_expert_load_data_parallel(expert_load_new)
+        self.expert_load_history.set_data(expert_load_gathered)
         if self.config.print_expert_load:
             expert_load_history_cnt_new = ops.minimum(
                 expert_load_history_cnt_new, Tensor(100, ms.int32))
@@ -256,8 +253,6 @@ class MoELayer(BaseMoELayer):
         Returns:
             tuple: (device_expert_mapping, new_local_expert_sorted_indices)
         """
-        self.expert_load_history.set_data(
-            self.gather_expert_load_data_parallel(self.expert_load_history))
         expert_mapping = self.expert_mapping.asnumpy()
 
         ep_devices = list(range(self.ep))
