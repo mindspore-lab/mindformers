@@ -20,7 +20,7 @@ from transformers import AutoTokenizer
 
 from mindformers import AutoConfig
 from mindformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeForCausalLM
-from mindformers import build_context, MindFormerConfig
+from mindformers import build_context, MindFormerConfig, set_context
 from mindformers.tools.logger import logger
 
 from tests.st.test_multi_cards_cases.test_model.utils import compare_distance
@@ -37,6 +37,7 @@ def test_qwen3_30b_a3b_predict_mcore(device_num: int = 1):
     config = MindFormerConfig(config_path)
     config.use_parallel = device_num > 1
     build_context(config)
+    set_context(graph_kernel_flags="--disable_pass=matmul_split_fusion")
     # Auto tokenizer
     tokenizer = AutoTokenizer.from_pretrained(config.pretrained_model_dir)
     # Auto config
