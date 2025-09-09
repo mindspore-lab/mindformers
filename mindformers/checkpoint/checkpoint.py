@@ -33,7 +33,6 @@ from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.communication.management import get_rank, get_group_size
 import mindspore.communication.comm_func as comm_func
 from mindspore import save_checkpoint as ms_save_checkpoint
-from mindspore.parallel.strategy import get_current_strategy_metadata
 
 from mindformers.tools.logger import logger
 from mindformers.checkpoint.reshard import ReshardHandler
@@ -851,6 +850,7 @@ def load_checkpoint(
 
     # Get current strategy metadata from network and optimizer
     logger.info(f".........Get Current Strategy Metadata.........")
+    from mindformers.parallel.strategy import get_current_strategy_metadata
     cur_rank_strategy_layout = get_current_strategy_metadata(network=network)[0]
     cur_rank_sharded_tensors: List[ShardedTensor] = []
 
@@ -938,33 +938,7 @@ def load_parameters(
         ValueError: If network is not a Cell, state_dict is invalid, state_dict_opt is not a dict,
                    or optimizer is provided but is not a Cell
     """
-    def _pre_check():
-        """Pre-validation checks for network, optimizer, and state dictionaries before parameter loading."""
-        if not isinstance(network, Cell):
-            raise ValueError(
-                f"Invalid 'network' type: Expected MindSpore Cell, got {type(network).__name__}. "
-                "Please provide a valid network Cell object."
-            )
-
-        if optimizer and not isinstance(optimizer, Cell):
-            raise ValueError(
-                f"Invalid 'optimizer' type: Expected MindSpore Cell, got {type(optimizer).__name__}."
-            )
-
-        if not state_dict or not isinstance(state_dict, dict):
-            raise ValueError(
-                "Invalid 'state_dict': Must be a non-empty dictionary, "
-                f"got {type(state_dict).__name__} (value: {state_dict}). "
-                "Provide a valid network state dictionary with Parameter values."
-            )
-
-        state_dict_opt: Dict[str, Parameter] = {} if not state_dict_opt else state_dict_opt
-        if not isinstance(state_dict_opt, dict):
-            raise ValueError(
-                f"Invalid 'state_dict_opt' type: Expected dict or None, got {type(state_dict_opt).__name__}."
-            )
-
-    _pre_check()
+    state_dict_opt: Dict[str, Parameter] = {} if not state_dict_opt else state_dict_opt
 
     # Separate network and optimizer parameters
     network_param_names = set(network.parameters_dict().keys())

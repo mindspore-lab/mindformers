@@ -982,7 +982,7 @@ class BaseTrainer:
                         config.runner_wrapper.scale_sense.loss_scale_value = conmon_info.loss_scale
                         resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
                     else:
-                        config.runner_wrapper.scale_sense.scale_sense = conmon_info.loss_scale
+                        config.runner_wrapper.scale_sense = conmon_info.loss_scale
                         resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
                 append_info = [resume_dict]
             else:
