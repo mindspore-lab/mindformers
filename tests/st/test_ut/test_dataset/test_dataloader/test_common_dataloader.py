@@ -84,7 +84,7 @@ def get_packing_alpaca_config(config, packing):
     config.data_loader.handler = [
         MindFormerConfig(**dict(
             type='AlpacaInstructDataHandler',
-            seq_length=256,
+            seq_length=512,
             tokenizer=dict(
                 unk_token='<unk>',
                 bos_token='<s>',
@@ -99,7 +99,7 @@ def get_packing_alpaca_config(config, packing):
         config.data_loader.handler.append(
             MindFormerConfig(**dict(
                 type='PackingHandler',
-                seq_length=256,
+                seq_length=512,
                 output_columns=["input_ids", "labels", "actual_seq_len"]
             )))
 
@@ -180,7 +180,7 @@ class TestCommonDataLoader:
         dataloader = build_dataloader(config)
         dataset = dataloader.source.dataset
         assert dataset.column_names == ['input_ids', 'labels', 'actual_seq_len']
-        assert dataset.num_rows == 9
+        assert dataset.num_rows == 7
 
         # test truncate example
         assert dataset[0]['input_ids'][-1] != 0
@@ -216,7 +216,7 @@ class TestCommonDataLoader:
         dataloader = build_dataloader(config)
         print(dataloader[0][-1].shape)
         assert len(dataloader[0]) == 5
-        assert dataloader[0][-1].shape == (1, 256, 256)
+        assert dataloader[0][-1].shape == (1, 512, 512)
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
