@@ -20,13 +20,19 @@ Qwen3 是 Qwen 系列最新一代的大型语言模型。基于广泛的训练�
 
 |    模型名称    |  规格  | 支持任务 | 模型架构  |                       支持设备                        |                  模型级别                  |
 |:----------:|:----:|:----:|:-----:|:-------------------------------------------------:|:--------------------------------------:|
-|   Qwen3    | 32B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Released](#模型级别介绍)           |
-|   Qwen3    | 0.6B |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](#模型级别介绍)          |
-|   Qwen3    |  8B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](#模型级别介绍)          |
-|   Qwen3    | 1.7B |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](#模型级别介绍)           |
-|   Qwen3    |  4B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](#模型级别介绍)           |
-|   Qwen3    | 14B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](#模型级别介绍)           |
-|   Qwen3    | 32B  | 预训练  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](#模型级别介绍)          |
+|   Qwen3    | 32B  | 预训练  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 32B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 14B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Preliminary](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 8B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Preliminary](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 4B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Preliminary](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 1.7B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Preliminary](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 0.6B  | 微调  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Preliminary](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 32B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Released](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)           |
+|   Qwen3    | 0.6B |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    |  8B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Validated](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)          |
+|   Qwen3    | 1.7B |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)           |
+|   Qwen3    |  4B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)           |
+|   Qwen3    | 14B  |  推理  | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |          [Untested](https://gitee.com/mindspore/mindformers/blob/master/README_CN.md#%E6%A8%A1%E5%9E%8B%E7%BA%A7%E5%88%AB%E4%BB%8B%E7%BB%8D)           |
 
 说明：
 
@@ -48,6 +54,7 @@ MindSpore Transformers 支持使用 Qwen3 进行预训练和推理。各任务�
 | 任务  | 前期准备                    | 使用流程                       |
 |:---:|:------------------------|:---------------------------|
 | 预训练 | 环境安装 -> 预训练数据集下载        | 数据预处理 -> 修改任务配置 -> 启动预训练任务 |
+| 微调 | 环境安装 -> 模型下载        |  修改任务配置 -> 启动微调任务 |
 | 推理  |  环境安装 -> 模型下载                       |    修改任务配置 -> 启动推理任务                        |
 
 ### 前期准备
@@ -153,7 +160,6 @@ train_dataset: &train_dataset
 master_ip=192.168.1.1
 node_rank=0
 port=50001
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3/pretrain_qwen3_32b_4k.yaml \
 --auto_trans_ckpt False \
@@ -164,7 +170,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 > 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号；将`port`设置为当前进程的端口号。
 
-上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可查看训练状态（由于开启了流水并行，真实loss只显示在最后一个pipeline stage的日志中，其余pipeline stage会显示`loss`为`0`）
+上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可实时查看训练状态（由于开启了流水并行，真实loss只显示在最后一个pipeline stage的日志中，其余pipeline stage会显示`loss`为`0`）
 
 ```shell
 tail -f ./output/msrun_log/worker_15.log
@@ -173,6 +179,191 @@ tail -f ./output/msrun_log/worker_15.log
 训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
 
 如有关于Qwen3预训练的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
+
+### 微调样例
+
+SFT（Supervised Fine-Tuning，监督微调）采用有监督学习思想，是指在预训练模型的基础上，通过调整部分或全部参数，使模型更适应特定任务或数据集的过程。在MindSpore官网提供了详细的[指导](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/supervised_fine_tuning.html)。
+
+MindSpore Transformers支持全参微调和LoRA高效微调两种SFT微调方式。全参微调是指在训练过程中对所有参数进行更新，适用于大规模数据精调，能获得最优的任务适应能力，但需要的计算资源较大。LoRA高效微调在训练过程中仅更新部分参数，相比全参微调显存占用更少、训练速度更快，但在某些任务中的效果不如全参微调。
+
+#### 1. 配置文件修改
+
+MindSpore Transformers 提供了微调任务的配置文件，用户可以根据实际情况修改配置文件。以下是一个示例配置文件片段，用户需要根据自己的数据集路径和其他参数进行相应修改。代码仓中提供了Qwen3-32B全参微调的配置文件[configs/qwen3/finetune_qwen3.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3/finetune_qwen3.yaml)，如果需要修改其他模型，例如Qwen3-14B、Qwen3-8B、Qwen3-4B、Qwen3-1.7B、Qwen3-0.6B等，可以参考该配置文件进行相应修改。并参考[附录](#附录)中的[并行配置建议](#并行配置建议)章节进行修改
+
+**全参微调配置示例：**
+
+```yaml
+# 数据集配置
+train_dataset: &train_dataset
+  data_loader:
+    type: HFDataLoader
+    path: "llm-wizard/alpaca-gpt4-data-zh" # alpaca风格数据集，确保网络环境能够访问huggingface，以实现自动下载数据集功能。
+    # path: "json"  # 如果使用本地json文件离线加载数据集，可以取消注释下面两行，并注释掉上面一行
+    # data_files: '/path/to/alpaca_gpt4_data_zh.json'
+    handler:
+      - type: take # 调用datasets库的take方法，取前n条数据用于示例
+        n: 2000    # 取前2000条数据用于示例，实际使用时可以去掉这一行和上面一行
+```
+
+**LoRA微调配置示例：**
+
+LoRA微调可以在单机8卡环境下运行，资源需求较低。以下是配置示例：
+
+```yaml
+# 数据集配置
+train_dataset: &train_dataset
+  data_loader:
+    type: HFDataLoader
+    path: "llm-wizard/alpaca-gpt4-data-zh" # alpaca风格数据集，确保网络环境能够访问huggingface，以实现自动下载数据集功能。
+    # path: "json"  # 如果使用本地json文件离线加载数据集，可以取消注释下面两行，并注释掉上面一行
+    # data_files: '/path/to/alpaca_gpt4_data_zh.json'
+    handler:
+      - type: take # 调用datasets库的take方法，取前n条数据用于示例
+        n: 2000    # 取前2000条数据用于示例，实际使用时可以去掉这一行和上面一行
+
+# LoRA配置
+model:
+  model_config:
+    ...
+    # 在model_config层级下添加pet_config
+    pet_config:
+      pet_type: lora
+      lora_rank: 8
+      lora_alpha: 16
+      lora_dropout: 0.1
+      lora_a_init: 'normal'
+      lora_b_init: 'zeros'
+      target_modules: '.*word_embeddings|.*linear_qkv|.*linear_proj|.*linear_fc1|.*linear_fc2'
+      freeze_include: ['*']
+      freeze_exclude: ['*lora*']
+```
+
+`pet_config`关键参数说明：
+
+| 参数 | 说明 |
+|:-----|:-----|
+| `pet_type` | 参数高效微调技术类型 |
+| `lora_rank` | LoRA的秩 |
+| `lora_alpha` | LoRA缩放因子alpha |
+| `lora_dropout` | LoRA中的dropout概率 |
+| `lora_a_init` | LoRA的A矩阵初始化方式 |
+| `lora_b_init` | LoRA的B矩阵初始化方式 |
+| `target_modules` | 应用LoRA的模块，上述配置对word_embeddings、attention和mlp的权重矩阵应用LoRA |
+
+#### 3. 启动微调任务
+
+- **多机多卡训练（以Qwen3 32B全参微调为例）**
+
+通过指定模型路径和配置文件[configs/qwen3/finetune_qwen3.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3/finetune_qwen3.yaml)以msrun的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，启动卡分布式训练。
+
+下列脚本可以参考如下方式拉起**两台Atlas 800T A2（64G）训练**。
+
+在每台服务器上执行如下命令。设置：
+
+- `total_rank_num=16`表示两台Atlas 800T A2（64G）共有`2x8=16`个NPU；
+- `local_rank_num=8`表示每台Atlas 800T A2（64G）有8个NPU；
+- `master_ip`为主节点IP地址；
+- `node_rank`为每个节点的序号；
+- `port`为当前进程的端口号（可在50000~65536中选择）。
+
+```bash
+total_rank_num=16
+local_rank_num=8
+master_ip=192.168.1.1
+node_rank=0
+port=50001
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config configs/qwen3/finetune_qwen3.yaml \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode train \
+--pretrained_model_dir /path/to/Qwen3-32B \
+--parallel_config.data_parallel 1 \
+--parallel_config.model_parallel 8 \
+--parallel_config.pipeline_stage 1 \
+--parallel_config.micro_batch_num 1 \
+--recompute_config.recompute True" \
+$total_rank_num $local_rank_num $master_ip $port $node_rank output/msrun_log False 7200
+```
+
+> `--pretrained_model_dir` 可以用于选择不同规格的Qwen3模型进行微调，例如`/path/to/Qwen3-14B`、`/path/to/Qwen3-8B`、`/path/to/Qwen3-4B`、`/path/to/Qwen3-1.7B`、`/path/to/Qwen3-0.6B`等。
+> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号；将`port`设置为当前进程的端口号。
+
+上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可实时查看训练状态
+
+```bash
+tail -f ./output/msrun_log/worker_15.log
+```
+
+训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
+
+如有关于Qwen3全参微调的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
+
+- **单机多卡训练（以Qwen3 32B LoRA微调为例）**
+
+通过指定模型路径和配置文件[configs/qwen3/finetune_qwen3.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3/finetune_qwen3.yaml)以msrun的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，启动卡分布式训练。
+
+下列脚本可以参考如下方式拉起**一台Atlas 800T A2（64G）训练**。
+
+```bash
+total_rank_num=8
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config configs/qwen3/finetune_qwen3.yaml \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode train \
+--pretrained_model_dir /path/to/Qwen3-32B \
+--parallel_config.data_parallel 1 \
+--parallel_config.model_parallel 4 \
+--parallel_config.pipeline_stage 4 \
+--parallel_config.micro_batch_num 4 \
+--recompute_config.recompute True" \
+$total_rank_num
+```
+
+> `--pretrained_model_dir` 可以用于选择不同规格的Qwen3模型进行微调，例如`/path/to/Qwen3-14B`、`/path/to/Qwen3-8B`、`/path/to/Qwen3-4B`、`/path/to/Qwen3-1.7B`、`/path/to/Qwen3-0.6B`等。
+
+上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可实时查看训练状态
+
+```bash
+tail -f ./output/msrun_log/worker_7.log
+```
+
+训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
+
+如有关于Qwen3 LoRA微调的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
+
+#### 4. 权重合并
+
+`output`目录下的`checkpoint`文件夹中会保存微调过程中生成的分布式safetensors权重文件，用户可以根据需要选择合适的权重进行权重合并，得到完整的safetensors权重，适用于后续推理流程。
+
+使用MindSpore Transformers提供的safetensors权重合并脚本，按照如下方式进行safetensors权重合并。合并后的权重格式为完整权重。
+
+```bash
+python toolkit/safetensors/unified_safetensors.py \
+  --src_strategy_dirs src_strategy_path_or_dir \
+  --mindspore_ckpt_dir mindspore_ckpt_dir\
+  --output_dir output_dir \
+  --file_suffix "1_1" \
+  --has_redundancy False
+```
+
+参数说明
+
+- **src_strategy_dirs**：源权重对应的分布式策略文件路径，通常在启动训练任务后默认保存在 `output/strategy/` 目录下。分布式权重需根据以下情况填写：
+
+    - **源权重开启了流水线并行**：权重转换基于合并的策略文件，填写分布式策略文件夹路径。脚本会自动将文件夹内的所有 `ckpt_strategy_rank_x.ckpt` 文件合并，并在文件夹下生成 `merged_ckpt_strategy.ckpt`。如果已经存在 `merged_ckpt_strategy.ckpt`，可以直接填写该文件的路径。
+    - **源权重未开启流水线并行**：权重转换可基于任一策略文件，填写任意一个 `ckpt_strategy_rank_x.ckpt` 文件的路径即可。
+
+    **注意**：如果策略文件夹下已存在 `merged_ckpt_strategy.ckpt` 且仍传入文件夹路径，脚本会首先删除旧的 `merged_ckpt_strategy.ckpt`，再合并生成新的 `merged_ckpt_strategy.ckpt` 以用于权重转换。因此，请确保该文件夹具有足够的写入权限，否则操作将报错。
+- **mindspore_ckpt_dir**：分布式权重路径，请填写源权重所在文件夹的路径，源权重应按 `model_dir/rank_x/xxx.safetensors` 格式存放，并将文件夹路径填写为 `model_dir`。
+- **output_dir**：目标权重的保存路径，默认值为 "/new_llm_data/******/ckpt/nbg3_31b/tmp"，即目标权重将放置在 `/new_llm_data/******/ckpt/nbg3_31b/tmp` 目录下。
+- **file_suffix**：目标权重文件的命名后缀，默认值为 "1_1"，即目标权重将按照 `*1_1.safetensors` 格式查找。
+- **has_redundancy**：合并的源权重是否是冗余的权重，默认为 `True`。
+- **filter_out_param_prefix**：合并权重时可自定义过滤掉部分参数，过滤规则以前缀名匹配。如优化器参数"adam_"。
+- **max_process_num**：合并最大进程数。默认值：64。
+
+更多Safetensors权重相关的操作请参考[MindSpore Transformers - Safetensors权重](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/safetensors.html#%E6%9D%83%E9%87%8D%E5%90%88%E5%B9%B6)
 
 ### 推理样例
 
@@ -364,7 +555,7 @@ Qwen3的模型文件包括以下内容：
 
 > 注意：max_device_memory 在 Atlas 800T A2 和 Atlas 900 A3 SuperPoD 等机器上一般设置≤60GB，在 Atlas 800I A2 上一般设置≤30GB。
 
-- 预训练：
+- 预训练/全参微调：
 
 <table>
   <tr>
@@ -408,6 +599,363 @@ Qwen3的模型文件包括以下内容：
   max_device_memory: "58GB"</code></pre>
     </td>
     <td> Validated </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>14B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: True
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>8B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>4B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>1.7B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>0.6B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+</table>
+
+- LoRA微调：
+
+<table>
+  <tr>
+    <th>模型</th>
+    <th>规格</th>
+    <th>设备</th>
+    <th>卡数</th>
+    <th>序列长度</th>
+    <th>并行配置</th>
+    <th>重计算配置</th>
+    <th>内存配置</th>
+    <th>模型级别</th>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>32B</td>
+    <td>Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: True
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Validated </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>14B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: True
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>8B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Preliminary </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>4B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Untested </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>1.7B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Untested </td>
+  </tr>
+  <tr>
+    <td>Qwen3</td>
+    <td>0.6B</td>
+    <td>1 × Atlas 800T A2 (8P)</td>
+    <td>8</td>
+    <td>4096</td>
+    <td>
+      <pre><code class="language-yaml">parallel_config:
+  data_parallel: &dp 1
+  model_parallel: 8
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  use_seq_parallel: False
+  gradient_aggregation_group: 1</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+  recompute_slice_activation: True</code></pre>
+    </td>
+    <td>
+      <pre><code class="language-yaml">context:
+  ...
+  max_device_memory: "58GB"</code></pre>
+    </td>
+    <td> Untested </td>
   </tr>
 </table>
 
@@ -541,7 +1089,6 @@ master_ip=192.168.1.1
 node_rank=0
 port=50001
 
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3/pretrain_qwen3_32b_4k.yaml \
 --auto_trans_ckpt False \
@@ -558,7 +1105,6 @@ master_ip=192.168.1.1
 node_rank=1
 port=50001
 
-export MS_DEV_JIT_SYNTAX_LEVEL=0
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config configs/qwen3/pretrain_qwen3_32b_4k.yaml \
 --auto_trans_ckpt False \
