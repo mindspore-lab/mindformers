@@ -29,6 +29,11 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
+try:
+    import ms_custom_ops
+except ModuleNotFoundError:
+    # environment need install ms_custom_ops package
+    pass
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
@@ -167,11 +172,17 @@ class LinearBase(ms.nn.Cell):
         raise NotImplementedError
 
     def format_to_nz(self, param, merge_count=1, move_to_cpu=False):
+        '''
+        format the weight to nz format
+        '''
         current_count = self.param_load_counts.get(param.name, 0) + 1
         self.param_load_counts[param.name] = current_count
 
         if current_count == merge_count:
-            cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
+            if is_310p():
+                cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
+            else:
+                cast_weight = ms.jit(ms_custom_ops.trans_data)(param, transdata_type=1)
             if move_to_cpu:
                 cast_weight = cast_weight.move_to("CPU")
             param.set_data(cast_weight)
@@ -492,8 +503,9 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {(shard_size, param.shape[1])} and "
                 f"the shape of weight is{loaded_weight.shape}")
-        loaded_shard_num = 2 #gating/hidden
-        if (is_310p() or self.config.use_fused_mla) and param.name.endswith("weight"):
+        # format cast after load q, kv
+        loaded_shard_num = 2 # gating/hidden
+        if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param, loaded_shard_num)
         cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
@@ -997,9 +1009,6 @@ class ReplicatedLinear(LinearBase):
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
             param.set_data(ms.from_numpy(loaded_weight))
-        if self.config.use_fused_mla and param.name.endswith("weight"):
-            move_to_cpu = self.config.use_fused_mla and ms.get_context('mode') == ms.PYNATIVE_MODE
-            self.format_to_nz(param, 2, move_to_cpu=move_to_cpu)
         cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
