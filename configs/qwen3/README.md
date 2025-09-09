@@ -279,9 +279,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 --run_mode train \
 --pretrained_model_dir /path/to/Qwen3-32B \
 --parallel_config.data_parallel 1 \
---parallel_config.model_parallel 8 \
---parallel_config.pipeline_stage 1 \
---parallel_config.micro_batch_num 1 \
+--parallel_config.model_parallel 4 \
+--parallel_config.pipeline_stage 4 \
+--parallel_config.micro_batch_num 4 \
 --recompute_config.recompute True" \
 $total_rank_num $local_rank_num $master_ip $port $node_rank output/msrun_log False 7200
 ```
@@ -314,9 +314,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 --run_mode train \
 --pretrained_model_dir /path/to/Qwen3-32B \
 --parallel_config.data_parallel 1 \
---parallel_config.model_parallel 4 \
---parallel_config.pipeline_stage 4 \
---parallel_config.micro_batch_num 4 \
+--parallel_config.model_parallel 8 \
+--parallel_config.pipeline_stage 1 \
+--parallel_config.micro_batch_num 1 \
 --recompute_config.recompute True" \
 $total_rank_num
 ```
