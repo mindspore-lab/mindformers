@@ -250,6 +250,7 @@ class GeneralConfig(Config):
     only_save_strategy = False
     load_ckpt_async = False
     use_legacy = True
+    ckpt_use_legacy_format = True
     pretrained_model_dir = ""
     cpu_offloading_weights = False
 

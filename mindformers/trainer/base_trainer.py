@@ -68,6 +68,8 @@ from mindformers.core.callback.callback import (
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
+from mindformers.checkpoint.checkpoint import load_checkpoint, CommonInfo
+from mindformers.checkpoint.utils import compile_model
 from ..core.config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -927,6 +929,7 @@ class BaseTrainer:
 
         return None
 
+    # pylint: disable=C0330
     def training_process(
             self,
             config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
@@ -953,32 +956,65 @@ class BaseTrainer:
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
-        if config.resume_training and config.load_checkpoint:
-            logger.info(".............Start load resume context from checkpoint..................")
-            if check_tft_valid() and not config.remove_redundancy:
-                logger.info("..............Start resume checkpoint path from strategy..............")
-                resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
-                if resume_ckpt_path is None:
-                    raise ValueError("Try to resume from checkpoints with strategy in directory '{}' failed, "
-                                     "please specify load_checkpoint to specific checkpoint file to resume training."
-                                     .format(config.load_checkpoint))
-                config.load_checkpoint = resume_ckpt_path
-            load_resume_context_from_checkpoint(config, dataset)
-            resume_dict = {
-                "step_num": config.runner_config.initial_step,
-                "epoch_num": config.runner_config.initial_epoch,
-            }
-            if config.runner_wrapper.scale_sense is not None:
-                if hasattr(config.runner_wrapper.scale_sense, 'loss_scale_value'):
-                    resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+        if not config.ckpt_use_legacy_format:
+            if config.resume_training and config.load_checkpoint:
+                logger.info(".............Start load resume context from common.json..................")
+                common_file = os.path.join(config.load_checkpoint, 'common.json')
+                if not os.path.exists(common_file):
+                    raise FileNotFoundError(f"No common.json found in directory '{config.load_checkpoint}'.")
+                conmon_info = CommonInfo.load_common(common_file)
+                step_scale = conmon_info.global_batch_size / config.runner_config.global_batch_size
+                config.runner_config.initial_step = int(conmon_info.step_num * step_scale)
+                if config.runner_config.sink_mode:
+                    config.runner_config.initial_epoch = int(conmon_info.epoch_num * step_scale)
                 else:
-                    resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
+                    data_size = dataset.get_dataset_size()
+                    not_last_step_in_epoch = int(config.runner_config.initial_step % data_size != 0)
+                    config.runner_config.initial_epoch = int(conmon_info.epoch_num) - not_last_step_in_epoch
+
+                resume_dict = {
+                    "step_num": config.runner_config.initial_step,
+                    "epoch_num": config.runner_config.initial_epoch,
+                    "loss_scale": 1
+                }
+                if config.runner_wrapper.scale_sense is not None:
+                    if hasattr(config.runner_wrapper.scale_sense, "loss_scale_value"):
+                        config.runner_wrapper.scale_sense.loss_scale_value = conmon_info.loss_scale
+                        resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+                    else:
+                        config.runner_wrapper.scale_sense.scale_sense = conmon_info.loss_scale
+                        resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
+                append_info = [resume_dict]
             else:
-                resume_dict["loss_scale"] = 1
-            append_info = [resume_dict]
+                config.runner_config.initial_epoch = 0
+                config.runner_config.initial_step = 0
         else:
-            config.runner_config.initial_epoch = 0
-            config.runner_config.initial_step = 0
+            if config.resume_training and config.load_checkpoint:
+                logger.info(".............Start load resume context from checkpoint..................")
+                if check_tft_valid() and not config.remove_redundancy:
+                    logger.info("..............Start resume checkpoint path from strategy..............")
+                    resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
+                    if resume_ckpt_path is None:
+                        raise ValueError("Try to resume from checkpoints with strategy in directory '{}' failed, "
+                                        "please specify load_checkpoint to specific checkpoint file to resume training."
+                                        .format(config.load_checkpoint))
+                    config.load_checkpoint = resume_ckpt_path
+                load_resume_context_from_checkpoint(config, dataset)
+                resume_dict = {
+                    "step_num": config.runner_config.initial_step,
+                    "epoch_num": config.runner_config.initial_epoch,
+                }
+                if config.runner_wrapper.scale_sense is not None:
+                    if hasattr(config.runner_wrapper.scale_sense, 'loss_scale_value'):
+                        resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+                    else:
+                        resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
+                else:
+                    resume_dict["loss_scale"] = 1
+                append_info = [resume_dict]
+            else:
+                config.runner_config.initial_epoch = 0
+                config.runner_config.initial_step = 0
 
         # preload ckpt format file via MindIO
         if config.load_checkpoint and config.load_ckpt_format == "ckpt":
@@ -1226,7 +1262,23 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
 
         # resume checkpoint
-        if (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
+        if not config.ckpt_use_legacy_format and config.load_checkpoint:
+            if config.use_parallel:
+                compile_model(model, dataset, mode=config.context.mode, sink_mode=config.runner_config.sink_mode,
+                              epoch=config.runner_config.epochs, sink_size=config.runner_config.sink_size)
+
+            if config.resume_training:
+                logger.info(".............Start resume training from checkpoint..................")
+                global_step = conmon_info.global_step
+                if conmon_info.global_batch_size != self.global_batch_size:
+                    global_step = \
+                        int(conmon_info.global_step * (conmon_info.global_batch_size / self.global_batch_size))
+                load_checkpoint(
+                    checkpoint=config.load_checkpoint, network=network, optimizer=optimizer, global_step=global_step
+                )
+            else:
+                load_checkpoint(checkpoint=config.load_checkpoint, network=network)
+        elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)

@@ -488,6 +488,7 @@ class MFContextConfig(BaseArgsConfig):
         'src_strategy_path_or_dir',
         'auto_trans_ckpt',
         'only_save_strategy',
+        'ckpt_use_legacy_format',
         'run_mode',
         'use_legacy',
         'exclude_cann_cpu',

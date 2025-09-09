@@ -59,6 +59,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
 from mindformers.tools.resume_ckpt import get_resume_checkpoint
+from mindformers.checkpoint.checkpoint import get_checkpoint_path
 from mindformers.version_control import check_tft_valid
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
@@ -462,7 +463,8 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
         # if enable_tft is False or remove_redundancy is True, can use record last_ckpt to json
-        if self.config.resume_training and (not check_tft_valid() or self.config.remove_redundancy):
+        if self.config.ckpt_use_legacy_format and self.config.resume_training and \
+            (not check_tft_valid() or self.config.remove_redundancy):
             if os.path.isfile(self.config.load_checkpoint) and \
                     isinstance(self.config.resume_training, str):
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
@@ -482,7 +484,10 @@ class Trainer:
                     health_ckpts_record_dir=self.config.output_dir
                 )
 
-        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
+        if not self.config.ckpt_use_legacy_format:
+            self.config.load_checkpoint = get_checkpoint_path(self.config.load_checkpoint)
+        else:
+            self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
@@ -602,7 +607,7 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
 
-        if self.config.resume_training:
+        if self.config.ckpt_use_legacy_format and self.config.resume_training:
             if os.path.isfile(self.config.load_checkpoint) and \
                     isinstance(self.config.resume_training, str):
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
@@ -621,7 +626,10 @@ class Trainer:
                     health_ckpts_record_dir=self.config.output_dir
                 )
 
-        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
+        if not self.config.ckpt_use_legacy_format:
+            self.config.load_checkpoint = get_checkpoint_path(self.config.load_checkpoint)
+        else:
+            self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
 
         self.trainer.train(
             config=self.config, network=self.model,

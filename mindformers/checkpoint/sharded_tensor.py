@@ -18,7 +18,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Union, Callable
 
+from mindformers.tools.logger import logger
+
 import mindspore as ms
+from mindspore.nn import Cell
 from mindspore.parallel.shard import _DistributedTensorInfo
 
 ReplicaId = Union[int, Tuple[int, ...]]
@@ -68,6 +71,24 @@ class ShardedTensor:
 
     layout: ms.Layout = None
     """Mindspore parallel layout describes the detailed sharding information."""
+
+
+def build_sharded_tensor(
+        param_name: str, param_dtype: ms.dtype, local_shape: Tuple[int, ...], global_shape: Tuple[int, ...],
+        axis_fragmentations: Tuple[int, ...], global_offset: Tuple[int, ...], replica_id: ReplicaId = 0,
+        allow_shape_mismatch: bool = False, allow_to_save: bool = True, layout: Optional[ms.Layout] = None
+) -> ShardedTensor:
+    """Creates and returns a ShardedTensor instance with the specified parameters."""
+    return ShardedTensor(
+        key=param_name, dtype=param_dtype, local_shape=tuple(local_shape), global_shape=tuple(global_shape),
+        global_offset=tuple(global_offset), axis_fragmentations=tuple(axis_fragmentations), replica_id=replica_id,
+        allow_shape_mismatch=allow_shape_mismatch, allow_to_save=allow_to_save, layout=layout
+    )
+
+
+def get_strategy_info_from_sharded_tensor(sharded_tensor: ShardedTensor):
+    """get strategy info from sharded tensor"""
+    return sharded_tensor.global_shape, sharded_tensor.axis_fragmentations, sharded_tensor.global_offset
 
 
 def is_main_replica(replica_id: ReplicaId):
@@ -342,9 +363,9 @@ def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_
         # The situation where different strategies need to be adapted later
         global_offset = (org_global_offset[cur_npu_rank % npu_nums_per_pp],)
 
-        cur_sharded_tensor = ShardedTensor(
-            key=param_name,
-            dtype=cur_value_type_list[idx],
+        cur_sharded_tensor = build_sharded_tensor(
+            param_name=param_name,
+            param_dtype=cur_value_type_list[idx],
             local_shape=cur_local_shape_list[idx],
             global_shape=cur_global_shape_list[idx],
             global_offset=global_offset,
@@ -357,3 +378,108 @@ def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_
         cur_rank_sharded_tensor_list.append(cur_sharded_tensor)
 
     return cur_rank_sharded_tensor_list
+
+
+def get_sharded_tensor_list_from_cell(
+        network: Cell,
+        optimizer: Optional[Cell] = None,
+) -> List[ShardedTensor]:
+    """
+    Extracts sharded tensor metadata from a network cell and optional optimizer cell.
+
+    Collects parameter information from the network and optimizer (if provided)
+    to create ShardedTensor objects containing metadata like dtype, shape, and
+    fragmentation information. Parameters from the optimizer that already exist
+    in the network are ignored.
+
+    Args:
+        network: The main network Cell containing parameters
+        optimizer: Optional optimizer Cell containing additional parameters
+
+    Returns:
+        List of ShardedTensor objects with metadata from network and optimizer parameters
+    """
+    logger.info(f".........Get Current Strategy Metadata from Cell.........")
+    cur_rank_sharded_tensor_list: List[ShardedTensor] = []
+
+    def _get_sharded_tensors_from_cell(
+            cell: Cell, ignore_params_list: Optional[List[str]] = None
+    ) -> List[ShardedTensor]:
+        """
+        Helper function to extract sharded tensors from a single Cell.
+
+        Creates ShardedTensor objects for each parameter in the cell, skipping
+        any parameters in the ignore list.
+
+        Args:
+            cell: The Cell to extract parameters from
+            ignore_params_list: Optional list of parameter names to skip
+
+        Returns:
+            List of ShardedTensor objects for the cell's parameters
+        """
+        sharded_tensor_list = list()
+        for param in cell.get_parameters():
+            param_name = param.name
+
+            # Skip parameters in the ignore list if provided
+            if ignore_params_list and param_name in ignore_params_list:
+                continue
+
+            # Extract parameter properties
+            param_dtype = param.data.dtype
+            param_shape = param.data.shape
+            global_offset = (0,)
+            axis_fragmentations = [1] * len(param_shape)
+
+            # Create and add sharded tensor metadata
+            sharded_tensor = build_sharded_tensor(
+                param_name=param_name,
+                param_dtype=param_dtype,
+                local_shape=param_shape,
+                global_shape=param_shape,
+                global_offset=global_offset,
+                axis_fragmentations=axis_fragmentations
+            )
+            sharded_tensor_list.append(sharded_tensor)
+
+        return sharded_tensor_list
+
+    # Get sharded tensors from the main network
+    cur_rank_sharded_tensor_list.extend(_get_sharded_tensors_from_cell(network))
+
+    # Add sharded tensors from optimizer if provided, ignoring network parameters
+    if optimizer:
+        # Create list of parameter names already collected from network
+        ignore_params_list = [sharded_tensor.key for sharded_tensor in cur_rank_sharded_tensor_list]
+        # Get optimizer parameters, skipping those already in network
+        cur_rank_sharded_tensor_list.extend(
+            _get_sharded_tensors_from_cell(optimizer, ignore_params_list)
+        )
+
+    return cur_rank_sharded_tensor_list
+
+
+def convert_sharded_tensor_list_to_dict(
+        sharded_tensor_list: List[ShardedTensor]
+) -> Dict[str, ShardedTensor]:
+    """
+    Converts a list of ShardedTensor objects to a dictionary.
+
+    Creates a dictionary where each key is the 'key' attribute of a ShardedTensor
+    from the input list, and the corresponding value is the ShardedTensor object
+    itself.
+
+    Args:
+        sharded_tensor_list: List of ShardedTensor objects to convert
+
+    Returns:
+        Dictionary mapping ShardedTensor keys to their corresponding objects
+    """
+    sharded_tensor_dict: Dict[str, ShardedTensor] = {}
+
+    for sharded_tensor in sharded_tensor_list:
+        param_name = sharded_tensor.key
+        sharded_tensor_dict[param_name] = sharded_tensor
+
+    return sharded_tensor_dict

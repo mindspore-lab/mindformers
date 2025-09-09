@@ -15,3 +15,5 @@
 """checkpoint module."""
 
 from mindformers.checkpoint.checkpoint import save_checkpoint
+
+__all__ = ["save_checkpoint"]
