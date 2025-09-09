@@ -1276,10 +1276,11 @@ class BaseTrainer:
                     global_step = \
                         int(conmon_info.global_step * (conmon_info.global_batch_size / self.global_batch_size))
                 load_checkpoint(
-                    checkpoint=config.load_checkpoint, network=network, optimizer=optimizer, global_step=global_step
+                    checkpoint=config.load_checkpoint, network=network, optimizer=optimizer, global_step=global_step,
+                    balanced_load=config.balanced_load
                 )
             else:
-                load_checkpoint(checkpoint=config.load_checkpoint, network=network)
+                load_checkpoint(checkpoint=config.load_checkpoint, network=network, balanced_load=config.balanced_load)
         elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")

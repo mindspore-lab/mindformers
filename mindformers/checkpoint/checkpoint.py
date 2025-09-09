@@ -815,6 +815,7 @@ def load_checkpoint(
         network: Cell,
         optimizer: Optional[Optimizer] = None,
         global_step: Optional[int] = None,
+        balanced_load: bool = False,
 ) -> None:
     """
     Loads a checkpoint into a network and optional optimizer.
@@ -836,6 +837,10 @@ def load_checkpoint(
     # Validate mandatory network parameter
     if network is None:
         raise ValueError("The 'network' cannot be None - a target network is required for loading.")
+
+    if balanced_load:
+        raise ValueError("The balanced loading strategy is not supported yet. "
+                         "`balanced_load` is a preset switch, please set `balanced_load` to False.")
 
     if not os.path.exists(checkpoint):
         raise ValueError(f"Checkpoint does not exist: {checkpoint}")

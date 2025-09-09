@@ -253,6 +253,7 @@ class GeneralConfig(Config):
     ckpt_use_legacy_format = True
     pretrained_model_dir = ""
     cpu_offloading_weights = False
+    balanced_load = False
 
     # eval while training
     do_eval = False
