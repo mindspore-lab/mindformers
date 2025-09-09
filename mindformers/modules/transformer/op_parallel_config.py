@@ -264,7 +264,7 @@ class _PipeLineConfig(_Config):
     def __init__(self, pipeline_stage=1, micro_batch_num=1, seq_split_num=1):
         Validator.check_positive_int(pipeline_stage, "pipeline_stage")
         Validator.check_positive_int(micro_batch_num, "micro_batch_num")
-        Validator.check_positive_int(seq_split_num, "micro_batch_num")
+        Validator.check_positive_int(seq_split_num, "seq_split_num")
         self.pipeline_stage = pipeline_stage
         self.micro_batch_num = micro_batch_num
         self.seq_split_num = seq_split_num
