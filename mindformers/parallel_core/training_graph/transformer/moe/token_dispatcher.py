@@ -25,12 +25,12 @@ from mindspore import Parameter
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
-from mindspore.ops.operations.comm_ops import AlltoAllVC
 from mindspore.ops.auto_generate import (
     CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast,
     Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
 )
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.version_control import get_all2allvc
 
 _OEP_GROUP_NAME = {}
 _IEP_GROUP_NAME = {}
@@ -142,6 +142,8 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
         self.index_add_op = ops.IndexAdd(axis=0).add_prim_attr("recompute", False)  # aclnn operator
         self.index_select_op = IndexSelect().add_prim_attr("recompute", False)
 
+        self.all2allvc = get_all2allvc()
+
     def token_permutation(
             self,
             tokens: Tensor,
@@ -185,8 +187,8 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
         tokens = tokens.reshape((-1, tokens.shape[-1]))
         local_x = tokens.index_select(0, select_index)  # gather (-1, h)
 
-        global_x = AlltoAllVC(group=self.ep_group, block_size=hidden_size)(local_x.reshape(-1),
-                                                                           send_list_reshape)
+        global_x = self.all2allvc(group=self.ep_group, block_size=hidden_size)(local_x.reshape(-1),
+                                                                               send_list_reshape)
         global_x_shape = global_x.shape
 
         # gather for gmm
@@ -226,7 +228,7 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
                                                           self.cast_op(token_id_recover, ms.int32),
                                                           self.cast_op(tokens, ms.float32))
         permutated_local_input_tokens = self.cast_op(permutated_local_input_tokens, tokens.dtype)
-        permutated_global_input_tokens = AlltoAllVC(group=self.ep_group, block_size=hidden_size)(
+        permutated_global_input_tokens = self.all2allvc(group=self.ep_group, block_size=hidden_size)(
             permutated_local_input_tokens.reshape(-1), receive_list_reshape)
         permutated_global_input_tokens = self.reshape_op(permutated_global_input_tokens, (-1, hidden_size))
         output = self.zeros_op((num_tokens, hidden_size), dtype=ms.float32)
