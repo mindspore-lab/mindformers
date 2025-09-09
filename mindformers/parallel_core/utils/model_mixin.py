@@ -227,3 +227,7 @@ class TrainModelMixin:
 
             # update converted ffn weight to `ms_weight_dict`
             ms_weight_dict.update({w_gate_hidden_key: w_gate_hidden_value})
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in model ."""
+        return self.model.get_model_parameters()

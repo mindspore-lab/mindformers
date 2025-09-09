@@ -24,7 +24,7 @@ from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 from .configuration_deepseek_v3 import DeepseekV3Config
 
 
-class TrainingDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, TrainModelMixin):
+class TrainingDeepseekV3ForCausalLM(TrainModelMixin, DeepseekV3PreTrainedModel):
     """DeepseekV3 model for training"""
 
     def __init__(self, config: DeepseekV3Config):

@@ -20,6 +20,7 @@ from multiprocessing.synchronize import Condition
 from safetensors import safe_open
 import numpy as np
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, mint, Parameter
 from mindspore.common.initializer import initializer
@@ -30,7 +31,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import check_fine_grain_interleave_valid, check_use_3d_tensor_parallel_valid
+from mindformers.models.utils import (check_fine_grain_interleave_valid, check_use_3d_tensor_parallel_valid,
+                                      get_current_rank_stage, get_model_parameters, is_current_pipeline_stage)
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
@@ -58,6 +60,9 @@ class LlamaPreTrainedModel(PreTrainedModel):
 
     config_class = LlamaConfig
     base_model_prefix = "llama"
+
+    def get_model_parameters(self):
+        pass
 
 
 class LlamaModel(LlamaPreTrainedModel):
@@ -403,6 +408,23 @@ class LlamaModel(LlamaPreTrainedModel):
         return_tuple += (self.assign_count(self.seq_chunk, self.seq_zero),)
         return_tuple += (self.assign_mask(self.casual_mask.mask_cache, self.mask_zeros),)
         return F.depend(zeros, return_tuple)
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in Llama model ."""
+        params = set()
+        current_pipeline_stage = get_current_rank_stage()
+        if ms.get_auto_parallel_context('pipeline_stages') > 1:
+            if current_pipeline_stage == self.tok_embeddings.pipeline_stage:
+                params.update(get_model_parameters(self.tok_embeddings))
+            if current_pipeline_stage == self.norm_out.pipeline_stage:
+                params.update(get_model_parameters(self.norm_out))
+            for layer in self.layers:
+                if is_current_pipeline_stage(layer, current_pipeline_stage):
+                    for param in layer.trainable_params():
+                        params.add(param)
+        else:
+            params.update(get_model_parameters(self))
+        return params
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -794,6 +816,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     def clear_kv_cache(self):
         return self.model.clear_kv_cache()
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in Llama model ."""
+        params = set()
+        if ms.get_auto_parallel_context('pipeline_stages') > 1:
+            if get_current_rank_stage() == self.lm_head.pipeline_stage:
+                params.update(get_model_parameters(self.lm_head))
+            params.update(self.model.get_model_parameters())
+        else:
+            params.update(get_model_parameters(self))
+        return params
 
 
 def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict):
