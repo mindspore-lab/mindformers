@@ -236,6 +236,7 @@ class MultiLatentAttention(Attention):
             core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
                                         mint.transpose(out_absorb, -2, -1))
             core_attn_out = mint.transpose(core_attn_out, -3, -2)
+            core_attn_out = core_attn_out.contiguous()
 
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================

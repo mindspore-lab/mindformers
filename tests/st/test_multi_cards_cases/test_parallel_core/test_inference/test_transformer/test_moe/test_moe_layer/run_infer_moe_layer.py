@@ -129,7 +129,8 @@ def main():
 
     ms.set_context(device_target="Ascend",
                    mode=ms.GRAPH_MODE,
-                   jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+                   jit_config={"jit_level": jit_level, "infer_boost": infer_boost},
+                   graph_kernel_flags="--disable_pass=matmul_split_fusion")
     seed_value = 2025
     ms.set_seed(seed_value)
     np.random.seed(seed_value)

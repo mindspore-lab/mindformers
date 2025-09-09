@@ -160,6 +160,7 @@ class MLP(nn.Cell):
             gate, hidden = mint.split(intermediate_parallel,
                                       (self.ffn_hidden_size_per_partition,
                                        self.ffn_hidden_size_per_partition), -1)
+            gate = gate.contiguous()
             gate = self.activation_func(gate) if self.activation_type else gate
             intermediate_parallel = mint.mul(hidden, gate)
         else:
