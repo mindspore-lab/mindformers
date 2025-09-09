@@ -37,7 +37,8 @@ from mindformers.parallel_core.training_graph.transformer.norm import get_norm_c
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
-from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, VocabParallelEmbedding
+from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, \
+    VocabParallelEmbedding, SequenceParallelLinear
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
     LanguageModelEmbedding)
 from mindformers.parallel_core.training_graph.device_matrix import layout
@@ -77,7 +78,7 @@ def get_mtp_layer_spec(transformer_layer_spec: ModuleSpec, fused_norm=True) -> M
         submodules=MultiTokenPredictionLayerSubmodules(
             enorm=get_norm_cls(fused_norm),
             hnorm=get_norm_cls(fused_norm),
-            eh_proj=ColumnParallelLinear,
+            eh_proj=SequenceParallelLinear,
             transformer_layer=transformer_layer_spec,
             layer_norm=get_norm_cls(fused_norm),
         ),

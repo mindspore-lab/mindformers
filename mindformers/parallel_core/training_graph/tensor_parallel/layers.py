@@ -17,7 +17,8 @@ __all__ = [
     "ColumnParallelLinear",
     "RowParallelLinear",
     "VocabParallelEmbedding",
-    "LinearNoTP"
+    "LinearNoTP",
+    "SequenceParallelLinear"
 ]
 
 from typing import List, Optional, Callable
@@ -617,5 +618,55 @@ class LinearNoTP(ColumnParallelLinear):
             ),
             out_strategy=(
                 layout("cp", "dp", "None"),  # output       [S, B, H]
+            )
+        )
+
+
+class SequenceParallelLinear(ColumnParallelLinear):
+    """Linear layer without tensor parallelism.
+
+    The linear layer is defined as Y = XA + b. A is not parallelized. X is parallelized with data_parallel and
+    sequence_parallel.
+
+    Args:
+        input_size (int): The number of input units.
+        output_size (int): The number of output units.
+        config (TransformerConfig): The config of the transformer model.
+        bias_init (str): The initialization method for bias. Default: 'zeros'.
+        bias (bool): Whether to include bias in the linear layer. Default: True.
+        gather_output (bool): Whether to gather the output. Default: False.
+        stride (int): The stride of the linear layer. Default: 1.
+        keep_master_weight_for_test (bool): Whether to keep master weight for test. Default: False.
+        skip_bias_add (bool): Whether to skip bias add. Default: False.
+        skip_weight_param_allocation (bool): Whether to skip weight parameter allocation. Default: False.
+        embedding_activation_buffer (List[Tensor]): The buffer for embedding activation. Default: None.
+        grad_output_buffer (List[Tensor]): The buffer for gradient output. Default: None.
+        is_expert (bool): Whether to use expert mode. Default: False.
+        tp_comm_buffer_name (str): The name of the tensor parallel communication buffer. Default: None.
+        disable_grad_reduce (bool): Whether to disable gradient reduce. Default: False.
+        transpose_b (bool): Whether to transpose the weight matrix. Default: True.
+        init_method (Callable): The initialization method. Default: None
+    """
+
+    def shard(self) -> None:
+        """Shard the operators in LinearNoTP."""
+        self.morphed_forward_with_bias.shard(
+            in_strategy=(
+                layout(("cp", "tp"), "dp", "None"),  # input_       [S, B, h]
+                layout("None", "None"),  # weight       [H, h]
+                layout("None"),  # bias         [H]
+            ),
+            out_strategy=(
+                layout(("cp", "tp"), "dp", "None"),  # output       [S, B, H]
+            )
+        )
+
+        self.morphed_forward.shard(
+            in_strategy=(
+                layout(("cp", "tp"), "dp", "None"),  # input_       [S, B, h]
+                layout("None", "None"),  # weight       [H, h]
+            ),
+            out_strategy=(
+                layout(("cp", "tp"), "dp", "None"),  # output       [S, B, H]
             )
         )

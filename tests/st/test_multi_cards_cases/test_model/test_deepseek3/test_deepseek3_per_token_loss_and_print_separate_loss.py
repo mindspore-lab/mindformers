@@ -50,10 +50,11 @@ class TestDeepseekV3WithCalculatePerTokenLossAndPrintSeparateLoss:
         """Test four cards for DeepseekV3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         cmd_list = [
-            (f"msrun --worker_num=4 --local_worker_num=4 --master_port={port_id} --log_dir=./msrun_log_deepseekv3 "
+            (f"msrun --worker_num=4 --local_worker_num=4 --master_port={port_id} "
+             f"--log_dir=./msrun_log_deepseekv3_per_token "
              f"--join=True {self.run_script_path} "
              f"--mode=parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss",
-             f"./msrun_log_deepseekv3/worker_3.log"),
+             f"./msrun_log_deepseekv3_per_token/worker_3.log"),
         ]
         with Pool(len(cmd_list)) as pool:
             results = list(pool.imap(run_command, cmd_list))
