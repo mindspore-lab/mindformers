@@ -46,14 +46,16 @@ class InferRotaryEmbedding(Cell):
 
     def __init__(self, rotary_cos_format=0):
         super().__init__()
+        self.is_pynative = is_pynative()
         self.rotary_cos_format = rotary_cos_format
         self.rotary_embedding_op = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
 
     def construct(self, query: Tensor, key: Tensor, freqs_cis, batch_valid_length):
         """Forward of rotary position embedding."""
         freqs_cos, freqs_sin, _ = freqs_cis
-        query = query.contiguous()
-        key = key.contiguous()
+        if self.is_pynative:
+            query = query.contiguous()
+            key = key.contiguous()
         return self.rotary_embedding_op(query, key, freqs_cos, freqs_sin, batch_valid_length)
 
     def shard(self, parallel_config):

@@ -16,7 +16,7 @@
 __all__ = ['DotProductAttention']
 
 import math
-from mindspore import Tensor, mint, nn
+from mindspore import Tensor, mint, nn, ops
 
 from mindformers.parallel_core.inference.utils import get_attn_mask_func
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -91,6 +91,8 @@ class DotProductAttention(nn.Cell):
         self.scale_mask_softmax = FusedScaleMaskSoftmax(
             self.mask_func, softmax_compute_type=self.softmax_compute_dtype)
 
+        self.transpose = ops.Transpose()
+
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """Forward process of the CoreAttention."""
         bs, seq_len, _ = query_layer.shape
@@ -107,16 +109,16 @@ class DotProductAttention(nn.Cell):
                                                  repeats=self.repeat_num,
                                                  dim=2)
         # [B, S, N, D] --> [B, N, S, D]
-        query_layer = mint.transpose(query_layer, -3, -2)
-        key_layer = mint.transpose(key_layer, -3, -2)
-        value_layer = mint.transpose(value_layer, -3, -2)
+        query_layer = self.transpose(query_layer, (0, 2, 1, 3))
+        key_layer = self.transpose(key_layer, (0, 2, 1, 3))
+        value_layer = self.transpose(value_layer, (0, 2, 1, 3))
         # [B, N, S, D] --> [B * N, S, D]
         query_layer = query_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
         key_layer = key_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
         value_layer = value_layer.reshape(-1, seq_len, self.hidden_size_per_attention_head)
 
         # score shape: [B * N, S_q, S_k]
-        score = mint.bmm(query_layer, mint.transpose(key_layer, -2, -1))
+        score = mint.bmm(query_layer, self.transpose(key_layer, (0, 2, 1)))
         score = mint.mul(score, self.softmax_scale)
 
         # attention scores and attention mask [B * N, S_q, S_k]
@@ -127,7 +129,7 @@ class DotProductAttention(nn.Cell):
         # [B * N, S_q, D] -> [B, N, S_q, D]
         core_attn_out = core_attn_out.reshape(bs, -1, seq_len, self.hidden_size_per_attention_head)
 
-        core_attn_out = mint.transpose(core_attn_out, -3, -2).reshape(
+        core_attn_out = self.transpose(core_attn_out, (0, 2, 1, 3)).reshape(
             bs, seq_len, self.hidden_size_per_partition)
 
         return core_attn_out

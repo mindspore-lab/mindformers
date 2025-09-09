@@ -170,6 +170,7 @@ class MultiLatentAttention(Attention):
         self.cast = P.Cast()
         self.depend = P.Depend()
         self.dim_slice_3d = P.Slice()
+        self.transpose = P.Transpose()
 
     def construct(
             self,
@@ -221,10 +222,9 @@ class MultiLatentAttention(Attention):
                 key_cache=key_cache, value_cache=value_cache)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
-            core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
-                                        mint.transpose(out_absorb, -2, -1))
-            core_attn_out = mint.transpose(core_attn_out, -3, -2)
-            core_attn_out = core_attn_out.contiguous()
+            core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
+                                        self.transpose(out_absorb, (0, 2, 1)))
+            core_attn_out = self.transpose(core_attn_out, (1, 0, 2))
 
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================
@@ -405,8 +405,9 @@ class MLASelfAttention(MultiLatentAttention):
         # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition * self.config.qk_pos_emb_head_dim)
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
-            q_pos_emb = q_pos_emb.contiguous()
-            k_pos_emb = k_pos_emb.contiguous()
+            if self.is_pynative:
+                q_pos_emb = q_pos_emb.contiguous()
+                k_pos_emb = k_pos_emb.contiguous()
             q_pos_emb, k_pos_emb = self.rotary_emb(q_pos_emb, k_pos_emb,
                                                    rotary_pos_cos, rotary_pos_sin,
                                                    batch_valid_length)
@@ -482,7 +483,7 @@ class MLASelfAttention(MultiLatentAttention):
         out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
                                         self.config.v_head_dim, self.config.kv_lora_rank)
 
-        q_no_pe = mint.transpose(mint.matmul(mint.transpose(q_no_pe, -3, -2), q_absorb), -3, -2)
+        q_no_pe = self.transpose(mint.matmul(self.transpose(q_no_pe, (1, 0, 2)), q_absorb), (1, 0, 2))
         query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
         query = query_states.reshape(-1,
                                      self.num_attention_heads_per_partition *
@@ -798,10 +799,9 @@ class FusedMLASelfAttention(MLASelfAttention):
                                                       kv_head_num=1, mask_type=0, input_format=self.input_format)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
-            core_attn_out = mint.matmul(mint.transpose(core_attn_out, -3, -2),
-                                        mint.transpose(out_absorb, -2, -1))
-            core_attn_out = mint.transpose(core_attn_out, -3, -2)
-            core_attn_out = core_attn_out.contiguous()
+            core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
+                                        self.transpose(out_absorb, (0, 2, 1)))
+            core_attn_out = self.transpose(core_attn_out, (1, 0, 2))
 
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================
