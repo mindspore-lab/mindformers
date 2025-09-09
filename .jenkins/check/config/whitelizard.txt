@@ -11,7 +11,7 @@ mindformers/research/telechat2/utils.py:get_json_schema
 mindformers/research/telechat2/utils.py:_parse_type_hint
 mindformers/mindformers/parallel_core/transformer_config.py:__post_init__
 mindformers/mindformers/tools/hub/dynamic_module_utils.py:get_cached_module_file
-mindformers/mindformers/tools/hub/dynamic_module_utils.py:get_class_from_dynamic_modul
+mindformers/mindformers/tools/hub/dynamic_module_utils.py:get_class_from_dynamic_module
 mindformers/mindformers/trainer/base_trainer.py:training_process
 mindformers/mindformers/trainer/base_trainer.py:predict_process
 mindformers/mindformers/trainer/trainer.py:__init__
