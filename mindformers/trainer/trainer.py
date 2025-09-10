@@ -1417,6 +1417,12 @@ class Trainer:
 
     def _warn_if_resume_training_is_string(self):
         """Warn if resume_training is an invalid string while load_checkpoint is a file."""
+        logger.warning("The functionality of setting `resume_training` to a weight filename "
+                       "will be deprecated in future versions.")
+
+        if not self.config.ckpt_use_legacy_format and not isinstance(self.config.resume_training, bool):
+            raise ValueError("The resume_training must be a boolean value.")
+
         if isinstance(self.config.resume_training, str) and \
                 self.config.load_checkpoint and os.path.isfile(self.config.load_checkpoint):
             logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
