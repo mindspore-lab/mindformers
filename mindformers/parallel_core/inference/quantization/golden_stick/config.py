@@ -58,7 +58,8 @@ class GoldenStickConfig(QuantizationConfig):
         self.quantization = full_config.get("quantization", None)
         # osl method need config quantization == golden-stick
         self.is_modelslim = self.quantization != "golden-stick"
-        self.fa3_quant = full_config.get("fa_quant_type", None) == "FAQuant"
+        self.fa3_quant = full_config.get("fa_quant_type", None) == "FAQuant" or \
+                         full_config.get("fa_quant_type", None) == "FAKQuant"
         self.fa3_quant_layer = self.get_fa3_quant_layer() if self.fa3_quant else set()
 
     def get_name(self) -> QuantizationBackends:
