@@ -113,7 +113,7 @@ mindformers.models.PreTrainedTokenizer
         返回：
             一个类型为 `Tuple[str, dict]` 的元组，表示准备好的文本和未使用的kwargs。
 
-    .. py:method:: tokenize(text=None, add_special_tokens=False, **kwargs)
+    .. py:method:: tokenize(text, pair=None, add_special_tokens=False, **kwargs)
 
         将字符串转换为词元序列，使用分词器。
 
