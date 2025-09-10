@@ -1123,9 +1123,6 @@ class Trainer:
                 config=self.config,
                 mstx=self.config.mstx
             )
-            logger.warning(
-                "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
-                "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
             logger.warning("In profiler mode, auto-tune will be turned off.")
             self.config.auto_tune = False
             self.config.profile_cb = profile_cb
@@ -1506,8 +1503,8 @@ def _reset_config_for_save(config: dict = None):
     if config.get('eval_dataset_task') is not None and config.get('eval_dataset') is not None:
         eval_dataset_config = config2dict(config.pop('eval_dataset'))
         eval_dataset_task_config = config2dict(config.pop('eval_dataset_task'))
-        config_dict.setdefault('train_dataset', eval_dataset_config)
-        config_dict.setdefault('train_dataset_task', eval_dataset_task_config)
+        config_dict.setdefault('eval_dataset', eval_dataset_config)
+        config_dict.setdefault('eval_dataset_task', eval_dataset_task_config)
 
     if config.get('context') is not None:
         context_config = config2dict(config.pop('context'))
