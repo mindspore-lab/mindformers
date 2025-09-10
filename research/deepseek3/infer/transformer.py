@@ -181,7 +181,7 @@ class ParallelMLP(nn.Cell):
             else:
                 gate = self.w1(x)  # dp,1 -> dp, mp
                 hidden = self.w3(x)  # dp,1 -> dp, mp
-            gate = self.act_func(gate)
+            gate = self.act_func(gate.contiguous())
             hidden = mint.mul(hidden, gate)
         else:
             hidden = self.w1(x)
