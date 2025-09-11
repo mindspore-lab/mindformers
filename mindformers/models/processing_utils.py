@@ -436,6 +436,15 @@ class ProcessorMixin(PushToHubMixin):
         """
         save_json = kwargs.get("save_json", False)
 
+        if save_directory is None:
+            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
+
+        if not isinstance(save_directory, str) or not isinstance(save_name, str):
+            raise TypeError(f"save_directory and save_name should be a str,"
+                            f" but got {type(save_directory)} and {type(save_name)}.")
+
+        os.makedirs(save_directory, exist_ok=True)
+
         if save_json:
             push_to_hub = kwargs.pop("push_to_hub", False)
             self.save_pretrained_experimental(save_directory, push_to_hub, **kwargs)
@@ -450,16 +459,6 @@ class ProcessorMixin(PushToHubMixin):
             save_directory (str): a directory to save config yaml
             save_name (str): the name of save files.
         """
-        if save_directory is None:
-            save_directory = DEFAULT_CHECKPOINT_SAVE_FOLDER
-
-        if not isinstance(save_directory, str) or not isinstance(save_name, str):
-            raise TypeError(f"save_directory and save_name should be a str,"
-                            f" but got {type(save_directory)} and {type(save_name)}.")
-
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory, exist_ok=True)
-
         parsed_config = self._inverse_parse_config(self.config)
         wraped_config = self._wrap_config(parsed_config)
 
@@ -502,9 +501,6 @@ class ProcessorMixin(PushToHubMixin):
             kwargs (`Dict[str, Any]`, *optional*):
                 Additional key word arguments passed along to the [`~utils.PushToHubMixin.push_to_hub`] method.
         """
-
-        os.makedirs(save_directory, exist_ok=True)
-
         if push_to_hub:
             commit_message = kwargs.pop("commit_message", None)
             repo_id = kwargs.pop("repo_id", save_directory.split(os.path.sep)[-1])
