@@ -100,6 +100,8 @@ class Attention(nn.Cell):
             cp_comm_type: str = None,
             delay_allreduce: bool = False,
             model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            quant_config: Optional[QuantizationConfig] = None,
+            prefix: str = ""
     ):
         super().__init__(config)
 
@@ -195,7 +197,9 @@ class Attention(nn.Cell):
             delay_allreduce=delay_allreduce,
             transpose_b=True,
             compute_dtype=self.compute_dtype,
-            tp_group=self.tp
+            tp_group=self.tp,
+            quant_config=quant_config,
+            prefix=f"{prefix}.linear_proj"
         )
 
     def _check_gqa_valid(self):
@@ -244,7 +248,9 @@ class Attention(nn.Cell):
         query, key, value = self.get_query_key_value_tensors(hidden_states)
 
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
-            query, key = self.rotary_embedding(query, key, rotary_pos_cos,
+            query, key = self.rotary_embedding(query.contiguous(),
+                                               key.contiguous(),
+                                               rotary_pos_cos.contiguous(),
                                                rotary_pos_sin,
                                                batch_valid_length)
 
@@ -314,6 +320,8 @@ class SelfAttention(Attention):
             cp_comm_type=cp_comm_type,
             delay_allreduce=delay_allreduce,
             model_comm_pgs=model_comm_pgs,
+            quant_config=quant_config,
+            prefix=prefix
         )
 
         self.linear_qkv = build_module(

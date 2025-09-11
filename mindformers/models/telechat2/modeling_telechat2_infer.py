@@ -27,6 +27,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTMod
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
+from mindformers.parallel_core.inference.quantization.utils import get_quant_config
 
 from .configuration_telechat2 import Telechat2Config
 
@@ -64,6 +65,7 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
         self.vocab_size = config.vocab_size
         self.max_position_embeddings = config.max_position_embeddings
         self.compute_dtype = config.compute_dtype
+        self.quant_config = get_quant_config(self.config, self.weight_mapping)
 
         self.is_prefill = True
         if isinstance(self.config.parallel_decoding_params, Dict):
@@ -82,7 +84,8 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               pre_process=config.pre_process,
                               post_process=config.post_process,
-                              model_comm_pgs=self.model_comm_pgs)
+                              model_comm_pgs=self.model_comm_pgs,
+                              quant_config=self.quant_config)
 
     @jit
     def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
@@ -133,3 +136,20 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
             value_cache=value_cache
         )
         return logits
+
+    def convert_name(self, weight_name):
+        r"""
+        Override convert_name method in inference model, in order to read PTQ weights correctly.
+        PTQ weights are generated after training, so it should only exist in inference model.
+        """
+        weight_name = super().convert_name(weight_name)
+        # Do extra conversion for quantization parameters.
+
+        # After osl supports mcore calibration, the following conversion map should be removed.
+        if self.config.quantization is not None:
+            weight_name = weight_name.replace('model.decoder.layers.', 'decoder.layers.')
+            weight_name = weight_name.replace('model.word_embeddings.', 'embedding.word_embeddings.')
+            weight_name = weight_name.replace('model.embedding.word_embeddings.', 'embedding.word_embeddings.')
+            weight_name = weight_name.replace('model.output_layer.', 'output_layer.')
+            weight_name = weight_name.replace('model.decoder.final_layernorm.', 'decoder.final_layernorm.')
+        return weight_name
