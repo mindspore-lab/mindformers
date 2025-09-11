@@ -3954,7 +3954,7 @@
         "signature": "(self)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear.weight_loader": {
-        "signature": "(self, param, loaded_weight, shard_id, expert_id) -> None"
+        "signature": "(self, param, loaded_weight, shard_id=None, expert_id=None) -> None"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._determine_transpose_need": {
         "signature": "(self, loaded_weight, weight_is_3d, param)"
@@ -3984,7 +3984,7 @@
         "signature": "(self)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.RowParallelGroupedLinear.weight_loader": {
-        "signature": "(self, param, loaded_weight, shard_id, expert_id) -> None"
+        "signature": "(self, param, loaded_weight, shard_id=None, expert_id=None) -> None"
     },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.UnquantizedGroupedLinearMethod": {
         "signature": "()"

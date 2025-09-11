@@ -174,6 +174,132 @@ def deal_linear_kv_down_weight(weight, config, rope_transition=False):
     return weight
 
 
+def deal_training_qkv_weight(weight, config):
+    """
+    Process QKV weights during training by splitting and reorganizing according to tensor parallel strategy.
+
+    Args:
+        weight (np.ndarray): Original QKV weight matrix, shape may be 1D or 2D.
+        config (object): Model configuration object containing kv_channels, hidden_size,
+                        num_attention_heads, and num_query_groups attributes.
+
+    Returns:
+        np.ndarray: QKV weights after tensor parallel splitting, shape corresponds to input.
+    """
+    tp_size = get_tensor_model_parallel_world_size()
+    tp_rank = get_tensor_model_parallel_rank()
+
+    head_dim = config.kv_channels if config.kv_channels else config.hidden_size // config.num_attention_heads
+    q_channel = config.num_attention_heads * head_dim
+    kv_channel = config.num_query_groups * head_dim
+    n_kv_heads = config.num_query_groups or config.num_attention_heads
+    n_rep = config.num_attention_heads // n_kv_heads
+
+    qkv_dim = len(weight.shape)
+    if qkv_dim == 1:
+        w = weight.shape[0]
+        weight = weight.reshape(w, -1)
+    weight = weight.reshape(n_kv_heads, (n_rep + 2) * head_dim, -1)
+    q_weight = weight[:, :n_rep * head_dim, :]
+    k_weight = weight[:, n_rep * head_dim:n_rep * head_dim + head_dim, :]
+    v_weight = weight[:, n_rep * head_dim + head_dim:n_rep * head_dim + 2 * head_dim, :]
+    q_weight = q_weight.reshape(q_channel, -1)
+    k_weight = k_weight.reshape(kv_channel, -1)
+    v_weight = v_weight.reshape(kv_channel, -1)
+
+    q_shard_size = q_weight // tp_size
+    q_start_idx = tp_rank * q_shard_size
+    q_weight = split_loaded_weight(q_weight, 0, q_start_idx, q_shard_size)
+    k_shard_size = k_weight // tp_size
+    k_start_idx = tp_rank * k_shard_size
+    k_weight = split_loaded_weight(k_weight, 0, k_start_idx, k_shard_size)
+    v_shard_size = v_weight // tp_size
+    v_start_idx = tp_rank * v_shard_size
+    v_weight = split_loaded_weight(v_weight, 0, v_start_idx, v_shard_size)
+    cat_qkv_weight = np.concatenate((q_weight, k_weight, v_weight), axis=0)
+    if qkv_dim == 1:
+        cat_qkv_weight = cat_qkv_weight.reshape(w // tp_size,)
+    return cat_qkv_weight
+
+
+def deal_training_ffn_weight(weight, config):
+    """
+    Process FFN layer weights during training by splitting and reorganizing according to tensor parallel strategy.
+
+    This function splits FFN layer weights according to tensor parallel strategy,
+    supporting both 1D and 2D weight formats, and returns W1 and W3 weights concatenated after splitting.
+
+    Args:
+        weight (np.ndarray): FFN layer weight matrix, can be 1-dimensional or 2-dimensional array
+        config (object): Model configuration object that needs to contain ffn_hidden_size attribute
+
+    Returns:
+        np.ndarray: FFN weights after tensor parallel splitting, with W1 and W3 weights concatenated along axis 0
+    """
+    tp_size = get_tensor_model_parallel_world_size()
+    tp_rank = get_tensor_model_parallel_rank()
+
+    ffn_hidden_size = config.ffn_hidden_size
+
+    ffn_dim = len(weight.shape)
+    if ffn_dim == 1:
+        w = weight.shape[0]
+        weight = weight.reshape(w, -1)
+
+    weight = weight.reshape(ffn_hidden_size, 2, -1)
+    w1_weight = weight[:, :1, :]
+    w3_weight = weight[:, 1:2, :]
+    w1_weight = w1_weight.reshape(ffn_hidden_size, -1)
+    w3_weight = w3_weight.reshape(ffn_hidden_size, -1)
+
+    w1_shard_size = w1_weight // tp_size
+    w1_start_idx = tp_rank * w1_shard_size
+    w1_weight = split_loaded_weight(w1_weight, 0, w1_start_idx, w1_shard_size)
+    w3_shard_size = w3_weight // tp_size
+    w3_start_idx = tp_rank * w3_shard_size
+    w3_weight = split_loaded_weight(w3_weight, 0, w3_start_idx, w3_shard_size)
+    cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)
+    if ffn_dim == 1:
+        cat_ffn_weight = cat_ffn_weight.reshape(w // tp_size,)
+    return cat_ffn_weight
+
+
+def deal_training_moe_weight(weight, config):
+    """
+    Process weights for MoE model training by splitting and reorganizing.
+
+    This function is mainly used to split MoE layer weights according to tensor parallelism
+    during model parallel training, and merge W1 and W3 weights before returning.
+
+    Args:
+        weight: Input weight tensor, usually containing combined W1 and W3 weights
+        config: Configuration object containing model configuration information,
+               needs to have moe_ffn_hidden_size attribute
+
+    Returns:
+        cat_ffn_weight: Weight tensor after splitting and merging according to tensor parallelism
+    """
+    tp_size = get_tensor_model_parallel_world_size()
+    tp_rank = get_tensor_model_parallel_rank()
+
+    moe_ffn_hidden_size = config.moe_ffn_hidden_size
+
+    weight = weight.reshape(-1, 2, moe_ffn_hidden_size)
+    w1_weight = weight[:, :1, :]
+    w3_weight = weight[:, 1:2, :]
+    w1_weight = w1_weight.reshape(-1, moe_ffn_hidden_size)
+    w3_weight = w3_weight.reshape(-1, moe_ffn_hidden_size)
+
+    w1_shard_size = w1_weight // tp_size
+    w1_start_idx = tp_rank * w1_shard_size
+    w1_weight = split_loaded_weight(w1_weight, 0, w1_start_idx, w1_shard_size)
+    w3_shard_size = w3_weight // tp_size
+    w3_start_idx = tp_rank * w3_shard_size
+    w3_weight = split_loaded_weight(w3_weight, 0, w3_start_idx, w3_shard_size)
+    cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)
+    return cat_ffn_weight
+
+
 def make_expert_params_mapping(
         ckpt_gate_proj_name: str,
         ckpt_down_proj_name: str,
@@ -224,6 +350,41 @@ def make_expert_params_mapping(
             params_mapping.append(weight_mapping)
             params_mapping.append(other_param_mapping)
     return params_mapping
+
+
+def make_expert_params_mapping_with_expert_dim(
+        ckpt_gate_proj_name: str,
+        ckpt_down_proj_name: str,
+        ckpt_up_proj_name: str) -> list[tuple[str, str, str]]:
+    """
+    Generate an expert parameter mapping list for mapping expert weights from checkpoints to model parameters.
+
+    Args:
+        ckpt_gate_proj_name: Weight name of the gate projection layer in the checkpoint.
+        ckpt_down_proj_name: Weight name of the down projection layer in the checkpoint.
+        ckpt_up_proj_name: Weight name of the up projection layer in the checkpoint.
+
+    Returns:
+        A list of expert parameter mappings, where each element is a tuple of
+        (param_name, weight_name, shard_id).
+        - param_name: Prefix of the model parameter name
+        - weight_name: Weight name of the logical expert
+        - shard_id: Shard ID
+    """
+    weight_params_mapping = []
+    shard_map = [('w1', ckpt_gate_proj_name), ('w2', ckpt_down_proj_name), ('w3', ckpt_up_proj_name)]
+    for shard_id, weight_name in shard_map:
+        if weight_name in [ckpt_gate_proj_name, ckpt_up_proj_name]:
+            weight1_prefix = "experts.weight1"
+        else:
+            weight1_prefix = "experts.weight2"
+        param_tuple = (
+            weight1_prefix,
+            f"experts.{weight_name}.weight",
+            shard_id
+        )
+        weight_params_mapping.append(param_tuple)
+    return weight_params_mapping
 
 
 def split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes):

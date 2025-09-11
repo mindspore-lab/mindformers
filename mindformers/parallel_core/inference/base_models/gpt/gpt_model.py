@@ -29,7 +29,8 @@ from mindformers.parallel_core.inference.transformer.transformer_block import Tr
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.inference.utils import divide, generate_padding_index
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-from mindformers.parallel_core.inference.weights_utils import default_weight_loader, make_expert_params_mapping
+from mindformers.parallel_core.inference.weights_utils import (default_weight_loader, make_expert_params_mapping,
+                                                               make_expert_params_mapping_with_expert_dim)
 from mindformers.parallel_core.inference.parallel_state import is_pipeline_last_stage
 from mindformers.tools.logger import logger
 
@@ -342,7 +343,61 @@ class GPTModel(nn.Cell):
             return global_expert_id
         return self.expert_map[global_expert_id].item()
 
-    def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None):
+    def generate_expert_mapping(self, expert_params_mapping, has_num_experts_dim, num_experts):
+        """
+        Generate expert parameter mapping configuration.
+
+        Args:
+            expert_params_mapping: Expert parameter mapping configuration, if None or empty it will be auto-generated
+            has_num_experts_dim (bool): Whether it has expert dimension
+            num_experts (int): Number of experts, required when has_num_experts_dim is False
+
+        Returns:
+            Expert parameter mapping.
+        """
+        if not expert_params_mapping:
+            if has_num_experts_dim:
+                expert_params_mapping = make_expert_params_mapping_with_expert_dim(
+                    ckpt_gate_proj_name="gating",
+                    ckpt_down_proj_name="linear_fc2",
+                    ckpt_up_proj_name="hidden"
+                )
+            else:
+                expert_params_mapping = make_expert_params_mapping(
+                    ckpt_gate_proj_name="gating",
+                    ckpt_down_proj_name="linear_fc2",
+                    ckpt_up_proj_name="hidden",
+                    num_experts=num_experts
+                )
+        return expert_params_mapping
+
+    def load_default_param(self, loaded_params, loaded_weight, name, num_experts, params_dict):
+        """
+        Load default parameters into the model.
+
+        Args:
+            loaded_params: Set of already loaded parameters, used to record processed parameter names
+            loaded_weight: Weight data to be loaded
+            name: Parameter name
+            num_experts: Number of experts, used for handling expert model weights
+            params_dict: Parameter dictionary containing model parameter objects
+        """
+        if name in params_dict:
+            if 'weight1' in name or 'weight2' in name:
+                for expert_id in range(num_experts):
+                    loaded_weight = loaded_weight[expert_id]
+                    param = params_dict[name]
+                    weight_loader = param.weight_loader
+                    weight_loader(name, loaded_weight, shard_id=None, expert_id=expert_id)
+                    loaded_params.add(name)
+            else:
+                param = params_dict[name]
+                weight_loader = getattr(param, "weight_loader",
+                                        default_weight_loader)
+                weight_loader(param, loaded_weight)
+                loaded_params.add(name)
+
+    def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None, is_hf_weight=True):
         r"""
         The weight is processed in modules, and the weight is cut online and loaded.
 
@@ -358,13 +413,9 @@ class GPTModel(nn.Cell):
         loaded_params: Set[str] = set()
         params_dict = self.get_params_dict()
 
+        # Create weight mapping for routed experts in Mixture of Experts (MoE)
+        num_experts = self.config.num_moe_experts
         expert_params_mapping = []
-        if self.config.num_moe_experts:
-            expert_params_mapping = make_expert_params_mapping(
-                ckpt_gate_proj_name="gating",
-                ckpt_down_proj_name="linear_fc2",
-                ckpt_up_proj_name="hidden",
-                num_experts=self.config.num_moe_experts)
 
         for name, loaded_weight in weights:
 
@@ -378,31 +429,42 @@ class GPTModel(nn.Cell):
                 if name in params_dict:
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    weight_loader(param, loaded_weight, shard_id)
+                    if '.gating.' in name:
+                        weight_loader(param, loaded_weight, shard_id, is_hf_weight=is_hf_weight)
+                    else:
+                        weight_loader(param, loaded_weight, shard_id)
                     loaded_params.add(name)
                     break
             else:
-                for mapping in expert_params_mapping:
-                    param_name, weight_name, expert_id, shard_id = mapping
-                    if weight_name not in name:
-                        continue
-                    expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
-                    if expert_id == -1:
-                        continue
-                    name = name.replace(weight_name, param_name)
-                    if name in params_dict:
+                if '.experts.' in name:
+                    has_num_experts_dim = (loaded_weight.get_shape()[0] == num_experts)
+                    expert_params_mapping = self.generate_expert_mapping(expert_params_mapping, has_num_experts_dim,
+                                                                         num_experts)
+                    for mapping in expert_params_mapping:
+                        if has_num_experts_dim:
+                            param_name, weight_name, shard_id = mapping
+                            expert_ids = range(num_experts)
+                        else:
+                            param_name, weight_name, expert_id, shard_id = mapping
+                            expert_ids = [expert_id]
+
+                        if weight_name not in name:
+                            continue
+
+                        name = name.replace(weight_name, param_name)
+                        if name not in params_dict:
+                            continue
+
                         param = params_dict[name]
                         weight_loader = param.weight_loader
-                        weight_loader(param, loaded_weight, shard_id=shard_id, expert_id=expert_id)
-                        loaded_params.add(name)
-                        break
+                        for expert_id in expert_ids:
+                            expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
+                            loaded_weight = loaded_weight[expert_id] if has_num_experts_dim else loaded_weight
+                            weight_loader(param, loaded_weight, shard_id=shard_id, expert_id=expert_id)
+                            loaded_params.add(name)
+                            break
                 else:
-                    if name in params_dict:
-                        param = params_dict[name]
-                        weight_loader = getattr(param, "weight_loader",
-                                                default_weight_loader)
-                        weight_loader(param, loaded_weight)
-                        loaded_params.add(name)
+                    self.load_default_param(loaded_params, loaded_weight, name, num_experts, params_dict)
 
         network_not_load = set(params_dict.keys()) - loaded_params
         logger.warning(f'These parameters are not loaded in the network: {network_not_load}')

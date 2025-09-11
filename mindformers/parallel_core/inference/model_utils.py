@@ -162,16 +162,22 @@ class InferModelMixin(ModelMixin):
                     f"Either 'weights_path' or 'weights' is required, "
                     f"but got weights_path={weights_path}, weights={weights}"
                 )
-            self.model.load_weights(weights)
+            check_weights = list(weights)
+            self.model.load_weights(weights, self.generate_mapping(), self.check_hf_weight(weights=check_weights))
         else:
-            weights_files = self.get_weights_files(weights_path)
+            weights_files = [
+                os.path.join(weights_path, file)
+                for file in os.listdir(weights_path)
+                if file.endswith(".safetensors") and file != "hyper_param.safetensors"
+            ]
 
             if not weights_files:
                 raise ValueError(f"No .safetensors files found in {weights_path}")
 
             self.model.load_weights(
                 self._safetensors_weights_iterator(weights_files),
-                self.generate_mapping()
+                self.generate_mapping(),
+                self.check_hf_weight(weights_files=weights_files)
             )
         self.process_weights_after_loading(self.model)
 
@@ -252,3 +258,33 @@ class InferModelMixin(ModelMixin):
                     break
 
         return stacked_params_mapping
+
+    def check_hf_weight(self, weights_files=None, weights=None):
+        """
+        Check if the given weights are in Hugging Face native format.
+        """
+        if weights_files is None and weights is None:
+            raise ValueError(
+                "Either 'weights_files' or 'weights' must be provided, "
+                f"but got weights_files={weights_files}, weights={weights}"
+            )
+
+        def _check_names(names):
+            """Check if all names are unchanged after convert_name."""
+            for name in names:
+                if self.convert_name(name) != name:
+                    return True
+            return False
+
+        if weights_files:
+            for file in weights_files:
+                with safe_open(file, framework="np") as f:
+                    if not _check_names(f.keys()):
+                        return False
+
+        elif weights:
+            weight_names = (name for name, _ in weights)
+            if not _check_names(weight_names):
+                return False
+
+        return True
