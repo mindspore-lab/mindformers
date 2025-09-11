@@ -11,7 +11,6 @@ MODEL=""
 MODEL_ARGS=""
 TASKS=""
 BATCH_SIZE=1
-INCLUDE_PATH=""
 REGISTER_PATH=""
 
 function show_help {
@@ -20,7 +19,6 @@ function show_help {
     echo "  --model_args       <args>     Set the model arguments"
     echo "  --model            <model>    Set the model"
     echo "  --batch_size       <size>     Set the batch size"
-    echo "  --include_path     <path>     Set the include path"
     echo "  --help                        Show this help message"
 }
 
@@ -37,7 +35,6 @@ while [[ "$#" -gt 0 ]]; do
             --model_args) MODEL_ARGS="$2"; shift ;; # Set model_args parameter
             --model) MODEL="$2"; shift ;;           # Set model parameter
             --batch_size) BATCH_SIZE="$2"; shift ;; # Set batch_size parameter
-            --include_path) INCLUDE_PATH="$2"; shift ;; # Set include_path parameter
             --help)
                 show_help
                 return 0
@@ -98,9 +95,6 @@ if [[ "$TASKS" =~ $GENERATE_UNTIL ]]; then
 fi
 
 FINAL_CMD=""
-if [[ -n "$INCLUDE_PATH" ]]; then
-    FINAL_CMD="$FINAL_CMD --include_path $INCLUDE_PATH"
-fi
 if [[ "$MODEL_ARGS" == *"use_parallel=True"* ]]; then
     IFS=' ' read -r -a args <<< "$USER_CMD"
     last_option_index=-1
