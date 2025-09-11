@@ -850,7 +850,7 @@ def load_checkpoint(
 
     # Get current strategy metadata from network and optimizer
     logger.info(f".........Get Current Strategy Metadata.........")
-    from mindformers.parallel.strategy import get_current_strategy_metadata
+    from mindspore.parallel.strategy import get_current_strategy_metadata
     cur_rank_strategy_layout = get_current_strategy_metadata(network=network)[0]
     cur_rank_sharded_tensors: List[ShardedTensor] = []
 
