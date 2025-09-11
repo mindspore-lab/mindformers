@@ -15,7 +15,6 @@
 """Convert checkpoint from torch/huggingface"""
 
 import os
-import argparse
 from typing import List
 
 import mindspore as ms
@@ -25,7 +24,6 @@ from tqdm import tqdm
 from transformers import AutoModel
 
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import str2bool
 from mindformers.models.glm2.glm2_config import ChatGLM2Config
 from mindformers.utils.convert_utils import pt2ms
 
@@ -34,6 +32,7 @@ DTYPE_MAPPING = {
     "fp16": ms.float16,
     "bf16": ms.bfloat16
 }
+
 
 def npy2ms(arr: np.array, dtype):
     """npy2ms"""
@@ -288,31 +287,3 @@ def convert_weight(para):
             dtype=DTYPE_MAPPING.get(para.dtype, ms.float32),
             config=para.config
         )
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="GLM4 weight convert script")
-    parser.add_argument("--torch_ckpt_path",
-                        type=str,
-                        default="None",
-                        help="The torch checkpoint path.")
-    parser.add_argument("--mindspore_ckpt_path",
-                        type=str,
-                        required=True,
-                        default="None",
-                        help='The output mindspore checkpoint path.')
-    parser.add_argument("--dtype",
-                        type=str,
-                        default="fp32",
-                        choices=["fp32", "fp16", "bf16"],
-                        help="The dtype of transformed mindspore weight.")
-    parser.add_argument("--config",
-                        type=str,
-                        required=True,
-                        default="None",
-                        help="Path to model config yaml")
-    parser.add_argument('--concat', default=False, type=str2bool, help="Whether to concat weight and bias")
-    parser.add_argument('--ms_not_concat_ckpt_path', default=None)
-
-    opt = parser.parse_args()
-    convert_weight(opt)

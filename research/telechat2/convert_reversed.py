@@ -18,7 +18,6 @@ Convert Telechat weight.
 Support mindformers format.
 """
 
-import argparse
 import torch
 
 import mindspore as ms
@@ -69,15 +68,3 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
 
     torch.save(state_dict, output_path)
     logger.info(f"\rConvert telechat checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mindspore_path', default='transform.ckpt')
-    parser.add_argument('--torch_path', default='torch.bin')
-    parser.add_argument("--dtype", default='float32', choices=['float16', 'float32', 'bfloat16'],
-                        help="Data type for output checkpoint file. Default: float16")
-    args = parser.parse_args()
-    torch_dtype = dtype_map.get(args.dtype)
-
-    convert_ms_to_pt(input_path=args.mindspore_path, output_path=args.torch_path, dtype=torch_dtype)

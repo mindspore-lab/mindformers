@@ -16,15 +16,14 @@
 """
 transform mindspore ckpt to huggingface model.
 """
-import argparse
 import json
 import os
 from collections import defaultdict
 from glob import glob
 import warnings
+from safetensors.torch import save_file
 import numpy as np
 import torch
-from safetensors.torch import save_file
 
 import mindspore as ms
 from mindspore.ops.operations import Cast
@@ -536,29 +535,3 @@ def convert_ms_to_pt(input_path, output_path, config=None):
         ms_safetensors_convertor(input_path, output_path, config)
 
     print("Finish converting mindspore checkpoints into Huggingface checkpoints!")
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--num_routed_experts', default=256, type=int)
-    parser.add_argument('--torch_ckpt_path', default=None, type=str)
-    parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_grouped_gemm', default=True, type=str2bool)
-    parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
-    parser.add_argument("--num_layers", default=61, type=int)
-    parser.add_argument("--num_nextn_predict_layers", default=1, type=int)
-    parser.add_argument("--first_k_dense_replace", default=3, type=int)
-    parser.add_argument("--n_head", default=128, type=int)
-    parser.add_argument("--qk_nope_head_dim", default=128, type=int)
-    parser.add_argument("--qk_rope_head_dim", default=64, type=int)
-    parser.add_argument("--v_head_dim", default=128, type=int)
-    parser.add_argument("--load_format", default="safetensors", choices=["safetensors", "ckpt"])
-
-    args = parser.parse_args()
-
-    for key in default_config:
-        default_config[key] = getattr(args, key, default_config[key])
-    default_config['dtype'] = dtype_map.get(default_config['dtype'], default_config['dtype'])
-
-    convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_path, config=default_config)

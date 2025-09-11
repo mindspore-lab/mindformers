@@ -20,11 +20,11 @@ Support mindspore format.
 import os
 import argparse
 from pathlib import Path
+from safetensors.torch import save_file
 import torch
 import mindspore as ms
 
 from mindspore.ops.operations import Cast
-from safetensors.torch import save_file
 from mindformers.trainer.utils import get_last_checkpoint
 
 ms.set_context(device_target='CPU')
@@ -133,4 +133,4 @@ if __name__ == "__main__":
     parser.add_argument('--dtype', default=None, choices=['fp16', 'fp32', 'bf16'])
     args = parser.parse_args()
     convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_dir,
-                     strategy_dir=args.strategy_dir, dtype=args.dtype, **extra_kwargs)
+                     strategy_dir=args.strategy_dir, dtype=args.dtype)
