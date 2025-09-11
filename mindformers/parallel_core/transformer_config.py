@@ -3,6 +3,7 @@
 # Modified some config parameters to adapt to MindSpore Transformer.
 """Transformer Config"""
 
+import os
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
 
@@ -409,6 +410,11 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     When enabled, detailed expert load statistics will be printed during training.
     The default setting is False.
     """
+    is_dryrun: bool = False
+    """
+    Flag indicating whether the current execution is in dry-run mode.
+    The default setting is False.
+    """
 
     ##################
     # Context Parallel
@@ -635,6 +641,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             if self.first_k_dense_replace > self.num_layers:
                 raise ValueError(f"'first_k_dense_replace'({self.first_k_dense_replace}) cannot be bigger "
                                  f"than 'num_layers'({self.num_layers}).")
+
+        self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
 
         if isinstance(self.rope_scaling, dict):
             self.position_embedding_type = (self.rope_scaling.pop("type", None) or
