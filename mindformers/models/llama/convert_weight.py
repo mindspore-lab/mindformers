@@ -19,7 +19,6 @@ Support huggingface format and Meta format.
 
 import os
 import json
-import argparse
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +26,6 @@ import mindspore as ms
 from mindspore import ops
 
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import str2bool
 from mindformers.utils.convert_utils import pt2ms, qkv_concat_hf2mg, ffn_concat_hf2mg
 
 
@@ -342,22 +340,3 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path, config_path):
         params = ms.load_checkpoint(pre_ckpt_path)
         params = convert_qkv_concat_weight(params, model_config)
         ms.save_checkpoint(params, mindspore_ckpt_path)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_path', default='./llama_model/llama-13b-hf')
-    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
-    parser.add_argument('--pre_ckpt_path', default=None)
-    parser.add_argument('--config_path', default=None)
-    parser.add_argument('--qkv_concat', default=False, type=str2bool)
-    args = parser.parse_args()
-
-    if args.qkv_concat:
-        if args.config_path is None:
-            raise RuntimeError("When qkv_concat is True, config_path must be specified")
-        convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path, args.config_path)
-    elif args.pre_ckpt_path is not None and args.config_path is not None:
-        convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)
-    else:
-        convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path)
