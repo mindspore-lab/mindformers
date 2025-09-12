@@ -471,6 +471,20 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
 
     def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True):
         output_dim = getattr(param, "output_dim", None)
+
+        if output_dim is None:
+            loaded_weight = loaded_weight[:]
+            if loaded_weight.shape == param.shape:
+                param.init_data()
+                param.set_data(ms.from_numpy(loaded_weight))
+            else:
+                raise ValueError(
+                    f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                    f" but got the shape of param is {(param.shape)} and "
+                    f"the shape of weight is{loaded_weight.shape}")
+            cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
+            return
+
         tp_rank = self.tp_group.rank
         tp_size = self.tp_group.size
         if loaded_shard_id is not None:
@@ -604,6 +618,20 @@ class QKVParallelLinear(ColumnParallelLinear):
 
     def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None):
         output_dim = getattr(param, "output_dim", None)
+
+        if output_dim is None:
+            loaded_weight = loaded_weight[:]
+            if loaded_weight.shape == param.shape:
+                param.init_data()
+                param.set_data(ms.from_numpy(loaded_weight))
+            else:
+                raise ValueError(
+                    f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
+                    f" but got the shape of param is {(param.shape)} and "
+                    f"the shape of weight is{loaded_weight.shape}")
+            cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
+            return
+
         tp_rank = self.tp_group.rank
         if loaded_shard_id is not None:
             if loaded_shard_id == "q":
@@ -638,6 +666,7 @@ class QKVParallelLinear(ColumnParallelLinear):
                         f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                         f" but got the shape of param is {(shard_size,)} and "
                         f"the shape of weight is{loaded_weight.shape}")
+            param.init_data()
             param[shard_offset:shard_offset + shard_size] = loaded_weight
         else:
             loaded_weight = loaded_weight[:]

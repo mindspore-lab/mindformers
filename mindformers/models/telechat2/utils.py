@@ -44,3 +44,6 @@ class Telechat2PreTrainedModel(PreTrainedModel, ModelMixin):
         ('lm_head.', 'output_layer.'),
         ('transformer.h.', 'decoder.layers.')
     }
+
+    def get_model_parameters(self):
+        pass
