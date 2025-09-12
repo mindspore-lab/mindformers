@@ -27,7 +27,7 @@ from mindspore import context, load_checkpoint, load_param_into_net, load_checkp
 from mindspore import set_seed as ms_set_seed
 from mindspore import Parameter
 from mindspore import ops, mint
-from mindspore.common.file_system import _init_mindio, mindio_preload, set_mindio_server_info
+from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
@@ -126,6 +126,10 @@ def preload_ckpt(config):
     """Preload data into memory using MindIO for faster access."""
     rank_id = get_real_rank() if get_real_rank() else 0
     ckpt_path = config.load_checkpoint
+    try:
+        from mindspore.common.file_system import _init_mindio, mindio_preload, set_mindio_server_info
+    except ImportError:
+        return
     mindio_pool_capacity = config.get("mindio_pool_capacity", 128)
     set_mindio_server_info(mindio_pool_capacity)
     if hasattr(_init_mindio(), "preload"):
@@ -153,6 +157,8 @@ def preload_ckpt(config):
         mindio_preload(checkpoint_path)
     else:
         raise ValueError(f"{ckpt_path} is not a valid path to load checkpoint when auto_trans_ckpt is False.")
+    if config.use_parallel:
+        barrier()
 
 
 def set_seed(seed: int = 0):
