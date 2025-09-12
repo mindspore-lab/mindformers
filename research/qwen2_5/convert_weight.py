@@ -19,14 +19,13 @@ transform huggingface model to mindspore ckpt.
 
 import os
 import json
-import argparse
 from pathlib import Path
 
 import numpy as np
 import mindspore as ms
 
 from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import str2bool, set_safe_mode_for_file_or_dir
+from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 from mindformers.utils.convert_utils import qkv_concat_hf2mg, ffn_concat_hf2mg
 
 dtype_map = {
@@ -314,17 +313,3 @@ def convert_weight(para):
             convert_lora_to_ms(input_path=para.torch_ckpt_dir, output_path=para.mindspore_ckpt_path, dtype=dtype)
         else:
             convert_pt_to_ms(input_path=para.torch_ckpt_dir, output_path=para.mindspore_ckpt_path, dtype=dtype)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', default='./')
-    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
-    parser.add_argument('--pre_ckpt_path', default=None)
-    parser.add_argument('--config_path', default=None)
-    parser.add_argument('--qkv_concat', default=False, type=str2bool)
-    parser.add_argument('--dtype', default='bf16')
-    parser.add_argument('--is_lora', default=False)
-    args = parser.parse_args()
-
-    convert_weight(args)

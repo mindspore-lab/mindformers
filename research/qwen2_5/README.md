@@ -46,8 +46,7 @@ Qwen2.5是Qwen系列的新的大型语言模型。Qwen2.5发布了许多基本�
 
    ```text
    research/qwen2_5
-     ├── convert_weight.py                         # 权重转换脚本
-     └── run_qwen2_5.py                              # qwen2_5多轮对话脚本
+     └── convert_weight.py                         # 权重转换脚本
    ```
 
 ## 环境及数据准备
@@ -72,7 +71,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 - 静态shape数据集处理流程：
 
-  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。
+  1. 执行`research/qwen2_5/alpaca_converter.py`，将原始数据集转换为指定格式。
 
   ```shell
   python alpaca_converter.py \
@@ -84,10 +83,10 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
   output_path: 输出文件的保存路径
   ```
 
-  2. 执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+  2. 执行`research/qwen2_5/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
   ```shell
-  python qwen2_preprocess.py \
+  python qwen2_5_preprocess.py \
    --dataset_type 'qa' \
    --input_glob /path/alpaca-data-messages.json \
    --vocab_file /path/vocab.json \
@@ -106,7 +105,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 - 动态shape数据集处理流程：
 
-  1. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。
+  1. 执行`research/qwen2_5/alpaca_converter_json.py`，将原始数据集转换为指定格式。
 
   ```shell
   python alpaca_converter_json.py \
@@ -135,7 +134,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 MindFormers 1.5.0及以上版本已支持safetensor格式的权重直接加载及保存，无需转换成ckpt。下文中的[微调](#微调)和[推理](#推理)样例将使用safetensors格式权重运行。
 
-safetensors相关配置项，更多介绍请参考[Safetensors权重使用文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/safetensors.html)：
+safetensors相关配置项，更多介绍请参考[Safetensors权重使用文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/safetensors.html)：
 
 ```yaml
 # 指定加载的权重格式
@@ -182,7 +181,7 @@ python convert_weight.py --model qwen2_5 --input_path TORCH_CKPT_DIR --output_pa
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
 
 ##### 模型权重qkv_concat转换
 

@@ -38,8 +38,7 @@ convert_map = {
     'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
     'glm-n': 'mindformers.models.glm2.convert_weight.convert_weight',
     'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
-    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
-    'deepseekv3': 'toolkit.weight_convert.deepseekv3.convert_deepseekv3_hf_weight.convert_weight'
+    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',

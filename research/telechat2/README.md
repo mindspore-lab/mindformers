@@ -108,7 +108,6 @@ TeleChat2-39b-a12b:
    ```text
    telechat
        ├── run_telechat_predict.py              # 推理脚本
-       └── run_telechat.py                      # telechat高阶接口使用脚本
        └── infer
            └── run_telechat_predict_parallel.py # telechat推理脚本（前端并行）
    ```
@@ -199,7 +198,7 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
 
 - step 1. 获取模型切分策略文件：
 
@@ -241,7 +240,7 @@ MindFormers提供`TeleChat2-115B`的微调示例，过程中使用中电信人�
   2. 设置启动脚本中的`--train_dataset_dir /{path}/dataset.mindrecord`加载微调数据集
   3. 设置启动脚本中的`--run_mode finetune`
 
-  配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。
+  配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/r1.6.0/configs/README.md)。
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
