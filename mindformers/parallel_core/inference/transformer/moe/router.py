@@ -24,12 +24,6 @@ from mindformers.models.utils import convert_mstype
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
-__all__ = [
-    'Router',
-    'TopKRouter',
-]
-
-
 class Router(nn.Cell):
     """Base Router class"""
 

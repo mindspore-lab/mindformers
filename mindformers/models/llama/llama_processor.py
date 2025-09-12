@@ -20,8 +20,6 @@ from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-__all__ = ['LlamaProcessor']
-
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class LlamaProcessor(ProcessorMixin):

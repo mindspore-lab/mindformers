@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3 models' APIs."""
-__all__ = ['InferenceQwen3ForCausalLM']
-
 from typing import Dict
 
 from mindspore.communication import get_group_size

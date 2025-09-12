@@ -13,10 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ For language model """
-__all__ = [
-    "LanguageModelEmbedding",
-]
-
 from typing import Literal
 
 from mindspore import nn

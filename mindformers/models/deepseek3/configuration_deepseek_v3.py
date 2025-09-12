@@ -24,8 +24,6 @@
 # limitations under the License.
 """DeepSeekV3 HuggingFace Model Configs."""
 
-__all__ = ['DeepseekV3Config']
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.parallel_core.mf_model_config import MFModelConfig

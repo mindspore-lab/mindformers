@@ -26,9 +26,6 @@ from mindformers.tools.utils import get_predict_run_mode
 from mindformers.modules.layers import FreqsMgr
 
 
-__all__ = ["LlmBoostForCausalLM"]
-
-
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlmBoostForCausalLM(PreTrainedModel):
     r"""

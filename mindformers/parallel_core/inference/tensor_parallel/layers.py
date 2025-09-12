@@ -13,15 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Linear units for tensor parallelism"""
-
-__all__ = [
-    "ColumnParallelLinear",
-    "QKVParallelLinear",
-    "RowParallelLinear",
-    "VocabParallelEmbedding",
-    "ReplicatedLinear"
-]
-
 from typing import Callable, Optional, List
 
 import mindspore.common.dtype as mstype

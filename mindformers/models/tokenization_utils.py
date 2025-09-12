@@ -43,7 +43,7 @@ from .tokenization_utils_base import (
 )
 from ..tools.logger import logger
 
-__all__ = ["PreTrainedTokenizer", "PreTrainedTokenizerBase"]
+__all__ = ["PreTrainedTokenizer"]
 
 
 class Trie:

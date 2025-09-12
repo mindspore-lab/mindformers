@@ -17,5 +17,3 @@ from .utils import Qwen3MoePreTrainedModel
 from .configuration_qwen3_moe import Qwen3MoeConfig
 from .modeling_qwen3_moe import Qwen3MoeForCausalLM
 from .modeling_qwen3_moe_infer import InferenceQwen3MoeForCausalLM
-
-__all__ = ['Qwen3MoeConfig', 'Qwen3MoeForCausalLM', 'InferenceQwen3MoeForCausalLM', 'Qwen3MoePreTrainedModel']

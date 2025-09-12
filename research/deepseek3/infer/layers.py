@@ -31,8 +31,6 @@ from mindformers.models.utils import jit
 from mindformers.tools.utils import divide
 from research.deepseek3.infer.random import (TENSOR_PARALLEL_GENERATOR, get_rng_tracer)
 
-__all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
-
 
 class ColumnParallelLinear(nn.Cell):
     r"""

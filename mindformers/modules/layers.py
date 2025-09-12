@@ -51,16 +51,6 @@ from mindformers.modules.activation import get_activation
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
 from mindformers.version_control import check_valid_gmm_op
 
-__all__ = [
-    "FixedSparseAttention",
-    "Dropout",
-    "LayerNorm",
-    "Linear",
-    "AlibiTensor",
-    "AlibiTensorV2",
-    "RotaryEmbedding"
-]
-
 
 def _args_type_validator_check(*type_args, **type_kwargs):
     """Check whether input data type is correct."""

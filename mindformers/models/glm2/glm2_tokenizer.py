@@ -21,8 +21,6 @@ from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import FILE_PERMISSION
 
-__all__ = ['ChatGLM2Tokenizer']
-
 
 class SPTokenizer:
     """Tokenizer process special tokens."""

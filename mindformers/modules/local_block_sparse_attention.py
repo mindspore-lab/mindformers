@@ -35,7 +35,6 @@ except ImportError:
 
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig
 
-__all__ = ["LocalBlockSparseAttention"]
 
 gather_index_inited = False
 kv_index = None

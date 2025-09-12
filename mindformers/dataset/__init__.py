@@ -61,4 +61,3 @@ from .modal_to_text_sft_dataset import ModalToTextSFTDataset
 __all__ = [
     'CausalLanguageModelDataset', 'KeyWordGenDataset', 'MultiTurnDataset',
 ]
-__all__.extend(dataloader.__all__)

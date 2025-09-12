@@ -15,8 +15,6 @@
 """
 Yarn rotary position embedding for transformer.
 """
-__all__ = ['YaRNScalingRotaryEmbedding']
-
 from typing import Tuple, Union
 import math
 

@@ -13,10 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Utilities for models"""
-__all__ = ['init_method_normal',
-           'init_method_zero',
-           'scaled_init_method_normal']
-
 import math
 from typing import Union
 

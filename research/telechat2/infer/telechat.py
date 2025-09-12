@@ -34,9 +34,6 @@ from research.telechat2.infer.telechat_transformers import TelechatParallelTrans
 from research.telechat2.telechat_config import TelechatConfig
 
 
-__all__ = ["ParallelTelechatForCausalLM"]
-
-
 class TelechatPreTrainedModel(PreTrainedModel):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained

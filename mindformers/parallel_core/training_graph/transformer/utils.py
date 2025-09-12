@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """utils"""
-__all__ = ["get_attn_mask_func"]
-
 import re
 import numpy as np
 import mindspore as ms

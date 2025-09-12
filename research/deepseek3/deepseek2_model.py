@@ -53,8 +53,6 @@ from mindformers.version_control import check_seqpp_fa_opt_support
 
 from research.deepseek3.deepseek2_config import DeepseekV2Config
 
-__all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
-
 
 class MTPHiddenFuser(Cell):
     """State fuser for Multi-Token Prediction module."""

@@ -13,12 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Attention."""
-__all__ = [
-    'SelfAttentionSubmodules',
-    'Attention',
-    'SelfAttention'
-]
-
 from abc import abstractmethod
 from dataclasses import dataclass
 import math

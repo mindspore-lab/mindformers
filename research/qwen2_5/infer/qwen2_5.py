@@ -34,9 +34,6 @@ from research.qwen2_5.infer.transformer import ParallelTransformer
 from research.qwen2_5.infer.utils import convert_model_config
 
 
-__all__ = ["ParallelQwenForCausalLM"]
-
-
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     r"""

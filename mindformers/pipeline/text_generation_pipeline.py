@@ -24,8 +24,6 @@ from ..models import PreTrainedModel, PreTrainedTokenizer
 from ..tools.register import MindFormerModuleType, MindFormerRegister
 from .base_pipeline import Pipeline
 
-__all__ = ['TextGenerationPipeline']
-
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="text_generation")
 class TextGenerationPipeline(Pipeline):

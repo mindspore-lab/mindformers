@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Enums for transformer."""
-__all__ = ['AttnMaskType']
-
 import enum
 
 

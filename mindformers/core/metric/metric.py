@@ -34,7 +34,7 @@ from mindformers.core.loss import CrossEntropyLoss
 from .utils import PerplexityCell
 from ...dataset.labels import cluener_labels
 
-__all__ = ['EntityScore', 'PerplexityMetric', 'ADGENMetric', 'PromptAccMetric', 'EmF1Metric']
+__all__ = ['EntityScore', 'PerplexityMetric', 'PromptAccMetric', 'EmF1Metric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
@@ -116,6 +116,7 @@ class EntityScore(nn.Metric):
             labels.
         """
         class_info = {}
+        # pylint: disable=E1121
         origin_counter = collections.Counter([x[0] for x in self.origins])
         found_counter = collections.Counter([x[0] for x in self.founds])
         right_counter = collections.Counter([x[0] for x in self.rights])

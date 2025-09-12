@@ -13,10 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3Moe models' APIs."""
-__all__ = [
-    'Qwen3MoeForCausalLM',
-]
-
 import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType

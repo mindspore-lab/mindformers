@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """DotProduct Attention Layer"""
-__all__ = ['DotProductAttention']
-
 import math
 from mindspore import Tensor, mint, nn
 

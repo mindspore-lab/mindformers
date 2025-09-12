@@ -20,8 +20,6 @@ from mindspore.common.initializer import initializer
 
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
-__all__ = ["get_norm"]
-
 
 class LayerNorm(nn.Cell):
     r"""

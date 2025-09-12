@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Normalization"""
-__all__ = ["get_norm_cls"]
-
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Parameter, nn

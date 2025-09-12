@@ -13,11 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Transformer Block"""
-__all__ = [
-    'TransformerBlockSubmodules',
-    'TransformerBlock'
-]
-
 from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor

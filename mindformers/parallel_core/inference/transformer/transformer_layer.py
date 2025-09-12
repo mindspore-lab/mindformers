@@ -13,12 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Transformer Layer"""
-__all__ = [
-    'TransformerLayerSubmodules',
-    'BaseTransformerLayer',
-    'TransformerLayer'
-]
-
 from dataclasses import dataclass
 from typing import Union
 

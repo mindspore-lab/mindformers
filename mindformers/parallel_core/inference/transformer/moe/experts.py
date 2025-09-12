@@ -26,10 +26,6 @@ from mindformers.parallel_core.inference.tensor_parallel.random import (TENSOR_P
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (ReduceFromModelParallelRegion,
                                                                           GatherFromModelParallelRegion)
 
-__all__ = [
-    "GroupedMLP",
-]
-
 
 class GroupedMLP(nn.Cell):
     """An implementation of the Experts layer.

@@ -24,8 +24,6 @@ from mindformers.utils.quantization_config import QuantizationConfigMixin
 if TYPE_CHECKING:
     from mindformers.models.modeling_utils import PreTrainedModel
 
-__all__ = ["Quantizer"]
-
 
 class Quantizer(ABC):
     """
