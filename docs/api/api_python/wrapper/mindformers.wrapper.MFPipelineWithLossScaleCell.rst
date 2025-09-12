@@ -1,7 +1,7 @@
 mindformers.wrapper.MFPipelineWithLossScaleCell
 ===============================================
 
-.. py:class:: mindformers.wrapper.MFPipelineWithLossScaleCell(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)
+.. py:class:: mindformers.wrapper.MFPipelineWithLossScaleCell(network, optimizer, use_clip_grad=True, max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)
 
     为MindFormers的单步训练单元扩充流水线并行的损失缩放功能。
 
