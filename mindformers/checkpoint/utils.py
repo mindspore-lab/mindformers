@@ -23,11 +23,9 @@ from enum import Enum
 from glob import glob
 from pathlib import Path
 from typing import Optional
-import numpy as np
 
 import mindspore as ms
 from mindspore import context
-from mindspore.common import dtype as mstype
 from mindformers.tools.logger import logger
 
 
@@ -309,45 +307,6 @@ def _get_shard_size(local_shape, dtype):
     for size in local_shape:
         element_count *= size
     return element_count * type_size
-
-
-def numpy_dtype_to_mindspore(numpy_dtype):
-    """
-    Convert NumPy dtype to MindSpore dtype
-
-    Args:
-        numpy_dtype: NumPy data type (e.g., np.float32, np.int64)
-
-    Returns:
-        mindspore.dtype: Corresponding MindSpore data type
-    """
-    # Mapping table for basic data types
-    dtype_mapping = {
-        np.bool_: mstype.bool_,
-        np.int8: mstype.int8,
-        np.int16: mstype.int16,
-        np.int32: mstype.int32,
-        np.int64: mstype.int64,
-        np.uint8: mstype.uint8,
-        np.uint16: mstype.uint16,
-        np.uint32: mstype.uint32,
-        np.uint64: mstype.uint64,
-        np.float16: mstype.float16,
-        np.float32: mstype.float32,
-        np.float64: mstype.float64,
-        np.complex64: mstype.complex64,
-        np.complex128: mstype.complex128,
-    }
-
-    # Handle both dtype objects and direct type references
-    if isinstance(numpy_dtype, np.dtype):
-        numpy_dtype = numpy_dtype.type
-
-    # Look up mapping and raise error if not found
-    if numpy_dtype in dtype_mapping:
-        return dtype_mapping[numpy_dtype]
-
-    raise ValueError(f"Unsupported NumPy data type: {numpy_dtype}")
 
 
 def verify_ckpt_valid(checkpoint_dir: str) -> Optional[str]:

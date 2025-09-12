@@ -29,7 +29,6 @@ from mindformers.checkpoint.sharded_tensor import build_sharded_tensor, get_shar
 from mindformers.checkpoint.utils import (
     get_checkpoint_name,
     get_sharded_tensor_shard_id,
-    numpy_dtype_to_mindspore,
     FileType
 )
 
@@ -310,7 +309,7 @@ def generate_default_metadata_from_checkpoint(checkpoint_dir: str) -> tuple[dict
 
                 # Extract tensor properties
                 tensor_shape = tensor.shape
-                ms_dtype = numpy_dtype_to_mindspore(tensor.dtype)
+                ms_dtype = tensor_to_ms_type.get(tensor.dtype.__str__())
                 global_offset = (0,)
                 axis_fragmentations = [1] * len(tensor_shape)
 
