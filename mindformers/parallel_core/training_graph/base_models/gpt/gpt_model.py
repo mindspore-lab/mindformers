@@ -300,7 +300,7 @@ class GPTModel(nn.Cell):
         self.mul = aclnn_ops.Mul()
         self.add = aclnn_ops.AddExt()
         self.transpose = aclnn_ops.Transpose()
-        self.assign = aclnn_ops.Assign()
+        self.assign = aclnn_ops.InplaceCopy()
 
         # init morphed layer
         self.morphed_reshape_logits = Morph(
@@ -482,10 +482,10 @@ class GPTModel(nn.Cell):
         return hidden_states, rotary_pos_emb, extra_loss
 
     def shared_embedding_or_output_weight(self):
-        """Gets the emedding weight or output logit weights when share embedding and output weights set to True.
+        """Gets the embedding weight or output logit weights when share embedding and output weights set to True.
 
         Returns:
-            Tensor: During pre processing it returns the input embeddings weight while during post processing
+            Tensor: During pre-processing it returns the input embeddings weight while during post-processing
             it returns the final output layers weight
         """
         if self.pre_process:
