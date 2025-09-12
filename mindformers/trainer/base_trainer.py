@@ -954,15 +954,15 @@ class BaseTrainer:
                 common_file = os.path.join(config.load_checkpoint, 'common.json')
                 if not os.path.exists(common_file):
                     raise FileNotFoundError(f"No common.json found in directory '{config.load_checkpoint}'.")
-                conmon_info = CommonInfo.load_common(common_file)
-                step_scale = conmon_info.global_batch_size / config.runner_config.global_batch_size
-                config.runner_config.initial_step = int(conmon_info.step_num * step_scale)
+                common_info = CommonInfo.load_common(common_file)
+                step_scale = common_info.global_batch_size / config.runner_config.global_batch_size
+                config.runner_config.initial_step = int(common_info.step_num * step_scale)
                 if config.runner_config.sink_mode:
-                    config.runner_config.initial_epoch = int(conmon_info.epoch_num * step_scale)
+                    config.runner_config.initial_epoch = int(common_info.epoch_num * step_scale)
                 else:
                     data_size = dataset.get_dataset_size()
                     not_last_step_in_epoch = int(config.runner_config.initial_step % data_size != 0)
-                    config.runner_config.initial_epoch = int(conmon_info.epoch_num) - not_last_step_in_epoch
+                    config.runner_config.initial_epoch = int(common_info.epoch_num) - not_last_step_in_epoch
 
                 resume_dict = {
                     "step_num": config.runner_config.initial_step,
@@ -971,10 +971,10 @@ class BaseTrainer:
                 }
                 if config.runner_wrapper.scale_sense is not None:
                     if hasattr(config.runner_wrapper.scale_sense, "loss_scale_value"):
-                        config.runner_wrapper.scale_sense.loss_scale_value = conmon_info.loss_scale
+                        config.runner_wrapper.scale_sense.loss_scale_value = common_info.loss_scale
                         resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
                     else:
-                        config.runner_wrapper.scale_sense = conmon_info.loss_scale
+                        config.runner_wrapper.scale_sense = common_info.loss_scale
                         resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
                 append_info = [resume_dict]
             else:
@@ -1271,10 +1271,14 @@ class BaseTrainer:
 
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")
-                global_step = conmon_info.global_step
-                if conmon_info.global_batch_size != self.global_batch_size:
+                global_step = common_info.global_step
+                if common_info.global_batch_size != self.global_batch_size:
                     global_step = \
-                        int(conmon_info.global_step * (conmon_info.global_batch_size / self.global_batch_size))
+                        int(common_info.global_step * (common_info.global_batch_size / self.global_batch_size))
+                    logger.info(
+                        f"Scaled global step: {common_info.global_step} → {global_step} "
+                        f"(batch size changed from {common_info.global_batch_size} to {self.global_batch_size})"
+                    )
                 load_checkpoint(
                     checkpoint=config.load_checkpoint, network=network, optimizer=optimizer, global_step=global_step,
                     balanced_load=config.balanced_load

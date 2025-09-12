@@ -906,11 +906,10 @@ def load_checkpoint(
     # Handle global_step for optimizer if needed
     if optimizer and "global_step" not in state_dict:
         # Initialize global_step with default or from common.json
-        global_step = 0 if global_step is None else global_step
-        common_file = os.path.join(checkpoint_dir, 'common.json')
-
-        if os.path.exists(common_file):
-            global_step = CommonInfo.load_common(common_file).global_step
+        if not global_step:
+            common_file = os.path.join(checkpoint_dir, 'common.json')
+            global_step = 0 if not os.path.exists(common_file) else \
+                CommonInfo.load_common(common_file).global_step
 
         state_dict["global_step"] = Parameter(
             Tensor([global_step], mstype.int32), name="global_step", requires_grad=False
