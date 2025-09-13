@@ -18,6 +18,7 @@ import re
 import os
 from functools import wraps
 from typing import Union
+import regex
 import numpy as np
 import mindspore.common.dtype as mstype
 import mindspore as ms
@@ -150,6 +151,15 @@ def dict_from_json_file(json_file: Union[str, os.PathLike]):
     with open(json_file, "r", encoding="utf-8") as reader:
         text = reader.read()
     return json.loads(text)
+
+
+def regex_match(pattern, string, timeout=1):
+    try:
+        return regex.fullmatch(pattern, string, timeout=timeout)
+    except TimeoutError as e:
+        logger.warning(f"{e} Please check and fix it.")
+    return []
+
 
 ms_type_to_str = reverse_dict(str_to_ms_type)
 
@@ -366,6 +376,7 @@ class LayerSetting:
                 is_valid_bool = isinstance(layers_id, bool) and layers_id
                 is_valid_list = isinstance(layers_id, list) and layer_id in layers_id
                 if is_valid_bool or is_valid_list:
+                    # pylint: disable=E1120
                     log = LayerSetting.set_pattern_swap(layer, pattern.split(r'\.'),
                                                         layer_swap.get(self.backward_prefetch))
                     if log:
@@ -395,20 +406,20 @@ class LayerSetting:
         if p_list:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     log = LayerSetting.set_pattern_swap(cell, p_list, value, info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:
             for attr in dir(layer):
-                if re.fullmatch(p, attr):
+                if regex_match(p, attr):
                     operator = getattr(layer, attr)
                     if hasattr(operator, '_offload'):
                         operator._offload(backward_prefetch=value)
                         log = f"{info}.{attr}, value={value}"
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     cell.offload(backward_prefetch=value)
                     log = f"{info}.{name}, value={value}"
         p_list.insert(0, p)
@@ -614,13 +625,14 @@ class LayerSetting:
         if p_list:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
-                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, set_on, info + f'.{name}')
+                if regex_match(p, name):
+                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, set_on,
+                                                             info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:
             for attr in dir(layer):
-                if re.fullmatch(p, attr):
+                if regex_match(p, attr):
                     operator = getattr(layer, attr)
                     if add_prim_attr:
                         operator.add_prim_attr("recompute_comm_op", set_on)
@@ -630,7 +642,7 @@ class LayerSetting:
                         log = f"{info}.{attr}"
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     if not set_on:
                         logger.info(f"For select recompute/comm_recompute exclude, {info.replace('.', '', 1)}.{name} "
                                     "is expected to be operation but got cell, "
