@@ -24,9 +24,9 @@ import math
 import multiprocessing
 from glob import glob
 import warnings
+from safetensors.torch import load_file
 import numpy as np
 import torch
-from safetensors.torch import load_file
 
 import mindspore as ms
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
@@ -880,20 +880,9 @@ def infer_trans_ckpt_pt_to_ms(src_hf_dir, dst_ms_dir, worker_num, arg):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_routed_experts', default=256, type=int)
     parser.add_argument('--torch_ckpt_path', default=None, type=str)
     parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_grouped_gemm', default=True, type=str2bool)
     parser.add_argument('--pre_ckpt_path', default=None, type=str)
-    parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
-    parser.add_argument("--num_layers", default=61, type=int)
-    parser.add_argument("--num_nextn_predict_layers", default=1, type=int)
-    parser.add_argument("--first_k_dense_replace", default=3, type=int)
-    parser.add_argument("--n_head", default=128, type=int)
-    parser.add_argument("--qk_nope_head_dim", default=128, type=int)
-    parser.add_argument("--qk_rope_head_dim", default=64, type=int)
-    parser.add_argument("--v_head_dim", default=128, type=int)
-    parser.add_argument("--save_format", default="safetensors", choices=["safetensors", "ckpt"])
 
     parser.add_argument("--infer", default=False, type=str2bool)
     parser.add_argument('--worker_num', default=4, type=int)

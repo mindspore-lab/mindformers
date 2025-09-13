@@ -149,6 +149,12 @@ python telechat_preprocess.py \
 --input_dataset_file /{path}/ \
 --vocab_file_path /{path}/tokenizer.model \
 --max_length 8192 \
+--seed 2024 \
+--start_token "<_start>" \
+--user_token "<_user>" \
+--bot_token "<_bot>" \
+--end_token "<_end>" \
+--pad_token "<_pad>" \
 --output_path /{path}/
 ```
 
@@ -157,6 +163,12 @@ python telechat_preprocess.py \
 input_dataset_file: 预训练的数据集
 vocab_file_path: 词模型文件路径(如使用上述链接下载，指定到对应路径下即可)
 max_length: 数据集长度
+seed: 随机种子
+start_token: 文本生成起始token
+user_token: 用户输入文本token
+bot_token: 模型预定义的语义token
+end_token: 文本生成结束token
+pad_token: 占位符
 output_path: 生成数据集的路径
 ```
 
@@ -180,12 +192,28 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 python mindformers/research/telechat2/convert_weight.py \
 --torch_path TORCH_CKPT_DIR \
 --mindspore_path {path} \
+--dtype float32
+```
+
+开启qkv融合。
+
+```shell
+python mindformers/research/telechat2/convert_weight.py \
+--qkv_concat True \
+--model_name telechat_7B \
+--pre_ckpt_path TORCH_CKPT_DIR \
+--mindspore_ckpt_path {path}/to/save_ckpt
 ```
 
 ```text
 # 参数说明
 torch_path: torch版本权重保存目录路径
 mindspore_path: 权重保存文件名，可以指定自定义保存路径
+dtype: 转换权重后的数据类型
+qkv_concat: 是否进行qkv融合
+model_name: 模型名称
+pre_ckpt_path: 待进行qkv融合的权重路径
+mindspore_ckpt_path: 进行qkv融合后的权重保存路径
 ```
 
 2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。

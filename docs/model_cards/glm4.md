@@ -64,7 +64,7 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ### 安装环境
 
-MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
+MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
 
 ### 数据及权重准备
 
@@ -104,17 +104,19 @@ MindSpore Transformers 提供 `alpaca` 数据集示例处理脚本制作[全参�
       --input_glob /path/alpaca_glm4_data.jsonl \
       --vocab_file /path/tokenizer.model \
       --seq_length 8192 \
-      --output_file /path/alpaca-messages.mindrecord
+      --output_file /path/alpaca-messages.mindrecord \
+      --file_partition 1
     ```
 
     参数说明如下表：
 
-    | 参数名             | 含义                    | 取值说明                                                   |
-    |-----------------|-----------------------|--------------------------------------------------------|
-    | `--input_glob`  | 转换后的 alpaca 数据集的文件路径。 | (str, 可选) - 默认值： `./alpaca_glm4_data.jsonl` 。          |
-    | `--vocab_file`  | tokenizer.model 文件路径。 | (str, 可选) - 默认值： `./tokenizer.model` 。                 |
-    | `--seq_length`  | 输出数据的序列长度。            | (int, 可选) - 默认值： `8192` 。                              |
-    | `--output_file` | 输出文件的保存路径。            | (str, 可选) - 默认值： `./alpaca-fastchat-glm4.mindrecord` 。 |
+    | 参数名                | 含义                    | 取值说明                                                   |
+    |--------------------|-----------------------|--------------------------------------------------------|
+    | `--input_glob`     | 转换后的 alpaca 数据集的文件路径。 | (str, 可选) - 默认值： `./alpaca_glm4_data.jsonl` 。          |
+    | `--vocab_file`     | tokenizer.model 文件路径。 | (str, 可选) - 默认值： `./tokenizer.model` 。                 |
+    | `--seq_length`     | 输出数据的序列长度。            | (int, 可选) - 默认值： `8192` 。                              |
+    | `--output_file`    | 输出文件的保存路径。            | (str, 可选) - 默认值： `./alpaca-fastchat-glm4.mindrecord` 。 |
+    | `--file_partition` | 输出文件的分片个数。            | (int, 可选) - 默认值： `1` 。                                 |
 
 #### 模型权重下载
 

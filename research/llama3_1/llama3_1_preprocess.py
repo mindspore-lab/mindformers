@@ -229,7 +229,6 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_type', type=str, default='wiki', choices=['wiki', 'qa'])
     parser.add_argument('--input_glob', type=str, default='./dataset/wikitext-2/wiki.train.tokens')
     parser.add_argument('--output_file', type=str, default='./dataset/wiki8192/wiki8192')
-    parser.add_argument('--tokenizer', type=str, default='llama3', choices=['llama3'])
     parser.add_argument('--model_file', type=str, default='./ckpt/llama3/tokenizer.model')
     parser.add_argument('--file_partition', type=int, default=1)
     parser.add_argument('--repeat', type=int, default=1)
