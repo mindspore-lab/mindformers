@@ -25,7 +25,7 @@ from mindformers.parallel_core.training_graph.transformer.multi_latent_attention
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
 from mindformers.parallel_core.training_graph.transformer.identity_op import IdentityOp
-from mindformers.parallel_core.training_graph.transformer.norm import RMSNorm
+from mindformers.parallel_core.training_graph.transformer.norm import FusedRMSNorm
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 from mindformers.parallel_core.training_graph.device_matrix import layout
@@ -87,8 +87,8 @@ class MLARunner:
     def build_model(self):
         """Build and initialize Multi-head Latent Attention model."""
         core_attention = FlashAttention
-        q_layernorm = IdentityOp if self.args.q_layernorm.lower() == 'none' else RMSNorm
-        k_layernorm = IdentityOp if self.args.k_layernorm.lower() == 'none' else RMSNorm
+        q_layernorm = IdentityOp if self.args.q_layernorm.lower() == 'none' else FusedRMSNorm
+        k_layernorm = IdentityOp if self.args.k_layernorm.lower() == 'none' else FusedRMSNorm
 
         if self.args.struct == 'concatenated':
             spec = ModuleSpec(
@@ -162,8 +162,8 @@ def main():
     # Model configuration parameters
     parser.add_argument("--q_lora_rank", type=int, default=8)
     parser.add_argument("--use_flash_attn", type=lambda x: x.lower() == "true", default=True)
-    parser.add_argument("--q_layernorm", type=str, default="RMSNorm")
-    parser.add_argument("--k_layernorm", type=str, default="RMSNorm")
+    parser.add_argument("--q_layernorm", type=str, default="FusedRMSNorm")
+    parser.add_argument("--k_layernorm", type=str, default="FusedRMSNorm")
     parser.add_argument("--mscale", type=float, default=1.0)
     # Output and parallelism
     parser.add_argument("--output_path", type=str, default="output_mla_ms.npz")

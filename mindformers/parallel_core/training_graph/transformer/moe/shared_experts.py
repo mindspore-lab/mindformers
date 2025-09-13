@@ -82,6 +82,22 @@ class SharedExpertMLP(MLP):
             shared_experts_output = self.mul_shared_gate(shared_experts_output, self.cast(gate, self.compute_dtype))
         return shared_experts_output, output_bias
 
+    def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
+        self.add.shard((layout(("cp", "tp"), "dp", "None"), layout("None",)))
+        if self.gated_linear_unit:
+            self.split.shard((layout(("cp", "tp"), "dp", "None"),))
+            self.mul.shard((layout(("cp", "tp"), "dp", "None"), layout(("cp", "tp"), "dp", "None")))
+            if self.activation_type == 'swiglu':
+                self.activation_func.silu.shard((layout(("cp", "tp"), "dp", "None"),))
+                self.activation_func.split.shard((layout(("cp", "tp"), "dp", "None"),))
+                self.activation_func.mul.shard((layout(("cp", "tp"), "dp", "None"),
+                                                layout(("cp", "tp"), "dp", "None")))
+            if self.activation_type == 'fusedswiglu':
+                self.activation_func.swiglu.shard((layout(("cp", "tp"), "dp", "None"),))
+            if self.activation_type == 'silu':
+                self.activation_func.silu.shard((layout(("cp", "tp"), "dp", "None"),))
+
     def expert_gate_shard(self):
         """ shard function of shared_expert_mlp block. """
         if self.use_shared_expert_gate:
@@ -147,6 +163,23 @@ class SharedExpertMLPInterleaved(MLPInterleaved):
             gate = self.sigmoid(self.shared_experts_gate(self.cast(hidden_states, self.router_dense_type)))
             shared_experts_output = self.mul_shared_gate(shared_experts_output, self.cast(gate, self.compute_dtype))
         return shared_experts_output, output_bias
+
+    def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
+        self.add.shard((layout(("cp", "tp"), "dp", "None"), layout("None",)))
+        if self.gated_linear_unit:
+            self.mul.shard((layout(("cp", "tp"), "dp", "None"), layout(("cp", "tp"), "dp", "None")))
+            self.split.shard((layout(("cp", "tp"), "dp", "None", "None"),))
+            if self.activation_type == 'fusedswiglu':
+                self.transpose.shard((layout(("cp", "tp"), "dp", "None", "None"),))
+                self.activation_func.swiglu.shard((layout(("cp", "tp"), "dp", "None", "None"),))
+            if self.activation_type == 'swiglu':
+                self.activation_func.silu.shard((layout(("cp", "tp"), "dp", "None", "None"),))
+                self.activation_func.split.shard((layout(("cp", "tp"), "dp", "None", "None"),))
+                self.activation_func.mul.shard((layout(("cp", "tp"), "dp", "None", "None"),
+                                                layout(("cp", "tp"), "dp", "None", "None")))
+            if self.activation_type == 'silu':
+                self.activation_func.silu.shard((layout(("cp", "tp"), "dp", "None"),))
 
     def expert_gate_shard(self):
         """ shard function of shared_expert_mlp block. """
