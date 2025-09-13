@@ -25,7 +25,7 @@ else:
     SHM_NAME_PREFIX = _SHM_NAME_PREFIX
 SHM_NAME_MAX_LENGTH = 14
 
-MAX_SHM_SIZE = int(os.environ.get('MAX_SHM_SIZE', 10 ** 9))
+MAX_SHM_SIZE = 10 ** 9
 CHARSET = "0123456789abcdefpsmnwABCDEF"
 
 
