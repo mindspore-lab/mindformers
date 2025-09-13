@@ -37,9 +37,28 @@ class FusedSwiGlu(nn.Cell):
     def __init__(self, config: ModelParallelConfig = None):
         super(FusedSwiGlu, self).__init__()
         self.swiglu = Swiglu_op()
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, x: Tensor, dim=-1) -> Tensor:
         return self.swiglu(x, dim)
+
+    def shard(self, config: ModelParallelConfig):
+        """
+        Shard operators in FusedSwiGlu activation function.
+
+        Args:
+            config (ModelParallelConfig): The model parallel configuration.
+        """
+
+        self.swiglu.shard((layout("cp", "dp", "None", "tp"),), (layout("cp", "dp", "None", "tp"),))
+        self.swiglu.add_prim_attr("self_define_shard", True)
+
+    def sharding_propagation(self, config: ModelParallelConfig):
+        pass
 
 
 class SwiGlu(nn.Cell):
@@ -69,7 +88,7 @@ class SwiGlu(nn.Cell):
 
     def shard(self, config: ModelParallelConfig):
         """
-        Shard operators in GELU activation function.
+        Shard operators in SwiGlu activation function.
 
         Args:
             config (ModelParallelConfig): The model parallel configuration.
