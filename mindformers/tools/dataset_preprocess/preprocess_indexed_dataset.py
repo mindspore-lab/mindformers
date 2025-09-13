@@ -61,12 +61,8 @@ class Encoder:
         if self.args.split_sentences:
             if not nltk_available:
                 raise ValueError("NLTK is not available to split sentences.")
-            if os.environ.get("NLTK_DATA"):
-                library = os.path.join(os.environ.get("NLTK_DATA"), "tokenizers", "punkt", f"{self.args.lang}.pickle")
-                url = f"file:{library}"
-            else:
-                library = os.path.join("tokenizers", "punkt", f"{self.args.lang}.pickle")
-                url = f"nltk:{library}"
+            library = os.path.join("tokenizers", "punkt", f"{self.args.lang}.pickle")
+            url = f"nltk:{library}"
             splitter = nltk.load(url)
             if self.args.keep_newlines:
                 # pylint: disable=W0212
@@ -393,11 +389,7 @@ def main():
     args = get_args()
 
     if args.split_sentences:
-        if nltk_available:
-            nltk.download("punkt", quiet=True, download_dir=os.environ.get("NLTK_DATA"))
-        else:
-            raise Exception(
-                "nltk library required for sentence splitting is not available.")
+        raise Exception("nltk library required for sentence splitting is not available.")
 
     in_ss_out_names, partition = partition_file(args)
 

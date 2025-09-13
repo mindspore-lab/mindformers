@@ -23,6 +23,7 @@ import mindspore.ops.operations as P
 import mindspore.ops.functional as F
 from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 from mindspore.communication.comm_func import barrier
+from mindspore._c_expression import MSContext
 
 from mindformers.tools.utils import get_predict_run_mode
 from .tools.utils import is_version_ge
@@ -31,19 +32,7 @@ from .tools.logger import logger
 
 def get_ascend_soc_version():
     """Get ascend soc version."""
-    if is_version_ge(ms.__version__, "2.2.0"):
-        from mindspore._c_expression import MSContext
-        return MSContext.get_instance().get_ascend_soc_version()
-    ascend_chip_type = os.getenv("ASCEND_CHIP_TYPE", "UNSET")
-    if ascend_chip_type not in ["910a", "910b", "UNSET"]:
-        raise EnvironmentError(f"ASCEND_CHIP_TYPE should be in ['910a', '910b'],but get {ascend_chip_type}")
-    if ascend_chip_type == "UNSET":
-        logger.info("Environment variables need to be set manually to obtain the chip type,"
-                    "which can be set as follows: \n"
-                    "For Atlas 800, run 'export ASCEND_CHIP_TYPE=910a' before the program runs.\n"
-                    "For Atlas 800T A2, run 'export ASCEND_CHIP_TYPE=910b' before the program runs.\n"
-                    "If you need to get chip information automatically, MindSpore 2.2 and above is recommended")
-    return ascend_chip_type
+    return MSContext.get_instance().get_ascend_soc_version()
 
 
 def is_910a():
