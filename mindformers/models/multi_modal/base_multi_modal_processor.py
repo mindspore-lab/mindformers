@@ -16,6 +16,7 @@
 """
 BaseImageToTextProcessor
 """
+import os
 import copy
 from typing import Optional, Union, List, Dict
 
@@ -342,30 +343,42 @@ class BaseXModalToTextProcessor(BaseProcessor):
 
         shm_name_save_path = "./shm_name.txt"
         output_columns = copy.deepcopy(self.modal_transform.model_transform_template.output_columns)
-        # move position_ids to end of list
-        if "position_ids" in output_columns:
-            index = output_columns.index("position_ids")
-            output_columns.pop(index)
-            output_columns.append("position_ids")
 
-        for column in output_columns:
-            if column == "input_ids":
-                continue
-            data = other_data.pop(column, None)
-            data = np.array(data).astype(np.float32)
-            if data.ndim == 1:
-                data = data[None, :]
+        shm_objects = []
+        try:
+            # move position_ids to end of list
+            if "position_ids" in output_columns:
+                index = output_columns.index("position_ids")
+                output_columns.pop(index)
+                output_columns.append("position_ids")
 
-            shm = create_shm(data.nbytes, shm_name_save_path)
-            shared_array = np.ndarray(data.shape, dtype=np.float32, buffer=shm.buf)
-            shared_array[:] = data
+            for column in output_columns:
+                if column == "input_ids":
+                    continue
+                data = other_data.pop(column, None)
+                data = np.array(data).astype(np.float32)
+                if data.ndim == 1:
+                    data = data[None, :]
 
-            shm_name = encode_shm_name_to_int64(shm.name)
-            shape_value = encode_shape_to_int64(data.shape)
-            input_ids[index] = shm_name
-            input_ids[index + 1] = shape_value
-            index += 2
-        return input_ids
+                shm = create_shm(data.nbytes, shm_name_save_path)
+                shm_objects.append(shm)
+                shared_array = np.ndarray(data.shape, dtype=np.float32, buffer=shm.buf)
+                shared_array[:] = data
+
+                shm_name = encode_shm_name_to_int64(shm.name)
+                shape_value = encode_shape_to_int64(data.shape)
+                input_ids[index] = shm_name
+                input_ids[index + 1] = shape_value
+                index += 2
+            return input_ids
+        finally:
+            # free resources
+            for shm in shm_objects:
+                shm.close()
+                if hasattr(shm, 'unlink'):
+                    shm.unlink()
+
+            os.unlink(shm_name_save_path)
 
     def tokenize(self, inputs: List[Dict[str, str]]):
         """only for mindie"""
