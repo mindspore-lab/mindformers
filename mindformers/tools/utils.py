@@ -712,6 +712,8 @@ def check_ckpt_file_name(ckpt_file, ckpt_fmt='ckpt'):
 
 def create_and_write_info_to_txt(txt_path, info=None):
     """create and write info to txt"""
+    if os.path.exists(txt_path):
+        raise ValueError(f"{txt_path} already exists.")
     dir_path = os.path.dirname(txt_path)
     with tempfile.NamedTemporaryFile('w', delete=False, dir=dir_path) as temp_file:
         if info:

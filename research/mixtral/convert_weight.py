@@ -18,10 +18,11 @@ Support huggingface format
 """
 
 import argparse
+import os.path
 from pathlib import Path
+from safetensors.torch import load_file
 import torch
 import mindspore as ms
-from safetensors.torch import load_file
 from mindformers.tools.utils import str2bool
 
 dtype_map = {
@@ -48,6 +49,8 @@ def name_replace(name: str):
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwargs):
     """convert hf weight to ms."""
+    if os.path.exists(output_path):
+        raise ValueError(f"{output_path} already exists.")
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         ckpt_paths = sorted(Path(input_path).glob("*.safetensors"))
@@ -116,6 +119,8 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
 
 def convert_ms_to_gmm(input_path, output_path, **kwargs):
     """convert ms weight to gmm."""
+    if os.path.exists(output_path):
+        raise ValueError(f"{output_path} already exists.")
     params = ms.load_checkpoint(input_path)
     for k, v in params.items():
         if 'feed_forward.ffn.w1.weight' in k or \

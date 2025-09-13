@@ -419,6 +419,7 @@ class TrainingDataset:
 
     def _walk_files(self, dataset_dir, file_format):
         """Obtaining files in `format`."""
+        dataset_dir = os.path.realpath(dataset_dir)
         if os.path.exists(dataset_dir) and os.path.isdir(dataset_dir):
             # Obtaining local files
             logger.info("Detect local dataset directory: %s. Traverse local directory", dataset_dir)

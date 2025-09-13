@@ -17,16 +17,12 @@ Convert llama weight.
 Support mindspore format and Meta format.
 """
 
-import json
+import os.path
+
 import torch
 import mindspore as ms
 
 from mindformers.utils.convert_utils import ms2pt, is_lora_param
-
-
-def read_json(path):
-    with open(path, "r") as f:
-        return json.load(f)
 
 
 def name_replace(name: str):
@@ -47,6 +43,8 @@ def name_replace(name: str):
 
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert ms weight to hf."""
+    if os.path.exists(output_path):
+        raise FileExistsError(f"'{output_path}' already exists.")
     print(f"Trying to convert mindspore checkpoint in '{input_path}'.", flush=True)
     model_ms = ms.load_checkpoint(input_path)
 

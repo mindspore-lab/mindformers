@@ -14,6 +14,7 @@
 # ============================================================================
 """MultiSource DataLoader."""
 import inspect
+import os.path
 import random
 from itertools import accumulate
 from typing import Optional, List, Union
@@ -43,7 +44,6 @@ class MultiSourceDataLoader:
                 load_indices_npz_path: Optional[str] = None,
                 save_indices_npz_path: Optional[str] = None,
                 **kwargs):
-
         # pop num_shards and shard_id for total dataset
         num_shards = kwargs.pop("num_shards", None)
         shard_id = kwargs.pop("shard_id", None)
@@ -349,6 +349,8 @@ class MultiSourceRandomAccessDataset:
             self.dataloader_index = load_dict["dataloader_index"]
             self.data_sample_index = load_dict["data_sample_index"]
         if save_indices_npz_path is not None:
+            if os.path.exists(save_indices_npz_path):
+                raise ValueError(f"The save_indices_npz_path {save_indices_npz_path} has existed.")
             if is_publicly_accessible_path(save_indices_npz_path):
                 logger.info(f".......... npz file is saved in shared path ..........")
                 if self.rank_id == 0:

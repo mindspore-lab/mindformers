@@ -1399,6 +1399,9 @@ class BaseTrainer:
             else:
                 save_file = f"{task}_result.txt"
 
+        if os.path.exists(save_file):
+            raise ValueError(f"{save_file} already exists. Please delete it first or set another file name.")
+
         if get_real_rank() % 8 == 0:
             pprint(config)
         output_results = self.pipeline_task(input_data, top_k=top_k)

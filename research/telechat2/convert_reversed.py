@@ -17,6 +17,7 @@
 Convert Telechat weight.
 Support mindformers format.
 """
+import os.path
 
 import torch
 
@@ -53,6 +54,8 @@ def name_replace(name: str):
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert telechat ms weight to hf."""
+    if os.path.exists(output_path):
+        raise ValueError(f"{output_path} already exists, please set another value.")
     logger.info(f"Trying to convert mindspore checkpoint in '{input_path}'.")
     model_ms = ms.load_checkpoint(input_path)
 

@@ -37,6 +37,10 @@ def create_shm(size, shm_name_save_path):
     if size > MAX_SHM_SIZE:
         raise ValueError(f"Size exceeds the maximum allowed limit of {MAX_SHM_SIZE} bytes.")
 
+    shm_name_save_path = os.path.realpath(shm_name_save_path)
+    if os.path.exists(shm_name_save_path):
+        raise ValueError(f"{shm_name_save_path} already exists, please set another value.")
+
     try:
         shm = shared_memory.SharedMemory(create=True, size=size)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_APPEND

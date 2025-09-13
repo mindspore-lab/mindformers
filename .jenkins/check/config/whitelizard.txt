@@ -27,3 +27,5 @@ mindformers/mindformers/models/tokenization_utils_base.py:_get_padding_truncatio
 mindformers/mindformers/models/tokenization_utils_base.py:pad
 mindformers/mindformers/models/tokenization_utils_base.py:prepare_for_model
 mindformers/mindformers/models/tokenization_utils_base.py:truncate_sequences
+mindformers/mindformers/dataset/dataloader/multi_source_dataloader.py:__new__
+mindformers/research/llm_boost/run_llm_boost.py:main

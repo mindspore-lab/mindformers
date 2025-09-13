@@ -31,6 +31,8 @@ from mindformers.utils.convert_utils import pt2ms, qkv_concat_hf2mg, ffn_concat_
 
 def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
     """Support convert meta weight splited."""
+    if ".." in output_name:
+        raise ValueError("Output name cannot contain '..'.")
     print(f"Trying to convert pytorch checkpoint in '{ckpt_dir}'.", flush=True)
     try:
         from torch import load
@@ -96,6 +98,8 @@ def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
         ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
 
     ckpt_file = os.path.join(ckpt_dir, output_name)
+    if os.path.exists(ckpt_file):
+        raise ValueError(f"Checkpoint file '{ckpt_file}' already exists, please reset ckpt_dir or output_name.")
     ms.save_checkpoint(ckpt_list, ckpt_file)
     print(f"\rConvert pytorch checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
     return True
@@ -136,6 +140,8 @@ def flatten_dict(ckpt, parent_key='', sep='.'):
 
 def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     """ Convert megatron ckpt to mindspore ckpt """
+    if os.path.exists(output_path):
+        raise ValueError(f"Checkpoint file '{output_path}' already exists, please reset output_path.")
     print(f"Trying to convert megatron checkpoint in '{input_path}'.", flush=True)
     try:
         import torch
@@ -316,6 +322,8 @@ def convert_qkv_concat_weight(param_dict, model_config):
 
 def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path, config_path):
     """convert previous ckpt to qkv concat ckpt"""
+    if os.path.exists(mindspore_ckpt_path):
+        raise ValueError("{} already exists.".format(mindspore_ckpt_path))
     model_config = MindFormerConfig(config_path).model
     if 'auto_register' in model_config:
         MindFormerRegister.auto_register(class_reference=model_config.pop('auto_register'),
