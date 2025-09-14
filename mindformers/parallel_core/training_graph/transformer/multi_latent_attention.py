@@ -471,9 +471,9 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
         self.split_3d.shard((layout("cp", "dp", "None"),))
 
         if self.q_layernorm is not None:
-            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+            self.q_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
         if self.k_layernorm is not None:
-            self.k_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+            self.k_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
 
     def get_query_key_value_tensors(self,
                                     hidden_states,
@@ -679,9 +679,9 @@ class MLASelfAttention(MultiLatentAttention):
         self.expand_dims.shard((layout("cp", "dp", "None"),))
 
         if self.q_layernorm is not None:
-            self.q_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+            self.q_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
         if self.kv_layernorm is not None:
-            self.kv_layernorm.shard(self.config, in_strategy=(layout("cp", "dp", "None"), layout("None",)))
+            self.kv_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
 
     def qkv_up_proj_and_rope_apply(self, q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
         """

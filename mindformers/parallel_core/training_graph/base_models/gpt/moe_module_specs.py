@@ -15,7 +15,7 @@
 """MoE Module Spec."""
 from typing import Optional
 
-from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.parallel_core.training_graph.tensor_parallel.layers import SequenceParallelLinear
 from mindformers.parallel_core.training_graph.transformer.mlp import MLPSubmodules
 from mindformers.parallel_core.training_graph.transformer.moe.shared_experts import SharedExpertMLP, \
     SharedExpertMLPInterleaved
@@ -46,8 +46,8 @@ def get_moe_module_spec(
             shared_experts=ModuleSpec(
                 module=shared_experts,
                 submodules=MLPSubmodules(
-                    linear_fc1=ColumnParallelLinear,
-                    linear_fc2=RowParallelLinear
+                    linear_fc1=SequenceParallelLinear,
+                    linear_fc2=SequenceParallelLinear
                 ),
             )
         )

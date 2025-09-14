@@ -28,8 +28,10 @@ __all__ = ['MultiTokenPredictionBlock', 'MultiTokenPredictionBlock',
 from dataclasses import dataclass
 from typing import Union, List, Optional, Literal
 
+import numpy as np
 from mindspore import nn, Tensor
 from mindspore import dtype as mstype
+from mindspore.ops.operations import Morph
 from mindspore.ops.auto_generate import Cast, Concat, Reshape, Shape, StridedSlice, Zeros, Transpose, OnesLike
 
 from mindformers.parallel_core.training_graph.loss_func import VocabParallelCrossEntropy
@@ -42,6 +44,27 @@ from mindformers.parallel_core.training_graph.tensor_parallel.layers import Colu
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.language_model_embedding import (
     LanguageModelEmbedding)
 from mindformers.parallel_core.training_graph.device_matrix import layout
+
+
+def func_infer_dtype(*args):
+    """infer_dtype for Morph."""
+    return args[0]
+
+
+def func_infer_shape(*args):
+    """infer_shape for Morph."""
+    input_shape = args[0]
+    shape_value = np.prod(input_shape[:-1])
+    output_shape = [int(shape_value), args[0][-1]]
+    return output_shape
+
+
+def func_infer_shape_labels_and_masks(*args):
+    """infer_shape for Morph."""
+    input_shape = args[0]
+    shape_value = np.prod(input_shape)
+    output_shape = [int(shape_value)]
+    return output_shape
 
 
 @dataclass
@@ -331,8 +354,32 @@ class MultiTokenPredictionBlock(nn.Cell):
         self.transpose = Transpose()
         self.reshape = Reshape()
         self.ones_like = OnesLike()
+        self.transpose_logits = Transpose()
+
+        # init morphed layer
+        self.morphed_reshape_logits = Morph(
+            self.forward_func_logits,
+            func_infer_shape,
+            func_infer_dtype
+        ).add_prim_attr("self_define_shard", True)
+
+        self.morphed_reshape_labels_and_masks = Morph(
+            self.forward_func_labels_and_masks,
+            func_infer_shape_labels_and_masks,
+            func_infer_dtype
+        ).add_prim_attr("self_define_shard", True)
 
         self.shard()
+
+    def forward_func_logits(self, input_):
+        """Morphed forward."""
+        output = self.reshape(input_, (-1, input_.shape[-1]))
+        return output
+
+    def forward_func_labels_and_masks(self, input_):
+        """Morphed forward."""
+        output = self.reshape(input_, (-1,))
+        return output
 
     def _build_layers(self):
         """Building MTP layers."""
@@ -361,6 +408,17 @@ class MultiTokenPredictionBlock(nn.Cell):
         self.concat_2d.shard(((dp, 1), (dp, 1)))
         self.zeros_op.shard(((dp, 1),))
         self.ones_like.shard(((dp, 1),))
+
+        self.transpose_logits.shard(in_strategy=(layout("cp", "dp", "tp"),))
+
+        self.morphed_reshape_logits.shard(
+            in_strategy=(layout("dp", "cp", "tp"),),
+            out_strategy=(layout("dp_cp", "tp"),)
+        )
+        self.morphed_reshape_labels_and_masks.shard(
+            in_strategy=(layout("dp", "cp"),),
+            out_strategy=(layout("dp_cp"),)
+        )
 
     def roll_tensor(self, tensor):
         """implement roll with slice and pad."""
@@ -433,8 +491,8 @@ class MultiTokenPredictionBlock(nn.Cell):
             mtp_logits, _ = self.output_layer(
                 hidden_states, weight=output_weight
             )
-            seq_len, bsz, _ = self.shape(mtp_logits)
-            mtp_logits = self.reshape(mtp_logits, (seq_len * bsz, -1))
+            mtp_logits = self.transpose_logits(mtp_logits, (1, 0, 2))
+            mtp_logits = self.morphed_reshape_logits(mtp_logits)
 
             # Calc loss for the current Multi-Token Prediction (MTP) layers.
             labels = self.roll_tensor(labels)
@@ -442,8 +500,8 @@ class MultiTokenPredictionBlock(nn.Cell):
 
             # If the compute_language_model_loss is actually unwrapped VocabParallelCrossEntropy, the inputs should
             # be reshaped manually.
-            labels_t = self.reshape(self.transpose(labels, (1, 0)), (-1,))
-            loss_mask_t = self.reshape(self.transpose(loss_mask, (1, 0)), (-1,))
+            labels_t = self.morphed_reshape_labels_and_masks(labels)
+            loss_mask_t = self.morphed_reshape_labels_and_masks(loss_mask)
 
             # config.calculate_per_token_loss is supported in training_graph.loss_func.VocabParallelCrossEntropy
             mtp_layer_loss = self.compute_language_model_loss(mtp_logits, labels_t, loss_mask_t)

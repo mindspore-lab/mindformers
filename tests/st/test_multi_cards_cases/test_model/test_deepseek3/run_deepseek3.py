@@ -46,6 +46,7 @@ def ds3_train(config, dataset, construct_args_key, checker_config):
     if checker_config.get('experiment_mode'):
         callback.get_experiment_results()
 
+
 def parallel_train_dp2_mp2_ep2():
     """test mcore deepseekv3 train in dp=mp=ep=2."""
     ms.set_seed(0)
@@ -63,9 +64,9 @@ def parallel_train_dp2_mp2_ep2():
     model_config = config.model.model_config
     dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
 
-    loss_std = [12.945291, 12.9413185, 12.950976, 12.946543, 12.945064, 12.946609, 12.946154, 12.947631, 12.922056,
-                12.938481, 12.891722, 12.933254, 12.915294, 12.926802, 12.900788, 12.899722, 12.884226, 12.85947,
-                12.879393, 12.849844]
+    loss_std = [12.940836, 12.92868, 12.9460125, 12.938551, 12.937703, 12.942499, 12.939261, 12.945714, 12.913517,
+                12.936413, 12.884894, 12.926766, 12.9116, 12.922249, 12.893213, 12.89359, 12.877649, 12.854286,
+                12.8743305, 12.83889]
     checker_config = {
         'loss_list_std': loss_std,
         'experiment_mode': False,
@@ -132,9 +133,9 @@ def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss(
     model_config = config.model.model_config
     dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
 
-    loss_std = [12.944527, 12.940555, 12.950204, 12.945834, 12.944159, 12.945894, 12.945522, 12.946954, 12.92133,
-                12.937742, 12.891018, 12.932638, 12.914546, 12.925946, 12.899941, 12.898845, 12.88327, 12.858756,
-                12.878632, 12.849022]
+    loss_std = [12.940073, 12.927917, 12.945321, 12.937913, 12.936846, 12.941753, 12.938346, 12.945015, 12.91268,
+                12.935577, 12.884249, 12.925993, 12.910951, 12.921507, 12.8924885, 12.892721, 12.876872, 12.8534565,
+                12.873688, 12.838091]
 
     checker_config = {
         'loss_list_std': loss_std,

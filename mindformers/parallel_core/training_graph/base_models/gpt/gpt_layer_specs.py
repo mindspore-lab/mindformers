@@ -17,7 +17,7 @@ from typing import Optional, Union
 
 from mindformers.parallel_core.training_graph.base_models.gpt.moe_module_specs import get_moe_module_spec
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear, \
-    LinearNoTP
+    SequenceParallelLinear
 from mindformers.parallel_core.training_graph.transformer.attention import SelfAttentionContiguous, SelfAttentionSubmodules, \
     SelfAttention
 from mindformers.parallel_core.training_graph.transformer.flash_attention import FlashAttention
@@ -107,7 +107,7 @@ def get_gpt_layer_local_spec(
             self_attention = ModuleSpec(
                 module=MLASelfAttentionConcatenated,
                 submodules=MLASelfAttentionSubmodulesConcatenated(
-                    linear_qkv=LinearNoTP,
+                    linear_qkv=SequenceParallelLinear,
                     linear_qb=ColumnParallelLinear,
                     linear_kvb=ColumnParallelLinear,
                     core_attention=FlashAttention,
@@ -120,9 +120,9 @@ def get_gpt_layer_local_spec(
             self_attention = ModuleSpec(
                 module=MLASelfAttention,
                 submodules=MLASelfAttentionSubmodules(
-                    linear_q_down_proj=LinearNoTP,
+                    linear_q_down_proj=SequenceParallelLinear,
                     linear_q_up_proj=ColumnParallelLinear,
-                    linear_kv_down_proj=LinearNoTP,
+                    linear_kv_down_proj=SequenceParallelLinear,
                     linear_kv_up_proj=ColumnParallelLinear,
                     core_attention=FlashAttention,
                     linear_proj=RowParallelLinear,

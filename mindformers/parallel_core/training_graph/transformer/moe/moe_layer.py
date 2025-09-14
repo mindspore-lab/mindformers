@@ -203,7 +203,7 @@ class MoELayer(BaseMoELayer):
 
     def shard(self, config: TransformerConfig):
         """Set parallel strategy."""
-        self.transpose.shard((layout("cp", "dp", "None"),))
+        self.transpose.shard((layout("cp_tp", "dp", "None"),))
         if self.use_seq_parallel:
             self.transpose2.shard((layout("dp", "cp_tp", "None"),))
             self.add.shard((layout("cp_tp", "dp", "None"),
