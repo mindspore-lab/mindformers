@@ -22,9 +22,9 @@ import pytest
 from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType
 
-_LEVEL_0_TASK_TIME = 60
+_LEVEL_0_TASK_TIME = 150
 _LEVEL_1_TASK_TIME = 0
-_TASK_TYPE = TaskType.TWO_CARDS_TASK
+_TASK_TYPE = TaskType.FOUR_CARDS_TASK
 
 
 class TestQuantDeepseekParallelInference:
@@ -43,8 +43,8 @@ class TestQuantDeepseekParallelInference:
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         cmd_list = [
             "msrun",
-            f"--worker_num=2",
-            f"--local_worker_num=2",  # Should match NPU cards available
+            f"--worker_num=4",
+            f"--local_worker_num=4",  # Should match NPU cards available
             f"--master_port={port_id}",  # Ensure port is unique per test run if parallelized at pytest level
             f"--log_dir=./msrun_log_{quant_algo}_quant_deepseek_infer",
             "--join=True"]
