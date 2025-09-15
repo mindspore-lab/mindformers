@@ -399,6 +399,25 @@ python research/telechat2/run_telechat_predict.py \
 --use_parallel False
 ```
 
+参数说明：
+
+```text
+vocab_file_path：使用的模型对应的词表文件路径
+yaml_file：推理配置文件的路径（yaml格式）
+checkpoint_path：模型权重路径
+use_parallel：是否使用并行计算
+auto_trans_ckpt：是否使用权重自动转换
+src_strategy_path_or_dir：源策略文件的路径或目录
+use_past：是否使用kvcache推理
+device_id：单卡运行时设置的设备ID，默认值为0
+max_new_tokens：最大生成文本长度
+max_length：输入与输出的总长度上限
+do_sample：是否使用采样方式生成文本
+top_k：采样时考虑的最高k个候选词
+top_p：采样时的累积概率阈值
+repetition_penalty：重复惩罚系数，用于减少生成文本中的重复内容
+```
+
 #### 多卡推理
 
 默认使用完整权重，开启权重自动转换`auto_trans_ckpt=True`，修改yaml文件中的`model_parallel`参数为实际运行卡数后，启动多卡推理。

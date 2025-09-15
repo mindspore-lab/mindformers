@@ -119,7 +119,7 @@ dtype:       转换权重的精度
 
 **场景一**：从完整模型权重切分至分布式权重
 
-通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将完整权重转换为目标切分权重。
+通常是已有完整权重，但目标切分策略存在mp切分，此时需要先生成目标strategy，然后参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，将完整权重转换为目标切分权重。
 
 以`Qwen2-7b`2卡推理为例, 生成目标strategy。
 
@@ -139,7 +139,7 @@ dtype:       转换权重的精度
 **场景二**：从分布式训练获得的已切分权重转化为另一策略的分布式权重
 
 通常是在分布式训练完成后获取了按训练切分策略进行切分的权重，在推理阶段模型需要转换为另一切分策略；
-同样需要生成目标strategy，参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，与原有切分startegy一同，转换模型切分策略
+同样需要生成目标strategy，参考[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)，与原有切分startegy一同，转换模型切分策略
 
 ## 推理
 
@@ -183,6 +183,29 @@ dtype:       转换权重的精度
   # 输出推理结果：帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
 ```
 
+参数说明：
+
+```text
+config_path：推理配置文件的路径（yaml格式）
+load_checkpoint：模型权重路径
+only_save_strategy：是否仅保存策略文件
+vocab_file：分词器模型的词汇表文件
+merges_file：分词器模型的合并规则文件
+seq_length：序列长度
+max_decode_length：最大生成文本长度
+use_parallel：是否使用并行计算
+device_id：单卡运行时设置的设备ID，默认值为0
+do_sample：是否使用采样方式生成文本
+top_k：采样时考虑的最高k个候选词
+top_p：采样时的累积概率阈值
+repetition_penalty：重复惩罚系数，用于减少生成文本中的重复内容
+batch_size：批处理大小
+device_num：设备数量
+measure_throughput：是否测试推理吞吐性能
+save_file：存储结果保存文件路径
+predict_data：输入的推理数据
+```
+
 ### 多卡推理
 
 以`Qwen2-7b`多卡推理为例。
@@ -223,7 +246,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/guide/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 
