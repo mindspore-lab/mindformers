@@ -30,8 +30,8 @@ from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.enums import AttnMaskType
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
 from mindformers.parallel_core.inference.utils import divide
+from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 
 
@@ -122,8 +122,6 @@ class Attention(nn.Cell):
         self.submodules = submodules
         self.layer_number = max(1, layer_number)
         self.attn_mask_type = attn_mask_type
-        self.partial_rotary_factor = config.partial_rotary_factor
-
         self.params_dtype = self.config.params_dtype
         self.compute_dtype = self.config.compute_dtype
         self.is_prefill = True
@@ -146,11 +144,7 @@ class Attention(nn.Cell):
         self.tp = model_comm_pgs.tp
         self.tp_group_size = self.tp.size
 
-        self.cast = ops.Cast()
-
-        self.num_attention_heads_per_partition = divide(self.num_heads,
-                                                        self.tp_group_size)
-
+        self.num_attention_heads_per_partition = divide(self.num_heads, self.tp_group_size)
         self.use_gqa = (self.num_heads != self.num_query_groups)
 
         if self.use_gqa:
@@ -158,16 +152,13 @@ class Attention(nn.Cell):
             # Note: Special handling when kv heads is less than tp size
             if self.num_query_groups < self.tp_group_size:
                 self.num_query_groups = self.tp_group_size
-            self.num_query_groups_per_partition = divide(self.num_query_groups,
-                                                         self.tp_group_size)
+            self.num_query_groups_per_partition = divide(self.num_query_groups, self.tp_group_size)
             self.repeat_num = divide(self.num_heads, self.num_query_groups)
         else:
             self.num_query_groups_per_partition = self.num_attention_heads_per_partition
         self.kv_projection_size = self.hidden_size_per_attention_head * self.num_query_groups
-        self.hidden_size_per_partition = divide(self.query_projection_size,
-                                                self.tp_group_size)
-        self.kv_hidden_size_per_partition = divide(self.kv_projection_size,
-                                                   self.tp_group_size)
+        self.hidden_size_per_partition = divide(self.query_projection_size, self.tp_group_size)
+        self.kv_hidden_size_per_partition = divide(self.kv_projection_size, self.tp_group_size)
 
         if self.use_flash_attention:
             self.core_attention = build_module(
@@ -183,9 +174,17 @@ class Attention(nn.Cell):
             self.core_attention = build_module(submodules.core_attention,
                                                config=self.config,
                                                layer_number=self.layer_number)
-        self.rotary_embedding = RotaryEmbedding(kv_channels=self.hidden_size_per_attention_head,
-                                                rotary_percent=self.partial_rotary_factor,
-                                                rotary_cos_format=self.config.rotary_cos_format)
+
+        self.rotary_emb = get_rope(
+            config,
+            hidden_dim=self.hidden_size_per_attention_head,
+            rotary_percent=self.config.partial_rotary_factor,
+            rotary_base=self.config.rotary_base,
+            rotary_dtype=self.config.rotary_dtype,
+            position_embedding_type=self.config.position_embedding_type,
+            original_max_position_embeddings=self.config.max_position_embeddings,
+            rotary_cos_format=self.config.rotary_cos_format
+        )
 
         self.linear_proj = build_module(
             submodules.linear_proj,
@@ -201,6 +200,8 @@ class Attention(nn.Cell):
             quant_config=quant_config,
             prefix=f"{prefix}.linear_proj"
         )
+
+        self.cast = ops.Cast()
 
     def _check_gqa_valid(self):
         """check whether the config is valid for grouped-query-attention"""
@@ -248,11 +249,11 @@ class Attention(nn.Cell):
         query, key, value = self.get_query_key_value_tensors(hidden_states)
 
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
-            query, key = self.rotary_embedding(query.contiguous(),
-                                               key.contiguous(),
-                                               rotary_pos_cos.contiguous(),
-                                               rotary_pos_sin,
-                                               batch_valid_length)
+            query, key = self.rotary_emb(query.contiguous(),
+                                         key.contiguous(),
+                                         rotary_pos_cos.contiguous(),
+                                         rotary_pos_sin,
+                                         batch_valid_length)
 
         if self.use_flash_attention:
             core_attn_out = self.core_attention(

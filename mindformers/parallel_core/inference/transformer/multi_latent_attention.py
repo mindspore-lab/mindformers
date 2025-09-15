@@ -38,12 +38,11 @@ from mindformers.parallel_core.inference.utils import divide, get_tp_world_size,
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 from mindformers.parallel_core.inference.transformer.attention import Attention
-from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
 from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import (
-    YaRNScalingRotaryEmbedding,
     _yarn_get_mscale
 )
+from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs, split_loaded_weight
 
@@ -119,27 +118,16 @@ class MultiLatentAttention(Attention):
         mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
 
-        if self.config.rope_type == "rope":
-            self.rotary_pos_emb = RotaryEmbedding(
-                self.config.qk_pos_emb_head_dim,
-                rotary_percent=self.config.rotary_percent,
-                rotary_base=self.config.rotary_base,
-                rotary_cos_format="rotate_half")
-        elif self.config.rope_type == "yarn":
-            self.rotary_pos_emb = YaRNScalingRotaryEmbedding(
-                self.config.qk_pos_emb_head_dim,
-                rotary_base=self.config.rotary_base,
-                scaling_factor=self.config.rotary_scaling_factor,
-                original_max_position_embeddings=self.config.max_position_embeddings,
-                beta_fast=self.config.beta_fast,
-                beta_slow=self.config.beta_slow,
-                mscale=self.config.mscale,
-                mscale_all_dim=self.config.mscale_all_dim,
-                rotary_cos_format="rotate_half")
-        else:
-            raise ValueError(
-                f"Unsupported RoPE type: {self.config.rope_type}, supported types are  'rope' and 'yarn'"
-            )
+        self.rotary_emb = get_rope(
+            config,
+            hidden_dim=self.config.qk_pos_emb_head_dim,
+            rotary_percent=self.config.rotary_percent,
+            rotary_base=self.config.rotary_base,
+            rotary_dtype=self.config.rotary_dtype,
+            position_embedding_type=self.config.rope_type,
+            original_max_position_embeddings=self.config.max_position_embeddings,
+            rotary_cos_format=self.config.rotary_cos_format
+        )
 
         self.tp_group_size = get_tp_world_size()
         self.num_attention_heads_per_partition = divide(self.num_attention_heads, self.tp_group_size)
@@ -419,9 +407,9 @@ class MLASelfAttention(MultiLatentAttention):
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
             q_pos_emb = q_pos_emb.contiguous()
             k_pos_emb = k_pos_emb.contiguous()
-            q_pos_emb, k_pos_emb = self.rotary_pos_emb(q_pos_emb, k_pos_emb,
-                                                       rotary_pos_cos, rotary_pos_sin,
-                                                       batch_valid_length)
+            q_pos_emb, k_pos_emb = self.rotary_emb(q_pos_emb, k_pos_emb,
+                                                   rotary_pos_cos, rotary_pos_sin,
+                                                   batch_valid_length)
         # q_pos_emb: [num_tokens, n * qk_pos_emb_head_dim] -> [num_tokens, n, qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition, self.config.qk_pos_emb_head_dim)
         return kv_compressed, k_pos_emb, q_no_pe, q_pos_emb
