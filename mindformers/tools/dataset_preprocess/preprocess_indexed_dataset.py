@@ -245,12 +245,6 @@ def get_args():
     group = parser.add_argument_group(title='input data')
     group.add_argument('--input', type=str, required=True,
                        help='Path to input JSON')
-    group.add_argument('--json-keys', nargs='+', default=['text'],
-                       help='space separate listed of keys to extract from json')
-    group.add_argument('--split-sentences', action='store_true',
-                       help='Split documents into sentences.')
-    group.add_argument('--keep-newlines', action='store_true',
-                       help='Keep newlines between sentences when splitting.')
 
     group = parser.add_argument_group(title='tokenizer')
     group.add_argument('--tokenizer-type', type=str, required=True,
@@ -260,16 +254,8 @@ def get_args():
                        help='Path to the vocab file or tokenizer.model')
     group.add_argument('--merges-file', type=str, default=None,
                        help='Path to the BPE merge file (if necessary).')
-    group.add_argument('--tokenizer-file', type=str, default=None,
-                       help='The path of tokenizer.json')
     group.add_argument('--add_bos_token', type=str, default=False)
     group.add_argument('--add_eos_token', type=str, default=False)
-    group.add_argument('--vocab-size', default=786,
-                       help='size of vocab for use with NullTokenizer')
-    group.add_argument('--append-eod', action='store_true',
-                       help='Append an <eod> token to the end of a document.')
-    group.add_argument('--lang', type=str, default='english',
-                       help='Language to use for NLTK-powered sentence splitting.')
     group.add_argument('--register_path', type=str, default=None,
                        help='the register path of outer tokenizer.')
     group.add_argument('--auto_register', type=str, default=None,
@@ -286,17 +272,20 @@ def get_args():
                        help='Decide whether to the longest or spliced to equal length')
 
     group = parser.add_argument_group(title='runtime')
-    group.add_argument('--workers', type=int, default=1,
-                       help=('Number of worker processes to launch.'
-                             'A good default for fast pre-processing '
-                             'is: (workers * partitions) = available CPU cores.'))
-    group.add_argument('--partitions', type=int, default=1,
-                       help='Number of file partitions')
-    group.add_argument('--log-interval', type=int, default=1000,
-                       help='Interval between progress updates')
-    group.add_argument('--keep-sequential-samples', action='store_true',
-                       help='Ensure ordering of samples in .jsonl files is preserved when using partitions>1.')
     args = parser.parse_args()
+
+    # Set default values for all arguments if not provided
+    args.json_keys = ['text']
+    args.split_sentences = False
+    args.keep_newlines = False
+    args.vocab_size = 786
+    args.lang = 'english'
+    args.workers = 1
+    args.partitions = 1
+    args.log_interval = 1000
+    args.keep_sequential_samples = False
+    args.append_eod = False
+
     args.keep_empty = False
     if args.tokenizer_type == 'AutoRegister':
         assert args.register_path is not None and args.auto_register is not None, \
