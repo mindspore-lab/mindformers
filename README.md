@@ -20,7 +20,7 @@ For details about MindSpore Transformers tutorials and API documents, see **[Min
 
 - 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/master/guide/pre_training.html)
 - 📝 [Supervised Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/master/guide/supervised_fine_tuning.html)
-- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/master/feature/evaluation.html)
+- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/master/guide/evaluation.html)
 - 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/master/guide/deployment.html)
 
 If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
@@ -179,6 +179,7 @@ MindSpore Transformers released version preservation policy:
 3. If you do not want your dataset to be mentioned in MindSpore Transformers, or if you want to update the description of your dataset in MindSpore Transformers, please submit an issue to Gitee, and we will remove or update the description of your dataset according to your issue request. We sincerely appreciate your understanding and contribution to MindSpore Transformers.
 4. Regarding model weights, users must verify the authenticity of downloaded and distributed model weights from trusted sources. MindSpore Transformers cannot guarantee the security of third-party weights. Weight files may be tampered with during transmission or loading, leading to unexpected model outputs or security vulnerabilities. Users should assume the risk of using third-party weights and ensure that weight files are verified for security before use.
 5. Regarding weights, vocabularies, scripts, and other files downloaded from sources like openmind, users must verify the authenticity of downloaded and distributed model weights from trusted sources. MindSpore Transformers cannot guarantee the security of third-party files. Users should assume the risks arising from unexpected functional issues, outputs, or security vulnerabilities when using these files.
+6. MindSpore Transformers saves weights or logs based on the path set by the user. Users should avoid using system file directories when configuring paths. If unexpected system issues arise due to improper path settings, users shall bear the risks themselves.
 
 ## 6. Contribution
 
