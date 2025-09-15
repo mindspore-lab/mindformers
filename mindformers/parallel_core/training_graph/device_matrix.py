@@ -133,11 +133,17 @@ class LayoutManager:
 
         converted = []
         for tensor_map_item in tensor_map:
-            if tensor_map_item == -1:
-                converted.append(1)
+            if isinstance(tensor_map_item, tuple):
+                result_tuple = tuple(
+                    1 if item == -1 else device_matrix[len(alias_name) - 1 - item]
+                    for item in tensor_map_item
+                    )
+                result = 1
+                for num in result_tuple:
+                    result *= num
             else:
-                index = len(alias_name) - 1 - tensor_map_item
-                converted.append(device_matrix[index])
+                result = 1 if tensor_map_item == -1 else device_matrix[len(alias_name) - 1 - tensor_map_item]
+            converted.append(result)
         return tuple(converted)
 
 
