@@ -437,7 +437,8 @@ class GPTModel(nn.Cell):
                     break
             else:
                 if '.experts.' in name:
-                    has_num_experts_dim = (loaded_weight.get_shape()[0] == num_experts)
+                    has_num_experts_dim = (loaded_weight.get_shape()[0] == num_experts
+                                           and len(loaded_weight.get_shape()) == 3)
                     expert_params_mapping = self.generate_expert_mapping(expert_params_mapping, has_num_experts_dim,
                                                                          num_experts)
                     for mapping in expert_params_mapping:

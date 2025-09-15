@@ -339,7 +339,8 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             # Because this weight shape is two-dimensional,
             # but the dimension splitting in the network is defined based on three dimensions,
             # so the splitting dimension needs to be subtracted by 1.
-            if loaded_weight.get_shape()[1] == 1:
+            weight_shape = len(loaded_weight.get_shape())
+            if weight_shape == 1 or (weight_shape != 1 and loaded_weight.get_shape()[1] == 1):
                 shard_dim = getattr(param, "output_dim", None) - 1
             else:
                 shard_dim = getattr(param, "input_dim", None) - 1
@@ -347,6 +348,8 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             tp_rank = self.tp_group.rank
             start_idx = tp_rank * shard_size
             loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+            if weight_shape == 1:
+                loaded_weight = loaded_weight.reshape(-1, 1)
             if loaded_weight.shape[1] != 1:
                 # The Hugging Face weight shape is [hidden_size, moe_ffn_hidden_size]
                 # The shape of param is [moe_ffn_hidden_size, hidden_size]
@@ -354,32 +357,31 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                 loaded_weight = loaded_weight.T
 
             param.init_data()
+            weight_dtype = ms.from_numpy(loaded_weight).dtype
+            if weight_dtype == ms.bfloat16:
+                loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+
             if loaded_weight.shape[1] == 1:
                 if loaded_weight.shape[0] != shard_size:
                     raise ValueError(
                         f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                         f" but got the shape of param is {(shard_size,)} and "
                         f"the shape of weight is{(loaded_weight.shape[0],)}")
+
                 if shard_id == "w1":
-                    param[expert_id][:shard_size] = ms.from_numpy(loaded_weight.squeeze(1))
+                    param.asnumpy()[expert_id][:shard_size] = loaded_weight.squeeze(1)
                 elif shard_id == "w3":
-                    param[expert_id][shard_size:shard_size + shard_size] = ms.from_numpy(loaded_weight.squeeze(1))
+                    param.asnumpy()[expert_id][shard_size:shard_size + shard_size] = loaded_weight.squeeze(1)
             else:
                 if loaded_weight.shape != (param.shape[1], shard_size):
                     raise ValueError(
                         f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                         f" but got the shape of param is {(param.shape[1], shard_size)} and "
                         f"the shape of weight is{loaded_weight.shape}")
-                if param.dtype == ms.qint4x2 or param.dtype == ms.uint64:
-                    if shard_id == "w1":
-                        param.asnumpy()[expert_id][:, :shard_size] = loaded_weight
-                    elif shard_id == "w3":
-                        param.asnumpy()[expert_id][:, shard_size:shard_size + shard_size] = loaded_weight
-                else:
-                    if shard_id == "w1":
-                        param[expert_id][:, :shard_size] = ms.from_numpy(loaded_weight)
-                    elif shard_id == "w3":
-                        param[expert_id][:, shard_size:shard_size + shard_size] = ms.from_numpy(loaded_weight)
+                if shard_id == "w1":
+                    param.asnumpy()[expert_id][:, :shard_size] = loaded_weight
+                elif shard_id == "w3":
+                    param.asnumpy()[expert_id][:, shard_size:shard_size + shard_size] = loaded_weight
         else:
             loaded_weight = deal_training_moe_weight(loaded_weight, self.config)
             if loaded_weight.shape != param.data[expert_id].shape:
@@ -570,19 +572,21 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         if expert_id == -1:
             return
 
-        shard_dim = getattr(param, "input_dim", None)
-        if not param.name.endswith("weight") and shard_dim is None:
-            # adapter for modelslim weight, weight_scale is (oc, 1)  not (oc)
-            if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 \
-               and loaded_weight.get_shape()[1] == 1:
-                loaded_weight = loaded_weight[:].squeeze(-1)
-            param.init_data()
-            param[expert_id] = ms.from_numpy(loaded_weight[:])
-            return
-
         tp_rank = self.tp_group.rank
         if shard_id is not None:
             param_output_dim = getattr(param, "input_dim", None)
+
+            if not param.name.endswith("weight") and param_output_dim is None:
+                if param.name.endswith("w_scale") and len(loaded_weight.get_shape()) == 2 \
+                        and loaded_weight.get_shape()[1] == 1:
+                    loaded_weight = loaded_weight[:].squeeze(-1)
+                param.init_data()
+                weight_dtype = ms.from_numpy(loaded_weight[:]).dtype
+                if weight_dtype == ms.bfloat16:
+                    loaded_weight = ms.from_numpy(loaded_weight[:]).astype(ms.float32).asnumpy()
+                param.asnumpy()[expert_id] = loaded_weight[:]
+                return
+
             shard_size = param.shape[param_output_dim]
             # Because this weight shape is two-dimensional,
             # but the dimension splitting in the network is defined based on three dimensions,
@@ -600,10 +604,10 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                     f" but got the shape of param is {(shard_size, param.shape[2])} and "
                     f"the shape of weight is{loaded_weight.shape}")
             param.init_data()
-            if param.dtype == ms.qint4x2:
-                param.asnumpy()[expert_id] = loaded_weight
-            else:
-                param[expert_id] = ms.from_numpy(loaded_weight)
+            weight_dtype = ms.from_numpy(loaded_weight).dtype
+            if weight_dtype == ms.bfloat16:
+                loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+            param.asnumpy()[expert_id] = loaded_weight
         else:
             shard_dim = getattr(param, "input_dim", None)
             shard_size = self.input_size_per_partition
