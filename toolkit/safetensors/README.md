@@ -14,6 +14,8 @@ python unified_safetensors.py \
   --file_suffix "1_1" \
   --format "ckpt" \
   --has_redundancy False \
+  --filter_out_param_prefix "test" \
+  --max_process_num 64
 
 参数说明：
 
@@ -23,5 +25,7 @@ python unified_safetensors.py \
 - file_suffix：权重保存后的后缀，如"1_1"
 - format：源权重格式，"ckpt" 或者是 "safetensors"
 - has_redundancy：是否是去除冗余后的权重
+- filter_out_param_prefix：合并时需要过滤的参数前缀名
+- max_process_num：合并权重时的最大进程数
 ```
 

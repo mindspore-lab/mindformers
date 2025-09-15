@@ -66,7 +66,7 @@ DeepSeek-V3所依赖的版本配套如下：
 |:-----------:|:---------:|:----:|:-----:|
 |    在研版本     |   在研版本    | 在研版本 | 在研版本  |
 
-环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/installation.html)。
+环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html)。
 
 ## 模型权重下载
 
@@ -86,6 +86,11 @@ python research/deepseek3/fp8_cast_bf16.py \
 --input-fp8-hf-path path/to/hf_model_fp8_dir/ \
 --output-bf16-hf-path path/to/hf_model_bf16_dir/
 ```
+
+参数说明：
+
+- input-fp8-hf-path：待转换的权重路径。
+- output-bf16-hf-path：转换后的保存权重路径。
 
 >`path/to/hf_model_bf16_dir/` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
 
@@ -126,7 +131,12 @@ python research/deepseek3/convert_weight.py \
 --torch_ckpt_path TORCH_CKPT_DIR \
 --infer True \
 --mindspore_ckpt_path MINDSPORE_CKPT_DIR \
---worker_num 2
+--worker_num 2 \
+--param_json model.safetensors.index.json
+
+python research/deepseek3/convert_weight.py \
+--pre_ckpt_path CKPT_DIR \
+--mindspore_ckpt_path GMM_CKPT_DIR
 ```
 
 参数说明：
@@ -135,6 +145,8 @@ python research/deepseek3/convert_weight.py \
 - infer：是否进行推理权重的转换，默认值：`False`。
 - mindspore_ckpt_path：转换后的MindSpore权重文件夹保存路径
 - worker_num：多进程转换的进程数，默认值：`4`。
+- param_json：模型权重索引的json文件，默认值：`model.safetensors.index.json`。
+- pre_ckpt_path：bmm模型权重路径，转换为gmm模型权重的前置权重。
 
 如果使用训练后保存的权重进行推理，需要使用`deepseek3_train2infer.py`脚本将其转换为推理格式。执行以下命令进行转换：
 
@@ -219,6 +231,13 @@ bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 3 output/msrun_log False 300
 ```
+
+参数说明：
+
+| 参数名       | 含义        | 取值说明                                                                                 |
+|-----------|-----------|--------------------------------------------------------------------------------------|
+| `--config` | yaml配置文件。 | (str, 可选) - 默认值： `./research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml` 。 |
+| `--input` | 输入的推理问题。  | (str, 可选) - 默认值： `./生抽和老抽的区别是什么？` 。                                                  |
 
 预期的推理结果如下：
 

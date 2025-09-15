@@ -103,6 +103,8 @@ MindFormers提供**alpaca**作为[微调](#微调)数据集。
          --input_glob /{path}/alpaca-data-conversation.json \
          --model_file /{path}/tokenizer.model \
          --seq_length 8192 \
+         --file_partition 1 \
+         --repeat 1 \
          --output_file /{path}/alpaca-fastchat8192.mindrecord
 
        # 参数说明
@@ -110,6 +112,8 @@ MindFormers提供**alpaca**作为[微调](#微调)数据集。
        input_glob:   转换后的alpaca的文件路径
        model_file:   模型tokenizer.model文件路径
        seq_length:   输出数据的序列长度
+       file_partition: 输出文件的分片个数
+       repeat:  数据重复次数
        output_file:  输出文件的保存路径
        ```
 
@@ -179,7 +183,7 @@ train_data:      训练数据集路径
 
 #### 多机训练
 
-以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
+以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
 
 多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[使用指南](../../README_CN.md#三使用指南)。
 
@@ -228,7 +232,7 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ### 多卡推理
 
-以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
+以`Llama3_1-70b`4卡推理为例。Llama3_1-70b权重较大，建议先进行权重切分，参见[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
@@ -243,7 +247,7 @@ MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的
 
 MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
 
-MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/guide/deployment.html)。
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/master/guide/deployment.html)。
 
 以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
 

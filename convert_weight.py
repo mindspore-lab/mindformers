@@ -20,8 +20,6 @@ import importlib
 import torch
 import mindspore as ms
 
-from mindformers.tools.utils import str2bool
-
 dtype_map = {
     'fp32': ms.float32,
     'bf16': ms.bfloat16,
@@ -54,11 +52,8 @@ if __name__ == '__main__':
     parser.add_argument('--input_path', default=None, type=str, required=True)
     parser.add_argument('--output_path', default=None, type=str, required=True)
     parser.add_argument('--dtype', default=None, type=str, required=False)
-    parser.add_argument('--qkv_concat', default=False, type=str2bool, required=False)
-
     parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,
                         help="Only for telechat. Telechat version.")
-    parser.add_argument('--is_lora', default=False, type=str2bool, required=False)
 
     args, extra_args = parser.parse_known_args()
     extra_args = [i

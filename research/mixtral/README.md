@@ -85,7 +85,23 @@ python llama_preprocess.py \
 --model_file /{path}/tokenizer.model \
 --seq_length 4096 \
 --output_file /{path}/wiki4096.mindrecord
+--file_partition 1
+--samples_num 10000
+--repeat 1
 ```
+
+参数说明如下表：
+
+| 参数名                | 含义                    | 取值说明                                                   |
+|--------------------|-----------------------|--------------------------------------------------------|
+| `--dataset_type`   | 数据集类型                 | (str, 可选) - 默认值： `wiki` 。                              |
+| `--input_glob`     | 转换后的 alpaca 数据集的文件路径。 | (str, 可选) - 默认值： `./alpaca_glm4_data.jsonl` 。          |
+| `--vocab_file`     | tokenizer.model 文件路径。 | (str, 可选) - 默认值： `./tokenizer.model` 。                 |
+| `--seq_length`     | 输出数据的序列长度。            | (int, 可选) - 默认值： `8192` 。                              |
+| `--output_file`    | 输出文件的保存路径。            | (str, 可选) - 默认值： `./alpaca-fastchat-glm4.mindrecord` 。 |
+| `--file_partition` | 输出文件的分片个数。            | (int, 可选) - 默认值： `1` 。                                 |
+| `--samples_num`    | 指定要训练的样本数。            | (int, 可选) - 默认值： `10000` 。                             |
+| `--repeat`         | 数据重复次数。               | (int, 可选) - 默认值： `1` 。                                 |
 
 数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致，默认bos_token_id=1, eos_token_id=2, pad_token_id=0, 如果有所修改，yaml中对应的配置也需要修改； 一般预训练的数据中不包含pad_token，此时建议pad_token_id设为-1。
 
@@ -149,8 +165,24 @@ python llama_preprocess.py \
 --input_glob /{path}/alpaca-data-conversation.json \
 --model_file /{path}/tokenizer.model \
 --seq_length 4096 \
---output_file /{path}/alpaca-fastchat4096.mindrecord
+--output_file /{path}/alpaca-fastchat4096.mindrecord \
+--file_partition 1 \
+--samples_num 10000 \
+--repeat 1
 ```
+
+参数说明如下表：
+
+| 参数名                | 含义                    | 取值说明                                                   |
+|--------------------|-----------------------|--------------------------------------------------------|
+| `--dataset_type`   | 数据集类型                 | (str, 可选) - 默认值： `wiki` 。                              |
+| `--input_glob`     | 转换后的 alpaca 数据集的文件路径。 | (str, 可选) - 默认值： `./alpaca_glm4_data.jsonl` 。          |
+| `--vocab_file`     | tokenizer.model 文件路径。 | (str, 可选) - 默认值： `./tokenizer.model` 。                 |
+| `--seq_length`     | 输出数据的序列长度。            | (int, 可选) - 默认值： `8192` 。                              |
+| `--output_file`    | 输出文件的保存路径。            | (str, 可选) - 默认值： `./alpaca-fastchat-glm4.mindrecord` 。 |
+| `--file_partition` | 输出文件的分片个数。            | (int, 可选) - 默认值： `1` 。                                 |
+| `--samples_num`    | 指定要训练的样本数。            | (int, 可选) - 默认值： `10000` 。                             |
+| `--repeat`         | 数据重复次数。               | (int, 可选) - 默认值： `1` 。                                 |
 
 #### 模型权重下载
 
@@ -233,7 +265,7 @@ strategy_dir: 待转换mindspore权重的strategy文件路径
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
 
 - step 1. 获取模型切分策略文件：
 
@@ -244,6 +276,7 @@ strategy_dir: 待转换mindspore权重的strategy文件路径
 ```shell
 python transform_ckpt.py \
 --src_ckpt_strategy {path}/output/strategy/ \
+--dst_ckpt_strategy {path}/target_strategy/ \
 --src_ckpt_dir {path}/output/checkpoint/ \
 --dst_ckpt_dir {path}/target_checkpoint/ \
 --prefix mixtral_
@@ -252,6 +285,7 @@ python transform_ckpt.py \
 ```text
 # 参数说明
 src_ckpt_strategy: 步骤1中的切分策略文件路径
+dst_ckpt_strategy: 目标切分策略文件的路径
 src_ckpt_dir: 原切分权重文件夹
 dst_ckpt_dir: 目标路径
 prefix: ckpt文件前缀名
@@ -377,7 +411,7 @@ model:
     seq_length: 4096
 ```
 
-- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。若无共享磁盘，跨机需先手动切分权重，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
+- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。若无共享磁盘，跨机需先手动切分权重，详细教程请参考特性文档模型[权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/ckpt.html#%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)。
 
 - step 4. 启动微调任务，以两机16卡为例进行微调，命令如下：
 

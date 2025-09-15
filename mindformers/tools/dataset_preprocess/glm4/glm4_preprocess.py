@@ -148,7 +148,6 @@ if __name__ == '__main__':
                         type=str,
                         help='vocab_file path')
     parser.add_argument('--file_partition', type=int, default=1)
-    parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--seq_length', type=int, default=8192)
     args = parser.parse_args()
 
