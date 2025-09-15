@@ -544,8 +544,6 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_beta = None
         self.qkv_down_proj_input_offset = None
         self.q_up_proj_input_offset = None
-        self.qkv_down_weight = None
-        self.q_up_weight = None
         self.input_format = 1 if self.fa3_quant else 0
         self.use_ringmla = use_ms_custom_ops() and get_tensor_model_parallel_world_size() < 16
         import ms_custom_ops
@@ -631,9 +629,6 @@ class FusedMLASelfAttention(MLASelfAttention):
                                                  dtype=dtype.int8)
         self.q_up_proj_input_offset = Tensor(self.linear_q_up_proj.input_offset.asnumpy(),
                                              dtype=dtype.int8)
-        self.qkv_down_weight = ms.jit(self.ms_custom_ops.trans_data)(self.linear_qkv_down_proj.weight,
-                                                                     transdata_type=1)
-        self.q_up_weight = ms.jit(self.ms_custom_ops.trans_data)(self.linear_q_up_proj.weight, transdata_type=1)
         if not self.is_fa3_quant_layer:
             return
         qnope_scale = self.qnope_scale.asnumpy()
@@ -708,7 +703,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.qkv_down_beta,
             self.qkv_down_proj_input_scale,
             self.qkv_down_proj_input_offset,
-            self.qkv_down_weight,
+            self.linear_qkv_down_proj.weight,
             self.linear_qkv_down_proj.quant_bias,
             self.q_layernorm_weight,
             self.q_up_beta,
@@ -721,7 +716,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             rotary_pos_cos,
             key_cache,
             slot_mapping,
-            self.q_up_weight,
+            self.linear_q_up_proj.weight,
             self.linear_q_up_proj.quant_bias,
             q_absorb,
             self.linear_qkv_down_proj.deq_scale,
