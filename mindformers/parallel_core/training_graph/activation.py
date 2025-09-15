@@ -54,8 +54,7 @@ class FusedSwiGlu(nn.Cell):
             config (ModelParallelConfig): The model parallel configuration.
         """
 
-        self.swiglu.shard((layout("cp", "dp", "None", "tp"),), (layout("cp", "dp", "None", "tp"),))
-        self.swiglu.add_prim_attr("self_define_shard", True)
+        self.swiglu.shard((layout("cp", "dp", "None", "tp"),))
 
     def sharding_propagation(self, config: ModelParallelConfig):
         pass
