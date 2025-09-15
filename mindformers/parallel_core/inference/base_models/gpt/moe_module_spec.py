@@ -29,7 +29,7 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import (
     RowParallelLinear,
     ReplicatedLinear,
 )
-from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import (
+from mindformers.parallel_core.inference.tensor_parallel.grouped_layers import (
     ColumnParallelGroupedLinear,
     RowParallelGroupedLinear
 )

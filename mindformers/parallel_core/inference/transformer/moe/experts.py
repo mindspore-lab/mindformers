@@ -23,7 +23,7 @@ from mindspore import mint, nn
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.parallel_core.inference.transformer.mlp import MLPSubmodules
-from mindformers.parallel_core.inference.tensor_parallel.gemm_layers import UnquantizedGroupedLinearMethod
+from mindformers.parallel_core.inference.tensor_parallel.grouped_layers import UnquantizedGroupedLinearMethod
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
