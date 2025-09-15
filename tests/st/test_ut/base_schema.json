@@ -1,4 +1,7 @@
 {
+    "mindformers.checkpoint.save_checkpoint": {
+        "signature": "(iteration: int, network: mindspore.nn.cell.Cell, optimizer: mindspore.nn.optim.optimizer.Optimizer = None, async_save_manager: mindformers.checkpoint.checkpoint.AsyncSaveManager = None, common_info: mindformers.checkpoint.checkpoint.CommonInfo = None, keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None, global_strategy_info: List[Dict] = None, remove_redundancy: bool = False)"
+    },
     "mindformers.core.AdamW": {
         "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False)"
     },
@@ -965,6 +968,12 @@
     "mindformers.core.optim.AdamW.get_actual_adamw_cls": {
         "signature": "(use_fused)"
     },
+    "mindformers.core.optim.PmaAdamW": {
+        "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False, fused_num=10, interleave_step=1000, fused_algo='ema', ema_alpha=0.2)"
+    },
+    "mindformers.core.optim.PmaAdamW.get_actual_adamw_cls": {
+        "signature": "(use_fused)"
+    },
     "mindformers.dataset.BlendedMegatronDatasetDataLoader": {
         "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },
@@ -1751,6 +1760,9 @@
     "mindformers.models.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
+    "mindformers.models.LlamaForCausalLM.get_model_parameters": {
+        "signature": "(self)"
+    },
     "mindformers.models.LlamaTokenizer": {
         "signature": "(vocab_file, unk_token='<unk>', bos_token='<s>', eos_token='</s>', pad_token='<unk>', sp_model_kwargs: Optional[Dict[str, Any]] = None, add_bos_token=True, add_eos_token=False, clean_up_tokenization_spaces=False, legacy=True, **kwargs)"
     },
@@ -1930,6 +1942,9 @@
     },
     "mindformers.models.PreTrainedModel.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.models.PreTrainedModel.get_model_parameters": {
+        "signature": "(self)"
     },
     "mindformers.models.PreTrainedTokenizer": {
         "signature": "(**kwargs)"
@@ -2720,6 +2735,9 @@
     "mindformers.models.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
+    "mindformers.models.llama.LlamaForCausalLM.get_model_parameters": {
+        "signature": "(self)"
+    },
     "mindformers.models.llama.LlamaTokenizer": {
         "signature": "(vocab_file, unk_token='<unk>', bos_token='<s>', eos_token='</s>', pad_token='<unk>', sp_model_kwargs: Optional[Dict[str, Any]] = None, add_bos_token=True, add_eos_token=False, clean_up_tokenization_spaces=False, legacy=True, **kwargs)"
     },
@@ -2813,6 +2831,9 @@
     "mindformers.models.llama.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
+    "mindformers.models.llama.llama.LlamaForCausalLM.get_model_parameters": {
+        "signature": "(self)"
+    },
     "mindformers.models.llama.llama.LlamaModel": {
         "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig = None)"
     },
@@ -2820,6 +2841,9 @@
         "signature": "(self, tokens: mindspore.common.tensor.Tensor, input_embeds=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_mask=None, position_ids=None, q_seq_lens=None, seq_range=None, actual_seq_len=None)"
     },
     "mindformers.models.llama.llama.LlamaModel.clear_kv_cache": {
+        "signature": "(self)"
+    },
+    "mindformers.models.llama.llama.LlamaModel.get_model_parameters": {
         "signature": "(self)"
     },
     "mindformers.models.llama.llama_config.LlamaConfig": {
@@ -2965,6 +2989,9 @@
     },
     "mindformers.models.modeling_utils.PreTrainedModel.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.models.modeling_utils.PreTrainedModel.get_model_parameters": {
+        "signature": "(self)"
     },
     "mindformers.models.multi_modal.ModalContentTransformTemplate": {
         "signature": "(output_columns: List[str] = None, tokenizer=None, mode='predict', vstack_columns: List[str] = None, modal_content_padding_size=1, max_length=2048, **kwargs)"
@@ -3128,6 +3155,9 @@
     "mindformers.models.telechat2.InferenceTelechat2ForCausalLM.construct": {
         "signature": "(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
     },
+    "mindformers.models.telechat2.InferenceTelechat2ForCausalLM.convert_name": {
+        "signature": "(self, weight_name)"
+    },
     "mindformers.models.telechat2.TeleChat2ForCausalLM": {
         "signature": "(config)"
     },
@@ -3140,6 +3170,9 @@
     "mindformers.models.telechat2.Telechat2PreTrainedModel.config_class": {
         "signature": "(vocab_size=160256, hidden_size=4096, n_layer=30, n_head=32, layer_norm_epsilon=1e-05, initializer_range=0.02, use_cache=True, bos_token_id=1, eos_token_id=2, apply_residual_connection_post_layernorm=False, hidden_dropout=0.0, attention_dropout=0.0, ffn_hidden_size=12288, training_seqlen=8192, logn=True, embed_layernorm=False, **kwargs)"
     },
+    "mindformers.models.telechat2.Telechat2PreTrainedModel.get_model_parameters": {
+        "signature": "(self)"
+    },
     "mindformers.models.telechat2.configuration_telechat2.Telechat2Config": {
         "signature": "(vocab_size=160256, hidden_size=4096, n_layer=30, n_head=32, layer_norm_epsilon=1e-05, initializer_range=0.02, use_cache=True, bos_token_id=1, eos_token_id=2, apply_residual_connection_post_layernorm=False, hidden_dropout=0.0, attention_dropout=0.0, ffn_hidden_size=12288, training_seqlen=8192, logn=True, embed_layernorm=False, **kwargs)"
     },
@@ -3151,6 +3184,9 @@
     },
     "mindformers.models.telechat2.modeling_telechat2_infer.InferenceTelechat2ForCausalLM.construct": {
         "signature": "(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attention_mask=None, attn_metadata=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
+    },
+    "mindformers.models.telechat2.modeling_telechat2_infer.InferenceTelechat2ForCausalLM.convert_name": {
+        "signature": "(self, weight_name)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer": {
         "signature": "(**kwargs)"
@@ -3956,24 +3992,6 @@
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear.weight_loader": {
         "signature": "(self, param, loaded_weight, shard_id=None, expert_id=None) -> None"
     },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._determine_transpose_need": {
-        "signature": "(self, loaded_weight, weight_is_3d, param)"
-    },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._load_full_weight": {
-        "signature": "(self, param, loaded_weight, weight_is_3d)"
-    },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._load_sharded_weight": {
-        "signature": "(self, param, loaded_weight, shard_id, expert_id, weight_is_3d, weight_needs_transpose)"
-    },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._get_shard_dim": {
-        "signature": "(self, param, weight_needs_transpose, param_output_dim, weight_is_3d)"
-    },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._get_expected_shape": {
-        "signature": "(self, param, shard_size, weight_is_3d, param_output_dim)"
-    },
-    "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.ColumnParallelGroupedLinear._get_update_indices": {
-        "signature": "(self, param, expert_id, shard_id, shard_size, param_output_dim, weight_is_3d)"
-    },
     "mindformers.parallel_core.inference.tensor_parallel.gemm_layers.RowParallelGroupedLinear": {
         "signature": "(num_local_experts: int, input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, bias: bool = False, input_is_parallel: bool = True, skip_bias_add: bool = False, weight: mindspore.common.tensor.Tensor = None, stride: int = 1, delay_allreduce: bool = True, is_expert: bool = True, tp_comm_buffer_name: str = None, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
     },
@@ -4157,6 +4175,9 @@
     "mindformers.parallel_core.inference.transformer.moe.moe_layer.MoESubmodules": {
         "signature": "(experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, shared_experts: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, token_dispatcher: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
+    "mindformers.parallel_core.inference.transformer.moe.moe_utils.topk_routing_with_score_function": {
+        "signature": "(logits: mindspore.common.tensor.Tensor, topk: int, num_experts: int, num_groups: Optional[int] = None, group_topk: Optional[int] = None, scaling_factor: Optional[float] = None, score_function: str = 'softmax', expert_bias: Optional[mindspore.common.tensor.Tensor] = None, norm_topk_prob: Optional[bool] = True, fused: bool = False)"
+    },
     "mindformers.parallel_core.inference.transformer.moe.router.Router": {
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp_dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>)) -> None"
     },
@@ -4223,6 +4244,9 @@
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.FusedMLASelfAttention.construct": {
         "signature": "(self, hidden_states, attention_mask, key_value_states=None, rotary_pos_cos=None, rotary_pos_sin=None, position_ids=None, batch_valid_length=None, block_tables=None, slot_mapping=None, q_seq_lens=None, actual_seq_qlen=None, actual_seq_kvlen=None, context_lens_tensor=None, key_cache=None, value_cache=None)"
     },
+    "mindformers.parallel_core.inference.transformer.multi_latent_attention.FusedMLASelfAttention.kv_cache_loader": {
+        "signature": "(self, key_cache, value_cache, block_tables, context_lens_tensor)"
+    },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.FusedMLASelfAttention.weight_loader": {
         "signature": "(self, param, loaded_weight)"
     },
@@ -4241,17 +4265,23 @@
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules": {
         "signature": "(input_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_q_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_qkv_down_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_q_up_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_kv_down_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_kv_up_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, core_attention: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, linear_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, q_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, kv_layernorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
     },
-    "mindformers.parallel_core.inference.transformer.multi_latent_attention.FusedMLASelfAttention": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type=None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp_dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>), quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
-    },
-    "mindformers.parallel_core.inference.transformer.multi_latent_attention.FusedMLASelfAttention.get_query_key_value_tensors": {
-        "signature": "(self, hidden_states, batch_valid_length=None, rotary_pos_cos=None, rotary_pos_sin=None, slot_mapping=None, key_cache=None, value_cache=None)"
-    },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MultiLatentAttention": {
         "signature": "(config: mindformers.parallel_core.transformer_config.MLATransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_latent_attention.MLASelfAttentionSubmodules, layer_number: int, attn_mask_type: str = None, attention_type: str = None, cp_comm_type: str = None, delay_allreduce: bool = False, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp_dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>), quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
     },
     "mindformers.parallel_core.inference.transformer.multi_latent_attention.MultiLatentAttention.construct": {
         "signature": "(self, hidden_states, attention_mask, key_value_states=None, rotary_pos_cos=None, rotary_pos_sin=None, position_ids=None, batch_valid_length=None, block_tables=None, slot_mapping=None, q_seq_lens=None, actual_seq_qlen=None, actual_seq_kvlen=None, context_lens_tensor=None, key_cache=None, value_cache=None)"
+    },
+    "mindformers.parallel_core.inference.transformer.multi_token_prediction.MultiTokenPredictionLayer": {
+        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.multi_token_prediction.MultiTokenPredictionLayerSubmodules, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp_dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>), quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None)"
+    },
+    "mindformers.parallel_core.inference.transformer.multi_token_prediction.MultiTokenPredictionLayer.construct": {
+        "signature": "(self, decoder_input, hidden_states, attention_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
+    },
+    "mindformers.parallel_core.inference.transformer.multi_token_prediction.MultiTokenPredictionLayerSubmodules": {
+        "signature": "(enorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, hnorm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, eh_proj: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, transformer_layer: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None, layer_norm: Union[mindformers.parallel_core.utils.spec_utils.ModuleSpec, type] = None) -> None"
+    },
+    "mindformers.parallel_core.inference.transformer.multi_token_prediction.get_mtp_layer_spec": {
+        "signature": "(transformer_layer_spec: mindformers.parallel_core.utils.spec_utils.ModuleSpec, fused_norm=True) -> mindformers.parallel_core.utils.spec_utils.ModuleSpec"
     },
     "mindformers.parallel_core.inference.transformer.norm.get_norm_cls": {
         "signature": "(normalization: str)"
@@ -4275,7 +4305,7 @@
         "signature": "()"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayer": {
-        "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayerSubmodules, layer_number: int = 1, hidden_dropout: float = None, model_comm_pgs: Optional[mindformers.parallel_core.process_group_config.ModelCommProcessGroups] = ModelCommProcessGroups(globals=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, pp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_tp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, moe_ep=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, tp_dp=<mindformers.parallel_core.inference.parallel_state.ProcessGroup object>), quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
+        "signature": "(*args, **kwargs)"
     },
     "mindformers.parallel_core.inference.transformer.transformer_layer.TransformerLayer.construct": {
         "signature": "(self, hidden_states, attention_mask, context=None, context_mask=None, rotary_pos_cos=None, rotary_pos_sin=None, attention_bias=None, packed_seq_params=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None, block_tables=None, slot_mapping=None, attn_padding_idx=None, attn_unpadding_idx=None, ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None)"
@@ -4330,6 +4360,12 @@
     },
     "mindformers.parallel_core.training_graph.activation.FusedSwiGlu.construct": {
         "signature": "(self, x: mindspore.common.tensor.Tensor, dim=-1) -> mindspore.common.tensor.Tensor"
+    },
+    "mindformers.parallel_core.training_graph.activation.FusedSwiGlu.shard": {
+        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig)"
+    },
+    "mindformers.parallel_core.training_graph.activation.FusedSwiGlu.sharding_propagation": {
+        "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig)"
     },
     "mindformers.parallel_core.training_graph.activation.GELU": {
         "signature": "(config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig = None, approximate: bool = True)"
@@ -4421,7 +4457,10 @@
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.construct": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, position_ids: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, decoder_input: mindspore.common.tensor.Tensor = None, labels: mindspore.common.tensor.Tensor = None, extra_block_kwargs=None, prefix_keys_values=None, loss_mask=None, actual_seq_len=None)"
     },
-    "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.forward_func": {
+    "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.forward_func_logits": {
+        "signature": "(self, input_)"
+    },
+    "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.forward_func_labels_and_masks": {
         "signature": "(self, input_)"
     },
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.language_model": {
@@ -4448,11 +4487,14 @@
     "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.sharding_propagation": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
+    "mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.GPTModel.get_model_parameters": {
+        "signature": "(self)"
+    },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear": {
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = True, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.ColumnParallelBatchedLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
@@ -4464,7 +4506,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig, init_method: Callable = None, bias: bool = False, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = True, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.batched_layers.RowParallelBatchedLinear.shard": {
         "signature": "(self, config: mindformers.parallel_core.model_parallel_config.ModelParallelConfig) -> None"
@@ -4476,7 +4518,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.ColumnParallelLinear.forward_func_with_bias": {
         "signature": "(self, input_, weight, bias)"
@@ -4500,7 +4542,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None)"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.forward_func_with_bias": {
         "signature": "(self, input_, weight, bias)"
@@ -4513,6 +4555,12 @@
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.RowParallelLinear.sharding_propagation": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
+    },
+    "mindformers.parallel_core.training_graph.tensor_parallel.layers.SequenceParallelLinear": {
+        "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None)"
+    },
+    "mindformers.parallel_core.training_graph.tensor_parallel.layers.SequenceParallelLinear.shard": {
+        "signature": "(self) -> None"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.layers.VocabParallelEmbedding": {
         "signature": "(num_embeddings, embedding_dim, init_method: Callable, config: mindformers.parallel_core.transformer_config.TransformerConfig, reduce_scatter_embeddings: bool = False)"
@@ -4530,7 +4578,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, gather_output: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, grad_output_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, disable_grad_reduce: bool = False, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor, weight: mindspore.common.tensor.Tensor = None) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.ColumnParallelLinearWithLoRA.shard_lora": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4539,7 +4587,7 @@
         "signature": "(input_size: int, output_size: int, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = None, bias: bool = True, input_is_parallel: bool = False, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, bias_init: Callable = None, lora_rank: int = 8, lora_alpha: int = 32, lora_dropout: float = 0.0, lora_a_init='normal', lora_b_init='zeros')"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA.construct": {
-        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, input_: mindspore.common.tensor.Tensor) -> tuple"
     },
     "mindformers.parallel_core.training_graph.tensor_parallel.lora_layers.RowParallelLinearWithLoRA.shard_lora": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig) -> None"
@@ -4587,7 +4635,7 @@
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.training_graph.transformer.mlp.MLPSubmodules, is_expert: bool = False, input_size: int = None)"
     },
     "mindformers.parallel_core.training_graph.transformer.mlp.MLP.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, per_token_scale=None, extra_loss=0.0) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor, float]"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor, per_token_scale=None, extra_loss=0.0) -> tuple"
     },
     "mindformers.parallel_core.training_graph.transformer.mlp.MLP.shard": {
         "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
@@ -4602,7 +4650,10 @@
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, submodules: mindformers.parallel_core.training_graph.transformer.mlp.MLPSubmodules)"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.construct": {
-        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor) -> tuple[mindspore.common.tensor.Tensor, mindspore.common.tensor.Tensor]"
+        "signature": "(self, hidden_states: mindspore.common.tensor.Tensor) -> tuple"
+    },
+    "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.shard": {
+        "signature": "(self, config: mindformers.parallel_core.transformer_config.TransformerConfig)"
     },
     "mindformers.parallel_core.training_graph.transformer.moe.shared_experts.SharedExpertMLP.expert_gate_shard": {
         "signature": "(self)"
@@ -4612,6 +4663,12 @@
     },
     "mindformers.parallel_core.training_graph.transformer.multi_token_prediction.MultiTokenPredictionBlock": {
         "signature": "(config: mindformers.parallel_core.transformer_config.TransformerConfig, spec: mindformers.parallel_core.utils.spec_utils.ModuleSpec)"
+    },
+    "mindformers.parallel_core.training_graph.transformer.multi_token_prediction.MultiTokenPredictionBlock.forward_func_logits": {
+        "signature": "(self, input_)"
+    },
+    "mindformers.parallel_core.training_graph.transformer.multi_token_prediction.MultiTokenPredictionBlock.forward_func_labels_and_masks": {
+        "signature": "(self, input_)"
     },
     "mindformers.parallel_core.training_graph.transformer.multi_token_prediction.MultiTokenPredictionBlock._build_layers": {
         "signature": "(self)"
@@ -4691,6 +4748,9 @@
     "mindformers.pet.LoraModel.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"
     },
+    "mindformers.pet.LoraModel.save_pet_config": {
+        "signature": "(self, save_path: str)"
+    },
     "mindformers.pet.LoraModel.to_embeddings": {
         "signature": "(self, tokens)"
     },
@@ -4705,6 +4765,9 @@
     },
     "mindformers.pet.LoraModel.obtain_name_map": {
         "signature": "(self, load_checkpoint_files)"
+    },
+    "mindformers.pet.LoraModel.get_gpt_transformer_config": {
+        "signature": "(self)"
     },
     "mindformers.pet.LoraModel.construct": {
         "signature": "(self, *inputs, **kwargs)"
@@ -4736,6 +4799,9 @@
     "mindformers.pet.models.LoraModel.set_dynamic_inputs": {
         "signature": "(self, **kwargs)"
     },
+    "mindformers.pet.models.LoraModel.save_pet_config": {
+        "signature": "(self, save_path: str)"
+    },
     "mindformers.pet.models.LoraModel.to_embeddings": {
         "signature": "(self, tokens)"
     },
@@ -4750,6 +4816,9 @@
     },
     "mindformers.pet.models.LoraModel.obtain_name_map": {
         "signature": "(self, load_checkpoint_files)"
+    },
+    "mindformers.pet.models.LoraModel.get_gpt_transformer_config": {
+        "signature": "(self)"
     },
     "mindformers.pet.models.LoraModel.construct": {
         "signature": "(self, *inputs, **kwargs)"

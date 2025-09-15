@@ -36,25 +36,25 @@ class ModelCommProcessGroups:
         tp_dp (ProcessGroup): Tensor and Data Parallel Group.
     """
     # _TENSOR_MODEL_PARALLEL_GROUP
-    globals: ProcessGroup = field(init=False)
+    globals: ProcessGroup = field(init=False, default=None)
 
     # _TENSOR_MODEL_PARALLEL_GROUP
-    tp: ProcessGroup = field(init=False)
+    tp: ProcessGroup = field(init=False, default=None)
 
     # _DATA_PARALLEL_GROUP
-    dp: ProcessGroup = field(init=False)
+    dp: ProcessGroup = field(init=False, default=None)
 
     # _PIPELINE_MODEL_PARALLEL_GROUP
-    pp: ProcessGroup = field(init=False)
+    pp: ProcessGroup = field(init=False, default=None)
 
     # _MOE_TENSOR_MODEL_PARALLEL_GROUP
-    moe_tp: ProcessGroup = field(init=False)
+    moe_tp: ProcessGroup = field(init=False, default=None)
 
     # _MOE_EXPERT_MODEL_PARALLEL_GROUP
-    moe_ep: ProcessGroup = field(init=False)
+    moe_ep: ProcessGroup = field(init=False, default=None)
 
     # _TENSOR_AND_DATA_PARALLEL_GROUP
-    tp_dp: ProcessGroup = field(init=False)
+    tp_dp: ProcessGroup = field(init=False, default=None)
 
     def __init__(self, **kwargs) -> None:
         for key, value in kwargs.items():
