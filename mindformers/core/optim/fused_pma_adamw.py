@@ -12,69 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""AdamW API"""
+"""FusedPmaAdamW implementation"""
 import mindspore.ops as ops
 
-from mindspore import _checkparam as validator
 from mindspore._checkparam import GT, INC_NEITHER
+from mindspore import _checkparam as validator
 from mindspore.common import dtype as mstype
-from mindspore.ops import operations as P
-from mindspore.ops import composite as C
+from mindspore.ops.operations import Cast
+from mindspore.ops.composite import MultitypeFuncGraph
 from mindspore.ops import functional as F
+from mindspore.ops import operations as P
 
-from mindformers.core.optim.adamw import AdamW
+from mindformers.core.optim import FusedAdamW
 
-op_mul = P.Mul()
-op_pow = P.Pow()
-op_sqrt = P.Sqrt()
-op_maximum = P.Maximum()
-addcmul = P.Addcmul()
-pma_adamw_opt = C.MultitypeFuncGraph("pma_adamw_opt")
+# The compute graph of optimizer
+pma_adamw_opt = MultitypeFuncGraph("pma_adamw_opt")
 
 
-@pma_adamw_opt.register("Tensor", "Tensor", "Tensor", "Tensor", "String",
-                        "Int", "Int", "Float", "Tensor", "Tensor", "Tensor",
-                        "Tensor", "Tensor", "Tensor", "Bool", "Tensor")
-def _update_run_op(beta1, beta2, eps, step,
-                   fused_algo, interleave_step, fused_num, ema_alpha,
+@pma_adamw_opt.register("Function", "Bool", "Bool", "Float", "Float", "Tensor", "Tensor",
+                        "Float", "String", "Int", "Int", "Tensor", "Tensor",
+                        "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor")
+def _run_adamw_opt(opt, amsgrad, maximize, beta1, beta2, eps, step,
+                   ema_alpha, fused_algo, interleave_step, fused_num,
                    lr, weight_decay, parameters, grads, exp_avg,
-                   exp_avg_sq, optim_filter, pma_weight):
+                   exp_avg_sq, optim_filter, max_exp_avg_sq, pma_weight):
     """Apply AdamW optimizer to the weight parameter."""
     op_cast = P.Cast()
+    step = Cast()(step, mstype.int64)
+    grads = Cast()(grads, F.dtype(parameters))
+    lr = float(lr)
+    weight_decay = float(weight_decay)
+
     if optim_filter:
-        param_fp32 = op_cast(parameters, mstype.float32)
-        next_param = op_mul(param_fp32, 1 - lr * weight_decay)
-        gradient_fp32 = op_cast(grads, mstype.float32)
+        if amsgrad:
+            opt(parameters, exp_avg, exp_avg_sq, max_exp_avg_sq, grads, step, lr, beta1, beta2, weight_decay, eps,
+                amsgrad, maximize)
+        else:
+            opt(parameters, exp_avg, exp_avg_sq, exp_avg_sq, grads, step, lr, beta1, beta2, weight_decay, eps,
+                amsgrad, maximize)
 
-        next_param = F.depend(next_param,
-                              F.assign(exp_avg,
-                                       op_mul(exp_avg, beta1) + op_mul(gradient_fp32,
-                                                                       op_cast(F.tuple_to_array((1.0,)),
-                                                                               mstype.float32) - beta1)))
-        next_param = F.depend(next_param,
-                              F.assign(exp_avg_sq, addcmul(op_mul(exp_avg_sq, beta2), gradient_fp32, gradient_fp32,
-                                                           op_cast(F.tuple_to_array((1.0,)), mstype.float32) - beta2)))
+    if fused_algo == 'ema' and (step + 1) % interleave_step == 0 and step + 1 > 0:
+        F.assign(pma_weight, op_cast((1 - ema_alpha) * pma_weight + ema_alpha * parameters, F.dtype(parameters)))
+    if fused_algo == 'sma' and (step + 1) % interleave_step == 0 and step + 1 > 0:
+        F.assign(pma_weight, pma_weight + parameters)
+    if (step + 1) % (fused_num * interleave_step) == 0 and step + 1 > 0:
+        if fused_algo == 'sma':
+            F.assign(pma_weight, pma_weight / fused_num)
+        F.assign(parameters, pma_weight)
+        F.assign(pma_weight, ops.ZerosLike()(pma_weight))
 
-        bias_correction1 = 1 - op_pow(op_cast(beta1, mstype.float32), step)
-        bias_correction2 = 1 - op_pow(op_cast(beta2, mstype.float32), step)
-        step_size = lr / bias_correction1
-
-        denom = op_sqrt(exp_avg_sq / bias_correction2) + eps
-
-        return_param = next_param - op_mul(exp_avg / denom, step_size)
-        if fused_algo == 'ema' and step % interleave_step == 0 and step > 0:
-            F.assign(pma_weight, (1 - ema_alpha) * pma_weight + ema_alpha * return_param)
-        if fused_algo == 'sma' and step % interleave_step == 0 and step > 0:
-            F.assign(pma_weight, pma_weight + return_param)
-        if step % (fused_num * interleave_step) == 0 and step > 0:
-            if fused_algo == 'sma':
-                F.assign(pma_weight, pma_weight / fused_num)
-            F.assign(return_param, pma_weight)
-            F.assign(pma_weight, ops.ZerosLike()(pma_weight))
-
-        F.assign(parameters, op_cast(return_param, F.dtype(parameters)))
-        return op_cast(return_param, F.dtype(parameters))
-    return op_cast(grads, F.dtype(parameters))
+    return True
 
 
 def _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, prim_name):
@@ -88,9 +75,9 @@ def _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, prim_n
     validator.check_int(interleave_step, 0, GT, "interleave_step", prim_name)
 
 
-class PmaAdamW(AdamW):
+class FusedPmaAdamW(FusedAdamW):
     r"""
-    This is the implementation of PmAdamW.
+    This is the implementation of PmaAdamW that uses fused operators.
 
     Args:
         params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
@@ -144,6 +131,14 @@ class PmaAdamW(AdamW):
             - Cell: Weight decay is dynamic. During training, the optimizer calls the instance of
               the Cell with step as the input to get the weight decay value of current step.
 
+        amsgrad (bool, optional): If True, uses the AMSGrad variant of the Adam algorithm,
+            which maintains the maximum of past squared gradients instead of an exponential average.
+            This can help improve convergence in some cases. Default is ``False``.
+
+        maximize (bool, optional): If True, the optimizer maximizes the objective function
+            instead of minimizing it. This is useful in cases where the goal is to maximize
+            a reward or utility function. Default is ``False``.
+
         fused_num (int, optional): Only after fusing every fused_num weights,
             are they updated into the network parameters. Default: ``10``.
 
@@ -153,10 +148,6 @@ class PmaAdamW(AdamW):
         fused_algo (string, optional): Fusion algorithm, supporting SMA and EMA. Default: ``ema``.
 
         ema_alpha (float, optional): The fusion coefficient is only effective when fused_algo=ema. Default: ``0.2``.
-
-        swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
-            storing them on NPU. When enabled, set the environment variable `MS_DEV_RUNTIME_CONF="switch_inline:False"`.
-             Default: False.
 
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
@@ -175,16 +166,28 @@ class PmaAdamW(AdamW):
         ValueError: If `fused_algo` is not in ['ema', 'sma'].
     """
 
-    def __init__(self, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0,
-                 fused_num=10, interleave_step=1000, fused_algo='ema', ema_alpha=0.2, swap=False):
+    def __init__(self,
+                 params,
+                 learning_rate=1e-3,
+                 betas=(0.9, 0.999),
+                 eps=1e-8,
+                 weight_decay=0.0,
+                 amsgrad=False,
+                 maximize=False,
+                 swap=False,
+                 fused_num=10,
+                 interleave_step=1000,
+                 fused_algo='ema',
+                 ema_alpha=0.2):
         _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, self.cls_name)
-
         super().__init__(
             params=params,
             learning_rate=learning_rate,
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
+            amsgrad=amsgrad,
+            maximize=maximize,
             swap=swap
         )
 
@@ -196,6 +199,7 @@ class PmaAdamW(AdamW):
 
     def construct(self, gradients):
         """forward process"""
+        grads = self.flatten_gradients(gradients)
         weight_decay = self.get_weight_decay()
         lr = self.get_lr()
         self.assignadd(self.global_step, self.global_step_increase_tensor)
@@ -203,23 +207,27 @@ class PmaAdamW(AdamW):
         if self.is_group:
             if self.is_group_lr:
                 optim_result = self.hyper_map(
-                    F.partial(pma_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step,
-                              self.fused_algo, self.interleave_step, self.fused_num, self.ema_alpha),
-                    lr, weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq, self.optim_filter,
-                    self.pma_weight)
+                    F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                              self.eps, self.global_step, self.ema_alpha, self.fused_algo,
+                              self.interleave_step, self.fused_num),
+                    lr, weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    self.max_exp_avg_sq, self.pma_weight
+                )
             else:
                 optim_result = self.hyper_map(
-                    F.partial(pma_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step, self.fused_algo,
-                              self.interleave_step, self.fused_num, self.ema_alpha, lr),
-                    weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq,
-                    self.optim_filter, self.pma_weight)
+                    F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                              self.eps, self.global_step, self.ema_alpha,
+                              self.fused_algo, self.interleave_step, self.fused_num, lr),
+                    weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    self.max_exp_avg_sq, self.pma_weight
+                )
         else:
             optim_result = self.hyper_map(
-                F.partial(pma_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step,
-                          self.fused_algo, self.interleave_step, self.fused_num, self.ema_alpha, lr, weight_decay),
-                self._parameters, gradients, self.exp_avg, self.exp_avg_sq, self.optim_filter, self.pma_weight)
-
-        if self.use_parallel:
-            self.broadcast_params(optim_result)
+                F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                          self.eps, self.global_step, self.ema_alpha, self.fused_algo,
+                          self.interleave_step, self.fused_num, lr, weight_decay),
+                self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                self.max_exp_avg_sq, self.pma_weight
+            )
 
         return optim_result
