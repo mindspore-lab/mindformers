@@ -37,7 +37,7 @@ from mindformers.parallel_core.inference.transformer.flash_attention import Flas
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_attention.data_gen_utils import (
+from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_self_attention.data_gen_utils import (
     get_init_params,
     BLOCK_SIZE, NUM_BLOCKS)
 
