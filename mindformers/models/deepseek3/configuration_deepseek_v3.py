@@ -145,6 +145,7 @@ class DeepseekV3Config(PretrainedConfig):
         use_flash_attention=True,
         moe_router_score_function="sigmoid",
         moe_router_enable_expert_bias=True,
+        moe_router_fusion=True,
         normalization="RMSNorm",
         add_bias_linear=False,
         gated_linear_unit=True,
