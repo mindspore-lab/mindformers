@@ -676,7 +676,7 @@ class MFLossMonitor(Callback):
                 if self.is_mtp_model:
                     self.tensor_writer.add_scalar('mtp-loss', mtp_loss, global_step=global_step)
                 if self.is_moe_model:
-                    self.tensor_writer.add_scalar('aux-loss', extra_loss, global_step=global_step)
+                    self.tensor_writer.add_scalar('load-balancing-loss', extra_loss, global_step=global_step)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
