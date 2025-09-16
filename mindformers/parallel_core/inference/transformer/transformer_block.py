@@ -201,7 +201,10 @@ class TransformerBlock(nn.Cell):
             ffn_padding_idx=None,
             ffn_unpadding_idx=None,
             key_cache=None,
-            value_cache=None
+            value_cache=None,
+            q_seq_lens_cpu=None,
+            batch_valid_length_cpu=None,
+            context_lens_tensor_cpu=None
     ):
         """ Construct function of transformer. """
         for index in range(self.num_layers):
@@ -227,7 +230,10 @@ class TransformerBlock(nn.Cell):
                 ffn_padding_idx=ffn_padding_idx,
                 ffn_unpadding_idx=ffn_unpadding_idx,
                 key_cache=key_cache_idx,
-                value_cache=value_cache_idx
+                value_cache=value_cache_idx,
+                q_seq_lens_cpu=q_seq_lens_cpu,
+                batch_valid_length_cpu=batch_valid_length_cpu,
+                context_lens_tensor_cpu=context_lens_tensor_cpu
             )
 
         # final layernorm.

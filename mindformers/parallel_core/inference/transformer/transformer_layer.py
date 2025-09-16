@@ -270,7 +270,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             ffn_padding_idx=None,
             ffn_unpadding_idx=None,
             key_cache=None,
-            value_cache=None
+            value_cache=None,
+            q_seq_lens_cpu=None,
+            batch_valid_length_cpu=None,
+            context_lens_tensor_cpu=None
     ):
         """
         Perform a forward pass through the transformer layer.
@@ -294,7 +297,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             slot_mapping=slot_mapping,
             attn_padding_idx=attn_padding_idx,
             key_cache=key_cache,
-            value_cache=value_cache
+            value_cache=value_cache,
+            q_seq_lens_cpu=q_seq_lens_cpu,
+            batch_valid_length_cpu=batch_valid_length_cpu,
+            context_lens_tensor_cpu=context_lens_tensor_cpu
         )
         output = self._construct_mlp(
             pre_mlp_layernorm_output,
@@ -322,7 +328,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             slot_mapping=None,
             attn_padding_idx=None,
             key_cache=None,
-            value_cache=None
+            value_cache=None,
+            q_seq_lens_cpu=None,
+            batch_valid_length_cpu=None,
+            context_lens_tensor_cpu=None
     ):
         """
         Perform a forward pass through the attention layer and the layernorms before and after
@@ -345,7 +354,10 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             actual_seq_kvlen=batch_valid_length,
             context_lens_tensor=context_lens_tensor,
             key_cache=key_cache,
-            value_cache=value_cache
+            value_cache=value_cache,
+            q_seq_lens_cpu=q_seq_lens_cpu,
+            batch_valid_length_cpu=batch_valid_length_cpu,
+            context_lens_tensor_cpu=context_lens_tensor_cpu
         )
 
         # Optional Layer norm after self-attention
