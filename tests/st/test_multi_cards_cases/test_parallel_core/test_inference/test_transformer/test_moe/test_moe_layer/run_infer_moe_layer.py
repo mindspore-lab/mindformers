@@ -72,7 +72,7 @@ class MoELayerRunner(MoERunner):
         new_param_dict["shared_experts.linear_fc2.weight"] = Parameter(shared_expert_w_fc2_shard)
 
         # router
-        router_weight = param_dict["router.weight.weight"]
+        router_weight = param_dict["router.weight"]
         router_expert_bias = param_dict["router.expert_bias"]
         if self.ep_group_size > 1 and not self.config.use_alltoall:
             expert_idx = [idx for idx in range(router_weight.shape[0])]
@@ -80,7 +80,7 @@ class MoELayerRunner(MoERunner):
             expert_idx = expert_idx[in_start_expert_idx:] + expert_idx[:in_start_expert_idx]
             router_weight = router_weight[expert_idx]
             router_expert_bias = router_expert_bias[expert_idx]
-        new_param_dict["router.weight.weight"] = Parameter(router_weight)
+        new_param_dict["router.weight"] = Parameter(router_weight)
         new_param_dict["router.expert_bias"] = Parameter(router_expert_bias)
 
         # expert

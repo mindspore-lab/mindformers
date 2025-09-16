@@ -40,7 +40,7 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
         ('.mlp.gate_proj.', '.mlp.gating.'),
         ('.mlp.down_proj.', '.mlp.linear_fc2.'),
         ('.mlp.up_proj.', '.mlp.hidden.'),
-        ('.gate.weight', '.router.weight.weight'),
+        ('.gate.weight', '.router.weight'),
         ('.gate.e_score_correction_bias', '.router.expert_bias'),
         ('.mlp.shared_experts.gate_proj.', '.mlp.shared_experts.gating.'),
         ('.mlp.shared_experts.up_proj.', '.mlp.shared_experts.hidden.'),
@@ -86,3 +86,6 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
                     f"{num_hidden_layers} + {num_nextn_predict_layers} "
                     f"and pp * pp_interleave_num = {pp * pp_interleave_num}."
                 )
+
+    def get_model_parameters(self):
+        pass

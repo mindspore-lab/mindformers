@@ -26,7 +26,7 @@ def get_init_params(seq_len, batch_size, hidden_size, num_experts, moe_intermedi
     shared_experts_fc2_weight_shape = (hidden_size, moe_intermediate_size)
     return {
         "input": np.random.rand(batch_size * seq_len, hidden_size),
-        "router.weight.weight": 0.01 * np.random.rand(*gate_weight_shape),
+        "router.weight": 0.01 * np.random.rand(*gate_weight_shape),
         "router.expert_bias": 0.01 * np.random.rand(*gate_e_score_correction_bias_shape),
         "experts.weight1": 0.01 * np.random.rand(*experts_fc1_weight_shape),
         "experts.weight2": 0.01 * np.random.rand(*experts_fc2_weight_shape),
