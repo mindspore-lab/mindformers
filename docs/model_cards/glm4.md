@@ -64,7 +64,7 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ### 安装环境
 
-MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
+MindSpore Transformers 软硬件配套关系以及安装参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/installation.html#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96%E8%BD%AF%E4%BB%B6)和[版本匹配关系](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.6.0/installation.html#%E7%A1%AE%E8%AE%A4%E7%89%88%E6%9C%AC%E5%8C%B9%E9%85%8D%E5%85%B3%E7%B3%BB)。
 
 ### 数据及权重准备
 
@@ -175,12 +175,6 @@ MindSpore TransFormers 提供已经转换完成的预训练权重、词表文件
 ## 全参微调
 
 MindSpore Transformers 提供 `GLM4-9b` 单机多卡微调示例，过程中使用 `alpaca` 数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
-
-设置如下环境变量：
-
-```bash
-export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
-```
 
 ### 单机训练
 

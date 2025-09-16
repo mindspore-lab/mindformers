@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Base DataLoader"""
-import os
-
 from mindformers.tools.logger import logger
 
 
@@ -28,13 +26,13 @@ class BaseDataLoader:
         """load dataset"""
         import datasets
         from datasets import Dataset
-        try:
-            logger.info(f"USE_OM: {os.environ.get('USE_OM', False)}")
+        use_om = kwargs.get('use_om', False)
+        logger.info(f"USE_OM: {use_om}")
+        if use_om:
             # pylint: disable=W0611
             import openmind_datasets
             logger.info("connect openmind")
-
-        except (ModuleNotFoundError, KeyError):
+        else:
             logger.info("connect huggingFace")
 
         if load_func == 'load_dataset':

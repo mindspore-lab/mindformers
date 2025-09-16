@@ -14,11 +14,11 @@
 # ============================================================================
 """Functions to check rules"""
 import os
-import json
+import math
 import yaml
 from yaml.nodes import MappingNode
 import mindspore as ms
-from .utils import get_real_group_size
+from .utils import get_real_group_size, get_device_num_per_node
 from .logger import logger
 
 YAML_MAX_NESTING_DEPTH = 10
@@ -37,12 +37,7 @@ def get_device_num():
 
 
 def get_server_num():
-    path = os.getenv('RANK_TABLE_FILE', None)
-    if path is None:
-        return 1
-    with open(path, 'r') as json_file:
-        data = json.load(json_file)
-    return int(data['server_count'])
+    return math.ceil(get_device_num() / get_device_num_per_node())
 
 
 def _check_mode(config, mode, **kwargs):
@@ -73,7 +68,7 @@ def _check_mode(config, mode, **kwargs):
 def _restore_net_type(config):
     """net data type with different mode"""
     if config.model.model_config.compute_dtype == 'bfloat16' and \
-        config.model.model_config.param_init_type == 'float32':
+            config.model.model_config.param_init_type == 'float32':
         config.model.model_config.compute_dtype = 'float16'
         config.model.model_config.param_init_type = 'float16'
         logger.warning("cast compute_dtype and param_init_type to float16 for predict/eval performance")
@@ -266,7 +261,7 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
 
         # when do_eval == True, eval_dataset should be in train mode
         if metric_config['type'] == "PerplexityMetric" and \
-            eval_dataset and eval_dataset.data_loader.phase != 'train':
+                eval_dataset and eval_dataset.data_loader.phase != 'train':
             logger.warning("when using 'PerplexityMetric', eval_dataset.data_loader.phase would be set to 'train'.")
             eval_dataset.data_loader.phase = 'train'
             config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
