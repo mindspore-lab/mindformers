@@ -248,8 +248,8 @@ def get_data_from_shm(shm_name_value, shape_value, dtype=np.float32):
     try:
         shm_name = decode_shm_name_from_int64(shm_name_value)
         shape = decode_shape_from_int64(shape_value)
-        shm = shared_memory.SharedMemory(name=shm_name)
-        pixel_values = np.ndarray(shape, dtype=dtype, buffer=shm.buf).copy()
+        with shared_memory.SharedMemory(name=shm_name) as shm:
+            pixel_values = np.ndarray(shape, dtype=dtype, buffer=shm.buf).copy()
+            return pixel_values
     except Exception as e:
         raise ValueError(f"Get data from share memory error: {e}") from e
-    return pixel_values

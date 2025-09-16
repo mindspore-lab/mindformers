@@ -61,7 +61,7 @@ class MegatronDataset(ABC):
         self.unique_description = json.dumps(
             self.unique_identifiers, indent=4, default=lambda obj: obj.unique_identifiers
         )
-        self.unique_description_hash = hashlib.md5(
+        self.unique_description_hash = hashlib.sha256(
             self.unique_description.encode("utf-8")
         ).hexdigest()
 
@@ -109,7 +109,7 @@ class MegatronDataset(ABC):
     def _key_config_attributes() -> List[str]:
         """Return all config attributes which contribute to uniquely identifying the dataset.
 
-        These attributes will be used to build a uniquely identifying string and MD5 hash which
+        These attributes will be used to build a uniquely identifying string and SHA256 hash which
         will be used to cache/load dataset resources from run to run.
 
         Returns:

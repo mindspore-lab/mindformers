@@ -33,12 +33,11 @@ def load_image(content, timeout=4):
         if content.startswith("https://") or content.startswith("http://"):
 
             try:
-                response = requests.get(content, stream=True, timeout=timeout)
+                with requests.get(content, stream=True, timeout=timeout) as response:
+                    content = response.raw
             except (TimeoutError, urllib3.exceptions.MaxRetryError,
                     requests.exceptions.ProxyError) as exc:
                 raise ConnectionError(f"Connect error, please download {content}.") from exc
-
-            content = response.raw
         elif not os.path.isfile(content):
             raise ValueError(
                 f"{content} is not a valid path. If URL, it must start with `http://` or `https://`."
