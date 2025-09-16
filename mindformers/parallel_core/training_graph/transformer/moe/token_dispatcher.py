@@ -472,9 +472,12 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         self.moe_permute_fusion = config.moe_permute_fusion
         self.hidden_size = config.hidden_size
+        self.seq_length = config.seq_length
         self.moe_router_topk = config.moe_router_topk
+        self.is_dryrun = config.is_dryrun
 
-        self.dp = config.data_parallel_size * config.tensor_model_parallel_size
+        self.tp = config.tensor_model_parallel_size
+        self.cp = config.context_parallel_size
 
         # compute parameters
         self.on_value = Tensor(1.0, dtype=ms.int32)
@@ -527,6 +530,30 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         return tokens_per_expert, input_splits, output_splits
 
+    def preprocess_with_dryrun(self, num_local_tokens_per_expert):
+        """
+        Preprocesses the token routing map for AlltoAll communication and token permutation in dry-run mode.
+
+        This method simulates the token routing preprocessing without actual data dependency
+        or cross-device communication. It generates idealized token distribution data based
+        on theoretical calculations for testing and performance analysis purposes.
+        """
+        tokens_per_expert = self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.expert_num
+        num_global_tokens_per_expert = Tensor([tokens_per_expert] * self.expert_num, ms.float32).reshape(self.ep, -1)
+        num_local_tokens_per_expert = Tensor([tokens_per_expert] * self.expert_num, ms.float32)
+
+        # [ep, E/ep]  -->  [ep]
+        input_splits = ops.cast(
+            num_local_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+        # [ep, E/ep]  --> [ep]
+        output_splits = ops.cast(
+            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+        # [ep, E/ep]  --> (E/ep) int64
+        tokens_per_expert = ops.cast(ops.cumsum(
+            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+
+        return tokens_per_expert, input_splits, output_splits
+
     def _process_pad_tokens(self, tokens, routing_map, probs):
         """
         Prepares the input tensors by padding them with special tokens.
@@ -556,7 +583,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             routing_map (torch.Tensor): Token to expert mapping tensor.
         """
         # Whether to pad tokens for each expert.
-        if self.use_pad_tokens:
+        if self.use_pad_tokens and not self.is_dryrun:
             tokens, routing_map, probs = self._process_pad_tokens(tokens, routing_map, probs)
 
         # Permutation 1: input to AlltoAll input
@@ -570,7 +597,10 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             reshaped_map.astype(ms.int32), self.expert_num, self.on_value, self.off_value), 1)
         num_tokens_per_expert = Cast()(num_tokens_per_expert, ms.float32)
 
-        tokens_per_expert, input_splits, output_splits = self.preprocess(num_tokens_per_expert)
+        if self.is_dryrun:
+            tokens_per_expert, input_splits, output_splits = self.preprocess_with_dryrun(num_tokens_per_expert)
+        else:
+            tokens_per_expert, input_splits, output_splits = self.preprocess(num_tokens_per_expert)
 
         # Perform expert parallel AlltoAll communication
         # The shape change is: global_input_tokens <- [B, S, h]
@@ -648,7 +678,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         )
 
         # remove pad tokens
-        if self.use_pad_tokens:
+        if self.use_pad_tokens and not self.is_dryrun:
             output = ops.strided_slice(
                 output,
                 (0, self.pad_routing_map.shape[1], 0),
