@@ -276,6 +276,9 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
                 Tensor(np.zeros((self.expert_num)), dtype=ms.int32), requires_grad=False)
             self.assign = ops.Assign()
 
+        self.mul = ops.Mul().recompute(True)
+        self.nonzero = ops.NoneZero().add_prim_attr("recompute", False)
+
     def _get_oep_group_name(self):
         """
         Generates a unique group name for a set of ranks involved in outer expert partitioning (oep)

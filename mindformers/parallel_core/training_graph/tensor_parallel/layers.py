@@ -215,7 +215,7 @@ class ColumnParallelLinear(nn.Cell):
         self.matmul = ops.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
             self.add = AddExt()
-        self.reshape = Reshape()
+        self.reshape = Reshape().recompute(True)
 
         # init morphed layer
         self.morphed_forward_with_bias = Morph(self.forward_func_with_bias,
@@ -404,7 +404,9 @@ class RowParallelLinear(nn.Cell):
             self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(required_groups=['tp'])
             self.tp_group = self.model_comm_pgs.tp
             self.reduce_scatter = ops.ReduceScatter(group=self.tp_group.group)
+            self.reduce_scatter.set_prim_instance_name("forward_op_row_parallel")
             self.all_reduce = ops.AllReduce(group=self.tp_group.group)
+            self.all_reduce.set_prim_instance_name("forward_op_row_parallel")
         self.input_size_per_partition = divide(input_size, self.tp)
         self.shape = P.Shape()
 

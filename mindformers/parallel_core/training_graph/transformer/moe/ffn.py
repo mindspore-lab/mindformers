@@ -105,6 +105,7 @@ class FFNGroupedGEMM(nn.Cell):
         self.shape = Shape()
         self.cast_op = Cast()
         self.reshape = Reshape()
+        self.swiglu = Swiglu().recompute(True)
 
         if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
@@ -152,7 +153,7 @@ class FFNGroupedGEMM(nn.Cell):
         permuted_local_hidden_states = permuted_local_hidden_states.reshape((-1, self.hidden_size))
         fc1_output = GroupedMatmul(split_item=3, group_type=0)(
             [permuted_local_hidden_states], [w1], None, None, None, None, None, tokens_per_expert)[0]
-        intermediate_parallel = Swiglu()(fc1_output, -1).reshape((-1, w2.shape[1]))
+        intermediate_parallel = self.swiglu(fc1_output, -1).reshape((-1, w2.shape[1]))
         fc2_output = GroupedMatmul(split_item=3, group_type=0)(
             [intermediate_parallel], [w2], None, None, None, None, None, tokens_per_expert)[0]
         return fc2_output

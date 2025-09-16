@@ -122,7 +122,7 @@ class MLP(nn.Cell):
         )
 
         self.split = SplitWithSize()
-        self.reshape = Reshape()
+        self.reshape = Reshape().recompute(True)
         self.add = AddExt()
         self.transpose = Transpose()
 
