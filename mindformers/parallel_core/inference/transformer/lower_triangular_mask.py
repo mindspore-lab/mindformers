@@ -13,9 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """LowerTriangularMask Module"""
-
-__all__ = ['LowerTriangularMaskWithDynamic']
-
 import numpy as np
 
 from mindspore import nn, Tensor, ops

@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Dropout"""
-__all__ = ['Dropout']
-
 import mindspore as ms
 from mindspore import nn
 import mindspore.common.dtype as mstype

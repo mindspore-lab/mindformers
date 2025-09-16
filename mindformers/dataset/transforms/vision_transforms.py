@@ -25,12 +25,6 @@ import mindspore as ms
 from mindspore.dataset.vision.utils import Inter
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-__all__ = [
-    'BatchResize', 'BCHW2BHWC', 'BatchPILize',
-    'BatchNormalize', 'BatchCenterCrop', 'BatchToTensor',
-    'RandomCropDecodeResize', 'RandomResizedCrop', 'Resize',
-    'RandomHorizontalFlip'
-]
 
 INTERPOLATION = {'nearest': Inter.NEAREST,
                  'antialias': Inter.ANTIALIAS,

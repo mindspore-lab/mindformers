@@ -19,9 +19,6 @@ from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs
 
 
-__all__ = ["PtqQuantizer"]
-
-
 class PtqQuantizer(Quantizer):
     """
     Quantizer of the PTQ method - for PTQ the quantizer support calibration of the model through

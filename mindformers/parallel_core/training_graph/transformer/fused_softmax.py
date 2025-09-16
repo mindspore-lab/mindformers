@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Fused softmax for transformer."""
-__all__ = ['FusedScaleMaskSoftmax']
-
 from typing import Callable
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P

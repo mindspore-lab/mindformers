@@ -21,10 +21,6 @@ speculative decoding for faster inference by generating draft tokens in parallel
 Note: Typically used only during training (disabled at inference in DeepSeek-V3).
 """
 
-__all__ = ['MultiTokenPredictionBlock', 'MultiTokenPredictionBlock',
-           'MultiTokenPredictionLayer', 'MultiTokenPredictionLayerSubmodules',
-           'MultiTokenPredictionBlockSubmodules', 'get_mtp_layer_spec']
-
 from dataclasses import dataclass
 from typing import Union, List, Optional, Literal
 

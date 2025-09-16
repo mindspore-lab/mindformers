@@ -25,8 +25,6 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
 from research.deepseek3.deepseek2_config import DeepseekV2Config
 
-__all__ = ['DeepseekV3Config']
-
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class DeepseekV3Config(DeepseekV2Config):

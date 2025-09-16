@@ -22,9 +22,6 @@ from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs
 
 
-__all__ = ["SmoothQuantQuantizer"]
-
-
 class SmoothQuantQuantizer(Quantizer):
     """
     Quantizer of the Smooth Quant method - for Smooth Quant the quantizer support calibration of the model through

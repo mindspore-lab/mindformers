@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Flash Attention Layer"""
-__all__ = ['FlashAttention']
-
 import math
 
 import mindspore.common.dtype as mstype

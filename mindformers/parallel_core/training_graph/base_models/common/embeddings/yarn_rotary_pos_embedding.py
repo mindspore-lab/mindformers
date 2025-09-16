@@ -15,10 +15,6 @@
 """
 Yarn rotary position embedding for transformer.
 """
-__all__ = [
-    "YarnRotaryEmbedding"
-]
-
 import math
 
 import numpy as np

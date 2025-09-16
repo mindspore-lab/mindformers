@@ -13,9 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Transformer SharedExpertMLP"""
-__all__ = [
-    "SharedExpertMLP"
-]
 from copy import deepcopy
 from mindspore import Tensor
 from mindspore.nn.layer import Dense

@@ -39,10 +39,6 @@ AUTO_QUANTIZATION_CONFIG_MAPPING = {
     "smooth_quant": SmoothQuantConfig,
 }
 
-__all__ = [
-    "AutoQuantizationConfig",
-    "AutoQuantizer"]
-
 
 class AutoQuantizationConfig:
     """

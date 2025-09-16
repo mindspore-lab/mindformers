@@ -29,38 +29,6 @@ from mindspore.nn.cell import Cell
 from mindspore import ops
 from mindspore.ops.primitive import _primexpr
 
-__all__ = ['Softmin',
-           'Softmax',
-           'Softmax2d',
-           'LogSoftmax',
-           'ReLU',
-           'ReLU6',
-           'RReLU',
-           'SeLU',
-           'SiLU',
-           'Tanh',
-           'Tanhshrink',
-           'Hardtanh',
-           'GELU',
-           'FastGelu',
-           'Sigmoid',
-           'Softsign',
-           'PReLU',
-           'get_activation',
-           'LeakyReLU',
-           'HSigmoid',
-           'HSwish',
-           'ELU',
-           'LogSigmoid',
-           'LRN',
-           'SoftShrink',
-           'HShrink',
-           'CELU',
-           'Threshold',
-           'Mish',
-           'GLU'
-           ]
-
 
 class CELU(Cell):
     r"""

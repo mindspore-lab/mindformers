@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ utils """
-__all__ = ["get_attn_mask_func", "generate_state_dict"]
-
 from contextlib import contextmanager
 
 from mindspore import Tensor, ops, Parameter, mint

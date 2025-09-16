@@ -65,8 +65,6 @@ from research.deepseek3.infer.norm import RMSNorm
 from research.deepseek3.infer.transformer import ParallelMLP, VocabEmbedding
 from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 
-__all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
-
 
 class CacheConfig(Enum):
     KEY_VALUE_CACHE = 0

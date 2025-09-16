@@ -48,8 +48,6 @@ from mindformers.version_control import check_valid_moefinalizerouting_op
 from mindformers.modules.transformer.moe_utils import ZLoss
 from mindformers.tools.utils import get_predict_run_mode
 
-__all__ = [
-    "MoEConfig"]
 
 dtype_map = {
     'float16': mstype.float32,

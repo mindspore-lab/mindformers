@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Flash Attention Layer"""
-__all__ = ['FlashAttention']
-
 from mindspore import ops
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.nn_ops import FlashAttentionScore

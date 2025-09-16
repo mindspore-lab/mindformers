@@ -21,8 +21,6 @@ from research.deepseek3.deepseek3_model_train import TrainingDeepseekV3ForCausal
 from research.deepseek3.deepseek3_model_infer import InferenceDeepseekV3ForCausalLM
 from research.deepseek3.deepseek3_model_infer import InferenceDeepseekV3MTPForCausalLM
 
-__all__ = ['DeepseekV3ForCausalLM']
-
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class DeepseekV3ForCausalLM:

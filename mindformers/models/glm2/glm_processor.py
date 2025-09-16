@@ -23,9 +23,6 @@ from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
-__all__ = ['GLMProcessor']
-
-
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class GLMProcessor(ProcessorMixin):
     """

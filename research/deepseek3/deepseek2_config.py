@@ -26,8 +26,6 @@ from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.version_control import check_swiglu_valid, check_rotary_position_embedding_valid
 
-__all__ = ['DeepseekV2Config']
-
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class DeepseekV2Config(PretrainedConfig):

@@ -22,10 +22,6 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.transformer.mlp import MLP, MLPSubmodules
 from mindformers.parallel_core.inference.tensor_parallel.layers import ReplicatedLinear
 
-__all__ = [
-    'SharedExpertMLP',
-]
-
 
 class SharedExpertMLP(MLP):
     """

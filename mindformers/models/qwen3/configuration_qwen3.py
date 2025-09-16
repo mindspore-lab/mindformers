@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Qwen3 Config API."""
-__all__ = ['Qwen3Config']
-
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.model_config_utils import (
     register_mf_model_parameter,

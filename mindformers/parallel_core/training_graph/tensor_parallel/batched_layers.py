@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Batched linear units for tensor parallelism."""
-__all__ = ["ColumnParallelBatchedLinear", "RowParallelBatchedLinear"]
-
 from typing import List, Optional, Callable
 
 from mindspore import nn, Tensor

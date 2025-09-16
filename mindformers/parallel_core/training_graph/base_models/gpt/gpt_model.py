@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """mindformers GPT model"""
-__all__ = ['GPTModel']
-
 from typing import Literal, Optional, Union
 import numpy as np
 

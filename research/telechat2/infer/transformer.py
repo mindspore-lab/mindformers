@@ -36,14 +36,6 @@ from research.telechat2.infer.scale_mask_softmax import ScaleMaskSoftmax
 from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 
 
-__all__ = [
-    "ParallelMLP",
-    "ParallelAttention",
-    "ParallelTransformerLayer",
-    "ParallelTransformer",
-]
-
-
 class VocabEmbedding(nn.Cell):
     """
     Embedding Layer.

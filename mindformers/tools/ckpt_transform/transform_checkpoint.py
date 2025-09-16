@@ -51,8 +51,6 @@ from mindformers.tools.ckpt_transform.utils import (
 if check_in_modelarts():
     import moxing as mox
 
-__all__ = ['TransformCkpt']
-
 
 class TransformCkpt:
     """Transform src_checkpoint from src_strategy to dst_strategy."""

@@ -13,11 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Transformer MLP"""
-__all__ = [
-    "MLPSubmodules",
-    "MLP"
-]
-
 from dataclasses import dataclass
 from typing import Union, Optional
 

@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Activation functions for transformer."""
-__all__ = ["GELU", "SwiGlu", "SiLU", "get_activation"]
-
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import Mul, AddExt, GeLU, Erf, Sqrt, Div, Cast

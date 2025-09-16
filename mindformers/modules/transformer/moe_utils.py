@@ -17,10 +17,6 @@ from mindspore import nn
 from mindspore import ops as P
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 
-__all__ = [
-    "ZLoss"
-]
-
 
 class ZLoss(nn.Cell):
     """Encouraging the routers' logits to remain small, mitigating round-off error to enhance stability.

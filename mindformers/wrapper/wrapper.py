@@ -40,11 +40,7 @@ if is_dump_supported():
     from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
 
 
-
-
-
-__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'PipelineCellWithTwoOutput',
-           'GradAccumulationCellWithTwoOutput']
+__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
 
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()

@@ -28,9 +28,6 @@ from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 
-__all__ = ['MultiModalToTextGenerationTrainer']
-
-
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class MultiModalToTextGenerationTrainer(BaseTrainer):

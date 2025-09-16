@@ -13,13 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Linear units for tensor parallelism."""
-__all__ = [
-    "ColumnParallelLinear",
-    "RowParallelLinear",
-    "VocabParallelEmbedding",
-    "LinearNoTP"
-]
-
 from typing import List, Optional, Callable
 import copy
 

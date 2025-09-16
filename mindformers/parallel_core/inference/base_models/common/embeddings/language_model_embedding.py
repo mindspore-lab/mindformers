@@ -15,10 +15,6 @@
 """
 Language model embedding for transformer.
 """
-__all__ = [
-    "LanguageModelEmbedding",
-]
-
 from typing import Literal
 
 from mindspore import nn, Tensor

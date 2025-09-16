@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Activations."""
-__all__ = ["get_act_func"]
-
 import inspect
 
 from mindspore import nn, mint

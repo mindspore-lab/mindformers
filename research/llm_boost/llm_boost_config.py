@@ -26,8 +26,6 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 
-__all__ = ["LlmBoostConfig"]
-
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class LlmBoostConfig(PretrainedConfig):

@@ -47,7 +47,7 @@ from .glm2_modules import FreqsMgr, FreqsMgrRope, GetEodResetMask
 from .glm2_transformer import ChatGLM2Transformer
 from ...tools.logger import logger
 
-__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
+__all__ = ['ChatGLM2ForConditionalGeneration']
 
 # For long sequence, activation checkpointing of AllGather in case of tp-sp is too large, and should be eliminated;
 # For short sequence, static memory especially gradient accumulation is too large, and should be sharded by tp.

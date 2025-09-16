@@ -24,9 +24,6 @@ if check_in_modelarts():
     import moxing as mox
 
 
-__all__ = ['mox_adapter']
-
-
 def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
     """File interaction with Moxing."""
     success = False

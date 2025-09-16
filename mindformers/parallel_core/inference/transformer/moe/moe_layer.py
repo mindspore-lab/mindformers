@@ -25,12 +25,6 @@ from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.moe.router import TopKRouter
 from mindformers.parallel_core.inference.tensor_parallel.mappings import ReduceFromModelParallelRegion
 
-__all__ = [
-    'MoESubmodules',
-    'BaseMoELayer',
-    'MoELayer'
-]
-
 
 class MoESubmodules:
     """

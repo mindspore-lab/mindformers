@@ -46,7 +46,7 @@ from .llama_interleave import LLamaDecodeLayerInterleave
 from ..utils import lazy_inline
 from ...tools.logger import logger
 
-__all__ = ['LlamaModel', 'LlamaForCausalLM']
+__all__ = ['LlamaForCausalLM']
 
 
 class LlamaPreTrainedModel(PreTrainedModel):

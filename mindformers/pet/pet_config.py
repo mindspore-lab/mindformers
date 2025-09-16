@@ -21,7 +21,7 @@ from mindformers.tools import DictConfig
 from mindformers.pet.constants import PetType
 
 
-__all__ = ['PetConfig', 'LoraConfig', 'Ptuning2Config', 'PrefixTuningConfig']
+__all__ = ['PetConfig', 'LoraConfig']
 
 
 class PetConfig(DictConfig):

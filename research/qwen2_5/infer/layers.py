@@ -32,8 +32,6 @@ from mindformers.parallel_core.inference.utils import divide
 from mindformers.version_control import check_valid_gmm_op
 from mindformers.models.utils import jit
 
-__all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
-
 
 class ColumnParallelLinear(nn.Cell):
     r"""

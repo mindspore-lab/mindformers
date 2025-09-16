@@ -41,8 +41,6 @@ from mindformers.parallel_core.training_graph.tensor_parallel.layers import (
     LinearNoTP,
 )
 
-__all__ = ["ColumnParallelLinearWithLoRA", "RowParallelLinearWithLoRA"]
-
 
 def init_lora_method(method, param_init_dtype: dtype = dtype.float32):
     """Init method based on N(0, sigma)."""

@@ -29,3 +29,15 @@ mindformers/mindformers/models/tokenization_utils_base.py:prepare_for_model
 mindformers/mindformers/models/tokenization_utils_base.py:truncate_sequences
 mindformers/mindformers/dataset/dataloader/multi_source_dataloader.py:__new__
 mindformers/research/llm_boost/run_llm_boost.py:main
+mindformers/mindformers/parallel_core/training_graph/base_models/gpt/gpt_model.py:__init__
+mindformers/mindformers/parallel_core/training_graph/tensor_parallel/batched_layers.py:__init__
+mindformers/mindformers/tools/ckpt_transform/transform_checkpoint.py:__init__
+mindformers/mindformers/models/llama/llama.py:__init__
+mindformers/mindformers/models/llama/llama.py:construct
+mindformers/mindformers/modules/transformer/transformer.py:__init__
+mindformers/mindformers/modules/layers.py:__init__
+mindformers/mindformers/generation/logits_process.py:check_params
+mindformers/research/deepseek3/deepseek2_model.py:__init__
+mindformers/mindformers/modules/transformer/moe.py:__init__
+mindformers/research/deepseek3/deepseek3_config.py:__init__
+mindformers/research/deepseek3/deepseek2_config.py:__init__
