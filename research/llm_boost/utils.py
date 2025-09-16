@@ -185,6 +185,9 @@ def save_strategy_file(state_dict, strategy_file_name):
     import stat
     from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
 
+    if ".." in strategy_file_name:
+        raise ValueError("The strategy file name cannot contain '..'")
+
     stra = ckpt_strategy()
 
     # pylint: disable=W0612

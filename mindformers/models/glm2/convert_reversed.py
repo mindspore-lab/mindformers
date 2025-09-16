@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Convert checkpoint from mindspore"""
+import os.path
 import re
 from collections import defaultdict
 from typing import Dict
@@ -233,6 +234,8 @@ def mlp_merge(pt_param: Dict):
 
 def convert_ms_to_pt(input_path, output_path, config, dtype=torch.float32, **kwargs):
     """ Convert MindSpore model file to pytorch model file. """
+    if os.path.exists(output_path):
+        raise ValueError(f"{output_path} already exists, please set another value.")
     ckpt_dict = ms.load_checkpoint(input_path)
     print('parameter convert....')
     pt_param = {}

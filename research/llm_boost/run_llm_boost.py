@@ -53,7 +53,8 @@ def main(
     save_file=""
 ):
     """main function."""
-
+    if os.path.exists(save_file):
+        raise ValueError(f"The save_file {save_file} should not exist.")
 
     if seq_length and seq_length < max_decode_length:
         raise ValueError("The max_decode_length must be less than or equal to seq_length.")

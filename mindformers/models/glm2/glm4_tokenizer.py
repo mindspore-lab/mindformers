@@ -182,6 +182,9 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
         else:
             vocab_file = save_directory
 
+        if os.path.exists(vocab_file):
+            raise ValueError(f"Output directory {vocab_file} already exists, please set another value.")
+
         with open(self.vocab_file, 'rb') as fin:
             proto_str = fin.read()
 

@@ -10,6 +10,8 @@ from mindformers.tools.utils import FILE_PERMISSION
 
 
 def main(data_path, output_path):
+    if os.path.exists(output_path):
+        raise ValueError(f"Output path {output_path} already exists.")
     data_path = pathlib.Path(data_path)
     with data_path.open() as f:
         data = json.load(f)

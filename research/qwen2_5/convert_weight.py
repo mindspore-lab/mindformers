@@ -98,6 +98,8 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
 
 def convert_lora_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
+    if os.path.exists(output_path):
+        raise ValueError(f"Output path '{output_path}' already exists.")
     print(
         f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
