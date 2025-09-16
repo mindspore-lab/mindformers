@@ -16,9 +16,24 @@
 from functools import partial
 import numpy as np
 
+import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset.causal_language_model_dataset import asl_batch_wrapper
+
+def generate_weight(network):
+    """generate network weight."""
+    param_dict = {}
+    np.random.seed(0)
+    for _, param in network.parameters_and_names():
+        if not param.has_init:
+            continue
+        if param.dtype not in [ms.int64, ms.int32]:
+            param_dict[param.name] = ms.Parameter(ms.Tensor(np.random.normal(0, 0.02, param.shape), ms.bfloat16))
+        else:
+            param_dict[param.name] = ms.Parameter(ms.Tensor(np.zeros(param.shape), param.dtype))
+    return param_dict
+
 
 def generate_data(seq_len, vocab_size, batch_size=4, step_num=20, use_actual_seq_len=False):
     """generate data for testing model."""
@@ -28,7 +43,9 @@ def generate_data(seq_len, vocab_size, batch_size=4, step_num=20, use_actual_seq
     actual_seq_len = np.array([*actual_seq_len[1:], seq_len], np.int32)
 
     for input_data in input_ids:
-        data = [input_data, input_data]
+        label = np.roll(input_data, shift=-1, axis=0)
+        label[-1] = 0
+        data = [input_data, label]
         if use_actual_seq_len:
             data.append(actual_seq_len)
         yield data
