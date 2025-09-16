@@ -678,7 +678,7 @@ class MLASelfAttention(MultiLatentAttention):
         self.split_3d.shard((layout("cp", "dp", "None"),))
         self.expand_dims.shard((layout("cp", "dp", "None"),))
 
-        if self.q_layernorm is not None:
+        if hasattr(self, "q_layernorm") and self.q_layernorm is not None:
             self.q_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
         if self.kv_layernorm is not None:
             self.kv_layernorm.shard(self.config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
