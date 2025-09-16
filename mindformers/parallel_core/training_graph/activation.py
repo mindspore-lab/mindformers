@@ -36,7 +36,7 @@ class FusedSwiGlu(nn.Cell):
 
     def __init__(self, config: ModelParallelConfig = None):
         super(FusedSwiGlu, self).__init__()
-        self.swiglu = Swiglu_op()
+        self.swiglu = Swiglu_op().recompute(True)
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
                 self.sharding_propagation(config)
