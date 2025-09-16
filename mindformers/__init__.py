@@ -155,8 +155,6 @@ from mindformers.models import (
 from mindformers.modules import (
     AlibiTensor,
     AlibiTensorV2,
-    AttentionMask,
-    AttentionMaskHF,
     Dropout,
     EmbeddingOpParallelConfig,
     FeedForward,
@@ -166,17 +164,10 @@ from mindformers.modules import (
     LocalBlockSparseAttention,
     LowerTriangularMaskWithDynamic,
     MoEConfig,
-    MultiHeadAttention,
     OpParallelConfig,
     RotaryEmbedding,
-    Transformer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
-    TransformerEncoder,
-    TransformerEncoderLayer,
     TransformerOpParallelConfig,
-    TransformerRecomputeConfig,
-    VocabEmbedding
+    TransformerRecomputeConfig
 )
 from mindformers.wrapper import (
     AdaptiveLossScaleUpdateCell,
