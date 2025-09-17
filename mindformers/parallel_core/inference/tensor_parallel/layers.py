@@ -512,7 +512,10 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             indices = [slice(None)] * len(param.shape)
             indices[output_dim] = slice(shard_offset, shard_offset + shard_size)
             param.init_data()
-            param[tuple(indices)] = ms.from_numpy(loaded_weight)
+            weight_dtype = ms.from_numpy(loaded_weight).dtype
+            if weight_dtype == ms.bfloat16:
+                loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+            param.asnumpy()[tuple(indices)] = loaded_weight
         else:
             if is_hf_weight:
                 shard_sizes = [output_sizes // tp_size for output_sizes in self.output_sizes]
@@ -652,7 +655,6 @@ class QKVParallelLinear(ColumnParallelLinear):
             start_idx = shard_id * shard_size
             loaded_weight = split_loaded_weight(loaded_weight, output_dim,
                                                 start_idx, shard_size)
-            loaded_weight = ms.from_numpy(loaded_weight)
 
             if param.name.endswith("weight"):
                 if loaded_weight.shape != (shard_size, param.shape[1]):
@@ -667,7 +669,10 @@ class QKVParallelLinear(ColumnParallelLinear):
                         f" but got the shape of param is {(shard_size,)} and "
                         f"the shape of weight is{loaded_weight.shape}")
             param.init_data()
-            param[shard_offset:shard_offset + shard_size] = loaded_weight
+            weight_dtype = ms.from_numpy(loaded_weight).dtype
+            if weight_dtype == ms.bfloat16:
+                loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+            param.asnumpy()[shard_offset:shard_offset + shard_size] = loaded_weight
         else:
             loaded_weight = loaded_weight[:]
             loaded_weight = deal_training_qkv_weight(loaded_weight, self.config)
@@ -877,12 +882,11 @@ class RowParallelLinear(LinearBase):
             loaded_weight = loaded_weight.reshape(1)
         if param.name.endswith("quant_bias") and tp_rank != 0:
             loaded_weight.fill(0)
-        if param.shape == loaded_weight.shape:
-            param.set_data(ms.from_numpy(loaded_weight))
-        else:
+        if param.shape != loaded_weight.shape:
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
+        param.set_data(ms.from_numpy(loaded_weight))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
         cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
@@ -1057,7 +1061,10 @@ class ReplicatedLinear(LinearBase):
             indices = [slice(None)] * len(param.shape)
             indices[output_dim] = slice(offset, offset + size)
             param.init_data()
-            param[tuple(indices)] = ms.from_numpy(loaded_weight)
+            weight_dtype = ms.from_numpy(loaded_weight).dtype
+            if weight_dtype == ms.bfloat16:
+                loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+            param.asnumpy()[tuple(indices)] = loaded_weight
         else:
             if param.shape != loaded_weight.shape:
                 raise ValueError(
@@ -1207,8 +1214,11 @@ class VocabParallelEmbedding(nn.Cell):
                 f"the shape of param is {self.shard_size}"
             )
 
-        param[:loaded_weight.shape[0]] = ms.from_numpy(loaded_weight)
-        param[loaded_weight.shape[0]:] = 0
+        weight_dtype = ms.from_numpy(loaded_weight).dtype
+        if weight_dtype == ms.bfloat16:
+            loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
+        param.asnumpy()[:loaded_weight.shape[0]] = loaded_weight
+        param.asnumpy()[loaded_weight.shape[0]:] = 0
         cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
