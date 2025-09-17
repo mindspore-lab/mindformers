@@ -48,6 +48,13 @@ class TestDataLoader:
         self.dataset_dir = dataset_dir
 
 
+@MindFormerRegister.register(MindFormerModuleType.DATASET)
+class TestDataset:
+    """Test Dataset API For Register."""
+    def __init__(self, dataset_config=None):
+        self.dataset_config = dataset_config
+
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET_SAMPLER)
 class TestSampler:
     """Test Sampler API For Register."""
@@ -114,6 +121,9 @@ class TestModel(PreTrainedModel):
         super(TestModel, self).__init__(config)
         self.model_config = config
         self.params = Parameter(Tensor([0.1]))
+
+    def get_model_parameters(self):
+        pass
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
