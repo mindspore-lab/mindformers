@@ -172,7 +172,8 @@ py::array build_sample_idx(const py::array_t<int32_t> &sizes_,
   {
     num_samples = ceil(float(num_epochs * tokens_per_epoch - add_extra_token_to_sequence) / seq_length);
   }
-  int64_t *sample_idx = new int64_t[2 * (num_samples + 1)];
+  int64_t *sample_idx = new(std::nothrow) int64_t[2 * (num_samples + 1)];
+  assert(sample_idx != nullptr);
 
   // Index into sample_idx.
   int64_t sample_index = 0;
