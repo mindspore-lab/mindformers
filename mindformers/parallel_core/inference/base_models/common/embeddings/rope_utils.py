@@ -15,6 +15,8 @@
 """
 Rotary position embedding utils.
 """
+from typing import Dict, Tuple
+
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
@@ -25,6 +27,8 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.rotary_po
 )
 from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rotary_pos_embedding import \
     YaRNScalingRotaryEmbedding
+
+_ROPE_DICT: Dict[Tuple, RotaryEmbedding] = {}
 
 
 def _get_default(**kwargs):
@@ -117,6 +121,11 @@ def get_rope(
                          f"if you wish to successfully execute this task, "
                          f"you can implement this function or remove the rope_scaling "
                          f"configuration in the model configuration file config.json.")
+
+    key = (hidden_dim, rotary_percent, rotary_base, rotary_dtype, position_embedding_type,
+           original_max_position_embeddings, rotary_cos_format) + tuple(kwargs.values())
+    if key in _ROPE_DICT:
+        return _ROPE_DICT[key]
     rotary_emb = ROPE_FUNCTION.get(position_embedding_type)(
         config=config,
         kv_channels=hidden_dim,
@@ -128,4 +137,5 @@ def get_rope(
         rotary_cos_format=rotary_cos_format,
         **kwargs,
     )
+    _ROPE_DICT[key] = rotary_emb
     return rotary_emb
