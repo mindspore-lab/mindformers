@@ -381,11 +381,15 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         excounter = P.OneHot()(
             expert_id.reshape(-1), self.expert_num, Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)
         )
-        excounter = excounter.sum(axis=0)[self.a: self.b]
+        excounter_sum = excounter.sum(axis=0)
 
         if self.config.print_expert_load or self.config.enable_expert_relocation:
-            num_tokens_per_expert_new = ops.cast(excounter, ms.int32)
-            self.assign(self.num_tokens_per_expert, num_tokens_per_expert_new.reshape(self.expert_num))
+            num_tokens_per_expert_new = ops.cast(excounter_sum, ms.int32)
+            assign_out = self.assign(self.num_tokens_per_expert, num_tokens_per_expert_new.reshape(self.expert_num))
+            excounter_slice = excounter_sum[self.a: self.b]
+            excounter = ops.Depend()(excounter_slice, assign_out)
+        else:
+            excounter = excounter_sum[self.a: self.b]
 
         local_excounter = ops.AlltoAllV(group=self.iep_group, block_size=1)(excounter.reshape(-1), iepones, iepones)
         exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]

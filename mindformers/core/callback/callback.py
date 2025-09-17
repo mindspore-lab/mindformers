@@ -104,7 +104,6 @@ class ExpertParallelManager:
                  ep_group: List[int],
                  current_rank: int,
                  expert_nums: int,
-                 expert_size: int,
                  rank_to_expert: Optional[Dict[int, List[int]]] = None
                  ):
         """
@@ -114,13 +113,11 @@ class ExpertParallelManager:
             ep_group: List of global ranks in the expert parallel group
             current_rank: Global rank of the current process
             expert_nums: Total number of global experts
-            expert_size: Data size of a single expert (in bytes)
             rank_to_expert: Initial mapping from rank to expert list (optional)
         """
         self.ep_group = ep_group
         self.current_rank = current_rank
         self.expert_nums = expert_nums
-        self.expert_size = expert_size
         self.rank_to_expert = rank_to_expert or {}
         self.ep = len(ep_group)
         self.local_expert_num = expert_nums // self.ep
@@ -2407,23 +2404,24 @@ class ExpertMigrateCallback(Callback):
         self.save_checkpoint_steps = save_checkpoint_steps
 
         self.rank_id = get_rank()
-        self.pp = self.config.parallel_config.pipeline_stage
-        self.dp = self.config.parallel_config.data_parallel
-        self.tp = self.config.parallel_config.model_parallel
-        self.ep = self.config.parallel_config.expert_parallel
+        self.pp = self.config.pipeline_model_parallel_size
+        self.dp = self.config.data_parallel_size
+        self.tp = self.config.tensor_model_parallel_size
+        self.ep = self.config.expert_model_parallel_size
         self.pp_local_rank = self.rank_id % (self.dp * self.tp)
         self.dp_local_rank = (self.rank_id // self.tp) % self.dp
         self.tp_local_rank = self.rank_id % self.tp
-        self.ep_local_rank = (self.rank_id // self.tp) % self.ep
+        self.ep_local_rank = self.rank_id % self.ep
 
         self.pp_stage_id = self.rank_id // (self.dp * self.tp)
         self.dp_group_id = self.pp_stage_id * self.tp + self.tp_local_rank
         self.tp_group_id = self.pp_stage_id * self.dp + self.dp_local_rank
+        self.ep_group_id = self.rank_id // self.ep
 
         self.dp_per_ep = self.dp // self.ep
-        self.ep_group_id = self.dp_group_id // self.dp_per_ep
         self.vpp = None
-        self.num_layers = self.config.model.model_config.num_hidden_layers
+        self.num_layers = self.config.num_layers
+        self.mtp_num_layers = self.config.mtp_num_layers
         self.manager = manager
 
         self.num_expert_factor = 1
@@ -2431,6 +2429,7 @@ class ExpertMigrateCallback(Callback):
         if self.enable_parallel_optimizer:
             self.num_expert_factor = self.dp * self.tp // self.ep
             self._create_zero_dp_comm_group()
+        self.relative_expert_mapping = [None] * (self.num_layers + self.mtp_num_layers)
 
     def _create_zero_dp_comm_group(self):
         """Create zero data parallel communication group for expert migration."""
@@ -2439,10 +2438,9 @@ class ExpertMigrateCallback(Callback):
             rank_list.append(self.rank_id)
         else:
             base_pp = self.pp_stage_id * (self.dp * self.tp)
-            dp_span = [dp_shard * self.ep + self.ep_local_rank for dp_shard in range(self.dp_per_ep)]
-            for dp_in_group in dp_span:
-                for tp_in_group in range(self.tp):
-                    global_rank = base_pp + dp_in_group * self.tp + tp_in_group
+            for dp_idx in range(self.dp):
+                global_rank = base_pp + dp_idx * self.tp + self.tp_local_rank
+                if global_rank % self.ep == self.ep_local_rank:
                     rank_list.append(global_rank)
 
         rank_str_list = [str(r) for r in rank_list]
@@ -2457,20 +2455,29 @@ class ExpertMigrateCallback(Callback):
 
     def _get_moe_layers_in_current_stage(self):
         """Get all MoE layers in current pipeline stage."""
-        layers_per_stage = self.num_layers // self.pp
-        start_layer = self.pp_stage_id * layers_per_stage
-        end_layer = (self.pp_stage_id + 1) * layers_per_stage - 1
-
         moe_layers = []
         for layer_index in range(self.num_layers):
-            if layer_index < start_layer or layer_index > end_layer:
-                continue
             if not (hasattr(self.network, "model") and hasattr(self.network.model, "decoder") and
                     hasattr(self.network.model.decoder, "layers")):
                 continue
             layer = self.network.model.decoder.layers[layer_index]
+            if hasattr(layer, 'pipeline_stage') and layer.pipeline_stage != self.pp_stage_id:
+                continue
             if hasattr(layer, 'mlp') and hasattr(layer.mlp, 'experts'):
                 moe_layers.append((layer_index, layer))
+
+        for layer_index in range(self.mtp_num_layers):
+            if self.pp_stage_id < self.pp - 1:
+                continue
+            if not (hasattr(self.network, "model") and hasattr(self.network.model, "mtp") and
+                    hasattr(self.network.model.mtp, "layers")):
+                continue
+            layer = self.network.model.mtp.layers[layer_index]
+            if hasattr(layer, 'transformer_layer'):
+                transformer_layer = layer.transformer_layer
+                if hasattr(transformer_layer, 'mlp') and hasattr(transformer_layer.mlp, 'experts'):
+                    moe_layers.append((layer_index + self.num_layers, transformer_layer))
+
         return moe_layers
 
     def _update_expert_load_history(self):
@@ -2491,13 +2498,13 @@ class ExpertMigrateCallback(Callback):
 
         original_mode = ms.get_context("mode")
 
-        for _, layer in self._get_moe_layers_in_current_stage():
+        for layer_index, layer in self._get_moe_layers_in_current_stage():
             # Initialize relocation
             num_local_experts = layer.mlp.num_local_experts // self.num_expert_factor
             ep_group = layer.mlp.experts.token_dispatcher.ep_group
             q_mapping, local_expert_sorted_indices = layer.mlp.initialize_expert_relocation_dispatcher(
                 is_triggered_restore)
-            self.relative_expert_mapping = np.array(list(q_mapping.values())).flatten()
+            self.relative_expert_mapping[layer_index] = np.array(list(q_mapping.values())).flatten()
 
             context.set_context(mode=context.PYNATIVE_MODE)
 
@@ -2577,9 +2584,9 @@ class ExpertMigrateCallback(Callback):
 
             # Handle expert relocation case
             expert_load_history_sorted = expert_load_history
-            if hasattr(self, 'relative_expert_mapping'):
-                expert_load_history_sorted = expert_load_history_sorted[self.relative_expert_mapping]
-                del self.relative_expert_mapping
+            if self.relative_expert_mapping[layer_index] is not None:
+                expert_load_history_sorted = expert_load_history_sorted[self.relative_expert_mapping[layer_index]]
+                self.relative_expert_mapping[layer_index] = None
 
             expert_load_per_device_after = expert_load_history_sorted.reshape(-1, num_local_experts).sum(-1)
             min_load_after = expert_load_per_device_after.min()
@@ -2600,7 +2607,7 @@ class ExpertMigrateCallback(Callback):
         """Reset expert load history counters."""
         for _, layer in self._get_moe_layers_in_current_stage():
             layer.mlp.expert_load_history.set_data(
-                Tensor(np.zeros(self.config.model.model_config.num_experts), ms.float32))
+                ms.mint.zeros(self.config.num_moe_experts, dtype=ms.float32))
             layer.mlp.expert_load_history_cnt.set_data(Tensor(0, dtype=ms.int32))
 
     def on_train_step_end(self, run_context):

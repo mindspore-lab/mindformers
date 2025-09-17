@@ -1075,9 +1075,11 @@ class BaseTrainer:
 
         is_moe_model = False
         is_mtp_model = False
+        transformer_config = None
         if not is_legacy_model():
             is_moe_model = network.is_moe_model()
             is_mtp_model = network.is_mtp_model()
+            transformer_config = network.get_gpt_transformer_config()
 
         config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
@@ -1309,24 +1311,23 @@ class BaseTrainer:
             )
             callbacks.append(eval_callback)
 
-        if config.model.model_config.enable_expert_relocation or config.model.model_config.print_expert_load:
+        if transformer_config and (transformer_config.enable_expert_relocation or transformer_config.print_expert_load):
             rank_id = get_rank()
-            ep = config.parallel_config.expert_parallel
-            expert_nums = config.model.model_config.num_experts
-            expert_size = config.model.model_config.moe_intermediate_size * config.model.model_config.hidden_size
+            ep = transformer_config.expert_model_parallel_size
+            expert_nums = transformer_config.num_moe_experts
             ep_group = [i + rank_id // ep * ep for i in range(ep)]
-            manager = ExpertParallelManager(ep_group, rank_id, expert_nums, expert_size)
+            manager = ExpertParallelManager(ep_group, rank_id, expert_nums)
             save_checkpoint_steps = -1
             for callback in config.callbacks:
                 if callback['type'] == 'CheckpointMonitor':
                     save_checkpoint_steps = callback['save_checkpoint_steps']
             expert_relocation = ExpertMigrateCallback(
-                enable_expert_relocation=config.model.model_config.enable_expert_relocation,
-                expert_relocation_initial_iteration=config.model.model_config.expert_relocation_initial_iteration,
-                expert_relocation_freq=config.model.model_config.expert_relocation_freq,
-                print_expert_load=config.model.model_config.print_expert_load,
+                enable_expert_relocation=transformer_config.enable_expert_relocation,
+                expert_relocation_initial_iteration=transformer_config.expert_relocation_initial_iteration,
+                expert_relocation_freq=transformer_config.expert_relocation_freq,
+                print_expert_load=transformer_config.print_expert_load,
                 manager=manager,
-                config=config,
+                config=transformer_config,
                 save_checkpoint_steps=save_checkpoint_steps)
             ckpt_callback_idx = -1
             for i, callback in enumerate(callbacks):
