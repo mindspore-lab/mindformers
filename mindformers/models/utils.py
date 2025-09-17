@@ -46,6 +46,7 @@ str_to_ms_type = {
 }
 
 format_type = {
+    "nd": 2,
     "nz": 29,
 }
 

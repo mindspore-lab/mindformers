@@ -176,6 +176,7 @@ class LinearBase(ms.nn.Cell):
             param.set_data(cast_weight)
             del self.param_load_counts[param.name]
 
+
 class ColumnParallelLinear(LinearBase):
     """
     The dense layer with weight sliced on second dimension by tensor parallel size.
@@ -395,7 +396,7 @@ class ColumnParallelLinear(LinearBase):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
         param.init_data()
-        param.set_data(ms.from_numpy(loaded_weight))
+        param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
 
@@ -878,7 +879,7 @@ class RowParallelLinear(LinearBase):
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
-        param.set_data(ms.from_numpy(loaded_weight))
+        param.set_data(ms.from_numpy(loaded_weight)) # TODO param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
 
@@ -1061,7 +1062,9 @@ class ReplicatedLinear(LinearBase):
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
             param.init_data()
-            param.set_data(ms.from_numpy(loaded_weight))
+            param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param, 2)
 
 
 class VocabParallelEmbedding(nn.Cell):

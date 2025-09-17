@@ -18,6 +18,7 @@ import mindspore
 from mindspore import Tensor, Parameter, ops, nn
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import QuantBatchMatmul, QuantV2
+from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.tensor_parallel.layers import LinearMethodBase
@@ -31,10 +32,11 @@ class A8W8LinearMethod(LinearMethodBase):
         self.quant = QuantV2()
         self.bias_add = ops.Add()
         self.is_modelslim = self.quant_config.is_modelslim
+        self.is_310p = is_310p()
         self.is_ms_custom_ops = False
         try:
             import ms_custom_ops
-            self.is_ms_custom_ops = True
+            self.is_ms_custom_ops = True and not self.is_310p
             self.ms_custom_ops = ms_custom_ops
         except ModuleNotFoundError:
             pass
@@ -56,7 +58,7 @@ class A8W8LinearMethod(LinearMethodBase):
         weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
         weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
         deq_scale_shape = self.output_size_per_partition
-        scale_dtype = mindspore.float32
+        scale_dtype = mindspore.int64 if self.is_310p else mindspore.float32
         deq_scale = Parameter(
             initializer('ones', deq_scale_shape, scale_dtype), name="deq_scale", requires_grad=False)
         shape = (self.output_size_per_partition,)
@@ -113,7 +115,7 @@ class A8W8LinearMethod(LinearMethodBase):
             return
         input_scale = 1 / layer.input_scale.asnumpy()
         layer.input_scale = Parameter(
-            Tensor(input_scale, dtype=mindspore.bfloat16), name=layer.input_scale.name, requires_grad=False)
+            Tensor(input_scale, dtype=self.params_dtype), name=layer.input_scale.name, requires_grad=False)
 
     def apply(self,
               layer: mindspore.nn.Cell,

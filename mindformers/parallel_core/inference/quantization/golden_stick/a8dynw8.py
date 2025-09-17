@@ -24,6 +24,12 @@ from mindspore.ops.auto_generate import QuantBatchMatmul, DynamicQuantExt, Group
 from mindformers.parallel_core.inference.tensor_parallel.layers import LinearMethodBase
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
+try:
+    from ms_custom_ops import grouped_matmul
+    GMM_310P = True
+except ImportError:
+    GMM_310P = False
+from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 from mindformers.models.utils import format_type
 
@@ -35,6 +41,7 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
         self.quant_config = quant_config
         self.quant = DynamicQuantExt()
         self.bias_add = ops.Add()
+        self.is_310p = is_310p() and GMM_310P
 
     def create_weights(self,
                        layer: nn.Cell,
@@ -42,6 +49,7 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
                        output_partition_sizes: list[int],
                        params_dtype,
                        *weight_args,
+                       transpose_b=False,
                        num_local_experts=None, **extra_weight_attrs) -> Union[Parameter, None]:
         output_size_per_partition = sum(output_partition_sizes)
         self.output_size_per_partition = output_size_per_partition
@@ -50,11 +58,16 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
 
         if self.is_group_mm:
             weight = None
-            self.matmul = GroupedMatmulV4()
+            if self.is_310p:
+                self.matmul = grouped_matmul
+            else:
+                self.matmul = GroupedMatmulV4()
             if not extra_weight_attrs.get('skip_weight_param_allocation', False):
-                shape = (num_local_experts, input_size_per_partition, output_size_per_partition)
+                shape = (num_local_experts, output_size_per_partition, input_size_per_partition) \
+                    if transpose_b else (num_local_experts, input_size_per_partition, output_size_per_partition)
                 weight = Parameter(initializer('ones', shape, mindspore.int8), requires_grad=False)
-                set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
+                input_dim, output_dim = (2, 1) if transpose_b else (1, 2)
+                set_weight_attrs(weight, {"input_dim": input_dim, "output_dim": output_dim})
                 set_weight_attrs(weight, extra_weight_attrs)
                 return weight
 
@@ -106,15 +119,27 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
         output_shape = qx.shape[:-1] + (self.output_size_per_partition,)
         qx = qx.reshape(-1, self.input_size_per_partition)
         if self.is_group_mm:
-            out = self.matmul([qx], [weight],
-                              None, [w_scale],
-                              None,
-                              None,
-                              None, [qx_scale],
-                              group_list,
-                              split_item=3,
-                              group_type=0,
-                              group_list_type=1)[0]
+            if self.is_310p:
+                group_list = ops.cast(group_list, dtype=mindspore.int32)
+                out = self.matmul(qx,
+                                  weight,
+                                  group_list,
+                                  None,
+                                  w_scale,
+                                  qx_scale,
+                                  None,
+                                  False,
+                                  True)
+            else:
+                out = self.matmul([qx], [weight],
+                                  None, [w_scale],
+                                  None,
+                                  None,
+                                  None, [qx_scale],
+                                  group_list,
+                                  split_item=3,
+                                  group_type=0,
+                                  group_list_type=1)[0]
             if hasattr(layer, 'delay_allreduce'):
                 if not layer.delay_allreduce and not layer.skip_bias_add:
                     out = reduce_from_model_parallel_region(out, layer.tp_group)

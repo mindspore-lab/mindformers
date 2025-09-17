@@ -108,7 +108,7 @@ class Router(nn.Cell):
                 f"'param.data.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} "
                 f"and the shape of weight is{loaded_weight.shape}")
-        param.set_data(ms.from_numpy(loaded_weight).astype(param.dtype))
+        param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
 
     def construct(self, input_tensor: Tensor):
         """

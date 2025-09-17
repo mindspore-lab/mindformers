@@ -393,3 +393,22 @@ def split_fusion_loaded_weight(loaded_weight, start_idxs, shard_sizes):
         loaded_weight_parts.append(loaded_weight[start_idx:start_idx + shard_size])
     perrank_ffn_weight = np.concatenate(loaded_weight_parts, axis=0)
     return perrank_ffn_weight
+
+
+def process_weights_for_310p(name, loaded_weight, params_dict, loaded_params):
+    """
+    Process the loadweight for 310P.
+
+    Args:
+        name: The name of the weight to be loaded.
+        loaded_weight: The weights to be loaded.
+        params_dict: The dictionary of model parameters.
+        loaded_params: The set of already loaded parameter names.
+    Returns:
+        The processed weights.
+    """
+
+    if "deq_scale" in name:
+        loaded_weight = loaded_weight[:].astype(np.float32).view(np.int32).astype(np.int64)
+
+    return loaded_weight

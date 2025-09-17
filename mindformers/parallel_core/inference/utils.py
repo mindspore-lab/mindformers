@@ -373,3 +373,15 @@ def use_ms_custom_ops():
         return False
 
     return not is_310p()
+
+def cast_weight_for_310p(loaded_weight):
+    """
+    Casts weights to float16 for 310p.
+
+    In non-quantized scenarios, the 310P hardware only supports float16 weights.
+    This function converts float32 or bfloat16 weights to float16.
+    """
+    cast_weight = (loaded_weight.astype(np.float16) if
+                   (str(loaded_weight.dtype) == "float32" or str(
+                       loaded_weight.dtype) == "bfloat16") else loaded_weight)
+    return cast_weight

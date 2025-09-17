@@ -45,7 +45,8 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.yarn_rota
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs, split_loaded_weight
-
+from mindformers.version_control import is_310p
+from mindformers.models.utils import format_type
 
 @dataclass
 class MLASelfAttentionSubmodules:
@@ -172,6 +173,7 @@ class MultiLatentAttention(Attention):
         self.dim_slice_3d = P.Slice()
         self.transpose = P.Transpose()
         self.out_absorb_matmul = P.BatchMatMul(transpose_b=True)
+        self.is_310p = is_310p()
 
     def construct(
             self,
@@ -363,7 +365,10 @@ class MLASelfAttention(MultiLatentAttention):
         Process the weight after loading.
         This can be used for example, to transpose weights for computation.
         """
-        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
+        weight = self.linear_kv_up_proj.weight
+        if self.is_310p:
+            weight = ops.auto_generate.format_cast(weight, format_type['nd'])
+        q_absorb, out_absorb = mint.split(weight,
                                           [self.num_attention_heads_per_partition * self.config.qk_head_dim,
                                            self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
         self.q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,

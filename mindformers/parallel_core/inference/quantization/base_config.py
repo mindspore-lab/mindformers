@@ -58,6 +58,14 @@ class QuantizeMethodBase(ABC):
 
         raise RuntimeError
 
+    def process_weight_before_loading(self, param_name, loaded_weight):
+        """
+        Process the weight before loading.
+        This can be used for example, to transpose weights for computation.
+        """
+
+        return loaded_weight
+
     def process_weights_after_loading(self, layer: nn.Cell) -> None:
         """
         Process the weight after loading.
