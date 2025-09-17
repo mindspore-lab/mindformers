@@ -29,6 +29,7 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
+from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
@@ -85,23 +86,10 @@ class UnquantizedLinearMethod(LinearMethodBase):
     def create_weights(self, layer: ms.nn.Cell, input_size_per_partition: int,
                        output_partition_sizes: List[int], params_dtype, **extra_weight_attrs):
         if extra_weight_attrs.get('transpose_b'):
-            weight = Parameter(
-                mint.zeros(
-                    (int(sum(output_partition_sizes)),
-                     int(input_size_per_partition)),
-                    dtype=params_dtype,
-                ),
-                requires_grad=False,
-            )
+            weight_shape = (int(sum(output_partition_sizes)), int(input_size_per_partition))
         else:
-            weight = Parameter(
-                mint.zeros(
-                    (int(input_size_per_partition),
-                     int(sum(output_partition_sizes))),
-                    dtype=params_dtype,
-                ),
-                requires_grad=False,
-            )
+            weight_shape = (int(input_size_per_partition), int(sum(output_partition_sizes)))
+        weight = Parameter(initializer("zeros", weight_shape, params_dtype), requires_grad=False)
         self.input_size_per_partition = int(input_size_per_partition)
         self.output_size_per_partition = int(sum(output_partition_sizes))
         if extra_weight_attrs.get('transpose_b'):
@@ -405,6 +393,7 @@ class ColumnParallelLinear(LinearBase):
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
+        param.init_data()
         param.set_data(ms.from_numpy(loaded_weight))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
@@ -531,6 +520,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                     f" but got the shape of param is {param.shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
+            param.init_data()
             param.set_data(ms.from_numpy(loaded_weight))
 
         # format cast after load q, kv
@@ -682,6 +672,7 @@ class QKVParallelLinear(ColumnParallelLinear):
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                     f" but got the shape of param is {param.shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
+            param.init_data()
             param.set_data(ms.from_numpy(loaded_weight))
         if is_310p() and param.name.endswith("weight"):
             # format cast after load q,k,v
@@ -865,6 +856,7 @@ class RowParallelLinear(LinearBase):
             loaded_weight: The full weight tensor loaded from checkpoint.
 
         """
+        param.init_data()
         tp_rank = self.tp_group.rank
         input_dim = getattr(param, "input_dim", None)
         shard_size = self.input_size_per_partition
@@ -1071,6 +1063,7 @@ class ReplicatedLinear(LinearBase):
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
+            param.init_data()
             param.set_data(ms.from_numpy(loaded_weight))
         cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 

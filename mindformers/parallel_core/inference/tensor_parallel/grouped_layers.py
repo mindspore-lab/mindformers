@@ -27,6 +27,7 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Tensor, Parameter, nn, ops, mint
+from mindspore.common.initializer import initializer
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
@@ -87,16 +88,8 @@ class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
     def create_weights(self, layer: nn.Cell, num_local_experts: int,
                        input_size_per_partition: int, output_partition_sizes: list[int],
                        params_dtype, **extra_weight_attrs):
-
-        weight = Parameter(
-            mint.zeros(
-                (num_local_experts,
-                 input_size_per_partition,
-                 sum(output_partition_sizes)),
-                dtype=params_dtype,
-            ),
-            requires_grad=False,
-        )
+        weight_shape = (num_local_experts, input_size_per_partition, sum(output_partition_sizes))
+        weight = Parameter(initializer("zeros", weight_shape, params_dtype), requires_grad=False)
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
         if layer is not None:
             layer.insert_param_to_cell("weight", weight)
