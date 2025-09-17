@@ -120,6 +120,7 @@ def get_gpt_layer_local_spec(
             self_attention = ModuleSpec(
                 module=MLASelfAttention,
                 submodules=MLASelfAttentionSubmodules(
+                    linear_q_proj=ColumnParallelLinear,
                     linear_q_down_proj=SequenceParallelLinear,
                     linear_q_up_proj=ColumnParallelLinear,
                     linear_kv_down_proj=SequenceParallelLinear,
