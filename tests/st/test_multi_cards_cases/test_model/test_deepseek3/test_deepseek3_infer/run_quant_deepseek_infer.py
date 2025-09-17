@@ -37,7 +37,7 @@ def test_deepseek_a8w8_predict_mcore():
     config = MindFormerConfig(config_path)
     config.context.max_device_memory = '28GB'
     config.pretrained_model_dir = load_safetensors
-    config.parallel_config.model_parallel = 2
+    config.parallel_config.model_parallel = 4
     build_context(config)
     build_parallel_config(config)
 
@@ -71,4 +71,8 @@ if __name__ == "__main__":
     quant_algo = uargs.quant_algo
     if quant_algo == "A8W8":
         os.environ['MS_DISABLE_INTERNAL_KERNELS_LIST'] = "QuantBatchMatmul"
+        os.environ['HCCL_DETERMINICTIC'] = "true"
+        os.environ['LCCL_DETERMINICTIC'] = "1"
+        os.environ['ATB_MATMUL_SHUFFLE_K_ENABLE'] = "0"
+        os.environ['ATB_MATMUL_LLM_LCOC_ENABLE'] = "0"
         test_deepseek_a8w8_predict_mcore()
