@@ -21,6 +21,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import nn, ops, Tensor, Parameter
 from mindspore.context import ParallelMode
+from mindspore.ops.operations import Morph
 from mindspore.communication.management import get_rank, get_group_size, create_group
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -105,6 +106,7 @@ class MoELayer(BaseMoELayer):
         super().__init__(config=config, layer_number=layer_number)
         layout_moe.init_layout(config)
         self.hidden_size = config.hidden_size
+        self.seq_length = config.seq_length
         self.use_seq_parallel = config.sequence_parallel
         self.dp = (
             config.data_parallel_size *
@@ -112,7 +114,7 @@ class MoELayer(BaseMoELayer):
             config.context_parallel_size
         )
         self.tp = config.tensor_model_parallel_size
-
+        self.cp = config.context_parallel_size
         if self.config.print_expert_load or self.config.enable_expert_relocation:
             self.dp_group = self._dp_group()
             self.ep = config.expert_model_parallel_size
@@ -124,6 +126,17 @@ class MoELayer(BaseMoELayer):
         if self.shared_expert_overlap:
             self.add.add_prim_attr("parallel_branch", 1)
         self.reshape = Reshape()
+        # Reshape and permute input tensor from (B,S,H) to (dp, N, H)
+        self.local_reshape_permute = Morph(self.permute_reshape_fn,
+                                           self.permute_reshape_infer_shape,
+                                           self.permute_reshape_infer_dtype
+                                           ).add_prim_attr("self_define_shard", True)
+        # Reshape and unpermute tensor back from (dp, N, H) to (B,S,H)
+        self.local_reshape_unpermute = Morph(self.unpermute_reshape_fn,
+                                             self.unpermute_reshape_infer_shape,
+                                             self.unpermute_reshape_infer_dtype
+                                             ).add_prim_attr("self_define_shard", True)
+
         self.shape = Shape()
         self.add_loss = AddExt()
         self.transpose = Transpose()
@@ -172,13 +185,34 @@ class MoELayer(BaseMoELayer):
         create_group(dp_group_name, rank_list)
         return dp_group_name
 
+    def permute_reshape_infer_shape(self, *args):
+        origin_shape = args[0]
+        return (self.dp, origin_shape[0] * origin_shape[1] // self.dp, origin_shape[-1])
+
+    def unpermute_reshape_infer_shape(self, *args):
+        permute_shape = args[0]
+        return (permute_shape[0] * permute_shape[1] // self.seq_length, self.seq_length, permute_shape[-1])
+
+    def permute_reshape_infer_dtype(self, *args):
+        return args[0]
+
+    def unpermute_reshape_infer_dtype(self, *args):
+        return args[0]
+
+    def permute_reshape_fn(self, x, shp):
+        return Reshape()(x, shp)
+
+    def unpermute_reshape_fn(self, x, shp):
+        return Reshape()(x, shp)
+
+
     def construct(self, hidden_states, extra_loss=0., seq_chunk=None):
         """Construct function of the MoELayer."""
         x = self.transpose(hidden_states, (1, 0, 2))
-
         origin_shape = self.shape(x)
         # The shape change is: (dp, N, h) <-- (B*S, h)
-        x_reshaped = self.reshape(x, (self.dp, -1, self.hidden_size))
+        # Do local reshape to avoid unnecessary redistribution, cause the router and ffn only related to tokens.
+        x_reshaped = self.local_reshape_permute(x, (1, -1, self.hidden_size))
 
         # 1. router
         expert_index, router_coeff, router_aux_loss = self.router(x_reshaped)
@@ -188,9 +222,10 @@ class MoELayer(BaseMoELayer):
 
         # 2. permute + experts + unpermute
         experts_output = self.experts(x_reshaped, router_coeff, expert_index)
-        experts_output = self.reshape(experts_output, origin_shape)
 
-        # BSH -> SBH
+        # Do local reshape to avoid not unnecessary redistribution, cause the router and ffn only related to tokens.
+        experts_output = self.local_reshape_unpermute(experts_output,
+                                                      (-1, self.seq_length // (self.tp * self.cp), origin_shape[-1]))
         experts_output = self.transpose2(experts_output, (1, 0, 2))
 
         # 3. shared experts
@@ -204,6 +239,10 @@ class MoELayer(BaseMoELayer):
     def shard(self, config: TransformerConfig):
         """Set parallel strategy."""
         self.transpose.shard((layout("cp_tp", "dp", "None"),))
+        self.local_reshape_permute.shard(in_strategy=(layout("dp", "cp_tp", "None"),),
+                                         out_strategy=(layout_moe("dp_cp", "None", "None"),))
+        self.local_reshape_unpermute.shard(in_strategy=(layout_moe("dp_cp", "None", "None"),),
+                                           out_strategy=(layout("dp", "cp_tp", "None"),))
         if self.use_seq_parallel:
             self.transpose2.shard((layout("dp", "cp_tp", "None"),))
             self.add.shard((layout("cp_tp", "dp", "None"),
