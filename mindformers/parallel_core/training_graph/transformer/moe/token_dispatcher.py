@@ -277,7 +277,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
             self.assign = ops.Assign()
 
         self.mul = ops.Mul().recompute(True)
-        self.nonzero = ops.NoneZero().add_prim_attr("recompute", False)
+        self.nonzero = ops.NonZero().add_prim_attr("recompute", False)
 
     def _get_oep_group_name(self):
         """
