@@ -34,7 +34,7 @@ class Qwen3MoePreTrainedModel(PreTrainedModel, ModelMixin):
         ('.self_attn.o_proj.', '.self_attention.linear_proj.'),
         ('.self_attn.q_norm.', '.self_attention.q_layernorm.'),
         ('.self_attn.k_norm.', '.self_attention.k_layernorm.'),
-        ('.gate.weight', '.router.weight.weight'),
+        ('.gate.weight', '.router.weight'),
         ('.gate_proj.', '.gating.'),
         ('.down_proj.', '.linear_fc2.'),
         ('.up_proj.', '.hidden.'),
@@ -43,3 +43,6 @@ class Qwen3MoePreTrainedModel(PreTrainedModel, ModelMixin):
         ('lm_head.', 'output_layer.'),
         ('model.layers.', 'decoder.layers.')
     ]
+
+    def get_model_parameters(self):
+        pass

@@ -172,8 +172,8 @@ class MoERunner:
         new_param_dict["shared_experts.linear_fc2.weight"] = Parameter(shared_expert_w_fc2_shard)
 
         # router
-        router_weight = param_dict["router.weight.weight"]
-        new_param_dict["router.weight.weight"] = Parameter(router_weight)
+        router_weight = param_dict["router.weight"]
+        new_param_dict["router.weight"] = Parameter(router_weight)
         router_expert_bias = param_dict["router.expert_bias"]
         new_param_dict["router.expert_bias"] = Parameter(router_expert_bias)
 

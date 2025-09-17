@@ -35,7 +35,7 @@ class Glm4MoePreTrainedModel(PreTrainedModel, ModelMixin):
         ('.mlp.gate_proj.', '.mlp.gating.'),
         ('.mlp.down_proj.', '.mlp.linear_fc2.'),
         ('.mlp.up_proj.', '.mlp.hidden.'),
-        ('.gate.weight', '.router.weight.weight'),
+        ('.gate.weight', '.router.weight'),
         ('.gate.e_score_correction_bias', '.router.expert_bias'),
         ('.mlp.shared_experts.gate_proj.', '.mlp.shared_experts.gating.'),
         ('.mlp.shared_experts.up_proj.', '.mlp.shared_experts.hidden.'),
@@ -48,3 +48,6 @@ class Glm4MoePreTrainedModel(PreTrainedModel, ModelMixin):
         ('lm_head.', 'output_layer.'),
         ('model.layers.', 'decoder.layers.')
     ]
+
+    def get_model_parameters(self):
+        pass

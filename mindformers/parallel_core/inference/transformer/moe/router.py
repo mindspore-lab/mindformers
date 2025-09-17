@@ -16,7 +16,7 @@
 from typing import Optional
 
 import mindspore as ms
-from mindspore import Tensor, nn, Parameter, ops
+from mindspore import Tensor, nn, Parameter, ops, mint
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
 
@@ -51,13 +51,18 @@ class Router(nn.Cell):
         self.ep_group = model_comm_pgs.moe_ep
         self.ep_group_size = self.ep_group.size
         self.ep_rank = self.ep_group.rank
-        self.weight = nn.Dense(in_channels=self.config.hidden_size,
-                               out_channels=self.num_experts,
-                               has_bias=False,
-                               dtype=self.router_dense_type)
-        set_weight_attrs(self.weight.weight, {"weight_loader": self.weight_loader})
+
+        self.weight = Parameter(
+            mint.zeros(
+                (self.num_experts, self.config.hidden_size),
+                dtype=self.router_dense_type,
+            ),
+            requires_grad=False,
+        )
+        set_weight_attrs(self.weight, {"weight_loader": self.weight_loader})
 
         self.cast = ops.Cast()
+        self.matmul = ops.MatMul(transpose_b=True)
 
     def gating(self, input_tensor: Tensor):
         """Forward pass of the router gate.
@@ -68,7 +73,7 @@ class Router(nn.Cell):
         Returns:
             torch.Tensor: Logits tensor.
         """
-        logits = self.weight(self.cast(input_tensor, self.router_dense_type))
+        logits = self.matmul(self.cast(input_tensor, self.router_dense_type), self.weight)
         return logits
 
     def routing(self, logits: Tensor):
