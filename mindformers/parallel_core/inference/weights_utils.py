@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """attention and qkv concat."""
-import os.path
-
 from safetensors import safe_open
 import numpy as np
 
@@ -308,7 +306,6 @@ def deal_router_expert_weight(src_keys_dict, weights_path, tp_rank_id, tp_group_
     for k, v in sorted_items:
         src_keys_dict[k] = v
     for weight_name, file in src_keys_dict.items():
-        file = os.path.realpath(file)
         weight_value = get_file_handles(f'{weights_path}/{file}').get_slice(weight_name)
         weight_value = split_weight_by_tp_rank(
             weight_value, split_axis, tp_rank_id=tp_rank_id, tp_group_size=tp_group_size)

@@ -185,8 +185,6 @@ def convert_pt_to_ms(input_path, output_path, config, dtype=ms.float32, **kwargs
 
 def convert_to_concat_ckpt(ms_not_concat_ckpt_path, ms_concat_ckpt_path, config_path):
     """convert previous ckpt to concat ckpt"""
-    if os.path.exists(ms_not_concat_ckpt_path):
-        raise ValueError(f"{ms_not_concat_ckpt_path} already exists.")
     model_config = MindFormerConfig(config_path).model
     if 'auto_register' in model_config:
         MindFormerRegister.auto_register(class_reference=model_config.pop('auto_register'),
@@ -208,6 +206,8 @@ def convert_to_concat_ckpt(ms_not_concat_ckpt_path, ms_concat_ckpt_path, config_
             save_path = os.path.join(ms_concat_ckpt_path, rank_dir_name, "checkpoint_{}.ckpt".format(rank_id))
             ms.save_checkpoint(params, save_path)
     else:
+        if os.path.exists(ms_concat_ckpt_path):
+            raise ValueError(f"{ms_concat_ckpt_path} already exists.")
         params = ms.load_checkpoint(ms_not_concat_ckpt_path)
         params = concat_weight_and_bias(params, model_config)
         ms.save_checkpoint(params, ms_concat_ckpt_path)
