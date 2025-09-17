@@ -20,6 +20,7 @@ from collections import defaultdict
 from mindspore.communication import get_rank
 from mindspore import save_checkpoint
 
+from mindformers.tools.logger import logger
 from mindformers.checkpoint.metadata import save_metadata, load_metadata, get_total_shard_metadata
 from mindformers.checkpoint.utils import (
     _sharded_tensor_shard_id,
@@ -142,6 +143,9 @@ class BalancedSaveStrategy():
             choice_func=choice_func,
             integrated_save=False
         )
+        logger.info(
+            f"Non-redundancy {self.file_type.value} checkpoint successfully saved at '{save_file_name}.safetensors'."
+        )
         self._save_metadata(shared_distribution, iteration)
 
     def apply_saving_parallelization(self):
@@ -249,6 +253,10 @@ class BalancedSaveStrategy():
 
             metadata_file_path = get_metadata_filename(self.checkpoint_path, iteration)
             save_metadata(shard_to_metadata, param_file_mapping, metadata_file_path)
+            if self.rank_id == 0:
+                logger.info(
+                    f"The 'metadata.json' of non-redundancy weight saved successfully at '{metadata_file_path}'."
+                )
 
     def _get_rank_params_mappings(self, shared_distribution, shard_to_name):
         """
