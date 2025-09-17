@@ -63,15 +63,10 @@ lr_schedule:
   decay_steps: 100
 
 runner_config:
-  epoch: 800
+  epochs: 800
   batch_size: 64
-  image_size: 224
   sink_mode: True
   sink_size: 1
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
-  load_checkpoint:
 
 callbacks:
   - type: TestLLossMonitor
@@ -89,3 +84,7 @@ pipeline:
 
 processor:
   type: TestProcessor
+
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'test_model'

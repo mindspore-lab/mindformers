@@ -26,17 +26,14 @@ from mindformers.dataset import build_dataset
 from mindformers.models.multi_modal.modal_content import BaseTextContentBuilder, BaseImageContentBuilder
 from mindformers.models.multi_modal.utils import DataRecord
 from mindformers.tools import MindFormerRegister, MindFormerModuleType
-from research.telechat2.telechat_tokenizer import TelechatTokenizer
 
-
-telechat2_tokenizer = TelechatTokenizer(
-    vocab_file="/home/workspace/mindspore_dataset/weight/Telechat2-tokenizer/tokenizer.model",
-)
+from tests.utils.mock_tokenizer import MockTokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TestContentTransformTemplate(ModalContentTransformTemplate):
     """modal transform template for testing"""
+
     def __init__(self, output_columns, tokenizer, image_pad_token, start_token, end_token, image_size=448,
                  num_queries=256, dataset_dir="", mode="predict", modal_content_padding_size=1, max_length=128,
                  **kwargs):
@@ -143,8 +140,8 @@ def make_image_dataset(dataset_root, start_token, end_token,
     return image_num_per_item
 
 
-def make_dataset(batch_size, modal_content_max_size, image_size, max_length, num_queries, start_token, end_token,
-                 img_pad_token="<unk>"):
+def make_dataset(batch_size, modal_content_max_size, image_size, max_length, num_queries, tokenizer,
+                 start_token, end_token, img_pad_token="<unk>"):
     """generate dataset"""
     dataset_root = "./checkpoint_download/MultiModalDataset"
     image_dir_name = "multi_modal_images"
@@ -171,7 +168,7 @@ def make_dataset(batch_size, modal_content_max_size, image_size, max_length, num
         "numa_enable": False,
         "prefetch_size": 1,
         "seed": 2022,
-        "tokenizer": telechat2_tokenizer,
+        "tokenizer": tokenizer,
         "modal_to_text_transform": {
             "type": "BaseXModalToTextTransform",
             "model_transform_template": {
@@ -224,10 +221,19 @@ def test_multi_modal_dataloader():
     image_size = 224
     num_queries = 4
     modal_content_max_size = 3
-    actual_image_num_per_item, dataset = make_dataset(batch_size, modal_content_max_size, image_size, max_length,
-                                                      num_queries, start_token="<img>", end_token="</img>")
+    tokenizer = MockTokenizer()
+    setattr(tokenizer, 'pad_token_id', 0)
+    img_pad_token_id = 3 # <unk>
+    actual_image_num_per_item, dataset = make_dataset(
+        batch_size,
+        modal_content_max_size,
+        image_size, max_length,
+        num_queries,
+        tokenizer,
+        start_token="<img>",
+        end_token="</img>"
+    )
 
-    img_pad_token_id = telechat2_tokenizer.unk_token_id
     dataset_image_num_list = []
     image_num_in_pos_list = []
     for input_ids, images, image_context_pos, labels in dataset:

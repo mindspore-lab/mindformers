@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Run ColumnParallelLinear accuracy test with configurable parameters via args"""
+"""Run RowParallelLinear accuracy test with configurable parameters via args"""
 import argparse
 import os
 from pathlib import Path
@@ -21,23 +21,22 @@ import numpy as np
 import mindspore as ms
 from mindspore.communication import init, get_rank
 
+from mindformers.parallel_core.inference.tensor_parallel.layers import RowParallelLinear
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.utils.init_method import init_method_normal
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
-from mindformers.parallel_core.inference.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
-from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_column_parallel_linear.data_gen_utils import get_init_params
+from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_row_parallel_linear_infer.data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
-
-class ColumnParallelLinearRunner:
-    """Class to manage ColumnParallelLinear model and weights"""
+class RowParallelLinearRunner:
+    """Class to manage RowParallelLinear model and weights"""
 
     def __init__(self, args_from_parser):
         self.args = args_from_parser
         self.has_bias = self.args.bias
         self.skip_bias_add = self.args.skip_bias_add
-        self.skip_weight_param_allocation = self.args.skip_weight_param_allocation
-        self.use_weight_tensor = self.args.use_weight_tensor
+        self.input_is_parallel = self.args.input_is_parallel
 
         self.input_size = self.args.input_size
         self.output_size = self.args.output_size
@@ -57,7 +56,6 @@ class ColumnParallelLinearRunner:
 
         self.worker_num = int(os.environ.get("MS_WORKER_NUM", "1"))
 
-
         # Set parallel context
         self.model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
         if self.rank_id is not None:
@@ -69,38 +67,37 @@ class ColumnParallelLinearRunner:
         self.config = TransformerConfig(
             tensor_model_parallel_size=self.args.tensor_parallel,
             compute_dtype='bf16',
-            num_layers=1,
             num_attention_heads=self.args.tensor_parallel,
+            init_method=init_method_normal(0.01, self.param_init_dtype),
+            output_layer_init_method=init_method_normal(0.01, self.param_init_dtype),
         )
 
     def build_model(self):
-        """Build and initialize ColumnParallelLinear model"""
-        net = ColumnParallelLinear(
+        """Build and initialize RowParallelLinear model"""
+        net = RowParallelLinear(
             input_size=self.input_size,
             output_size=self.output_size,
             config=self.config,
             skip_bias_add=self.skip_bias_add,
-            skip_weight_param_allocation=self.skip_weight_param_allocation,
+            input_is_parallel=self.input_is_parallel,
             compute_dtype=self.compute_dtype,
-            gather_output=True,
-            transpose_b=True,
             bias=self.has_bias,
             tp_group=self.model_comm_pgs.tp,
         )
 
-        param_dict = {
+        state_dict = {
             "weight": ms.Parameter(self.net_weight),
             "bias": ms.Parameter(self.net_bias)
             }
 
-        self._load_weights(net, param_dict)
+        self._load_weights(net, state_dict)
         return net
 
     def _load_weights(self, net, param_dict):
         """load weights for mlp module"""
         tp_group_size = self.args.tensor_parallel
         rank_id = get_rank()
-        new_param_dict = {}
+        sharded_param_dict = {}
 
         def split(weight, split_axis=0):
             split_size = weight.shape[split_axis] // tp_group_size
@@ -109,24 +106,19 @@ class ColumnParallelLinearRunner:
             return weight[start:stop] if split_axis == 0 else weight[:, start:stop]
 
         weight = param_dict["weight"]
-        weight_shard = split(weight, split_axis=0)
-        new_param_dict["weight"] = ms.Parameter(weight_shard)
+        weight_shard = split(weight, split_axis=1)
+        sharded_param_dict["weight"] = ms.Parameter(weight_shard)
 
         bias = param_dict["bias"]
-        bias_shard = split(bias)
-        new_param_dict["bias"] = ms.Parameter(bias_shard)
+        sharded_param_dict["bias"] = ms.Parameter(bias)
 
-        ms.load_param_into_net(net, new_param_dict)
+        ms.load_param_into_net(net, sharded_param_dict)
 
     def run(self):
         """Run the model with given inputs"""
         net = self.build_model()
 
-        weight_tensor_input = None
-        if self.use_weight_tensor:
-            weight_tensor_input = self.weight_tensor_input
-
-        output = net(self.inputs, weight_tensor_input)
+        output = net(self.inputs)
         output_ms = {"output": output}
 
         if self.rank_id is None or int(self.rank_id) == 0:
@@ -136,28 +128,23 @@ class ColumnParallelLinearRunner:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run ColumnParallelLinear test")
+    parser = argparse.ArgumentParser(description="Run RowParallelLinear test")
     parser.add_argument("--input_size", type=int, default=32)
     parser.add_argument("--output_size", type=int, default=32)
     parser.add_argument("--bias", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--skip_bias_add", type=lambda x: x.lower() == "true", default=False)
-    parser.add_argument("--skip_weight_param_allocation", type=lambda x: x.lower() == "true", default=False)
-    parser.add_argument("--use_weight_tensor", type=lambda x: x.lower() == "true", default=False)
+    parser.add_argument("--input_is_parallel", type=lambda x: x.lower() == "true", default=True)
     parser.add_argument("--output_path", type=str, default="output_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
 
     args = parser.parse_args()
 
     ms.context.set_context(deterministic="ON")
-    jit_level = "O0"
-    infer_boost = "on"
-    ms.set_context(device_target="Ascend",
-                   mode=ms.GRAPH_MODE,
-                   jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+    ms.set_context(mode=ms.GRAPH_MODE)
     ms.set_seed(42)
 
     # Prepare input
-    runner = ColumnParallelLinearRunner(args)
+    runner = RowParallelLinearRunner(args)
     runner.run()
 
 if __name__ == "__main__":

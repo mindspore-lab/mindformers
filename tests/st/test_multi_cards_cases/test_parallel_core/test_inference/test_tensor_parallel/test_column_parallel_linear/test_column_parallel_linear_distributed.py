@@ -18,7 +18,7 @@ import random
 import pytest
 
 from tests.st.test_multi_cards_cases.utils import TaskType
-from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_column_parallel_linear.test_column_parallel_linear import TestColumnParallelLinear
+from tests.st.test_ut.test_parallel_core.test_inference.test_tensor_parallel.test_column_parallel_linear_infer.test_column_parallel_linear import TestColumnParallelLinear
 
 
 _LEVEL_0_TASK_TIME = 70

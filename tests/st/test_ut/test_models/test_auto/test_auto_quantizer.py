@@ -16,10 +16,17 @@
 
 import pytest
 
-from mindformers.utils.quantization_config import PtqConfig
-from mindformers.modules.quantizers import AutoQuantizationConfig, AutoQuantizer
-from mindformers.modules.quantizers.rtn_quantizer import RtnQuantizer
-from mindformers.utils.quantization_config import QuantizationConfigMixin
+try:
+    from mindformers.utils.quantization_config import PtqConfig
+    from mindformers.modules.quantizers import AutoQuantizationConfig, AutoQuantizer
+    from mindformers.modules.quantizers.rtn_quantizer import RtnQuantizer
+    from mindformers.utils.quantization_config import QuantizationConfigMixin
+except ImportError:
+    PtqConfig = None
+    AutoQuantizationConfig = None
+    AutoQuantizer = None
+    RtnQuantizer = None
+    QuantizationConfigMixin = None
 
 MOCK_PTQ_QUANT_W8A16_DICT = {'quant_method': 'ptq', 'weight_dtype': 'int8', 'activation_dtype': 'None',
                              'kvcache_dtype': 'None', 'modules_to_not_convert': ['lm_head'], 'algorithm_args': {},

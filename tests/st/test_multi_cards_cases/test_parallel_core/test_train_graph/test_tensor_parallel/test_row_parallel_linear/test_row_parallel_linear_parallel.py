@@ -17,7 +17,7 @@ import os
 import random
 import pytest
 from tests.st.test_multi_cards_cases.utils import TaskType
-from tests.st.test_ut.test_parallel_core.test_training_graph.test_tensor_parallel.test_row_parallel_linear.test_row_parallel_linear import TestRowParallelLinear
+from tests.st.test_ut.test_parallel_core.test_training_graph.test_tensor_parallel.test_row_parallel_linear_train.test_row_parallel_linear import TestRowParallelLinear
 
 
 _LEVEL_0_TASK_TIME = 45
