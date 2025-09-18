@@ -38,6 +38,7 @@ context:
   device_target: "Ascend"
   affinity_cpu_list: None
   deterministic: "ON"
+  infer_precision_sync: True
 
 # parallel context config
 parallel:
