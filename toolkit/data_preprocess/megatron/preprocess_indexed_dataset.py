@@ -72,13 +72,18 @@ class Encoder:
             Encoder.splitter = IdentitySplitter()
 
     def split(self, json_line):
+        """split sentences"""
         data = json.loads(json_line)
         output = {}
         for key in self.args.json_keys:
             text = data[key]
             max_len = 1000000
             tokens_list = [Encoder.splitter.tokenize(text[i:i + max_len]) for i in range(0, len(text), max_len)]
-            output[key] = [tokens for partial in tokens_list for tokens in partial]
+            output[key] = [
+                tokens
+                for partial in tokens_list
+                for tokens in partial
+            ]
         return json.dumps(output), len(json_line)
 
     def encode(self, json_line):
