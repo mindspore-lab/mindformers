@@ -19,14 +19,13 @@ transform wikitext-2, wikitext-103, lambada, openwebtext dataset to mindrecord.
 import argparse
 import json
 import os
-import re
 import numpy as np
-
+from mindspore.mindrecord import FileWriter
+from mindformers.tools import logger
+from mindformers.dataset.dataloader.datareaders import wikitext_clean
 from llama3_1_tokenizer import Llama3Tokenizer
 from llama3_1_conversation import get_default_conv_template
 
-from mindspore.mindrecord import FileWriter
-from mindformers.tools import logger
 
 IGNORE_TOKEN_ID = -100
 
@@ -35,55 +34,6 @@ def chunks(lst, n):
     """ yield n sized chunks from list"""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
-
-
-def package_file(it, n):
-    """ package multiple files"""
-    stop = False
-    while not stop:
-        batch = []
-        for _ in range(n):
-            try:
-                batch.append(next(it))
-            except StopIteration:
-                stop = True
-        if not batch:
-            break
-        yield batch
-
-
-def clean_wikitext(string):
-    """ cleaning wikitext dataset"""
-    # contractions
-    string = string.replace("s '", "s'")
-    string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
-    # number separators
-    string = string.replace(" @-@ ", "-")
-    string = string.replace(" @,@ ", ",")
-    string = string.replace(" @.@ ", ".")
-    # punctuation
-    string = string.replace(" : ", ": ")
-    string = string.replace(" ; ", "; ")
-    string = string.replace(" . ", ". ")
-    string = string.replace(" ! ", "! ")
-    string = string.replace(" ? ", "? ")
-    string = string.replace(" , ", ", ")
-    # double brackets
-    string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
-    string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
-    string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
-    string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
-    string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
-    # miscellaneous
-    string = string.replace("= = = =", "====")
-    string = string.replace("= = =", "===")
-    string = string.replace("= =", "==")
-    string = string.replace(" " + chr(176) + " ", chr(176))
-    string = string.replace(" \n", "\n")
-    string = string.replace("\n ", "\n")
-    string = string.replace(" N ", " 1 ")
-    string = string.replace(" 's", "'s")
-    return string
 
 
 def preprocess(sources, tokenizer, seq_length):
@@ -186,7 +136,7 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
     """tokenize wikitext-2/wikitext-103 dataset"""
     content = []
     with open(file_path, 'r', encoding='utf-8') as f:
-        for para in clean_wikitext(f.read()).split("\n\n"):
+        for para in wikitext_clean(f.read()).split("\n\n"):
             if para and para.strip().startswith('=') is False:
                 content += tokenizer(para)['input_ids']
     content_out = []

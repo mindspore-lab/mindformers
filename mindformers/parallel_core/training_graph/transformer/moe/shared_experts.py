@@ -29,7 +29,7 @@ from mindformers.parallel_core.training_graph.device_matrix import layout
 
 
 class SharedExpertMLP(MLP):
-    r"""
+    """
     Implementation of a shared expert feedforward block that inherits from MLP.
 
     This module extends the standard MLP to support shared expert logic, typically used in MoE settings.
@@ -110,7 +110,7 @@ class SharedExpertMLP(MLP):
 
 
 class SharedExpertMLPInterleaved(MLPInterleaved):
-    r"""
+    """
     Implementation of a shared expert feedforward block that inherits from MLP.
 
     This module extends the standard MLP to support shared expert logic, typically used in MoE settings.

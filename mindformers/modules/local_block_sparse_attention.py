@@ -17,8 +17,6 @@ A Local Block Sparse Attention.
 """
 from __future__ import absolute_import
 
-from functools import wraps, partial
-import inspect
 import math
 import numpy as np
 
@@ -34,65 +32,13 @@ except ImportError:
     import mindspore._checkparam as Validator
 
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig
+from mindformers.modules.layers import _args_type_validator_check, _valid_value_checks, _valid_type_checks
 
 __all__ = ["LocalBlockSparseAttention"]
 
 gather_index_inited = False
 kv_index = None
 mask_index = None
-
-
-def _args_type_validator_check(*type_args, **type_kwargs):
-    """Check whether input data type is correct."""
-
-    def type_check(func):
-        sig = inspect.signature(func)
-        bound_types = sig.bind_partial(*type_args, **type_kwargs).arguments
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal bound_types
-            bound_values = sig.bind(*args, **kwargs)
-
-            argument_dict = bound_values.arguments
-            if "kwargs" in bound_types:
-                bound_types = bound_types["kwargs"]
-            if "kwargs" in argument_dict:
-                argument_dict = argument_dict["kwargs"]
-            for name, value in argument_dict.items():
-                if name in bound_types:
-                    bound_types[name](value, name)
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return type_check
-
-
-def _valid_type_checks(types, class_name):
-    """types should be a list of types, this function check if the type is in the valid dtypes"""
-    def validator_check_func(value, name):
-        # The args of Validator.check_type_name is (arg_name, arg_type, valid_types, prim_name)
-        # as the input of _args_type_validator_check is fixed, so we need to manually change the input order
-        partial_check = partial(Validator.check_type_name,
-                                valid_types=types,
-                                prim_name=class_name)
-        return partial_check(name, type(value))
-
-    return validator_check_func
-
-
-def _valid_value_checks(types, class_name):
-    """the value should be a list of types, this function check if the value is in the valid dtypes"""
-    def validator_check_func(value, name):
-        # The args of Validator.check_type_name is (arg_name, arg_type, valid_types, prim_name)
-        # as the input of _args_type_validator_check is fixed, so we need to manually change the input order
-        partial_check = partial(Validator.check_type_name,
-                                valid_types=types,
-                                prim_name=class_name)
-        return partial_check(name, value)
-
-    return validator_check_func
 
 
 class InitGatherIndex:

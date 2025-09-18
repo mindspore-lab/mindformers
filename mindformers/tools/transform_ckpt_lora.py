@@ -21,73 +21,23 @@ import mindspore as ms
 from mindspore import Parameter, Tensor
 import mindspore.ops as P
 from mindformers.tools.logger import logger
-
-
-def get_strategy(startegy_path, rank_id=None):
-    """Merge strategy if strategy path is dir
-
-    Args:
-        startegy_path (str): The path of stategy.
-        rank_id (int): The rank id of device.
-
-    Returns:
-        None or strategy path
-    """
-    if not startegy_path or startegy_path == "None":
-        return None
-
-    if not os.path.exists(startegy_path):
-        raise ValueError(f'{startegy_path} not found!')
-
-    if os.path.isfile(startegy_path):
-        return startegy_path
-
-    if os.path.isdir(startegy_path):
-        if rank_id:
-            merge_path = os.path.join(startegy_path, f'merged_ckpt_strategy_{rank_id}.ckpt')
-        else:
-            merge_path = os.path.join(startegy_path, f'merged_ckpt_strategy.ckpt')
-
-        if os.path.exists(merge_path):
-            os.remove(merge_path)
-
-        ms.merge_pipeline_strategys(startegy_path, merge_path)
-        return merge_path
-
-    return None
+from mindformers.tools.transform_ckpt import get_strategy
 
 
 def transpose(weight, fan_in_fan_out):
     return weight.T if fan_in_fan_out else weight
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--src_ckpt_strategy',
-                        default="",
-                        help='path of src ckpt strategy')
-    parser.add_argument('--dst_ckpt_strategy',
-                        default="",
-                        help='path of dst ckpt strategy')
-    parser.add_argument('--src_ckpt_path_or_dir',
-                        default="",
-                        type=str,
-                        help='path of src ckpt')
-    parser.add_argument('--dst_ckpt_dir',
-                        default="",
-                        type=str,
-                        help='path where to save dst ckpt')
-    parser.add_argument('--prefix',
-                        default='checkpoint_',
-                        type=str,
-                        help='prefix of transformed checkpoint')
-    parser.add_argument('--lora_scaling',
-                        default=1,
-                        type=float,
+    parser.add_argument('--src_ckpt_strategy', default="", help='path of src ckpt strategy')
+    parser.add_argument('--dst_ckpt_strategy', default="", help='path of dst ckpt strategy')
+    parser.add_argument('--src_ckpt_path_or_dir', default="", type=str, help='path of src ckpt')
+    parser.add_argument('--dst_ckpt_dir', default="", type=str, help='path where to save dst ckpt')
+    parser.add_argument('--prefix', default='checkpoint_', type=str, help='prefix of transformed checkpoint')
+    parser.add_argument('--lora_scaling', default=1, type=float,
                         help='scale of lora when merge model weight, default is lora_alpha/lora_rank')
-    parser.add_argument('--save_format',
-                        default='ckpt',
-                        type=str,
-                        choices=['ckpt', 'safetensors'],
+    parser.add_argument('--save_format', default='ckpt', type=str, choices=['ckpt', 'safetensors'],
                         help='format for saving the model, choose between ckpt and safetensors')
     args = parser.parse_args()
 

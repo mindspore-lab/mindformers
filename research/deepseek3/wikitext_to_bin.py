@@ -10,7 +10,6 @@ import argparse
 import math
 import json
 import os
-import re
 import sys
 import multiprocessing
 import numpy as np
@@ -27,42 +26,9 @@ from mindformers.dataset.blended_datasets.indexed_dataset import IndexedDatasetB
 from mindformers.models import build_tokenizer
 from mindformers.models.tokenization_utils import AddedToken
 from mindformers.models.llama.llama_tokenizer_fast import LlamaTokenizerFast
+from mindformers.dataset.dataloader.datareaders import wikitext_clean
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-
-
-def clean_wikitext(string):
-    """cleaning wikitext dataset"""
-    # contractions
-    string = string.replace("s '", "s'")
-    string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
-    # number separators
-    string = string.replace(" @-@ ", "-")
-    string = string.replace(" @,@ ", ",")
-    string = string.replace(" @.@ ", ".")
-    # punctuation
-    string = string.replace(" : ", ": ")
-    string = string.replace(" ; ", "; ")
-    string = string.replace(" . ", ". ")
-    string = string.replace(" ! ", "! ")
-    string = string.replace(" ? ", "? ")
-    string = string.replace(" , ", ", ")
-    # double brackets
-    string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
-    string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
-    string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
-    string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
-    string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
-    # miscellaneous
-    string = string.replace("= = = =", "====")
-    string = string.replace("= = =", "===")
-    string = string.replace("= =", "==")
-    string = string.replace(" " + chr(176) + " ", chr(176))
-    string = string.replace(" \n", "\n")
-    string = string.replace("\n ", "\n")
-    string = string.replace(" N ", " 1 ")
-    string = string.replace(" 's", "'s")
-    return string
 
 
 def gen_wiki_json(input_file, output_file):
@@ -70,7 +36,7 @@ def gen_wiki_json(input_file, output_file):
     data_idx = 0
     out = open(output_file, 'w', encoding='utf-8')
     with open(input_file, 'r', encoding='utf-8') as f:
-        for para in clean_wikitext(f.read()).split("\n\n"):
+        for para in wikitext_clean(f.read()).split("\n\n"):
             content = {}
             if para and para.strip().startswith('=') is False:
                 print(data_idx)
