@@ -1582,4 +1582,4 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         logger.info(f"{cls.__name__} does not support qkv concat check, skipping...")
 
     def get_model_parameters(self):
-        raise NotImplementedError("You should implement the interface: get_model_parameters.")
+        raise RuntimeError("You should implement the interface: get_model_parameters.")
