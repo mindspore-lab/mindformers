@@ -61,6 +61,7 @@ class GoldenStickConfig(QuantizationConfig):
         self.fa3_quant = full_config.get("fa_quant_type", None) == "FAQuant" or \
                          full_config.get("fa_quant_type", None) == "FAKQuant"
         self.fa3_quant_layer = self.get_fa3_quant_layer() if self.fa3_quant else set()
+        self.full_config = {self.convert_name(k): v for k, v in self.full_config.items()}
 
     def get_name(self) -> QuantizationBackends:
         return self.quantization
@@ -144,7 +145,6 @@ class GoldenStickConfig(QuantizationConfig):
         quantization strategy is stored in, then mapping the quantization strategy
         to the corresponding quant_method.
         """
-        self.full_config = {self.convert_name(k): v for k, v in self.full_config.items()}
         quant_strategy = None
         mapping_dict = defaultdict(tuple)
 

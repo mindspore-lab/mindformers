@@ -37,6 +37,7 @@ context:
   device_id: 0
   device_target: "Ascend"
   affinity_cpu_list: None
+  deterministic: "ON"
 
 # parallel context config
 parallel:
