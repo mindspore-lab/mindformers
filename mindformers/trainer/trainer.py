@@ -769,6 +769,7 @@ class Trainer:
 
         if batch_size is not None:
             kwargs["batch_size"] = batch_size
+            self.config.model.model_config.batch_size = batch_size
 
         if predict_checkpoint is False:
             predict_checkpoint = None
