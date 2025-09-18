@@ -230,4 +230,10 @@ class TrainModelMixin:
 
     def get_model_parameters(self):
         """Get current rank trainable parameters in model ."""
-        return self.model.get_model_parameters()
+        if not hasattr(self, 'model'):
+            raise RuntimeError("Mcore model definition should use the fixed paradigm: "
+                               "self.model = GPTModel(*args, **kwargs) definition. "
+                               "Currently, this attribute cannot be correctly recognized. "
+                               "Please modify the GPTModel definition method.")
+        model = getattr(self, 'model')
+        return model.get_model_parameters()
