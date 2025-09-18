@@ -537,7 +537,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         return tokens_per_expert, input_splits, output_splits
 
-    def preprocess_with_dryrun(self, num_local_tokens_per_expert):
+    def preprocess_with_dryrun(self, permuted_input):
         """
         Preprocesses the token routing map for AlltoAll communication and token permutation in dry-run mode.
 
@@ -545,7 +545,12 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         or cross-device communication. It generates idealized token distribution data based
         on theoretical calculations for testing and performance analysis purposes.
         """
-        tokens_per_expert = self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.expert_num
+        batch_size = self.seq_length // (int(permuted_input.shape[1]) * self.cp // (self.tp * self.moe_router_topk))
+        tokens_per_expert = (
+            self.seq_length // (self.tp * self.cp)
+            * self.moe_router_topk // self.expert_num
+            * batch_size
+            )
         num_global_tokens_per_expert = Tensor([tokens_per_expert] * self.expert_num, ms.float32).reshape(self.ep, -1)
         num_local_tokens_per_expert = Tensor([tokens_per_expert] * self.expert_num, ms.float32)
 
@@ -605,7 +610,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         num_tokens_per_expert = Cast()(num_tokens_per_expert, ms.float32)
 
         if self.is_dryrun:
-            tokens_per_expert, input_splits, output_splits = self.preprocess_with_dryrun(num_tokens_per_expert)
+            tokens_per_expert, input_splits, output_splits = self.preprocess_with_dryrun(permuted_input)
         else:
             tokens_per_expert, input_splits, output_splits = self.preprocess(num_tokens_per_expert)
 
