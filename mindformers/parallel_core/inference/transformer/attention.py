@@ -27,6 +27,7 @@ from typing import Union, Optional
 from mindspore import mint, nn, ops
 
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
+from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.inference.transformer.enums import AttnMaskType
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -341,7 +342,7 @@ class SelfAttention(Attention):
             prefix=f"{prefix}.linear_qkv",
         )
 
-        if submodules.q_layernorm is not None:
+        if submodules.q_layernorm is not None and not isinstance(submodules.q_layernorm, IdentityOp):
             self.q_layernorm = build_module(
                 self.submodules.q_layernorm,
                 config=config,
@@ -351,7 +352,7 @@ class SelfAttention(Attention):
         else:
             self.q_layernorm = None
 
-        if submodules.k_layernorm is not None:
+        if submodules.k_layernorm is not None and not isinstance(submodules.k_layernorm, IdentityOp):
             self.k_layernorm = build_module(
                 self.submodules.k_layernorm,
                 config=config,

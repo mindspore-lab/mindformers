@@ -30,6 +30,7 @@ import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
+from mindspore.communication.comm_func import all_reduce
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather_from_model_parallel_region,
@@ -43,6 +44,7 @@ from mindformers.parallel_core.inference.weights_utils import (set_weight_attrs,
                                                                deal_training_ffn_weight, deal_training_qkv_weight)
 from mindformers.parallel_core.inference.quantization.base_config import (QuantizeMethodBase,
                                                                           QuantizationConfig)
+from mindformers.tools.utils import is_pynative
 from mindformers.version_control import is_310p
 from mindformers.models.utils import format_type
 
@@ -766,6 +768,7 @@ class RowParallelLinear(LinearBase):
         self.has_bias = bias
         self.skip_bias_add = skip_bias_add
 
+        self.is_pynative = is_pynative()
         self.tp_group = tp_group
         self.tensor_parallel_group_size = self.tp_group.size
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
@@ -818,6 +821,9 @@ class RowParallelLinear(LinearBase):
         output_parallel = self.quant_method.apply(self, input_parallel, self.weight, bias_)
         if self.delay_allreduce or self.skip_bias_add:
             output = output_parallel
+        elif self.is_pynative:
+            output = output_parallel if self.tensor_parallel_group_size == 1 \
+                else all_reduce(output_parallel, group=self.tp_group.group)[0]
         else:
             output = reduce_from_model_parallel_region(output_parallel, self.tp_group)
         return output
