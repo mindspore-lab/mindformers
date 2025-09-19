@@ -85,7 +85,7 @@ def _get_block_submodules(
 
 
 class TransformerBlock(nn.Cell):
-    r"""
+    """
     Transformer class.
 
     Args:

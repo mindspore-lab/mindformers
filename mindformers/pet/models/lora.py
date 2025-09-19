@@ -28,7 +28,7 @@ from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 
 class LoraModel(PreTrainedModel):
-    r"""
+    """
     LoRA model for LLM. Provide a flexible and efficient way to adjust and
     optimize pre-trained models by adding LoRA structures to the base pre-trained models.
 
@@ -37,7 +37,7 @@ class LoraModel(PreTrainedModel):
         base_model (PreTrainedModel): Pre-trained model for tuning.
 
     Inputs:
-        - **\*inputs** (Tensor) - Input arguments of original base model.
+        - **\\*inputs** (Tensor) - Input arguments of original base model.
 
     Outputs:
         Outputs of original base model.

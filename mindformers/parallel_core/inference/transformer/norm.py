@@ -24,7 +24,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
 class LayerNorm(nn.Cell):
-    r"""
+    """
     Layer norm operation.
 
     Args:
@@ -71,7 +71,7 @@ class LayerNorm(nn.Cell):
 
 
 class RMSNorm(nn.Cell):
-    r"""
+    """
     A self-defined RMSNorm operation using reduce mean.
 
     Args:
@@ -80,10 +80,10 @@ class RMSNorm(nn.Cell):
         eps (float): The epsilon value of the denominator. Default 1e-5.
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+        - **x** (Tensor) - Tensor of shape (batch, seq_length, hidden_size).
 
     Outputs:
-        Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+        Tensor with shape (batch, seq_length, hidden_size).
     """
 
     def __init__(

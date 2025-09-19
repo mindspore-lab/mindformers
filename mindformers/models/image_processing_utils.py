@@ -66,7 +66,7 @@ class ImageProcessingMixin(PushToHubMixin):
             revision: str = "main",
             **kwargs,
     ):
-        r"""
+        """
         Instantiate a type of [`~image_processing_utils.ImageProcessingMixin`] from an image processor.
 
         Args:

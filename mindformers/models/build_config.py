@@ -27,7 +27,7 @@ def build_model_config(
         config: dict = None, default_args: dict = None,
         module_type: str = 'config', class_name: str = None,
         **kwargs):
-    r"""Build model config For MindFormer.
+    """Build model config For MindFormers.
     Instantiate the model config from MindFormerRegister's registry.
 
     Args:
@@ -68,7 +68,7 @@ def get_model_config(
         config: dict = None, default_args: dict = None,
         module_type: str = 'config', class_name: str = None,
         **kwargs):
-    r"""get model config For MindFormer.
+    """get model config For MindFormers.
     Instantiate the model config from MindFormerRegister's registry.
 
     Args:

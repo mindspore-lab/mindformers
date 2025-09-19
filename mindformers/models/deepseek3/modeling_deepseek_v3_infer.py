@@ -132,7 +132,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         )
 
     def add_flags_custom_mcore(self, is_prefill):
-        r"""
+        """
         Add flag to distinguish fa and pa.
 
         Args:
@@ -172,7 +172,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             key_cache=None,
             value_cache=None
     ):
-        r"""
+        """
         model forward.
 
         Args:

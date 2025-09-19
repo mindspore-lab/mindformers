@@ -89,7 +89,7 @@ def _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, prim_n
 
 
 class PmaAdamW(AdamW):
-    r"""
+    """
     This is the implementation of PmAdamW.
 
     Args:

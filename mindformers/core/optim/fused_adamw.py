@@ -66,7 +66,7 @@ def _check_param_value(betas, eps, weight_decay, prim_name):
 
 
 class FusedAdamW(Optimizer):
-    r"""
+    """
     This is the implementation of AdamW that uses fused operators.
 
     Args:

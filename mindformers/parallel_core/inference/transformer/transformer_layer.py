@@ -92,7 +92,7 @@ class BaseTransformerLayer:
 
 
 class TransformerLayer(nn.Cell, BaseTransformerLayer):
-    r"""
+    """
     A single transformer layer.
 
     Args:

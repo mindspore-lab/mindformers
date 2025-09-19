@@ -37,7 +37,7 @@ class MLPSubmodules:
 
 
 class MLP(nn.Cell):
-    r"""
+    """
     Parallel feedforward block implementation.
 
     Args:
@@ -175,7 +175,7 @@ class MLP(nn.Cell):
 
 
 class MLPInterleaved(MLP):
-    r"""
+    """
     Parallel feedforward block implementation, with interleaved weight layout.
 
     Args:

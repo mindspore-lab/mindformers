@@ -171,7 +171,7 @@ def generate_state_dict(config):
 
 
 def save_strategy_file(state_dict, strategy_file_name):
-    r"""
+    """
     Save the strategy file according to the state_dict and strategy_file_name
 
     Args:

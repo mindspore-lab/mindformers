@@ -143,7 +143,7 @@ class TextGenerationPipeline(Pipeline):
                   preprocess_params: dict,
                   forward_params: dict,
                   postprocess_params: dict):
-        r"""Run Multiple Method
+        """Run Multiple Method
         This function is used to run a list input for task.
 
         Args:
