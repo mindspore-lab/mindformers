@@ -14,7 +14,8 @@
 # ============================================================================
 """Qwen3 models' utils."""
 from mindformers.models.qwen3.configuration_qwen3 import Qwen3Config
-from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.parallel_core.utils.model_mixin import ModelMixin
 
 
 class Qwen3PreTrainedModel(PreTrainedModel, ModelMixin):

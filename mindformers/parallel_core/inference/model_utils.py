@@ -23,7 +23,7 @@ from mindspore.nn import Cell
 import mindspore.common.dtype as mstype
 
 from mindformers.tools.logger import logger
-from mindformers.models.modeling_utils import ModelMixin
+from mindformers.parallel_core.utils.model_mixin import ModelMixin
 from mindformers.parallel_core.inference.parallel_state import is_pipeline_first_stage
 from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention

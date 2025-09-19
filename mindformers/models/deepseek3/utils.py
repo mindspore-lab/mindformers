@@ -15,7 +15,8 @@
 """DeepSeek3 models' utils."""
 import mindspore as ms
 
-from mindformers.models.modeling_utils import PreTrainedModel, ModelMixin
+from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.parallel_core.utils.model_mixin import ModelMixin
 from mindformers.models.deepseek3.configuration_deepseek_v3 import DeepseekV3Config
 
 
