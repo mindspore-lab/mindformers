@@ -239,8 +239,11 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         if param_map is None:
             raise FileNotFoundError(f"No weights file found at {weights_path} for mtp model.")
 
-        weights_files = {param_map[layer_name] for layer_name in param_map.keys()
-                         if f'layers.{layer_id}.' in layer_name}
+        weights_files = {
+            param_map[layer_name]
+            for layer_name in param_map.keys()
+            if f'layers.{layer_id}.' in layer_name
+        }
 
         weights_files = [
             os.path.join(weights_path, file)

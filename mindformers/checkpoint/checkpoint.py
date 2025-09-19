@@ -805,12 +805,9 @@ def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
     else:
         sharded_tensor_metas, param_file_mappings = generate_default_metadata_from_checkpoint(checkpoint_dir)
 
-    if not sharded_tensor_metas or not param_file_mappings:
-        raise RuntimeError(
-            f"Failed to load valid metadata from checkpoint directory: {checkpoint_dir}. "
-            "Metadata must include both sharded tensor information and parameter-file mappings."
-        )
-
+    # if the content or format of metadata_path and checkpoint_dir are invalid, the return value of
+    # sharded_tensor_metas and param_file_mappings may be empty or None,
+    # and it may cause an error in subsequent loading process.
     return sharded_tensor_metas, param_file_mappings
 
 
@@ -856,6 +853,12 @@ def load_checkpoint(
 
     # Retrieve metadata from checkpoint files
     src_sharded_tensor_metas, param_file_mappings = get_metadata_of_checkpoint(checkpoint_dir)
+
+    if not src_sharded_tensor_metas or not param_file_mappings:
+        raise RuntimeError(
+            f"Failed to load valid metadata from checkpoint directory: {checkpoint_dir}. "
+            "Metadata must include both sharded tensor information and parameter-file mappings."
+        )
 
     # Get current strategy metadata from network and optimizer
     logger.info(f".........Get Current Strategy Metadata.........")
