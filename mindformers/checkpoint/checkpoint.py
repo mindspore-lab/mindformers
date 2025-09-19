@@ -307,8 +307,12 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
 
     if get_rank() == 0:
         os.makedirs(cur_iter_checkpoint_dir, exist_ok=True)
+        set_safe_mode_for_file_or_dir(checkpoints_root_path)
         set_safe_mode_for_file_or_dir(cur_iter_checkpoint_dir)
     barrier_world(f"Rank_0 to ensure path '{cur_iter_checkpoint_dir}' is exists.")
+    # Fix cache coherency issues with shared storage.
+    # Force refresh the disk cache of the current node to ensure that the path can be accessed correctly.
+    os.listdir(os.path.dirname(checkpoints_root_path))
 
     # Prepare async save manager before save.
     def iter_finalize_func():
