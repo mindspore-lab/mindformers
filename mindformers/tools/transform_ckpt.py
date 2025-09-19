@@ -52,26 +52,14 @@ def get_strategy(startegy_path, rank_id=None):
 
     return None
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--src_ckpt_strategy',
-                        default="",
-                        help='path of src ckpt strategy')
-    parser.add_argument('--dst_ckpt_strategy',
-                        default="",
-                        help='path of dst ckpt strategy')
-    parser.add_argument('--src_ckpt_dir',
-                        default="",
-                        type=str,
-                        help='path of src ckpt')
-    parser.add_argument('--dst_ckpt_dir',
-                        default="",
-                        type=str,
-                        help='path where to save dst ckpt')
-    parser.add_argument('--prefix',
-                        default='checkpoint_',
-                        type=str,
-                        help='prefix of transformed checkpoint')
+    parser.add_argument('--src_ckpt_strategy', default="", help='path of src ckpt strategy')
+    parser.add_argument('--dst_ckpt_strategy', default="", help='path of dst ckpt strategy')
+    parser.add_argument('--src_ckpt_dir', default="", type=str, help='path of src ckpt')
+    parser.add_argument('--dst_ckpt_dir', default="", type=str, help='path where to save dst ckpt')
+    parser.add_argument('--prefix', default='checkpoint_', type=str, help='prefix of transformed checkpoint')
     args = parser.parse_args()
 
     src_ckpt_strategy = get_strategy(args.src_ckpt_strategy)

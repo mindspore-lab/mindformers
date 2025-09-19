@@ -35,7 +35,6 @@ def la_pre_process(input_ids, slot_mapping, **model_kwargs):
             for q_seq_len in q_seq_lens:
                 input_ids_list += input_ids[start: start + q_seq_len]
                 start += max_q_seq_lens
-            input_ids = np.array(input_ids_list, dtype=np.int32)
         if len(slot_mapping) != sum_q_seq_lens:
             slot_mapping = slot_mapping.tolist()
             slot_mapping_list = list()

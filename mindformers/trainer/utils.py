@@ -31,8 +31,8 @@ from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
-from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors
-from mindformers.checkpoint.utils import compile_model
+from mindformers.utils.load_checkpoint_utils import \
+    CkptFormat, load_checkpoint_with_safetensors, compile_model, get_last_checkpoint
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
     replace_rank_id_in_ckpt_name,
@@ -42,7 +42,7 @@ from mindformers.tools.utils import (
     format_path,
     is_main_rank
 )
-from mindformers.tools.ckpt_transform import TransformCkpt
+from mindformers.tools.ckpt_transform import TransformCkpt, check_rank_folders, check_ckpt_file_exist
 from mindformers.models.base_model import BaseModel
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.version_control import need_nz
@@ -520,22 +520,6 @@ def check_checkpoint_config_valid(config):
             f"config.load_ckpt_format only support for 'ckpt' or 'safetensors', but got {config.load_ckpt_format}.")
 
 
-def check_rank_folders(path, rank_id):
-    """check if the folders in path are correct"""
-    folder_name = "rank_{}".format(rank_id)
-    if not os.path.exists(os.path.join(path, folder_name)):
-        return False
-    return True
-
-
-def check_ckpt_file_exist(path):
-    """check if the files in path endswith .ckpt"""
-    for file_name in os.listdir(path):
-        if file_name.endswith('.ckpt'):
-            return True
-    return False
-
-
 def check_path_include_total_ckpt(path):
     """check if the input path is total, not split."""
     if path is None:
@@ -755,23 +739,3 @@ def load_ckpt(config, network, optimizer=None, model=None, future=None):
         if optimizer:
             not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
             logger.info("Optimizer parameters are not loaded: %s", not_load_optim_params)
-
-
-def get_last_checkpoint(checkpoint_dir, ckpt_format='ckpt'):
-    """get last checkpoint for resuming or finetune."""
-    if not os.path.isdir(checkpoint_dir):
-        raise NotADirectoryError(
-            f"{checkpoint_dir} is not a real directory,"
-            f"When distributed loads are sliced weights,"
-            f"load_checkpoint should be a checkpoint directory containing the directory of rank_{{0-*}},"
-            f"The directory structure is as follows: **checkpoint_root_dir/rank_{{0-*}}/**.{ckpt_format}")
-    output_checkpoint_path = [
-        checkpoint
-        for checkpoint in os.listdir(checkpoint_dir)
-        if checkpoint.endswith(f'.{ckpt_format}')
-    ]
-    if not output_checkpoint_path:
-        return None
-    output_checkpoint_path = sorted(output_checkpoint_path,
-                                    key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
-    return os.path.join(checkpoint_dir, output_checkpoint_path[-1])

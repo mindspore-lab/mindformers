@@ -18,7 +18,6 @@
 """Configuration base class and utilities."""
 
 import os
-import shutil
 import re
 import json
 import copy
@@ -35,6 +34,7 @@ from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.utils import FILE_PERMISSION
 from mindformers.models.build_config import build_model_config, get_model_config
 from mindformers.models.utils import CONFIG_NAME, ms_type_to_str, DEFAULT_CHECKPOINT_SAVE_FOLDER
+from mindformers.models.auto.utils import set_default_yaml_file
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools import (
     PushToHubMixin,
@@ -414,23 +414,8 @@ class PretrainedConfig(PushToHubMixin):
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
 
-            def get_default_yaml_file(model_name):
-                default_yaml_file = ""
-                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
-                    if model_name in model_dict:
-                        default_yaml_file = model_dict.get(model_name)
-                        break
-                return default_yaml_file
+            set_default_yaml_file(yaml_name, yaml_file)
 
-            if not os.path.exists(yaml_file):
-                default_yaml_file = get_default_yaml_file(yaml_name)
-                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
-                    shutil.copy(default_yaml_file, yaml_file)
-                    logger.info("default yaml config in %s is used.", yaml_file)
-                else:
-                    raise FileNotFoundError(
-                        f'default yaml file path must be correct, but get {default_yaml_file}'
-                    )
             config_args = MindFormerConfig(yaml_file)
         use_legacy = config_args.get_value("use_legacy", True)
         config_args.model.model_config.update(**kwargs)
