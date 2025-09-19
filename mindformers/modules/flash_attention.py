@@ -21,6 +21,8 @@ from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.parallel.shard import Layout
 
+from mindformers.tools.utils import is_pynative
+
 
 class FlashAttention(Cell):
     """Flash Attention Layer.
@@ -165,6 +167,7 @@ class FlashAttention(Cell):
         self.tp_x = tp_x
         self.tp_y = tp_y
         self.tp_z = tp_z
+        self.is_pynative = is_pynative()
 
         self.flash_attention = FlashAttentionScore(head_num=head_num,
                                                    keep_prob=keep_prob,
@@ -300,9 +303,10 @@ class FlashAttention(Cell):
     def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None,
                   actual_seq_qlen=None, actual_seq_kvlen=None):
         """Forward process of the AttentionMaskMF"""
-        query = query.contiguous()
-        key = key.contiguous()
-        value = value.contiguous()
+        if self.is_pynative:
+            query = query.contiguous()
+            key = key.contiguous()
+            value = value.contiguous()
         if self.input_layout in ["TH", "TND"]:
             _, _, _, output = self.flash_attention(query,
                                                    key,

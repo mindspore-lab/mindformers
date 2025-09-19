@@ -34,6 +34,7 @@ from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.tools.utils import is_pynative
 
 
 @dataclass
@@ -127,11 +128,10 @@ class Attention(nn.Cell):
         self.compute_dtype = self.config.compute_dtype
         self.is_prefill = True
         self.is_chunked = False
+        self.is_pynative = is_pynative()
 
         self.num_heads = self.config.num_attention_heads
-        self.num_query_groups = (self.num_heads
-                                 if config.num_query_groups is None else
-                                 config.num_query_groups)
+        self.num_query_groups = self.num_heads if config.num_query_groups is None else config.num_query_groups
         if hasattr(config, "kv_channels"):
             self.hidden_size_per_attention_head = getattr(config, 'kv_channels')
         else:
@@ -250,9 +250,12 @@ class Attention(nn.Cell):
         query, key, value = self.get_query_key_value_tensors(hidden_states)
 
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
-            query, key = self.rotary_emb(query.contiguous(),
-                                         key.contiguous(),
-                                         rotary_pos_cos.contiguous(),
+            if self.is_pynative:
+                query = query.contiguous()
+                key = key.contiguous()
+            query, key = self.rotary_emb(query,
+                                         key,
+                                         rotary_pos_cos,
                                          rotary_pos_sin,
                                          batch_valid_length)
 
@@ -361,8 +364,6 @@ class SelfAttention(Attention):
             )
         else:
             self.k_layernorm = None
-
-        self.cast = ops.Cast()
 
     def get_query_key_value_tensors(self, hidden_states):
         qkv = self.cast(self.linear_qkv(hidden_states), self.compute_dtype)

@@ -19,6 +19,8 @@ from mindspore import ops
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
+from mindformers.tools.utils import is_pynative
+
 
 class FlashAttention(Cell):
     """Flash Attention Layer.
@@ -90,6 +92,7 @@ class FlashAttention(Cell):
         self.is_prefill = True
         self.input_layout = input_layout
         self.use_multi_latent_attention: bool = pa_mla_v_dim > 0
+        self.is_pynative = is_pynative()
 
         self.reshape_and_cache = ops.auto_generate.ReshapeAndCache()
 
@@ -124,14 +127,16 @@ class FlashAttention(Cell):
                   value_cache=None):
         """Forward process of the FlashAttention."""
         if not self.use_multi_latent_attention:
-            key = key.contiguous()
-            value = value.contiguous()
+            if self.is_pynative:
+                key = key.contiguous()
+                value = value.contiguous()
             self.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping)
 
         if self.is_prefill:
-            query = query.contiguous()
-            key = key.contiguous()
-            value = value.contiguous()
+            if self.is_pynative:
+                query = query.contiguous()
+                key = key.contiguous()
+                value = value.contiguous()
             _, _, _, context = self.flash_attention(query, key, value,
                                                     None, None,
                                                     padding_mask, attn_mask,
