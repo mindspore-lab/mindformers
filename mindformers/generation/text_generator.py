@@ -286,7 +286,8 @@ class GenerationMixin:
         input_ids = model_inputs.pop("input_ids")
         if isinstance(input_ids, Tensor):
             if input_ids.shape[-1] == 1:
-                model_inputs["input_ids"] = input_ids
+                shape = (-1,) if need_flatten else (-1, 1)
+                model_inputs["input_ids"] = input_ids.reshape(shape)
                 return
             input_ids = input_ids.asnumpy()
 
