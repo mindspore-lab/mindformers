@@ -68,7 +68,8 @@ def get_predict_lazy_inline(func):
     """Predict lazy inline decorator."""
 
     def decorator(*args, **kwargs):
-        if get_predict_run_mode():
+        # disable lazy inline on 310p
+        if get_predict_run_mode() and not need_nz():
             from mindspore.common import lazy_inline
             lazy_inline(func)(*args, **kwargs)
 
