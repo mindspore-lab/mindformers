@@ -40,8 +40,7 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (
     scatter_to_model_parallel_region
 )
 from mindformers.parallel_core.inference.parallel_state import ProcessGroup, default_pgs
-from mindformers.parallel_core.inference.weights_utils import (split_loaded_weight, cpu_offload_weights_params,
-                                                               deal_training_moe_weight)
+from mindformers.parallel_core.inference.weights_utils import split_loaded_weight, deal_training_moe_weight
 
 
 class GroupedLinearMethodBase(QuantizeMethodBase):
@@ -383,7 +382,6 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                     f" but got the shape of param is {(param.shape[1], param.data[expert_id].shape)} and "
                     f"the shape of weight is{loaded_weight.shape}")
             param[expert_id] = ms.from_numpy(loaded_weight)
-        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
 
 
 class RowParallelGroupedLinear(GroupedLinearBase):
@@ -612,4 +610,3 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                     f" but got the shape of param is {param.data[expert_id].shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
             param[expert_id] = ms.from_numpy(loaded_weight)
-        cpu_offload_weights_params(param, self.config.cpu_offloading_weights)
