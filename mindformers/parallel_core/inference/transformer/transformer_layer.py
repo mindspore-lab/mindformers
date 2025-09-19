@@ -35,7 +35,6 @@ from mindformers.parallel_core.inference.tensor_parallel.mappings import (gather
                                                                           reduce_scatter_to_model_parallel_region,
                                                                           scatter_to_model_parallel_region)
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-from mindformers.models.utils import predict_lazy_inline
 from mindformers.tools.logger import logger
 
 
@@ -141,7 +140,6 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         ``Ascend``
     """
 
-    @predict_lazy_inline
     def __init__(self,
                  config: TransformerConfig,
                  submodules: TransformerLayerSubmodules,
