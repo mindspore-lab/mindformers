@@ -92,7 +92,7 @@ class ModelParallelConfig:
     (https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/configuration.html)
     """
 
-    vocab_emb_dp: Optional[bool] = True
+    vocab_emb_dp: Optional[bool] = False
     """Whether to split the vocabulary only along the dp dimension. Default: True."""
 
     ###################
