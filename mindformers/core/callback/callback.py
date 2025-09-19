@@ -615,7 +615,7 @@ class MFLossMonitor(Callback):
         else:
             loss_info = "loss:[%5.6f/%5.6f], " % (loss, np.mean(self.loss_list))
         if self.print_separate_loss:
-            separate_loss = "lm loss: %5.6f, " % main_loss
+            separate_loss = "lm_loss: %5.6f, " % main_loss
             if self.is_moe_model:
                 separate_loss += "load_balancing_loss: %5.6f, " % extra_loss
             if self.is_mtp_model:

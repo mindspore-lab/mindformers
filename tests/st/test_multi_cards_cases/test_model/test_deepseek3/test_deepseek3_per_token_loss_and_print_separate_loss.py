@@ -62,7 +62,7 @@ class TestDeepseekV3WithCalculatePerTokenLossAndPrintSeparateLoss:
         ret, log_path = results[0]
         assert ret == 0
 
-        required_losses = {'lm loss', 'load_balancing_loss', 'mtp_loss'}
+        required_losses = {'lm_loss', 'load_balancing_loss', 'mtp_loss'}
         found_losses = set()
 
         try:
