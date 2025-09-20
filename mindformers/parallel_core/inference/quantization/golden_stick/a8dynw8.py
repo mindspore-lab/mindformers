@@ -25,7 +25,7 @@ from mindformers.parallel_core.inference.tensor_parallel.layers import LinearMet
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
-
+from mindformers.models.utils import format_type
 
 
 class A8W8DynamicLinearMethod(LinearMethodBase):
@@ -84,6 +84,13 @@ class A8W8DynamicLinearMethod(LinearMethodBase):
             layer.insert_param_to_cell("w_scale", w_scale)
         return weight
 
+    def process_weights_after_loading(self, layer: nn.Cell) -> None:
+        """
+        Process the weight after loading.
+        This can be used for example, to transpose weights for computation.
+        """
+        if self.is_group_mm:
+            layer.weight = ops.auto_generate.format_cast(layer.weight, format_type['nz'])
 
     def apply(self,
               layer: mindspore.nn.Cell,

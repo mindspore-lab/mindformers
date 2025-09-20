@@ -17,6 +17,7 @@ from typing import Dict, Iterable, Optional, Set, Tuple, Literal
 import numpy as np
 
 from mindspore import nn, ops, mint, Tensor
+from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
@@ -199,6 +200,7 @@ class GPTModel(nn.Cell):
 
         self.cast = ops.Cast()
         self.gather = ops.Gather()
+        self.depend = P.Depend()
 
         self.set_modules({"model": self})
 
@@ -262,6 +264,15 @@ class GPTModel(nn.Cell):
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions)
 
+        batch_valid_length_cpu = ops.move_to(batch_valid_length, "CPU")
+        q_seq_lens_cpu = ops.move_to(q_seq_lens, "CPU")
+        context_lens_tensor_cpu = ops.move_to(context_lens_tensor, "CPU")
+
+        # embedding contains the allreduce ops. Adding the depend ops ensures that the move_to ops is
+        # launched before the allreduce, reducing the sync waiting time when the move_to ops launched.
+        input_ids = self.depend(input_ids, q_seq_lens_cpu)
+        input_ids = self.depend(input_ids, batch_valid_length_cpu)
+        input_ids = self.depend(input_ids, context_lens_tensor_cpu)
         # Decoder embedding.
         if self.pre_process:
             decoder_input = self.cast(self.embedding(input_ids), self.compute_dtype)
@@ -287,7 +298,10 @@ class GPTModel(nn.Cell):
             ffn_padding_idx=ffn_padding_idx,
             ffn_unpadding_idx=ffn_unpadding_idx,
             key_cache=key_cache,
-            value_cache=value_cache
+            value_cache=value_cache,
+            q_seq_lens_cpu=q_seq_lens_cpu,
+            batch_valid_length_cpu=batch_valid_length_cpu,
+            context_lens_tensor_cpu=context_lens_tensor_cpu,
         )
 
         # Return hidden states.

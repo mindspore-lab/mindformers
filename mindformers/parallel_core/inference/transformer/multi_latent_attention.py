@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Union, Optional
 import numpy as np
 
-from mindspore import mint, ops, Tensor, dtype, Parameter
+from mindspore import mint, Tensor, dtype, Parameter
 from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
 from mindspore.ops.operations._infer_ops import QuantV2
@@ -188,7 +188,10 @@ class MultiLatentAttention(Attention):
             actual_seq_kvlen=None,
             context_lens_tensor=None,
             key_cache=None,
-            value_cache=None
+            value_cache=None,
+            q_seq_lens_cpu=None,
+            batch_valid_length_cpu=None,
+            context_lens_tensor_cpu=None
     ):
         """Forward process of the CoreAttention."""
 
@@ -355,6 +358,21 @@ class MLASelfAttention(MultiLatentAttention):
             config=self.config,
             eps=self.config.layernorm_epsilon
         )
+        self.q_absorb = None
+        self.out_absorb = None
+
+    def process_weights_after_loading(self) -> None:
+        """
+        Process the weight after loading.
+        This can be used for example, to transpose weights for computation.
+        """
+        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
+                                          [self.num_attention_heads_per_partition * self.config.qk_head_dim,
+                                           self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
+        self.q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,
+                                         self.config.qk_head_dim, self.config.kv_lora_rank)
+        self.out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
+                                             self.config.v_head_dim, self.config.kv_lora_rank)
 
     def compute_kv(
             self,
@@ -475,21 +493,13 @@ class MLASelfAttention(MultiLatentAttention):
 
             return query, None, key, None, value, None
 
-        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
-                                          [self.num_attention_heads_per_partition * self.config.qk_head_dim,
-                                           self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
-        q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,
-                                    self.config.qk_head_dim, self.config.kv_lora_rank)
-        out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
-                                        self.config.v_head_dim, self.config.kv_lora_rank)
-
-        q_no_pe = self.transpose(mint.matmul(self.transpose(q_no_pe, (1, 0, 2)), q_absorb), (1, 0, 2))
+        q_no_pe = self.transpose(mint.matmul(self.transpose(q_no_pe, (1, 0, 2)), self.q_absorb), (1, 0, 2))
         query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
         query = query_states.reshape(-1,
                                      self.num_attention_heads_per_partition *
                                      (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
 
-        return query, None, None, None, None, out_absorb
+        return query, None, None, None, None, self.out_absorb
 
 class FusedMLASelfAttention(MLASelfAttention):
     """MLA Self-attention layer class use fused op
@@ -592,6 +602,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         Process the weight after loading.
         This can be used for example, to transpose weights for computation.
         """
+        super().process_weights_after_loading()
         if not self.is_modelslim:
             # Temporary, to be deleted upon completion of weight conversion.
             qkv_down_input_scale = self.linear_qkv_down_proj.input_scale.asnumpy().astype(np.float32)
@@ -683,14 +694,6 @@ class FusedMLASelfAttention(MLASelfAttention):
             return query, None, key, None, value, None
 
         # only decode use fused op
-        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
-                                          [self.num_attention_heads_per_partition * self.config.qk_head_dim,
-                                           self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
-        q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,
-                                    self.config.qk_head_dim, self.config.kv_lora_rank)
-        out_absorb = out_absorb.reshape(self.num_attention_heads_per_partition,
-                                        self.config.v_head_dim, self.config.kv_lora_rank)
-
         states = self.ms_custom_ops.mla_preprocess(
             hidden_states,
             self.input_layernorm_weight,
@@ -712,7 +715,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             slot_mapping,
             self.q_up_weight,
             self.linear_q_up_proj.quant_bias,
-            q_absorb,
+            self.q_absorb,
             self.linear_qkv_down_proj.deq_scale,
             self.linear_q_up_proj.deq_scale,
             self.ctkv_scale,
@@ -720,13 +723,13 @@ class FusedMLASelfAttention(MLASelfAttention):
             key_cache if not self.use_ringmla else value_cache,
             self.cache_mode)
         if self.use_ringmla:
-            return states[0], states[2], None, None, None, out_absorb
+            return states[0], states[2], None, None, None, self.out_absorb
         query_states = states[0]
         query = query_states.reshape(-1,
                                      self.num_attention_heads_per_partition *
                                      (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
 
-        return query, None, None, None, None, out_absorb
+        return query, None, None, None, None, self.out_absorb
 
     def construct(
             self,
@@ -744,7 +747,10 @@ class FusedMLASelfAttention(MLASelfAttention):
             actual_seq_kvlen=None,
             context_lens_tensor=None,
             key_cache=None,
-            value_cache=None
+            value_cache=None,
+            q_seq_lens_cpu=None,
+            batch_valid_length_cpu=None,
+            context_lens_tensor_cpu=None
     ):
         """Forward process of the CoreAttention."""
         if not self.use_ringmla:
@@ -761,7 +767,6 @@ class FusedMLASelfAttention(MLASelfAttention):
         # core attention computation
         # ==================================
         if self.is_prefill:
-            q_seq_len_cpu = ops.move_to(q_seq_lens, "CPU")
             o_prev = mint.zeros((hidden_states.shape[0], self.num_attention_heads_per_partition,
                                  self.config.v_head_dim), dtype=dtype.bfloat16)
             lse_prev = mint.zeros((self.num_attention_heads_per_partition, hidden_states.shape[0]),
@@ -771,7 +776,7 @@ class FusedMLASelfAttention(MLASelfAttention):
                 query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
                 mask=self.ring_mla_mask, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None,
                 deq_scale_pv=None, deq_offset_pv=None, quant_p=None, log_n=None, o_prev=o_prev,
-                lse_prev=lse_prev, q_seq_lens=q_seq_len_cpu, context_lens=q_seq_len_cpu,
+                lse_prev=lse_prev, q_seq_lens=q_seq_lens_cpu, context_lens=q_seq_lens_cpu,
                 head_num=self.num_attention_heads_per_partition, scale_value=self.scale_value,
                 kv_head_num=self.num_attention_heads_per_partition,
                 mask_type=1, #"MASK_TYPE_TRIU",
@@ -781,12 +786,11 @@ class FusedMLASelfAttention(MLASelfAttention):
             if self.is_chunked:
                 k_cache, r_cache = self.kv_cache_loader(key_cache, value_cache, block_tables, context_lens_tensor)
                 k_no_pe, k_pos_emb, value = self.split_kv(k_cache, r_cache)
-                context_lens_cpu = ops.move_to(context_lens_tensor, "CPU")
                 core_attn_out, _ = self.ms_custom_ops.ring_mla(
                     query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
                     mask=None, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None, deq_scale_pv=None,
                     deq_offset_pv=None, quant_p=None, log_n=None, o_prev=core_attn_out,
-                    lse_prev=lse_out, q_seq_lens=q_seq_len_cpu, context_lens=context_lens_cpu,
+                    lse_prev=lse_out, q_seq_lens=q_seq_lens_cpu, context_lens=context_lens_tensor_cpu,
                     head_num=self.num_attention_heads_per_partition, scale_value=self.scale_value,
                     kv_head_num=self.num_attention_heads_per_partition,
                     mask_type=0, #"MASK_TYPE_TRIU",
@@ -794,9 +798,10 @@ class FusedMLASelfAttention(MLASelfAttention):
                     )
         else:
             core_attn_out, _ = self.ms_custom_ops.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
-                                                      self.qk_descale, self.pv_descale, q_seq_lens, batch_valid_length,
-                                                      self.num_attention_heads_per_partition, self.scale_value,
-                                                      kv_head_num=1, mask_type=0, input_format=self.input_format)
+                                                      self.qk_descale, self.pv_descale, q_seq_lens_cpu,
+                                                      batch_valid_length_cpu, self.num_attention_heads_per_partition,
+                                                      self.scale_value, kv_head_num=1, mask_type=0,
+                                                      input_format=self.input_format)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
             core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
@@ -849,6 +854,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             load_out = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
                                                            context_lens_tensor, k_cache, r_cache, None, 1)
             k_cache = self.depend(k_cache, load_out)
+            r_cache = self.depend(r_cache, load_out)
         else:
             k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
                                            Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
@@ -857,6 +863,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             load_out = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
                                                            context_lens_tensor, k_cache, r_cache, None, 0)
             k_cache = self.depend(k_cache, load_out)
+            r_cache = self.depend(r_cache, load_out)
 
         if self.fa3_quant:
             context_len, _ = k_cache.shape

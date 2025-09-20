@@ -113,6 +113,7 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
     def dispatch_preprocess(self, expert_weight, routing_map):
         """Preprocess expert weight by masking out invalid experts."""
         expert_weight_mask = routing_map >= self.num_local_experts
+        expert_weight = expert_weight.astype(self.config.compute_dtype)
         expert_weight = ops.masked_fill(expert_weight, expert_weight_mask, self.fill_value)
         return expert_weight, routing_map
 

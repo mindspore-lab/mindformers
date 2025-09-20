@@ -239,7 +239,10 @@ class Attention(nn.Cell):
                   actual_seq_kvlen=None,
                   context_lens_tensor=None,
                   key_cache=None,
-                  value_cache=None):
+                  value_cache=None,
+                  q_seq_lens_cpu=None,
+                  batch_valid_length_cpu=None,
+                  context_lens_tensor_cpu=None):
         """Forward process of the SelfAttention."""
         ori_dtype = hidden_states.dtype
 
