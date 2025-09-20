@@ -153,11 +153,47 @@ def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss(
     ds3_train(config, dataset, construct_args_key, checker_config)
 
 
+def parallel_train_dp2_mp2_ep2_zbv():
+    """test mcore deepseekv3 train in dp=mp=ep=2 with zero_bubble_v."""
+    ms.set_seed(0)
+    config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = False
+    config.train_precision_sync = True
+    config.pretrained_model_dir = CUR_DIR
+    config.runner_config.sink_mode = True
+    config.parallel.full_batch = True
+    config.parallel.dataset_strategy = 'full_batch'
+    config.parallel_config.data_parallel = 1
+    config.parallel_config.micro_batch_num = 4
+    config.parallel.pipeline_config = {'pipeline_interleave': True, 'pipeline_scheduler': 'zero_bubble_v'}
+    config.model.model_config.pp_interleave_num = 2
+
+    build_context(config)
+
+    construct_args_key = ['input_ids', 'labels']
+    model_config = config.model.model_config
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
+
+    loss_std = [13.485840, 13.485862, 13.486006, 13.486031, 13.485930,
+                13.485970, 13.485985, 13.485970, 13.486046, 13.485975,
+                13.485965, 13.486017, 13.485967, 13.485915, 13.485946,
+                13.486049, 13.485963, 13.485968, 13.485966, 13.486050,]
+    checker_config = {
+        'loss_list_std': loss_std,
+        'experiment_mode': False,
+        'micro_batch_num': 4,
+        'micro_batch_interleave_num': 1,
+        'zero_bubble_v': True
+    }
+    ds3_train(config, dataset, construct_args_key, checker_config)
+
+
 TEST_MAP = {
     'parallel_train_dp2_mp2_cp2_ep2': parallel_train_dp2_mp2_cp2_ep2,
     'parallel_train_dp2_pp2_ep2_tnd': parallel_train_dp2_pp2_ep2_tnd,
     "parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss":
         parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss,
+    'parallel_train_dp2_mp2_ep2_zbv': parallel_train_dp2_mp2_ep2_zbv,
 }
 
 if __name__ == '__main__':

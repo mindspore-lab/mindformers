@@ -52,6 +52,9 @@ class TrainingChecker(Callback):
         experiment_mode (bool, optional):
             Enables or disables the developer debugging mode. Defaults to False.
             If set True, will not check values of loss and time.
+        zero_bubble_v (bool, optional):
+            Enables or disables ZeroBubbleV. Defaults to False.
+            If set True, will only check values of loss and time in the first stage.
 
     Raises:
         AssertionError
@@ -61,7 +64,7 @@ class TrainingChecker(Callback):
                  loss_error: float = 1e-3, time_error_ratio: float = 0.1,
                  skip_step_num: int = 2, skip_time_num: int = 5, micro_batch_num: int = 1,
                  micro_batch_interleave_num: int = 1, gradient_accumulation_steps: int = 1,
-                 loss_mode: str = 'abs', experiment_mode: bool = False):
+                 loss_mode: str = 'abs', experiment_mode: bool = False, zero_bubble_v: bool = False):
         super(TrainingChecker, self).__init__()
         self.loss_list_std = loss_list_std
         self.avg_step_time_std = avg_step_time_std
@@ -75,6 +78,7 @@ class TrainingChecker(Callback):
         # init pipeline parallel status
         self.pipeline_parallel = False
         self.is_last_stage = True
+        self.is_first_stage = False
         self.micro_size = micro_batch_num
 
         self.gradient_accumulation_steps = gradient_accumulation_steps
@@ -82,6 +86,7 @@ class TrainingChecker(Callback):
 
         self.loss_mode = loss_mode
         self.experiment_mode = experiment_mode
+        self.zbv = zero_bubble_v
         self.loss_recoder = []
         self.time_recoder = []
 
@@ -100,6 +105,7 @@ class TrainingChecker(Callback):
             per_stage_device_num = device_num // pipeline_stages
             stage_id = rank_id // per_stage_device_num
             self.is_last_stage = (stage_id == pipeline_stages - 1)
+            self.is_first_stage = (stage_id == 0)
 
     def on_train_step_begin(self, run_context):
         """Called on each training step begin."""
@@ -126,7 +132,10 @@ class TrainingChecker(Callback):
         self.loss_recoder.append(loss)
 
         # when enable pp, loss will be only available on the last card
-        if (not self.pipeline_parallel or self.is_last_stage) and not self.experiment_mode:
+        if not self.experiment_mode and (
+                (self.zbv and self.is_first_stage) or
+                (not self.zbv and (not self.pipeline_parallel or self.is_last_stage))
+        ):
             real_loss = self.loss_list_std[cur_step_num - 1]
             if self.loss_mode == 'abs':
                 loss_diff = abs(loss - real_loss)
