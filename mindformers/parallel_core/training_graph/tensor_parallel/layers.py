@@ -21,6 +21,7 @@ __all__ = [
     "SequenceParallelLinear"
 ]
 
+import os
 from typing import List, Optional, Callable
 
 import mindspore._checkparam as Validator
@@ -30,15 +31,18 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
-from mindspore.ops.auto_generate import Cast, AddExt, Reshape, IndexSelect
+from mindspore.ops.auto_generate import Cast, AddExt, Reshape, ReLU, Minimum, Equal
 from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore import mint
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.training_graph.device_matrix import layout
+
+from .utils import VocabUtility, get_tp_group_name
 
 
 def func_infer_dtype(*args):
@@ -49,6 +53,17 @@ def func_infer_dtype(*args):
 def func_infer_shape(*args):
     """infer_shape for Morph."""
     output_shape = args[0][:-1] + [args[1][0]]
+    return output_shape
+
+
+def embedding_infer_dtype(*args):
+    """infer_dtype for Morph."""
+    return args[0]
+
+
+def embedding_infer_shape(*args):
+    """infer_shape for Morph."""
+    output_shape = [args[0][0], args[0][1], args[1][-1]]
     return output_shape
 
 
@@ -78,10 +93,19 @@ class VocabParallelEmbedding(nn.Cell):
             raise NotImplementedError("For VocabParallelEmbedding, reduce_scatter_embeddings is not supported for now")
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
+        self.sequence_parallel = config.sequence_parallel
+        self.reshape = Reshape()
+        self.relu = ReLU()
+        self.minimum = Minimum()
+        self.equal = Equal()
+
+        self.tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
+        self.cp = config.context_parallel_size if config.context_parallel_size is not None else 1
 
         # use_cpu_initialization or perform_initialization configuration is not supported for now.
         self.weight = Parameter(init_method([self.num_embeddings, self.embedding_dim]), name="weight")
-        self.gather = IndexSelect()
+        self.embedding_morph = P.Morph(
+            self.embedding_func, embedding_infer_shape, embedding_infer_dtype).add_prim_attr("self_define_shard", True)
         self.reshape = Reshape()
         self.config = config
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -89,31 +113,101 @@ class VocabParallelEmbedding(nn.Cell):
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
 
+        # embedding rearrangement
+        self.tensor_model_parallel_size = self.tp
+        self.rank_id_str = os.environ.get("RANK_ID")
+        self.rank_id = int(self.rank_id_str) if self.rank_id_str is not None else None
+
+        if self.rank_id is not None:
+            self.tensor_model_parallel_rank = self.rank_id // self.cp % self.tensor_model_parallel_size
+            (
+                self.vocab_start_index,
+                self.vocab_end_index,
+            ) = VocabUtility.vocab_range_from_global_vocab_size(
+                self.num_embeddings, self.tensor_model_parallel_rank, self.tensor_model_parallel_size
+            )
+
+            self.group = get_tp_group_name(self.rank_id, self.tensor_model_parallel_size)
+            self.parallel_num_embeddings = self.num_embeddings // self.tensor_model_parallel_size - 1
+
     def construct(self, input_):
         """Forward of vocab embedding."""
         Validator.check_type_name("input_ids", F.dtype(input_), [dtype.int32, dtype.int64], self.cls_name)
+        output = self.embedding_morph(input_, self.weight)
+        return output
+
+    def embedding_func(self, input_, weight):
+        """
+        input_: (B, S) -> (dp, cp)
+        weight: (v, H) -> (tp, None)
+        output, sequence_parallel=False : (B, S, H) -> (dp, cp, None), AllReduce along tp
+        output, sequence_parallel=True : (B, S, H) -> (dp, (cp, tp), None), ReduceScatter at S dim along tp
+        """
         bs, seq_len = input_.shape
-        # in IndexSelect, input_ids should be 1-dimension
-        input_ids_ = self.reshape(input_, (bs * seq_len,))
-        # Use Gather instead of Embedding for deterministic
-        # forward/backward passes via Ascend CANN operators.
-        output_ = self.gather(self.weight, 0, input_ids_)
-        output = self.reshape(output_, (bs, seq_len, -1))
+        input_ = self.reshape(input_, (bs * seq_len,))
+        if self.tensor_model_parallel_size > 1:
+            # Build the mask. # Mask the input.
+            input_ = input_ - self.vocab_start_index
+            masked_input = self.relu(input_)
+            masked_input = self.minimum(masked_input, self.parallel_num_embeddings)
+            input_mask = self.equal(input_, masked_input)
+        else:
+            masked_input = input_
+            input_mask = 0
+
+        output_parallel = mint.nn.functional.embedding(masked_input, weight)
+
+        # Mask the output embedding.
+        if self.tensor_model_parallel_size > 1:
+            input_mask = input_mask.expand_dims(-1)
+            output_parallel = ops.mul(output_parallel, input_mask)
+
+        output_parallel = self.reshape(output_parallel, (bs, seq_len, -1))
+        if self.sequence_parallel:
+            # Data format change [b s h] --> [s b h].
+            if bs > 1:
+                output_parallel = output_parallel.transpose(1, 0, 2)
+            else:
+                output_parallel = output_parallel.reshape(seq_len, bs, -1)
+            output = ops.ReduceScatter(group=self.group)(output_parallel)
+            if bs > 1:
+                output = output.transpose(1, 0, 2)
+            else:
+                output = output.reshape(bs, seq_len, -1)
+            return output
+
+        if self.tensor_model_parallel_size == 1:
+            output = output_parallel
+        else:
+            output = ops.AllReduce(group=self.group)(output_parallel)
 
         return output
 
     def shard(self, config: TransformerConfig):
         """sharding for embedding"""
-        dp = 1 if config.data_parallel_size is None else config.data_parallel_size
-        tp = 1 if config.tensor_model_parallel_size is None else config.tensor_model_parallel_size
-        cp = 1 if config.context_parallel_size is None else config.context_parallel_size
-        if config.vocab_emb_dp:
-            self.gather.shard(((1, 1), (dp * cp,)))
+        if self.sequence_parallel:
+            out_strategy = layout("dp", "cp_tp", "None")
         else:
-            if self.num_embeddings % tp != 0:
-                self.gather.shard(((1, 1), (dp * cp,)))
-            else:
-                self.gather.shard(((tp, 1), (dp * cp,)))
+            out_strategy = layout("dp", "cp", "None")
+
+        if config.vocab_emb_dp or (self.num_embeddings % self.tp != 0):
+            self.embedding_morph.shard(
+                in_strategy=(
+                    layout("dp", "cp",),
+                    layout("None", "None"),
+                ),
+                out_strategy=(
+                    out_strategy,
+                )
+            )
+        else:
+            self.embedding_morph.shard(
+                in_strategy=(
+                    layout("dp", "cp"),
+                    layout("tp", "None"),
+                ),
+                out_strategy=(out_strategy,),
+            )
 
     def sharding_propagation(self, config: TransformerConfig):
         pass

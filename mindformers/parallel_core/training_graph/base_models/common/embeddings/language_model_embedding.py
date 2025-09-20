@@ -70,6 +70,7 @@ class LanguageModelEmbedding(nn.Cell):
         self.compute_dtype = config.compute_dtype
         self.num_tokentypes = num_tokentypes
         self.init_method = config.init_method
+        self.sequence_parallel = config.sequence_parallel
 
         # Word embedding
         self.word_embeddings = VocabParallelEmbedding(
@@ -161,17 +162,18 @@ class LanguageModelEmbedding(nn.Cell):
         """sharding parameters"""
         dp = 1 if config is None else config.data_parallel_size
         cp = 1 if config is None else config.context_parallel_size
-
-        self.transpose.shard(((dp, cp, 1),))
-        if config.vocab_emb_dp:
+        tp = 1 if config is None else config.tensor_model_parallel_size
+        if self.sequence_parallel:
+            self.transpose.shard(((dp, cp*tp, 1),))
+            self.add_pe.shard(((dp, cp*tp, 1), (dp, cp*tp, 1)))
+            self.add_te.shard(((dp, cp*tp, 1), (dp, cp*tp, 1)))
+            strategy_dropout = (cp*tp, dp, 1)
+            self.embedding_dropout.shard(strategy=strategy_dropout)
+        else:
+            self.transpose.shard(((dp, cp, 1),))
             self.add_pe.shard(((dp, cp, 1), (dp, cp, 1)))
             self.add_te.shard(((dp, cp, 1), (dp, cp, 1)))
             strategy_dropout = (cp, dp, 1)
-            self.embedding_dropout.shard(strategy=strategy_dropout)
-        else:
-            self.add_pe.shard(((1, 1, 1), (1, 1, 1)))
-            self.add_te.shard(((1, 1, 1), (1, 1, 1)))
-            strategy_dropout = (1, 1, 1)
             self.embedding_dropout.shard(strategy=strategy_dropout)
 
     def sharding_propagation(self, config: TransformerConfig):
