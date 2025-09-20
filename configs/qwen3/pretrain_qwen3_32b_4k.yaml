@@ -89,7 +89,6 @@ parallel_config:
   model_parallel: 4  # Number of model parallel
   pipeline_stage: 4  # Number of pipeline parallel
   micro_batch_num: 4  # Pipeline parallel microbatch size
-  vocab_emb_dp: True  # Whether to split the vocabulary in the data parallel dimension
   use_seq_parallel: False  # Whether to enable sequence parallelism
   gradient_aggregation_group: 1  # Size of the gradient communication operator fusion group
 # When model_parallel > 1, setting micro_batch_interleave_num to 2 may accelerate the training process.

@@ -581,7 +581,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 4
   pipeline_stage: 4
   micro_batch_num: 4
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -612,7 +611,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -643,7 +641,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -674,7 +671,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -705,7 +701,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -736,7 +731,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -783,7 +777,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -814,7 +807,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -845,7 +837,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -876,7 +867,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -907,7 +897,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
@@ -938,7 +927,6 @@ Qwen3的模型文件包括以下内容：
   model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
-  vocab_emb_dp: True
   use_seq_parallel: False
   gradient_aggregation_group: 1</code></pre>
     </td>
