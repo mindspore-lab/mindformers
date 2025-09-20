@@ -634,7 +634,11 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             _, sort_map = self.sort(routing_map)
             _, unsort_map = self.sort(sort_map.astype(ms.float32))
             index = mint.reshape(sort_map, (sort_map.shape[0]*sort_map.shape[1],))
-            global_input_tokens = IndexSelect()(global_input_tokens, 1, index)
+            global_input_tokens_shape = global_input_tokens.shape
+            global_input_tokens = global_input_tokens.reshape(-1, global_input_tokens_shape[-1])
+            global_input_tokens = IndexSelect()(global_input_tokens, 0, index)
+            global_input_tokens = global_input_tokens.reshape(
+                global_input_tokens_shape[0], -1, global_input_tokens_shape[-1])
 
         ctx = (
             probs, unsort_map, outer_unsort_map, input_splits,
@@ -669,7 +673,11 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             tokens = ops.reshape(ops.cast(tokens, tokens_dtype), tokens_shape)
         else:
             index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1],))
-            tokens = IndexSelect()(tokens, 1, index)
+            tokens_shape = tokens.shape
+            tokens = tokens.reshape(-1, tokens_shape[-1])
+            tokens = IndexSelect()(tokens, 0, index)
+            tokens = tokens.reshape(tokens_shape[0], -1, tokens_shape[-1])
+
 
         # Perform expert parallel AlltoAll communication
         permutated_local_input_tokens = ops.AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
@@ -748,7 +756,10 @@ def permute(
     inter_map = FmodScalar()(sort_map, routing_shape[1])
     # (dp, kN, h)bf16  <--  (dp, N, h)bf16, (dp, kN)int32
     index = mint.reshape(inter_map, (inter_map.shape[0]*inter_map.shape[1],))
-    permuted_input = IndexSelect()(tokens, 1, index)
+    tokens_shape = tokens.shape
+    tokens = tokens.reshape(-1, tokens_shape[-1])
+    permuted_input = IndexSelect()(tokens, 0, index)
+    permuted_input = permuted_input.reshape(tokens_shape[0], -1, tokens_shape[-1])
 
     return permuted_input, sorted_routing_map, routing_map, unsort_map
 
@@ -779,7 +790,9 @@ def unpermute(
         output_tokens = output_tokens.reshape(unsort_map_shape[0], unsort_map_shape[1], unsort_map_shape[2], -1)
     else:
         index = mint.reshape(unsort_map, (unsort_map.shape[0]*unsort_map.shape[1]*unsort_map.shape[2],))
-        output_tokens = IndexSelect()(permuted_tokens, 1, index)
+        permuted_tokens_shape = permuted_tokens.shape
+        permuted_tokens = permuted_tokens.reshape(-1, permuted_tokens_shape[-1])
+        output_tokens = IndexSelect()(permuted_tokens, 0, index)
         output_tokens = mint.reshape(output_tokens, (unsort_map.shape[0], unsort_map.shape[1], unsort_map.shape[2], -1))
     # (dp, N, k, 1)fp32 <-- (dp, N, k)fp32
     probs = ops.reshape(probs, (probs.shape[0], probs.shape[1], probs.shape[2], 1))
