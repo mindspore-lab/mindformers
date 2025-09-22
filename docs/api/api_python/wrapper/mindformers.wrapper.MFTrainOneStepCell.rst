@@ -1,7 +1,7 @@
 mindformers.wrapper.MFTrainOneStepCell
 ======================================
 
-.. py:class:: mindformers.wrapper.MFTrainOneStepCell(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, **kwargs)
+.. py:class:: mindformers.wrapper.MFTrainOneStepCell(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, global_norm_spike_threshold=1.0, use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs)
 
     MindFormers的单步训练包装接口。
     使用损失缩放、梯度裁剪、梯度累积、指数移动平均等策略进行网络训练。
