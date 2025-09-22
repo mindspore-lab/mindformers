@@ -538,7 +538,12 @@ class MtpSharedVocabParallelEmbedding(VocabParallelEmbedding):
 
     def construct(self, weight, input_ids):
         """Forward of vocab embedding."""
-        output = self.embedding_morph(input_ids, weight)
+        bs, seq_len = input_ids.shape
+        # in IndexSelect, input_ids should be 1-dimension
+        input_ids_ = self.reshape(input_ids, (bs * seq_len,))
+        output_ = self.gather(weight, 0, input_ids_)
+        output = self.reshape(output_, (bs, seq_len, -1))
+
         return output
 
 
