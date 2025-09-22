@@ -263,7 +263,7 @@ def deal_training_ffn_weight(weight, config):
     return cat_ffn_weight
 
 
-def deal_training_moe_weight(weight, config):
+def deal_training_moe_weight(weight):
     """
     Process weights for MoE model training by splitting and reorganizing.
 
@@ -272,31 +272,23 @@ def deal_training_moe_weight(weight, config):
 
     Args:
         weight: Input weight tensor, usually containing combined W1 and W3 weights
-        config: Configuration object containing model configuration information,
-               needs to have moe_ffn_hidden_size attribute
 
     Returns:
-        cat_ffn_weight: Weight tensor after splitting and merging according to tensor parallelism
+        cat_moe_weight: Weight tensor after splitting and merging according to tensor parallelism
     """
     tp_size = get_tensor_model_parallel_world_size()
     tp_rank = get_tensor_model_parallel_rank()
-
-    moe_ffn_hidden_size = config.moe_ffn_hidden_size
-
-    weight = weight.reshape(-1, 2, moe_ffn_hidden_size)
-    w1_weight = weight[:, :1, :]
-    w3_weight = weight[:, 1:2, :]
-    w1_weight = w1_weight.reshape(-1, moe_ffn_hidden_size)
-    w3_weight = w3_weight.reshape(-1, moe_ffn_hidden_size)
-
-    w1_shard_size = w1_weight // tp_size
+    w = weight.shape[1]
+    w1_weight = weight[:, : w // 2]
+    w1_shard_size = w1_weight.shape[1] // tp_size
     w1_start_idx = tp_rank * w1_shard_size
-    w1_weight = split_loaded_weight(w1_weight, 0, w1_start_idx, w1_shard_size)
-    w3_shard_size = w3_weight // tp_size
+    w1_weight = split_loaded_weight(w1_weight, 1, w1_start_idx, w1_shard_size)
+    w3_weight = weight[:, w // 2: w // 2 * 2]
+    w3_shard_size = w3_weight.shape[1] // tp_size
     w3_start_idx = tp_rank * w3_shard_size
-    w3_weight = split_loaded_weight(w3_weight, 0, w3_start_idx, w3_shard_size)
-    cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)
-    return cat_ffn_weight
+    w3_weight = split_loaded_weight(w3_weight, 1, w3_start_idx, w3_shard_size)
+    cat_moe_weight = np.concatenate((w1_weight, w3_weight), axis=1)
+    return cat_moe_weight
 
 
 def make_expert_params_mapping(
