@@ -545,7 +545,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         or cross-device communication. It generates idealized token distribution data based
         on theoretical calculations for testing and performance analysis purposes.
         """
-        batch_size = self.seq_length // (int(permuted_input.shape[1]) * self.cp // (self.tp * self.moe_router_topk))
+        batch_size = int(permuted_input.shape[1]) * self.cp * self.tp // (self.seq_length * self.moe_router_topk)
         tokens_per_expert = (
             self.seq_length // (self.tp * self.cp)
             * self.moe_router_topk // self.expert_num
