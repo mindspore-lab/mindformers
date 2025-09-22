@@ -17,9 +17,8 @@ from typing import Optional, Union
 
 from mindspore._checkparam import args_type_check
 
-from mindformers.modules.transformer.moe import MoEConfig
-from mindformers.modules.transformer.transformer import default_transformer_config, \
-    TransformerOpParallelConfig, default_moe_config
+from mindformers.modules.transformer.moe import MoEConfig, default_moe_config
+from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
