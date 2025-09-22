@@ -375,11 +375,12 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                 elif shard_id == "w3":
                     param.asnumpy()[expert_id][:, shard_size:shard_size + shard_size] = loaded_weight
         else:
-            loaded_weight = deal_training_moe_weight(loaded_weight, self.config)
+            loaded_weight = deal_training_moe_weight(loaded_weight)
+            param.init_data()
             if loaded_weight.shape != param.data[expert_id].shape:
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
-                    f" but got the shape of param is {(param.shape[1], param.data[expert_id].shape)} and "
+                    f" but got the shape of param is {param.data[expert_id].shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
             param[expert_id] = ms.from_numpy(loaded_weight)
 
@@ -600,10 +601,11 @@ class RowParallelGroupedLinear(GroupedLinearBase):
                 loaded_weight = ms.from_numpy(loaded_weight).astype(ms.float32).asnumpy()
             param.asnumpy()[expert_id] = loaded_weight
         else:
-            shard_dim = getattr(param, "input_dim", None)
+            shard_dim = getattr(param, "input_dim", None) - 1
             shard_size = self.input_size_per_partition
             start_idx = tp_rank * shard_size
             loaded_weight = split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size)
+            param.init_data()
             if loaded_weight.shape != param.data[expert_id].shape:
                 raise ValueError(
                     f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
