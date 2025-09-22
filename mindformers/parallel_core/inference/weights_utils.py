@@ -206,13 +206,13 @@ def deal_training_qkv_weight(weight, config):
     k_weight = k_weight.reshape(kv_channel, -1)
     v_weight = v_weight.reshape(kv_channel, -1)
 
-    q_shard_size = q_weight // tp_size
+    q_shard_size = q_channel // tp_size
     q_start_idx = tp_rank * q_shard_size
     q_weight = split_loaded_weight(q_weight, 0, q_start_idx, q_shard_size)
-    k_shard_size = k_weight // tp_size
+    k_shard_size = kv_channel // tp_size
     k_start_idx = tp_rank * k_shard_size
     k_weight = split_loaded_weight(k_weight, 0, k_start_idx, k_shard_size)
-    v_shard_size = v_weight // tp_size
+    v_shard_size = kv_channel // tp_size
     v_start_idx = tp_rank * v_shard_size
     v_weight = split_loaded_weight(v_weight, 0, v_start_idx, v_shard_size)
     cat_qkv_weight = np.concatenate((q_weight, k_weight, v_weight), axis=0)
@@ -251,10 +251,10 @@ def deal_training_ffn_weight(weight, config):
     w1_weight = w1_weight.reshape(ffn_hidden_size, -1)
     w3_weight = w3_weight.reshape(ffn_hidden_size, -1)
 
-    w1_shard_size = w1_weight // tp_size
+    w1_shard_size = w1_weight.shape[0] // tp_size
     w1_start_idx = tp_rank * w1_shard_size
     w1_weight = split_loaded_weight(w1_weight, 0, w1_start_idx, w1_shard_size)
-    w3_shard_size = w3_weight // tp_size
+    w3_shard_size = w3_weight.shape[0] // tp_size
     w3_start_idx = tp_rank * w3_shard_size
     w3_weight = split_loaded_weight(w3_weight, 0, w3_start_idx, w3_shard_size)
     cat_ffn_weight = np.concatenate((w1_weight, w3_weight), axis=0)

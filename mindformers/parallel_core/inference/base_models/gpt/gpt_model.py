@@ -385,7 +385,7 @@ class GPTModel(nn.Cell):
                 )
         return expert_params_mapping
 
-    def load_default_param(self, loaded_params, loaded_weight, name, num_experts, params_dict):
+    def load_default_param(self, loaded_params, loaded_weight, name, params_dict, is_hf_weight):
         """
         Load default parameters into the model.
 
@@ -393,22 +393,31 @@ class GPTModel(nn.Cell):
             loaded_params: Set of already loaded parameters, used to record processed parameter names
             loaded_weight: Weight data to be loaded
             name: Parameter name
-            num_experts: Number of experts, used for handling expert model weights
             params_dict: Parameter dictionary containing model parameter objects
+            is_hf_weight: Boolean flag indicating whether the weight is from HuggingFace format
         """
         if name in params_dict:
-            if 'weight1' in name or 'weight2' in name:
+            if '.weight1' in name or '.weight2' in name:
+                num_experts = self.config.num_moe_experts
+                if '.weight1' in name:
+                    weight = loaded_weight[:].reshape(num_experts, self.config.hidden_size, -1)
+                if '.weight2' in name:
+                    weight = loaded_weight[:].reshape(num_experts, self.config.moe_ffn_hidden_size, -1)
+
                 for expert_id in range(num_experts):
-                    loaded_weight = loaded_weight[expert_id]
+                    expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
+                    loaded_weight = weight[expert_id]
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    weight_loader(name, loaded_weight, shard_id=None, expert_id=expert_id)
+                    weight_loader(param, loaded_weight, shard_id=None, expert_id=expert_id)
                     loaded_params.add(name)
             else:
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
-                weight_loader(param, loaded_weight)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
+                if '.linear_fc1.' in name:
+                    weight_loader(param, loaded_weight, is_hf_weight=is_hf_weight)
+                else:
+                    weight_loader(param, loaded_weight)
                 loaded_params.add(name)
 
     def load_weights(self, weights: Iterable[Tuple[str, Tensor]], stacked_params_mapping=None, is_hf_weight=True):
@@ -443,14 +452,11 @@ class GPTModel(nn.Cell):
                 if name in params_dict:
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    if '.gating.' in name:
-                        weight_loader(param, loaded_weight, shard_id, is_hf_weight=is_hf_weight)
-                    else:
-                        weight_loader(param, loaded_weight, shard_id)
+                    weight_loader(param, loaded_weight, shard_id)
                     loaded_params.add(name)
                     break
             else:
-                if '.experts.' in name:
+                if '.experts.' in name and '.weight1' not in name and '.weight2' not in name:
                     has_num_experts_dim = (loaded_weight.get_shape()[0] == num_experts
                                            and len(loaded_weight.get_shape()) == 3)
                     expert_params_mapping = self.generate_expert_mapping(expert_params_mapping, has_num_experts_dim,
@@ -479,7 +485,7 @@ class GPTModel(nn.Cell):
                             loaded_params.add(name)
                             break
                 else:
-                    self.load_default_param(loaded_params, loaded_weight, name, num_experts, params_dict)
+                    self.load_default_param(loaded_params, loaded_weight, name, params_dict, is_hf_weight)
 
         network_not_load = set(params_dict.keys()) - loaded_params
         logger.warning(f'These parameters are not loaded in the network: {network_not_load}')

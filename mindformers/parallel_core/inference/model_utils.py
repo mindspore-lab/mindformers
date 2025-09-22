@@ -28,7 +28,8 @@ from mindformers.parallel_core.inference.parallel_state import is_pipeline_first
 from mindformers.parallel_core.inference.quantization.base_config import QuantizeMethodBase
 from mindformers.parallel_core.inference.transformer.attention import Attention
 from mindformers.version_control import is_310p
-from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
+from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
+                                                                get_tensor_model_parallel_rank)
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 
 
@@ -198,9 +199,12 @@ class InferModelMixin(ModelMixin):
 
     def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
         """Iterate over the weights in the model safetensor files."""
+        rank_id = get_tensor_model_parallel_rank()
+        is_main_rank = (rank_id == 0)
         for st_file in tqdm(
                 weights_files,
-                desc="Loading safetensors checkpoint shards",
+                desc=f"[Rank {rank_id}] Loading safetensors checkpoint shards",
+                disable=not is_main_rank
         ):
             with safe_open(st_file, framework="np") as f:
                 for name in f.keys():  # noqa: SIM118
@@ -236,18 +240,18 @@ class InferModelMixin(ModelMixin):
         - Shared expert MLP mappings
         """
         mapping_rules = {
-            '.linear_q_down_proj': ('.linear_qkv_down_proj', '.linear_q_down_proj', 'q_down'),
-            '.linear_kv_down_proj': ('.linear_qkv_down_proj', '.linear_kv_down_proj', 'kv_down'),
-            '.linear_q_up_proj': ('.linear_q_up_proj', '.linear_q_up_proj', 'q_up'),
-            '.linear_kv_up_proj': ('.linear_kv_up_proj', '.linear_kv_up_proj', 'kv_up'),
-            '.linear_q': ('.linear_qkv', '.linear_q', 'q'),
-            '.linear_k': ('.linear_qkv', '.linear_k', 'k'),
-            '.linear_v': ('.linear_qkv', '.linear_v', 'v'),
-            '.linear_kv': ('.linear_qkv', '.linear_kv', 'kv'),
-            '.mlp.gating': ('.mlp.linear_fc1', '.mlp.gating', 'gating'),
-            '.mlp.hidden': ('.mlp.linear_fc1', '.mlp.hidden', 'hidden'),
-            '.mlp.shared_experts.gating': ('.mlp.shared_experts.linear_fc1', '.mlp.shared_experts.gating', 'gating'),
-            '.mlp.shared_experts.hidden': ('.mlp.shared_experts.linear_fc1', '.mlp.shared_experts.hidden', 'hidden')
+            '.linear_q_down_proj.': ('.linear_qkv_down_proj.', '.linear_q_down_proj.', 'q_down'),
+            '.linear_kv_down_proj.': ('.linear_qkv_down_proj.', '.linear_kv_down_proj.', 'kv_down'),
+            '.linear_q_up_proj.': ('.linear_q_up_proj.', '.linear_q_up_proj.', 'q_up'),
+            '.linear_kv_up_proj.': ('.linear_kv_up_proj.', '.linear_kv_up_proj.', 'kv_up'),
+            '.linear_q.': ('.linear_qkv.', '.linear_q.', 'q'),
+            '.linear_k.': ('.linear_qkv.', '.linear_k.', 'k'),
+            '.linear_v.': ('.linear_qkv.', '.linear_v.', 'v'),
+            '.linear_kv': ('.linear_qkv.', '.linear_kv.', 'kv'),
+            '.mlp.gating.': ('.mlp.linear_fc1.', '.mlp.gating.', 'gating'),
+            '.mlp.hidden.': ('.mlp.linear_fc1.', '.mlp.hidden.', 'hidden'),
+            '.mlp.shared_experts.gating.': ('.mlp.shared_experts.linear_fc1.', '.mlp.shared_experts.gating.', 'gating'),
+            '.mlp.shared_experts.hidden.': ('.mlp.shared_experts.linear_fc1.', '.mlp.shared_experts.hidden.', 'hidden')
         }
 
         stacked_params_mapping = []
