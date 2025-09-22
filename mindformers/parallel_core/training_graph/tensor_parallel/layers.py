@@ -144,6 +144,7 @@ class VocabParallelEmbedding(nn.Cell):
         output, sequence_parallel=True : (B, S, H) -> (dp, (cp, tp), None), ReduceScatter at S dim along tp
         """
         bs, seq_len = input_.shape
+        _, hidden = weight.shape
         input_ = self.reshape(input_, (bs * seq_len,))
         if self.tensor_model_parallel_size > 1:
             # Build the mask. # Mask the input.
@@ -162,13 +163,21 @@ class VocabParallelEmbedding(nn.Cell):
             input_mask = input_mask.expand_dims(-1)
             output_parallel = ops.mul(output_parallel, input_mask)
 
-        output_parallel = self.reshape(output_parallel, (bs, seq_len, -1))
+        output_parallel = self.reshape(output_parallel, (bs, -1, hidden))
         if self.sequence_parallel:
             # Data format change [b s h] --> [s b h].
-            output_parallel = output_parallel.transpose(1, 0, 2)
+            if bs > 1:
+                output_parallel = output_parallel.transpose(1, 0, 2)
+            else:
+                output_parallel = output_parallel.reshape(-1, bs, hidden)
             output = ops.ReduceScatter(group=self.group)(output_parallel)
-            output = output.transpose(1, 0, 2)
-        elif self.tensor_model_parallel_size == 1:
+            if bs > 1:
+                output = output.transpose(1, 0, 2)
+            else:
+                output = output.reshape(bs, -1, hidden)
+            return output
+
+        if self.tensor_model_parallel_size == 1:
             output = output_parallel
         else:
             output = ops.AllReduce(group=self.group)(output_parallel)
