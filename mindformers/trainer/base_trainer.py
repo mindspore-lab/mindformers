@@ -60,8 +60,6 @@ from mindformers.core.callback.callback import (
     MFLossMonitor,
     TrainingStateMonitor,
     CheckpointMonitor,
-    ExpertMigrateCallback,
-    ExpertParallelManager,
     ColdHotExpertMonitor,
     TopkBiasBalanceCallback
 )
@@ -91,8 +89,7 @@ CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer"]
 CALLBACK_HAS_SORT = [
-    MFLossMonitor, TrainingStateMonitor, ExpertMigrateCallback, ColdHotExpertMonitor,
-    TopkBiasBalanceCallback, CheckpointMonitor
+    MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, TopkBiasBalanceCallback, CheckpointMonitor
 ]
 
 
@@ -1073,11 +1070,9 @@ class BaseTrainer:
 
         is_moe_model = False
         is_mtp_model = False
-        transformer_config = None
         if not is_legacy_model():
             is_moe_model = network.is_moe_model()
             is_mtp_model = network.is_mtp_model()
-            transformer_config = network.get_gpt_transformer_config()
 
         config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
@@ -1308,31 +1303,6 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
-
-        if transformer_config and (transformer_config.enable_expert_relocation or transformer_config.print_expert_load):
-            rank_id = get_rank()
-            ep = transformer_config.expert_model_parallel_size
-            expert_nums = transformer_config.num_moe_experts
-            ep_group = [i + rank_id // ep * ep for i in range(ep)]
-            manager = ExpertParallelManager(ep_group, rank_id, expert_nums)
-            save_checkpoint_steps = -1
-            for callback in config.callbacks:
-                if callback['type'] == 'CheckpointMonitor':
-                    save_checkpoint_steps = callback['save_checkpoint_steps']
-            expert_relocation = ExpertMigrateCallback(
-                enable_expert_relocation=transformer_config.enable_expert_relocation,
-                expert_relocation_initial_iteration=transformer_config.expert_relocation_initial_iteration,
-                expert_relocation_freq=transformer_config.expert_relocation_freq,
-                print_expert_load=transformer_config.print_expert_load,
-                manager=manager,
-                config=transformer_config,
-                save_checkpoint_steps=save_checkpoint_steps)
-            ckpt_callback_idx = -1
-            for i, callback in enumerate(callbacks):
-                if isinstance(callback, CheckpointMonitor):
-                    ckpt_callback_idx = i
-                    break
-            callbacks.insert(ckpt_callback_idx, expert_relocation)
 
         if config.moe_config.enable_cold_hot_expert:
             save_checkpoint_steps = -1
