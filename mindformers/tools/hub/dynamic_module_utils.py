@@ -271,7 +271,7 @@ def get_cached_module_file(
             This can be either:
 
             - a string, the *model id* of a pretrained model configuration hosted inside a model repo on
-              openmind.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
+              modelers.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
               under a user or organization name, like `dbmdz/bert-base-german-cased`.
             - a path to a *directory* containing a configuration file saved using the
               [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.
@@ -293,7 +293,7 @@ def get_cached_module_file(
             when running `openmind-cli login` (stored in `~/.openmind`).
         revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-            git-based system for storing models and other artifacts on openmind.cn, so `revision` can be any
+            git-based system for storing models and other artifacts on modelers.cn, so `revision` can be any
             identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
@@ -457,7 +457,7 @@ def get_class_from_dynamic_module(
             This can be either:
 
             - a string, the *model id* of a pretrained model configuration hosted inside a model repo on
-              openmind.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
+              modelers.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
               under a user or organization name, like `dbmdz/bert-base-german-cased`.
             - a path to a *directory* containing a configuration file saved using the
               [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.
@@ -482,7 +482,7 @@ def get_class_from_dynamic_module(
             when running `openmind-cli login` (stored in `~/.openmind`).
         revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-            git-based system for storing models and other artifacts on openmind.cn, so `revision` can be any
+            git-based system for storing models and other artifacts on modelers.cn, so `revision` can be any
             identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
@@ -491,7 +491,7 @@ def get_class_from_dynamic_module(
         code_revision (`str`, *optional*, defaults to `"main"`):
             The specific revision to use for the code on the Hub, if the code leaves in a different repository than the
             rest of the model. It can be a branch name, a tag name, or a commit id, since we use a git-based system for
-            storing models and other artifacts on openmind.cn, so `revision` can be any identifier allowed by git.
+            storing models and other artifacts on modelers.cn, so `revision` can be any identifier allowed by git.
 
     <Tip>
 
