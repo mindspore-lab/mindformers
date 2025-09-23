@@ -504,6 +504,11 @@ def convert_to_transformer_config(
     # Start converting parameters
     if 'parallel_config' in model_config:
         for parallel_key, parallel_value in model_config['parallel_config'].items():
+            if parallel_key == 'recompute' and isinstance(parallel_value, dict):
+                for recompute_key, recompute_value in parallel_value.items():
+                    if recompute_key in convert_map.keys():
+                        mapping_config(recompute_key, recompute_value)
+                continue
             if parallel_key in convert_map.keys():
                 mapping_config(parallel_key, parallel_value)
         model_config.pop('parallel_config')
