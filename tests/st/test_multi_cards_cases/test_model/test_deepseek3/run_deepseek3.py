@@ -68,12 +68,13 @@ def parallel_train_dp2_mp2_cp2_ep2():
 
     construct_args_key = ['input_ids', 'labels']
     model_config = config.model.model_config
-    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 2, 20)
 
-    loss_std = [13.485771, 13.485895, 13.485955, 13.486023, 13.485947,
-                13.485995, 13.485902, 13.485982, 13.485976, 13.485968,
-                13.485979, 13.485882, 13.485987, 13.485941, 13.485948,
-                13.486006, 13.485975, 13.485986, 13.485945, 13.485985,]
+    loss_std = [13.485943, 13.485964, 13.485873, 13.486125, 13.486035,
+                13.486079, 13.485928, 13.485991, 13.485875, 13.485889,
+                13.485916, 13.486242, 13.485828, 13.485985, 13.486170,
+                13.485849, 13.486152, 13.485961, 13.486010, 13.486052,
+                ]
     checker_config = {
         'loss_list_std': loss_std,
         'experiment_mode': False,
