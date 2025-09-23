@@ -34,6 +34,7 @@ from mindformers.parallel_core.inference.weights_utils import (default_weight_lo
                                                                make_expert_params_mapping_with_expert_dim)
 from mindformers.parallel_core.inference.parallel_state import is_pipeline_last_stage
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_pynative
 
 
 class GPTModel(nn.Cell):
@@ -104,9 +105,8 @@ class GPTModel(nn.Cell):
             fp16_lm_cross_entropy: bool = False,
             parallel_output: bool = True,
             share_embeddings_and_output_weights: bool = False,
-            position_embedding_type: Literal[
-                'learned_absolute', 'rope', 'llama3', 'yarn', "partial_rope", 'none'
-            ] = 'none',
+            position_embedding_type: Literal['learned_absolute', 'rope', 'llama3', 'yarn', "partial_rope", 'none'] = \
+                                    'none',
             rotary_percent: float = 1.0,
             rotary_base: int = 10000,
             rope_scaling: bool = False,
@@ -146,6 +146,7 @@ class GPTModel(nn.Cell):
         self.is_chunked = False
         self.return_hidden_states = False  # For serving, return hidden_states early and skip output_layer
         self.is_mtp_model = self.mtp_block_spec is not None
+        self.is_pynative = is_pynative()
 
         self.position_embedding_type = position_embedding_type if position_embedding_type != "none" else \
             getattr(self.config, 'position_embedding_type')
@@ -263,10 +264,14 @@ class GPTModel(nn.Cell):
         else:
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions)
-
-        batch_valid_length_cpu = ops.move_to(batch_valid_length, "CPU")
-        q_seq_lens_cpu = ops.move_to(q_seq_lens, "CPU")
-        context_lens_tensor_cpu = ops.move_to(context_lens_tensor, "CPU")
+        if self.is_pynative: # ops.move_to not support pynative mode
+            batch_valid_length_cpu = batch_valid_length.move_to("CPU")
+            q_seq_lens_cpu = q_seq_lens.move_to("CPU")
+            context_lens_tensor_cpu = context_lens_tensor.move_to("CPU")
+        else:
+            batch_valid_length_cpu = ops.move_to(batch_valid_length, "CPU")
+            q_seq_lens_cpu = ops.move_to(q_seq_lens, "CPU")
+            context_lens_tensor_cpu = ops.move_to(context_lens_tensor, "CPU")
 
         # embedding contains the allreduce ops. Adding the depend ops ensures that the move_to ops is
         # launched before the allreduce, reducing the sync waiting time when the move_to ops launched.
