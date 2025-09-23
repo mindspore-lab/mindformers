@@ -24,6 +24,7 @@ from typing import Union
 import yaml
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from .template import ConfigTemplate
+from .llm_template_v2 import ConfigTemplate as LLMConfigTemplate_V2
 
 BASE_CONFIG = 'base_config'
 
@@ -31,7 +32,7 @@ BASE_CONFIG = 'base_config'
 class DictConfig(dict):
     """config"""
     def __init__(self, **kwargs):
-        super(DictConfig, self).__init__()
+        super().__init__()
         self.update(kwargs)
 
     def __getattr__(self, key):
@@ -99,7 +100,7 @@ class MindFormerConfig(DictConfig):
     """
 
     def __init__(self, *args, **kwargs):
-        super(MindFormerConfig, self).__init__()
+        super().__init__()
         cfg_dict = {}
 
         # load from file
@@ -116,7 +117,10 @@ class MindFormerConfig(DictConfig):
             cfg_dict.update(kwargs)
 
         if load_from_file:
-            ConfigTemplate.apply_template(cfg_dict)
+            if os.environ.get("USE_CONFIG_TEMPLATE_V2") == "1":
+                LLMConfigTemplate_V2.apply_template(cfg_dict)
+            else:
+                ConfigTemplate.apply_template(cfg_dict)
         MindFormerConfig._dict2config(self, cfg_dict)
 
     def merge_from_dict(self, options):
@@ -175,7 +179,7 @@ class MindFormerConfig(DictConfig):
             filename (str) : config file.
         """
         if filename is None:
-            raise NameError('This {} cannot be empty.'.format(filename))
+            raise NameError(f'This {filename} cannot be empty.')
 
         filepath = os.path.realpath(filename)
         with open(filepath, encoding='utf-8') as fp:
@@ -191,13 +195,13 @@ class MindFormerConfig(DictConfig):
             base_filenames = base_filenames if isinstance(
                 base_filenames, list) else [base_filenames]
 
-            cfg_dict_list = list()
+            cfg_dict_list = []
             for base_filename in base_filenames:
                 cfg_dict_item = MindFormerConfig._file2dict(
                     os.path.join(cfg_dir, base_filename))
                 cfg_dict_list.append(cfg_dict_item)
 
-            base_cfg_dict = dict()
+            base_cfg_dict = {}
             for cfg in cfg_dict_list:
                 base_cfg_dict.update(cfg)
 
