@@ -53,7 +53,7 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 |  类型  | 开源代码地址 |                           文件名                            |                                                            公网IP地址/公网URL地址/域名/邮箱地址                                                            |             用途说明              |
 |:----:|:------:|:--------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------:|
 | 开发引入 |   -    |                   mindformers/build.sh                   |                                                   https://pypi.tuna.tsinghua.edu.cn/simple                                                   |  用于pip安装mindformers时, 修改安装源   |
-| 开发引入 |   -    | mindformers/.jenkins/test/config/dependent_packages.yaml | https://repo.mindspore.cn/mindspore/mindspore/version/202502/20250214/master_20250214091349_bba9269b8a6826c23ec33be9fd677178d52cfa3f_newest/ |     用于下载测试所依赖的mindspore包      |
+| 开发引入 |   -    | mindformers/.jenkins/test/config/dependent_packages.yaml | https://repo.mindspore.cn/mindspore/mindspore/version/202506/20250626/master_20250626010015_7d005baa1d45392c79f2bf1a7970284e08f600de_newest/ |     用于下载测试所依赖的mindspore包      |
 | 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                          https://hub-ci.openmind.cn                                                          | staging_mode下用于从openmind下载模型  |
 | 开发引入 |   -    |         mindformers/mindformers/tools/hub/hub.py         |                                                             https://openmind.cn                                                              | 非staging_mode下用于从openmind下载模型 |
 | 开发引入 |   -    |                   mindformers/setup.py                   |                                                   https://gitee.com/mindspore/mindformers                                                    |   setup脚本方式安装mindformers地址    |
@@ -65,6 +65,9 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 | 开发引入 |   -    |                   mindformers/setup.py                   |                                                https://gitee.com/mindspore/mindformers/issues                                                |      mindformers的issue链接      |
 | 开发引入 |   -    |                   mindformers/setup.py                   |                                                           https://www.mindspore.cn                                                           |         mindspore官网链接         |
 | 开发引入 |   -    |                   mindformers/setup.py                   |                                                             contact@mindspore.cn                                                             |        mindspore的联系邮箱         |
+| 开发引入 |   -    |          mindformers/models/processing_utils.py          |                                                          https://openmind.cn/models                                                          |         openmind模型库链接         |
+| 开发引入 |   -    |      mindformers/models/tokenization_utils_base.py       |                                                          https://openmind.cn/models                                                          |         openmind模型库链接         |
+| 开发引入 |   -    |                 mindformers/run_check.py                 |                                                https://gitee.com/mindspore/mindformers/issues                                                |      mindformers的issue链接      |
 
 ### 公开接口声明
 
