@@ -34,9 +34,8 @@ SESSION_ID = uuid4().hex
 
 OPENMIND_DYNAMIC_MODULE_NAME = "openmind_modules"
 _is_offline_mode = os.environ.get("TRANSFORMERS_OFFLINE", "0").upper() in ENV_VARS_TRUE_VALUES
-_staging_mode = os.environ.get("OPENMIND_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
 # confirm real default endpoint address
-_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"
+_default_endpoint = "https://modelers.cn"
 OPENMIND_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 
@@ -236,12 +235,12 @@ def cached_file(
             The token to use as HTTP bearer authorization for remote files.
         revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id,
-            since we use a git-based system for storing models and other artifacts on openmind.cn,
+            since we use a git-based system for storing models and other artifacts on modelers.cn,
             so `revision` can be any identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
         subfolder (`str`, *optional*, defaults to `""`):
-            In case the relevant files are located inside a subfolder of the model repo on openmind.cn,
+            In case the relevant files are located inside a subfolder of the model repo on modelers.cn,
             you can specify the folder name here.
         repo_type (`str`, *optional*):
             Specify the repo type (useful when downloading from a space for instance).
@@ -285,7 +284,7 @@ def cached_file(
             if _raise_exceptions_for_missing_entries:
                 raise EnvironmentError(
                     f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
-                    f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
+                    f"'https://modelers.cn/{path_or_repo_id}/{revision}' for available files."
                 )
             return None
         return resolved_file
@@ -345,11 +344,11 @@ def cached_file(
     except GatedRepoError as e:
         raise EnvironmentError(
             "You are trying to access a gated repo.\nMake sure to request access at "
-            f"https://openmind.cn/{path_or_repo_id} and pass a token having permission to this repo "
+            f"https://modelers.cn/{path_or_repo_id} and pass a token having permission to this repo "
             "by passing `token=<your_token>`."
         ) from e
     except RepositoryNotFoundError as e:
-        # replace xxx to openmind.cn
+        # replace xxx to modelers.cn
         raise EnvironmentError(
             f"{path_or_repo_id} is not a local folder and is not a valid model identifier "
             "listed on 'xxxxxxxxxxxxx'\nIf this is a private repository, make sure to pass a token "
@@ -360,7 +359,7 @@ def cached_file(
         raise EnvironmentError(
             f"{revision} is not a valid git identifier (branch name, tag name or commit id) that exists "
             "for this model name. Check the model page at "
-            f"'https://openmind.cn/{path_or_repo_id}' for available revisions."
+            f"'https://modelers.cn/{path_or_repo_id}' for available revisions."
         ) from e
     except LocalEntryNotFoundError as e:
         # We try to see if we have a cached version (not up to date):
@@ -383,7 +382,7 @@ def cached_file(
             revision = "main"
         raise EnvironmentError(
             f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
-            f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
+            f"'https://modelers.cn/{path_or_repo_id}/{revision}' for available files."
         ) from e
     except OmHubHTTPError as e:
         # First we try to see if we have a cached version (not up to date):
@@ -441,7 +440,7 @@ def get_file_from_repo(
         path_or_repo (`str` or `os.PathLike`):
             This can be either:
 
-            - a string, the *model id* of a model repo on openmind.cn.
+            - a string, the *model id* of a model repo on modelers.cn.
             - a path to a *directory* potentially containing the file.
         filename (`str`):
             The name of the file to locate in `path_or_repo`.
@@ -482,7 +481,7 @@ def get_file_from_repo(
     Examples:
 
     ```python
-    # Download a tokenizer configuration from openmind.cn and cache.
+    # Download a tokenizer configuration from modelers.cn and cache.
     tokenizer_config = get_file_from_repo("bert-base-uncased", "tokenizer_config.json")
     # This model does not have a tokenizer config so the result will be None.
     tokenizer_config = get_file_from_repo("xlm-roberta-base", "tokenizer_config.json")
@@ -551,19 +550,19 @@ def has_file(
         logger.error(e)
         raise EnvironmentError(
             f"{path_or_repo} is a gated repository. Make sure to request access at "
-            f"https://openmind.cn/{path_or_repo} and pass a token having permission to this repo "
+            f"https://modelers.cn/{path_or_repo} and pass a token having permission to this repo "
             "by passing `token=<your_token>`."
         ) from e
     except RepositoryNotFoundError as e:
         logger.error(e)
         raise EnvironmentError(
-            f"{path_or_repo} is not a local folder or a valid repository name on 'https://openmind.cn'."
+            f"{path_or_repo} is not a local folder or a valid repository name on 'https://modelers.cn'."
         ) from e
     except RevisionNotFoundError as e:
         logger.error(e)
         raise EnvironmentError(
             f"{revision} is not a valid git identifier (branch name, tag name or commit id) that exists for this "
-            f"model name. Check the model page at 'https://openmind.cn/{path_or_repo}' for available revisions."
+            f"model name. Check the model page at 'https://modelers.cn/{path_or_repo}' for available revisions."
         ) from e
     except requests.HTTPError:
         # We return false for EntryNotFoundError (logical) as well as any connection error.

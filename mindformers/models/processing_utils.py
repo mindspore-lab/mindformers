@@ -280,7 +280,7 @@ class ProcessorMixin(PushToHubMixin):
             pretrained_model_name_or_path (`str` or `os.PathLike`):
                 The identifier of the pre-trained checkpoint from which we want the dictionary of parameters.
             subfolder (`str`, *optional*, defaults to `""`):
-                In case the relevant files are located inside a subfolder of the model repo on openmind.cn, you can
+                In case the relevant files are located inside a subfolder of the model repo on modelers.cn, you can
                 specify the folder name here.
 
         Returns:
@@ -339,7 +339,7 @@ class ProcessorMixin(PushToHubMixin):
                 # For any other exception, we throw a generic error.
                 raise EnvironmentError(
                     f"Can't load processor for '{pretrained_model_name_or_path}'. If you were trying to load"
-                    " it from 'https://openmind.cn/models', make sure you don't have a local directory with the"
+                    " it from 'https://modelers.cn/models', make sure you don't have a local directory with the"
                     f" same name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a"
                     f" directory containing a {PROCESSOR_NAME} file"
                 ) from e
