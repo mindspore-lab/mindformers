@@ -21,7 +21,6 @@ __all__ = [
     "SequenceParallelLinear"
 ]
 
-import os
 from typing import List, Optional, Callable
 
 import mindspore._checkparam as Validator
@@ -31,6 +30,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
+from mindspore.communication.management import get_rank
 from mindspore.ops.auto_generate import Cast, AddExt, Reshape, ReLU, Minimum, Equal
 from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -112,23 +112,21 @@ class VocabParallelEmbedding(nn.Cell):
             self.sharding_propagation(config)
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
+            self._init_embedding_rearrangement()
 
-        # embedding rearrangement
-        self.tensor_model_parallel_size = self.tp
-        self.rank_id_str = os.environ.get("RANK_ID")
-        self.rank_id = int(self.rank_id_str) if self.rank_id_str is not None else None
+    def _init_embedding_rearrangement(self):
+        """embedding rearrangement"""
+        self.rank_id = get_rank()
+        self.tensor_model_parallel_rank = self.rank_id // self.cp % self.tp
+        (
+            self.vocab_start_index,
+            self.vocab_end_index,
+        ) = VocabUtility.vocab_range_from_global_vocab_size(
+            self.num_embeddings, self.tensor_model_parallel_rank, self.tp
+        )
 
-        if self.rank_id is not None:
-            self.tensor_model_parallel_rank = self.rank_id // self.cp % self.tensor_model_parallel_size
-            (
-                self.vocab_start_index,
-                self.vocab_end_index,
-            ) = VocabUtility.vocab_range_from_global_vocab_size(
-                self.num_embeddings, self.tensor_model_parallel_rank, self.tensor_model_parallel_size
-            )
-
-            self.group = get_tp_group_name(self.rank_id, self.tensor_model_parallel_size)
-            self.parallel_num_embeddings = self.num_embeddings // self.tensor_model_parallel_size - 1
+        self.group = get_tp_group_name(self.rank_id, self.tp)
+        self.parallel_num_embeddings = self.num_embeddings // self.tp - 1
 
     def construct(self, input_):
         """Forward of vocab embedding."""
@@ -146,7 +144,7 @@ class VocabParallelEmbedding(nn.Cell):
         bs, seq_len = input_.shape
         _, hidden = weight.shape
         input_ = self.reshape(input_, (bs * seq_len,))
-        if self.tensor_model_parallel_size > 1:
+        if self.tp > 1:
             # Build the mask. # Mask the input.
             input_ = input_ - self.vocab_start_index
             masked_input = self.relu(input_)
@@ -159,7 +157,7 @@ class VocabParallelEmbedding(nn.Cell):
         output_parallel = mint.nn.functional.embedding(masked_input, weight)
 
         # Mask the output embedding.
-        if self.tensor_model_parallel_size > 1:
+        if self.tp > 1:
             input_mask = input_mask.expand_dims(-1)
             output_parallel = ops.mul(output_parallel, input_mask)
 
@@ -177,7 +175,7 @@ class VocabParallelEmbedding(nn.Cell):
                 output = output.reshape(bs, -1, hidden)
             return output
 
-        if self.tensor_model_parallel_size == 1:
+        if self.tp == 1:
             output = output_parallel
         else:
             output = ops.AllReduce(group=self.group)(output_parallel)
