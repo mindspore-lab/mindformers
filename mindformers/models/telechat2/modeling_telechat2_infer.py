@@ -15,7 +15,10 @@
 """Telechat2 models' APIs."""
 __all__ = ['InferenceTelechat2ForCausalLM']
 
-from typing import Dict
+from typing import Dict, Any, Generator, Tuple, List
+from safetensors import safe_open
+from tqdm.auto import tqdm
+import numpy as np
 
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -24,6 +27,7 @@ from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTMod
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.inference.quantization.utils import get_quant_config
+from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_rank
 
 from .configuration_telechat2 import Telechat2Config
 
@@ -136,3 +140,38 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
             weight_name = weight_name.replace('model.output_layer.', 'output_layer.')
             weight_name = weight_name.replace('model.decoder.final_layernorm.', 'decoder.final_layernorm.')
         return weight_name
+
+    def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
+        """Iterate over the weights in the model safetensor files."""
+        rank_id = get_tensor_model_parallel_rank()
+        is_main_rank = (rank_id == 0)
+        for st_file in tqdm(
+                weights_files,
+                desc=f"[Rank {rank_id}] Loading safetensors checkpoint shards",
+                disable=not is_main_rank
+        ):
+            with safe_open(st_file, framework="np") as f:
+                for name in f.keys():  # noqa: SIM118
+                    # Return a lightweight PySafeSlice object
+                    # that uses file pointer offset internally to read Safetensor
+                    # on demand, avoiding memory explosion. Actual data can be obtained through slicing operation
+                    # like param[start:end]
+                    param = f.get_slice(name)
+                    name = self.convert_name(name)
+                    if ".key_value." in name and self.quant_config is None and self.config.quantization is None:
+                        num_heads = self.config.n_head
+                        n_kv_heads = self.config.num_key_value_heads
+                        hidden_size = self.config.hidden_size
+                        head_dim = hidden_size // num_heads
+                        n_rep = num_heads // n_kv_heads
+                        kv_channel = hidden_size // n_rep
+                        param = np.array(param[:])
+                        param = param.reshape((n_kv_heads, 2*head_dim, -1))
+                        k_key = name.replace("key_value", "linear_k")
+                        k_weight = param[:, :head_dim, :].reshape((kv_channel, -1))
+                        v_key = name.replace("key_value", "linear_v")
+                        v_weight = param[:, head_dim:2*head_dim, :].reshape((kv_channel, -1))
+                        yield k_key, k_weight
+                        yield v_key, v_weight
+                    else:
+                        yield name, param
