@@ -182,8 +182,8 @@ def moe_token_permute():
     }
     ds3_train(config, dataset, construct_args_key, checker_config)
 
-def parallel_train_dp2_mp2_ep2_zbv():
-    """test mcore deepseekv3 train in dp=mp=ep=2 with zero_bubble_v."""
+def parallel_train_pp2_mp2_ep2_zbv():
+    """test mcore deepseekv3 train in pp=mp=ep=2 with zero_bubble_v."""
     ms.set_seed(0)
     config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
     config.print_separate_loss = False
@@ -222,7 +222,7 @@ TEST_MAP = {
     'parallel_train_dp2_pp2_ep2_tnd': parallel_train_dp2_pp2_ep2_tnd,
     "parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss":
         parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss,
-    'parallel_train_dp2_mp2_ep2_zbv': parallel_train_dp2_mp2_ep2_zbv,
+    'parallel_train_pp2_mp2_ep2_zbv': parallel_train_pp2_mp2_ep2_zbv,
     "moe_token_permute": moe_token_permute,
 }
 
