@@ -23,8 +23,8 @@ from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType
 
 
-_LEVEL_0_TASK_TIME = 170
-_LEVEL_1_TASK_TIME = 0
+_LEVEL_0_TASK_TIME = 0
+_LEVEL_1_TASK_TIME = 126
 _TASK_TYPE = TaskType.EIGHT_CARDS_TASK
 
 def run_command(command_info):

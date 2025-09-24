@@ -23,8 +23,8 @@ from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType
 
 
-_LEVEL_0_TASK_TIME = 120
-_LEVEL_1_TASK_TIME = 0
+_LEVEL_0_TASK_TIME = 0
+_LEVEL_1_TASK_TIME = 124
 _TASK_TYPE = TaskType.FOUR_CARDS_TASK
 
 
@@ -59,7 +59,7 @@ class TestDeepseekV3WithZBV:
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         cmd_list = [
             (f"msrun --worker_num=4 --local_worker_num=4 --master_port={port_id} --log_dir=./msrun_log_deepseekv3_zbv "
-             f"--join=True {self.run_script_path} --mode=parallel_train_dp2_mp2_ep2_zbv",
+             f"--join=True {self.run_script_path} --mode=parallel_train_pp2_mp2_ep2_zbv",
              f"./msrun_log_deepseekv3_zbv/worker_0.log"),
         ]
         with Pool(len(cmd_list)) as pool:
