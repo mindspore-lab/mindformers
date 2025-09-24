@@ -237,12 +237,23 @@ class TestBlockSpec:
         Output: Raises ValueError.
         Expected: Exception is thrown for invalid pattern value.
         """
+        try:
+            _ = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
+                                  add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 2, 0, 0, 0])
+        except ValueError:
+            pass
+        else:
+            assert False, "Expected ValueError not raised"
+
         config = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
-                                   add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 2, 0, 0, 0])
+                                   add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 1, 0, 0, 0])
+        config.moe_layer_freq = [1, 0, 0, 0, 2, 0, 0, 0]
         try:
             _ = get_gpt_decoder_block_spec(config)
         except ValueError:
             pass
+        else:
+            assert False, "Expected ValueError not raised"
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
@@ -254,12 +265,22 @@ class TestBlockSpec:
         Output: Raises ValueError.
         Expected: Exception is thrown for invalid pattern length.
         """
+        try:
+            _ = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
+                                  add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 1, 0, 0])
+        except ValueError:
+            pass
+        else:
+            assert False, "Expected ValueError not raised"
         config = TransformerConfig(num_layers=8, num_attention_heads=1, num_moe_experts=2, moe_grouped_gemm=True,
-                                   add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 1, 0, 0])
+                                   add_bias_linear=False, moe_layer_freq=[1, 0, 0, 0, 1, 0, 0, 0])
+        config.moe_layer_freq = [1, 0, 0, 0, 1, 0, 0]
         try:
             _ = get_gpt_decoder_block_spec(config)
         except ValueError:
             pass
+        else:
+            assert False, "Expected ValueError not raised"
 
 
 class TestMtpBlockSpec:

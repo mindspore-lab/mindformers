@@ -635,12 +635,50 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             )
 
         if self.first_k_dense_replace:
-            if self.moe_layer_freq > 1:
-                raise ValueError("Configuration conflict: 'first_k_dense_replace' cannot be "
-                                 "used together with 'moe_layer_freq > 1'.")
+            moe_layer_freq_template = [0] * self.first_k_dense_replace + [1] * (
+                self.num_layers - self.first_k_dense_replace)
+            if isinstance(self.moe_layer_freq, int) and not isinstance(self.moe_layer_freq, bool):
+                if self.moe_layer_freq > 1:
+                    raise ValueError(
+                        "Configuration conflict: 'first_k_dense_replace' cannot be "
+                        "used together with 'moe_layer_freq > 1'."
+                    )
+                else:
+                    self.moe_layer_freq = moe_layer_freq_template
+            elif isinstance(self.moe_layer_freq, list):
+                if self.moe_layer_freq != moe_layer_freq_template:
+                    raise ValueError(
+                        f"'moe_layer_freq' should be {moe_layer_freq_template}, "
+                        f"but got {self.moe_layer_freq}"
+                    )
+            else:
+                raise TypeError("'moe_layer_freq' should be <int> or <list[int]>, "
+                                f"but got {type(self.moe_layer_freq)}")
             if self.first_k_dense_replace > self.num_layers:
-                raise ValueError(f"'first_k_dense_replace'({self.first_k_dense_replace}) cannot be bigger "
-                                 f"than 'num_layers'({self.num_layers}).")
+                raise ValueError(
+                    f"'first_k_dense_replace'({self.first_k_dense_replace}) should not be bigger "
+                    f"than 'num_layers'({self.num_layers})."
+                )
+        elif self.moe_layer_freq != 1 or isinstance(self.moe_layer_freq, bool):
+            if isinstance(self.moe_layer_freq, int) and not isinstance(self.moe_layer_freq, bool):
+                if self.moe_layer_freq > self.num_layers:
+                    raise ValueError(
+                        f"'moe_layer_freq'({self.moe_layer_freq}) should not be bigger "
+                        f"than 'num_layers'({self.num_layers})."
+                    )
+            elif isinstance(self.moe_layer_freq, list):
+                if len(self.moe_layer_freq) != self.num_layers:
+                    raise ValueError(
+                        f"Length of 'moe_layer_freq'({self.moe_layer_freq}) "
+                        f"must be equal to 'num_layers'({self.num_layers})."
+                    )
+                for num in self.moe_layer_freq:
+                    if num not in (0, 1):
+                        raise ValueError("Invalid 'moe_layer_freq', "
+                                         f"numbers in 'moe_layer_freq'({self.moe_layer_freq}) must be equal to 1 or 0")
+            else:
+                raise TypeError("'moe_layer_freq' should be <int> or <list[int]>, "
+                                f"but got {type(self.moe_layer_freq)}")
 
         self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
 
