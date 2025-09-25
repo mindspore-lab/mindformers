@@ -125,10 +125,12 @@ class MultiLatentAttention(nn.Cell):
             self.use_zero_pad = False
         elif zero_pad_length < 0:
             raise ValueError("qk_head_dim + qk_pos_emb_head_dim should not less than v_head_dim")
-        else:
+        elif self.config.mla_pad_value:
             self.use_zero_pad = True
             self.pad_zeros = initializer('zeros', shape=(1, 1, self.num_attention_heads, zero_pad_length),
                                          dtype=self.compute_dtype)
+        else:
+            self.use_zero_pad = False
 
         mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
