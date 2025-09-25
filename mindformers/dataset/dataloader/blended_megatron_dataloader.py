@@ -178,6 +178,8 @@ class MegatronDatasetBuilder:
         Returns:
             GPTDatasetConfig: obj.
         """
+        eod_pad_length = self.config.get("compressed_eod_mask_length", 128)
+        eod_pad_length = self.config.get("eod_pad_length", eod_pad_length)
         return GPTDatasetConfig(
             random_seed=self.config.get("seed", 1234),
             sequence_length=self.config.get("seq_length"),

@@ -41,6 +41,7 @@ def ds3_train(config, dataset, construct_args_key, checker_config):
                            train_dataset=dataset,
                            callbacks=callback)
 
+    task_trainer.config.train_dataset.input_columns = construct_args_key
     task_trainer.config.train_dataset.construct_args_key = construct_args_key
     def create_network(self, default_args):
         network = type(self).create_network(self, default_args)
