@@ -19,7 +19,7 @@ mindformers.core.CosineWithRestartsAndWarmUpLR
     该方法在 SGDR: Stochastic Gradient Descent with Warm Restarts 中提出，扩展了余弦退火的概念以实现多次重启。
 
     参数：
-        - **learning_rate** (float) - 学习率的初始值。
+        - **learning_rate** (float) - 预热阶段结束后的学习率。
         - **warmup_steps** (int, 可选) - 预热步骤数。默认值： ``None`` 。
         - **total_steps** (int, 可选) - 总步数。默认值： ``None`` 。
         - **num_cycles** (float, 可选) - 余弦调度中的波形数量（默认为仅遵循半个余弦从最大值下降到 0）。默认值： ``1.`` 。

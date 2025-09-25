@@ -14,7 +14,7 @@ mindformers.core.CosineAnnealingWarmRestarts
     请参阅论文 `SGDR: Stochastic Gradient Descent with Warm Restarts <https://arxiv.org/abs/1608.03983>`_ 。
 
     参数：
-        - **base_lr** (float) - 初始学习率。
+        - **base_lr** (float) - 学习率的最大值。
         - **t_0** (int) - 第一个重启的周期数。
         - **t_mult** (int, 可选) - 重启周期的倍数。默认值： ``1`` 。
         - **eta_min** (float, 可选) - 学习率的最小值。默认值： ``0.`` 。
