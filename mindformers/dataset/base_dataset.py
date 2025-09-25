@@ -51,6 +51,7 @@ class BaseDataset:
         ds.config.set_seed(dataset_config.seed)
         ds.config.set_prefetch_size(dataset_config.prefetch_size)
         ds.config.set_numa_enable(dataset_config.numa_enable)
+        ds.config.set_num_parallel_workers(dataset_config.num_parallel_workers)
 
         if dataset_config.auto_tune:
             if dataset_config.profile:
