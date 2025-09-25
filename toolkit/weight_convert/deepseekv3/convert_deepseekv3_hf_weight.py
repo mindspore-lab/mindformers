@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Transform HuggingFace ckpt of DeepSeekV3 to MindSpore Transformers MCore ckpt."""
+"""Transform HuggingFace checkpoint of DeepSeekV3 to MindSpore Transformers MCore checkpoint."""
 
 import os
 import json
@@ -22,13 +22,12 @@ from glob import glob
 from time import time
 from collections import defaultdict
 
+from safetensors.torch import load_file
 import torch
 from tqdm import tqdm
-from safetensors.torch import load_file
 
 import mindspore as ms
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
-
 
 DTYPE_MAP = {
     'fp32': ms.float32,
@@ -37,21 +36,37 @@ DTYPE_MAP = {
 }
 
 DEFAULT_CONFIG = {
-    'hidden_size': 7168,
     'num_routed_experts': 256,
-    'n_head': 128,
-    'qk_nope_head_dim': 128,
-    'qk_rope_head_dim': 64,
-    'v_head_dim': 128,
     'num_layers': 61,
     'num_nextn_predict_layers': 1,
     'first_k_dense_replace': 3,
+    'hidden_size': 7168,
+    'ffn_hidden_size': 18432,
+    'moe_ffn_hidden_size': 2048,
     'dtype': ms.bfloat16,
-    'use_grouped_gemm': True,
-    'split_mla': False
 }
 
 DEFAULT_DTYPE = torch.bfloat16
+
+
+def concat_linear_fc1(gate_weight, up_weight, ffn_hidden_size):
+    """Concat gate and up to linear_fc1."""
+    gate_reshape = gate_weight.reshape(ffn_hidden_size, 1, -1)
+    up_reshape = up_weight.reshape(ffn_hidden_size, 1, -1)
+
+    # Discrete arrangement
+    linear_fc1 = torch.concat((gate_reshape, up_reshape), dim=1)
+
+    linear_fc1 = linear_fc1.reshape(ffn_hidden_size * 2, -1)
+    return linear_fc1
+
+
+def trans_rope_weight(weight, qk_pos_emb_head_dim):
+    """Process rope router weight."""
+    w1 = weight[..., -qk_pos_emb_head_dim::2, :]
+    w2 = weight[..., -qk_pos_emb_head_dim + 1::2, :]
+    weight[..., -qk_pos_emb_head_dim:, :] = torch.concat((w1, w2), dim=-2)
+    return weight
 
 
 def str2bool(b: str):
@@ -217,15 +232,14 @@ def _trans_model_layer_norm_hf_to_ms(hf_layer_weights, layer_id, mtp_layer_id=-1
     return model_layer_norm_dict
 
 
-def _trans_model_layer_attn_hf_to_ms(hf_layer_weights, config, layer_id, mtp_layer_id=-1,
-                                     is_mtp_layers: bool = False, split_mla: bool = False):
+def _trans_model_layer_attn_hf_to_ms(hf_layer_weights, layer_id, mtp_layer_id=-1, is_mtp_layers: bool = False):
     """Attention layer process"""
     # Get HF attention layers keys
-    hf_q_proj_key = f"model.layers.{layer_id}.self_attn.q_a_proj.weight"
-    hf_kv_proj_key = f"model.layers.{layer_id}.self_attn.kv_a_proj_with_mqa.weight"
     hf_dense_key = f"model.layers.{layer_id}.self_attn.o_proj.weight"
     hf_q_layernorm_key = f"model.layers.{layer_id}.self_attn.q_a_layernorm.weight"
     hf_kv_layernorm_key = f"model.layers.{layer_id}.self_attn.kv_a_layernorm.weight"
+    hf_q_a_proj_key = f"model.layers.{layer_id}.self_attn.q_a_proj.weight"
+    hf_kv_a_proj_key = f"model.layers.{layer_id}.self_attn.kv_a_proj_with_mqa.weight"
     hf_q_b_proj_key = f"model.layers.{layer_id}.self_attn.q_b_proj.weight"
     hf_kv_b_proj_key = f"model.layers.{layer_id}.self_attn.kv_b_proj.weight"
 
@@ -235,78 +249,32 @@ def _trans_model_layer_attn_hf_to_ms(hf_layer_weights, config, layer_id, mtp_lay
         if is_mtp_layers
         else f"decoder.layers.{layer_id}"
     )
-    ms_qkv_key = f"{attn_layers_prefix}.self_attention.linear_qkv.weight"
     ms_dense_key = f"{attn_layers_prefix}.self_attention.linear_proj.weight"
     ms_q_layernorm_key = f"{attn_layers_prefix}.self_attention.q_layernorm.weight"
-    ms_kv_layernorm_key = f"{attn_layers_prefix}.self_attention.k_layernorm.weight"
-    ms_q_b_key = f"{attn_layers_prefix}.self_attention.linear_qb.weight"
-    ms_kv_b_key = f"{attn_layers_prefix}.self_attention.linear_kvb.weight"
+    ms_kv_layernorm_key = f"{attn_layers_prefix}.self_attention.kv_layernorm.weight"
+    ms_q_up_key = f"{attn_layers_prefix}.self_attention.linear_q_up_proj.weight"
+    ms_kv_up_key = f"{attn_layers_prefix}.self_attention.linear_kv_up_proj.weight"
+    ms_q_down_key = f"{attn_layers_prefix}.self_attention.linear_q_down_proj.weight"
+    ms_kv_down_key = f"{attn_layers_prefix}.self_attention.linear_kv_down_proj.weight"
 
-    # Get attention layers weight
-    hidden_size = config['hidden_size']
-
-    hf_q_proj_weight = hf_layer_weights.pop(hf_q_proj_key)
-    hf_kv_proj_weight = hf_layer_weights.pop(hf_kv_proj_key)
-
-    # Concat QKV weight
-    # Step 1: Flatten the Q projection weights into a 2D matrix (num_q_params, hidden_size).
-    q_weight_2d = hf_q_proj_weight.reshape(-1, hidden_size)
-    # Step 2: Flatten the KV projection weights into a 2D matrix (num_kv_params, hidden_size).
-    kv_weight_2d = hf_kv_proj_weight.reshape(-1, hidden_size)
-    # Step 3: Concatenate Q and KV weights in the row direction to get the complete QKV weight matrix.
-    hf_qkv_weight = torch.concat([q_weight_2d, kv_weight_2d], dim=0)
-
+    # Get HF weight
     hf_dense_weight = hf_layer_weights.pop(hf_dense_key)
     hf_q_layernorm_weight = hf_layer_weights.pop(hf_q_layernorm_key)
     hf_kv_layernorm_weight = hf_layer_weights.pop(hf_kv_layernorm_key)
-    hf_q_b_proj_weight = hf_layer_weights.pop(hf_q_b_proj_key)
-    hf_kv_b_proj_weight = hf_layer_weights.pop(hf_kv_b_proj_key)
+    hf_q_up_proj_weight = hf_layer_weights.pop(hf_q_b_proj_key)
+    hf_kv_up_proj_weight = hf_layer_weights.pop(hf_kv_b_proj_key)
+    hf_q_down_weight = hf_layer_weights.pop(hf_q_a_proj_key)
+    hf_kv_down_weight = hf_layer_weights.pop(hf_kv_a_proj_key)
 
     # Set converted attention layers weight
     model_layer_attn_dict = defaultdict()
-    model_layer_attn_dict[ms_qkv_key] = hf_qkv_weight.clone()
     model_layer_attn_dict[ms_dense_key] = hf_dense_weight.clone()
     model_layer_attn_dict[ms_q_layernorm_key] = hf_q_layernorm_weight.clone()
     model_layer_attn_dict[ms_kv_layernorm_key] = hf_kv_layernorm_weight.clone()
-
-    if split_mla:
-        # Generate attn_mm_split key
-        attn_mm_split_prefix = (
-            f"mtp.layers.{mtp_layer_id}.transformer_layer"
-            if is_mtp_layers
-            else f"decoder.layers.{layer_id}"
-        )
-        ms_qk_nope_key = f"{attn_mm_split_prefix}.self_attention.linear_qk_nope.weight"
-        ms_qk_rope_key = f"{attn_mm_split_prefix}.self_attention.linear_qk_rope.weight"
-        ms_kv_nope_key = f"{attn_mm_split_prefix}.self_attention.linear_kv_nope.weight"
-        ms_linear_v_key = f"{attn_mm_split_prefix}.self_attention.linear_v.weight"
-
-        num_attention_heads = config['n_head']
-        qk_nope_head_dim = config['qk_nope_head_dim']
-        qk_rope_head_dim = config['qk_rope_head_dim']
-        v_head_dim = config['v_head_dim']
-
-        q_b_proj = hf_q_b_proj_weight.reshape(num_attention_heads, (qk_nope_head_dim + qk_rope_head_dim), -1)
-        kv_b_proj = hf_kv_b_proj_weight.reshape(num_attention_heads, (qk_nope_head_dim + v_head_dim), -1)
-
-        qk_nope = q_b_proj[:, :qk_nope_head_dim]
-        qk_rope = q_b_proj[:, qk_nope_head_dim: qk_nope_head_dim + qk_rope_head_dim]
-        kv_nope = kv_b_proj[:, :qk_nope_head_dim]
-        linear_v = kv_b_proj[:, qk_nope_head_dim: qk_nope_head_dim + v_head_dim]
-
-        qk_nope = qk_nope.reshape(num_attention_heads * qk_nope_head_dim, -1)
-        qk_rope = qk_rope.reshape(num_attention_heads * qk_rope_head_dim, -1)
-        kv_nope = kv_nope.reshape(num_attention_heads * qk_nope_head_dim, -1)
-        linear_v = linear_v.reshape(num_attention_heads * v_head_dim, -1)
-
-        model_layer_attn_dict[ms_qk_nope_key] = qk_nope.clone()
-        model_layer_attn_dict[ms_qk_rope_key] = qk_rope.clone()
-        model_layer_attn_dict[ms_kv_nope_key] = kv_nope.clone()
-        model_layer_attn_dict[ms_linear_v_key] = linear_v.clone()
-
-    else:
-        model_layer_attn_dict[ms_q_b_key] = hf_q_b_proj_weight.clone()
-        model_layer_attn_dict[ms_kv_b_key] = hf_kv_b_proj_weight.clone()
+    model_layer_attn_dict[ms_q_up_key] = hf_q_up_proj_weight.clone()
+    model_layer_attn_dict[ms_kv_up_key] = hf_kv_up_proj_weight.clone()
+    model_layer_attn_dict[ms_q_down_key] = hf_q_down_weight.clone()
+    model_layer_attn_dict[ms_kv_down_key] = hf_kv_down_weight.clone()
 
     return model_layer_attn_dict
 
@@ -316,19 +284,24 @@ def _trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id, mtp_laye
     """MLP layer process"""
     # Get config value
     first_k_dense_replace = config['first_k_dense_replace']
-    num_experts = config['num_routed_experts']
-    use_grouped_gemm = config['use_grouped_gemm']
+    num_routed_experts = config['num_routed_experts']
+
+    hidden_size = config['hidden_size']
+    ffn_hidden_size = config['ffn_hidden_size']
+    moe_ffn_hidden_size = config['moe_ffn_hidden_size']
+
     model_layer_mlp_dict = defaultdict()
 
     if layer_id < first_k_dense_replace:
         # dense layer
-        hf_gate_proj_key = f"model.layers.{layer_id}.mlp.gate_proj.weight"
-        hf_up_proj_key = f"model.layers.{layer_id}.mlp.up_proj.weight"
+        hf_experts_gate_proj_key = f"model.layers.{layer_id}.mlp.gate_proj.weight"
+        hf_experts_up_proj_key = f"model.layers.{layer_id}.mlp.up_proj.weight"
         hf_linear_fc2_key = f"model.layers.{layer_id}.mlp.down_proj.weight"
 
-        hf_gate_proj_weight = hf_layer_weights.pop(hf_gate_proj_key)
-        hf_up_proj_weight = hf_layer_weights.pop(hf_up_proj_key)
-        hf_linear_fc1_weight = torch.concat([hf_gate_proj_weight, hf_up_proj_weight], dim=0)
+        hf_experts_gate_proj_weight = hf_layer_weights.pop(hf_experts_gate_proj_key)
+        hf_experts_up_proj_weight = hf_layer_weights.pop(hf_experts_up_proj_key)
+        hf_linear_fc1_weight = concat_linear_fc1(hf_experts_gate_proj_weight, hf_experts_up_proj_weight,
+                                                 ffn_hidden_size)
         hf_linear_fc2_weight = hf_layer_weights.pop(hf_linear_fc2_key)
 
         ms_linear_fc1_key = f"decoder.layers.{layer_id}.mlp.linear_fc1.weight"
@@ -348,33 +321,36 @@ def _trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id, mtp_laye
 
         # Get MLP layer weights
         hf_mlp_router_weight = hf_layer_weights.pop(hf_mlp_router_weight_key)
-        hf_mlp_router_weight = hf_mlp_router_weight[:num_experts, :]
-
-        hf_mlp_router_bias_weight_origin = hf_layer_weights.pop(hf_mlp_router_bias_key)
-        hf_mlp_router_bias_weight = hf_mlp_router_bias_weight_origin[:num_experts]
+        hf_mlp_router_bias_weight = hf_layer_weights.pop(hf_mlp_router_bias_key)
 
         hf_shared_gate_proj_weight = hf_layer_weights.pop(hf_shared_gate_proj_key)
         hf_shared_up_proj_weight = hf_layer_weights.pop(hf_shared_up_proj_key)
-        hf_shared_fc1_weight = torch.concat((hf_shared_gate_proj_weight, hf_shared_up_proj_weight), dim=0)
+
+        hf_shared_fc1_weight = concat_linear_fc1(
+            hf_shared_gate_proj_weight, hf_shared_up_proj_weight, moe_ffn_hidden_size
+        )
         hf_shared_fc2_weight = hf_layer_weights.pop(hf_shared_fc2_key)
 
         experts_linear_fc1_list = []
         experts_linear_fc2_list = []
 
         # Process experts weight
-        for expert_id in range(num_experts):
-            hf_gate_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.gate_proj.weight"
-            hf_up_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.up_proj.weight"
-            hf_fc2_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.down_proj.weight"
+        for expert_id in range(num_routed_experts):
+            hf_experts_gate_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.gate_proj.weight"
+            hf_experts_up_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.up_proj.weight"
+            hf_experts_fc2_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.down_proj.weight"
 
-            hf_gate_proj_weight = hf_layer_weights.pop(hf_gate_proj_key)
-            hf_up_proj_weight = hf_layer_weights.pop(hf_up_proj_key)
+            hf_experts_gate_proj_weight = hf_layer_weights.pop(hf_experts_gate_proj_key)
+            hf_experts_up_proj_weight = hf_layer_weights.pop(hf_experts_up_proj_key)
 
-            fc1_weight = torch.concat([hf_gate_proj_weight, hf_up_proj_weight], dim=0)
-            fc2_weight = hf_layer_weights.pop(hf_fc2_key)
+            experts_fc1_weight = torch.concat(
+                (hf_experts_gate_proj_weight, hf_experts_up_proj_weight),
+                dim=0
+            )
+            experts_fc2_weight = hf_layer_weights.pop(hf_experts_fc2_key)
 
-            experts_linear_fc1_list.append(fc1_weight.T)
-            experts_linear_fc2_list.append(fc2_weight.T)
+            experts_linear_fc1_list.append(experts_fc1_weight)
+            experts_linear_fc2_list.append(experts_fc2_weight)
 
         # Generate experts weights key
         mlp_router_prefix = (
@@ -394,44 +370,24 @@ def _trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id, mtp_laye
         model_layer_mlp_dict[ms_shared_fc1_key] = hf_shared_fc1_weight.clone()
         model_layer_mlp_dict[ms_shared_fc2_key] = hf_shared_fc2_weight.clone()
 
-        if use_grouped_gemm:
-            hidden_size = config['hidden_size']
+        # Get experts weight1/2 keys
+        ms_experts_weight1_key = f"{mlp_router_prefix}.mlp.experts.weight1"
+        ms_experts_weight2_key = f"{mlp_router_prefix}.mlp.experts.weight2"
 
-            # Get GEMM keys
-            ms_experts_weight1_key = f"{mlp_router_prefix}.mlp.experts.weight1"
-            ms_experts_weight2_key = f"{mlp_router_prefix}.mlp.experts.weight2"
+        # Use GEMM, experts weight should be concatenated
+        experts_linear_fc1 = torch.stack(experts_linear_fc1_list, dim=0)
+        experts_linear_fc1 = torch.permute(experts_linear_fc1, (0, 2, 1))
+        # The shape of experts_linear_fc1 is (num_routed_experts * hiddensize, 2 * moe_ffn_hidden_size)
+        experts_linear_fc1 = experts_linear_fc1.reshape(num_routed_experts * hidden_size, -1)
 
-            # Use GEMM, experts weight should be concatenated
-            gemm_fc1 = torch.concat(experts_linear_fc1_list, dim=0)
-            gemm_fc1_weight = gemm_fc1.reshape(hidden_size, -1)
+        experts_linear_fc2 = torch.stack(experts_linear_fc2_list, dim=0)
+        experts_linear_fc2 = torch.permute(experts_linear_fc2, (0, 2, 1))
+        # The shape of experts_linear_fc2 is (num_routed_experts * moe_ffn_hidden_size, hidden_size)
+        experts_linear_fc2 = experts_linear_fc2.reshape(-1, hidden_size)
 
-            gemm_fc2 = torch.concat(experts_linear_fc2_list, dim=0)
-            gemm_fc2_weight = gemm_fc2.reshape(-1, hidden_size)
-
-            # Set GEMM experts weight
-            model_layer_mlp_dict[ms_experts_weight1_key] = gemm_fc1_weight.clone()
-            model_layer_mlp_dict[ms_experts_weight2_key] = gemm_fc2_weight.clone()
-        else:
-            # not use GEMM, split the experts weight
-            for local_experts_id in range(num_experts):
-                # Get non-GEMM keys
-                local_prefix = (
-                    f"mtp.layers.{mtp_layer_id}.transformer_layer.mlp.experts.local_experts"
-                    if is_mtp_layers
-                    else f"decoder.layers.{layer_id}.mlp.experts.local_experts"
-                )
-                local_fc1_key = f"{local_prefix}.{local_experts_id}.linear_fc1.weight"
-                local_fc2_key = f"{local_prefix}.{local_experts_id}.linear_fc2.weight"
-
-                global_experts_idx = local_experts_id
-
-                # Get non-GEMM weight
-                local_fc1_weight = experts_linear_fc1_list[global_experts_idx].T
-                local_fc2_weight = experts_linear_fc2_list[global_experts_idx].T
-
-                # Set non-GEMM weight
-                model_layer_mlp_dict[local_fc1_key] = local_fc1_weight.clone()
-                model_layer_mlp_dict[local_fc2_key] = local_fc2_weight.clone()
+        # Set GEMM experts weight
+        model_layer_mlp_dict[ms_experts_weight1_key] = experts_linear_fc1.clone()
+        model_layer_mlp_dict[ms_experts_weight2_key] = experts_linear_fc2.clone()
 
     return model_layer_mlp_dict
 
@@ -480,7 +436,6 @@ def _mtp_hf_to_ms(layer_id, hf_layer_weights, config):
     """Processing weights in MTP module, the shared weights will not be ignored"""
     # Get MTP layers id
     num_layers = config["num_layers"]
-    is_split_mla = config["split_mla"]
     mtp_layer_id = layer_id - num_layers
 
     mtp_weight_dict = defaultdict()
@@ -493,8 +448,7 @@ def _mtp_hf_to_ms(layer_id, hf_layer_weights, config):
         _trans_model_layer_norm_hf_to_ms(hf_layer_weights, layer_id, mtp_layer_id, is_mtp_layers=True)
     )
     mtp_weight_dict.update(
-        _trans_model_layer_attn_hf_to_ms(hf_layer_weights, config, layer_id, mtp_layer_id, is_mtp_layers=True,
-                                         split_mla=is_split_mla)
+        _trans_model_layer_attn_hf_to_ms(hf_layer_weights, layer_id, mtp_layer_id, is_mtp_layers=True)
     )
     mtp_weight_dict.update(
         _trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id, mtp_layer_id, is_mtp_layers=True)
@@ -548,7 +502,6 @@ def ms_safetensors_convertor(input_path, output_path, config):
     dtype = config["dtype"]
     num_layers = config["num_layers"]
     num_nextn_predict_layers = config["num_nextn_predict_layers"]
-    is_split_mla = config['split_mla']
 
     has_mtp_layers = num_nextn_predict_layers == 0
     total_num_layers = num_layers + num_nextn_predict_layers
@@ -597,7 +550,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
                 _trans_model_layer_norm_hf_to_ms(hf_layer_weights, layer_id)
             )
             ms_layer_weights.update(
-                _trans_model_layer_attn_hf_to_ms(hf_layer_weights, config, layer_id, split_mla=is_split_mla)
+                _trans_model_layer_attn_hf_to_ms(hf_layer_weights, layer_id)
             )
             # MLP Layers process
             ms_layer_weights.update(
@@ -613,7 +566,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
             value = value.to(torch.float32).numpy()
 
             tmp_dtype = dtype
-            if "norm" in name or "router.dense" in name or "topk_bias" in name:
+            if "expert_bias" in name:
                 tmp_dtype = ms.float32
             to_save_ckpt.append(
                 {
@@ -662,8 +615,8 @@ def convert_weight(para):
 
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
-        if key in ['num_routed_experts', 'n_head', 'qk_nope_head_dim', 'qk_rope_head_dim', 'v_head_dim',
-                   'num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace']:
+        if key in ['num_routed_experts', 'num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace',
+                   'hidden_size', 'ffn_hidden_size', 'moe_ffn_hidden_size']:
             DEFAULT_CONFIG[key] = int(DEFAULT_CONFIG[key])
 
     DEFAULT_CONFIG['dtype'] = (
@@ -691,17 +644,12 @@ if __name__ == "__main__":
                         help="The number of attention layers.")
     parser.add_argument("--hidden_size", default=7168, type=int,
                         help="The size of Hidden layer.")
+    parser.add_argument("--ffn_hidden_size", default=18432, type=int,
+                        help="Transformer Feed-Forward Network hidden size.")
+    parser.add_argument("--moe_ffn_hidden_size", default=2048, type=int,
+                        help="MoE Feed-Forward Network hidden size.")
     parser.add_argument('--num_routed_experts', default=256, type=int,
                         help="The number of routed experts.")
-
-    parser.add_argument("--n_head", default=128, type=int,
-                        help="The number of attention heads.")
-    parser.add_argument("--qk_nope_head_dim", default=128, type=int,
-                        help="Q/K head dim without PE.")
-    parser.add_argument("--qk_rope_head_dim", default=64, type=int,
-                        help="Q/K head dim with PE.")
-    parser.add_argument("--v_head_dim", default=128, type=int,
-                        help="V head dim with PE.")
 
     parser.add_argument("--num_nextn_predict_layers", default=1, type=int,
                         help="The number of Multi-Token Prediction layers.")
@@ -710,10 +658,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'],
                         help="The dtype of converted weight, choices in ['fp16', 'bf16', 'fp32']")
-    parser.add_argument('--use_grouped_gemm', default=True, type=str2bool,
-                        help="Whether to use MoE grouped GEMM.")
-    parser.add_argument('--split_mla', default=False, type=str2bool,
-                        help="Whether to split 2 up-proj matmul into 4 in MLA.")
 
     args = parser.parse_args()
 
