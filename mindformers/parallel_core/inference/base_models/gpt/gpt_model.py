@@ -457,7 +457,12 @@ class GPTModel(nn.Cell):
                 if name in params_dict:
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    weight_loader(param, loaded_weight, shard_id)
+                    # The trained weights for qkv_down and q_up differ from those of Hugging Face,
+                    # so an is_hf_weight flag needs to be added for distinction.
+                    if '_qkv_down_' in name or '_q_up_' in name:
+                        weight_loader(param, loaded_weight, shard_id, is_hf_weight)
+                    else:
+                        weight_loader(param, loaded_weight, shard_id)
                     loaded_params.add(name)
                     break
             else:
