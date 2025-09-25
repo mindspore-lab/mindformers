@@ -150,7 +150,8 @@ class MultiTokenPredictionLayer(nn.Cell):
     def construct(self, decoder_input, hidden_states, attention_mask=None, rotary_pos_cos=None,
                   rotary_pos_sin=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
                   block_tables=None, slot_mapping=None, attn_padding_idx=None, attn_unpadding_idx=None,
-                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None):
+                  ffn_padding_idx=None, ffn_unpadding_idx=None, key_cache=None, value_cache=None,
+                  q_seq_lens_cpu=None, batch_valid_length_cpu=None, context_lens_tensor_cpu=None):
         """ Perform the forward pass through the MTP layer. """
 
         key_cache = key_cache[0] if key_cache is not None else None
