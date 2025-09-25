@@ -715,6 +715,11 @@ class MLATransformerConfig(TransformerConfig):
     v_head_dim: int = 128
     """Dimension of the head in the V projection."""
 
+    mla_pad_value: bool = True
+    """
+    Pad v_head_dim to q_head_dim, when q_head_dim > v_head_dim, where q_head_dim = qk_head_dim + qk_pos_emb_head_dim.
+    """
+
     normalization: str = "RMSNorm"
     """Default normalization layer for MLA models is RMSNorm."""
 

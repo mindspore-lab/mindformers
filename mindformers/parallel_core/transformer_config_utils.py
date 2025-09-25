@@ -422,6 +422,7 @@ COMMON_CONFIG_MAPPING = {
     "mscale": "mscale",
     "mscale_all_dim": "mscale_all_dim",
     "mla_qkv_concat": "mla_qkv_concat",
+    "mla_pad_value": "mla_pad_value",
 
     # Inference Param
     "pad_token_id": "pad_token_id",
