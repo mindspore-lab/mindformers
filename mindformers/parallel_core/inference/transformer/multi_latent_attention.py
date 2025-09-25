@@ -784,7 +784,19 @@ class FusedMLASelfAttention(MLASelfAttention):
             )
             # compute_prefill_context
             if self.is_chunked:
-                k_cache, r_cache = self.kv_cache_loader(key_cache, value_cache, block_tables, context_lens_tensor)
+                if self.fa3_quant:
+                    k_cache, r_cache = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
+                                                                           context_lens_tensor, None, 1)
+                    #reshape
+                    context_len, _ = k_cache.shape
+                    k_cache = k_cache.reshape(context_len, -1, self.config.kv_lora_rank)
+                    r_cache = r_cache.reshape(context_len, -1, self.config.qk_pos_emb_head_dim)
+                    if self.is_fa3_quant_layer:
+                        k_cache = self.cast(k_cache, dtype.bfloat16)
+                        k_cache = k_cache / self.quant_ctkv_scale
+                else:
+                    k_cache, r_cache = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
+                                                                           context_lens_tensor, None, 0)
                 k_no_pe, k_pos_emb, value = self.split_kv(k_cache, r_cache)
                 core_attn_out, _ = self.ms_custom_ops.ring_mla(
                     query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
@@ -815,62 +827,6 @@ class FusedMLASelfAttention(MLASelfAttention):
         output = self.linear_proj(core_attn_out)
 
         return output
-
-
-    def kv_cache_loader(self, key_cache, value_cache, block_tables, context_lens_tensor):
-        '''
-        load kv cache using paged_cache_load
-        '''
-        # for fa3_quant_layer, need to dequant the key_cache
-        # since paged_cache_load is not supported for loading k cache and v cache
-        # in different format(e.g. int8 for k cache and bfloat16 for v cache;
-        # None for k cache and bfloat16 for v cache), fa_qaunt_layer requires to use
-        # empty tensor and paged_cache_load twice
-        if self.is_fa3_quant_layer:
-            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([self.config.kv_lora_rank]))), dtype=dtype.int8)
-            r_cache_ = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                            Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.int8)
-            value_cache_ = mint.zeros(value_cache.shape, dtype=dtype.int8)
-            load_out_k = self.ms_custom_ops.paged_cache_load(key_cache, value_cache_, block_tables,
-                                                             context_lens_tensor, k_cache, r_cache_, None, 1)
-            k_cache = self.depend(k_cache, load_out_k)
-            k_cache = self.cast(k_cache, dtype.bfloat16)
-            k_cache = k_cache / self.quant_ctkv_scale
-
-            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
-            k_cache_ = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                            Tensor([self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
-            key_cache_ = mint.zeros(key_cache.shape, dtype=dtype.bfloat16)
-            load_out_r = self.ms_custom_ops.paged_cache_load(key_cache_, value_cache, block_tables,
-                                                             context_lens_tensor, k_cache_, r_cache, None, 1)
-            r_cache = self.depend(r_cache, load_out_r)
-        elif self.fa3_quant:
-            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
-            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
-            load_out = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
-                                                           context_lens_tensor, k_cache, r_cache, None, 1)
-            k_cache = self.depend(k_cache, load_out)
-            r_cache = self.depend(r_cache, load_out)
-        else:
-            k_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([1, self.config.kv_lora_rank]))), dtype=dtype.bfloat16)
-            r_cache = mint.zeros(mint.cat((context_lens_tensor.sum().reshape(1),
-                                           Tensor([1, self.config.qk_pos_emb_head_dim]))), dtype=dtype.bfloat16)
-            load_out = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
-                                                           context_lens_tensor, k_cache, r_cache, None, 0)
-            k_cache = self.depend(k_cache, load_out)
-            r_cache = self.depend(r_cache, load_out)
-
-        if self.fa3_quant:
-            context_len, _ = k_cache.shape
-            k_cache = k_cache.reshape(context_len, 1, self.config.kv_lora_rank)
-            r_cache = r_cache.reshape(context_len, 1, self.config.qk_pos_emb_head_dim)
-
-        return k_cache, r_cache
 
 
     def weight_loader(self, param, loaded_weight):
