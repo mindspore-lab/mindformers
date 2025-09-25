@@ -13,7 +13,7 @@ trainer:
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 4
+  model_parallel: 8
 
 # HuggingFace file directory
 pretrained_model_dir: '/path/hf_dir'
