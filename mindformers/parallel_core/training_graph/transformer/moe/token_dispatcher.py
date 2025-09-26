@@ -21,7 +21,6 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
 import mindspore.mint as mint
-from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
 from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
@@ -137,6 +136,7 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
         self.cumsum_op = CumsumExt().add_prim_attr("recompute", False)
         self.index_add_op = ops.IndexAdd(axis=0).add_prim_attr("recompute", False)  # aclnn operator
         self.index_select_op = IndexSelect().add_prim_attr("recompute", False)
+        self.nonzero = ops.NonZero().recompute(False)
 
         self.all2allvc = get_all2allvc()
 
@@ -179,7 +179,7 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
 
         # gather for all2allv
         send = ops.Depend()(send, (send_list_reshape, receive_list_reshape))
-        select_index = self.mod_op(mint.nonzero(send.ravel()).ravel(), num_tokens)
+        select_index = self.mod_op(self.nonzero(send.ravel()).ravel(), num_tokens)
         tokens = tokens.reshape((-1, tokens.shape[-1]))
         local_x = tokens.index_select(0, select_index)  # gather (-1, h)
 
@@ -194,7 +194,7 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
         global_map_info = self.masked_select_op(global_map_info, mask_idx)
 
         global_map_info = self.reshape_op(global_map_info, (local_expert_num, -1))  # (local_E, N*ep)
-        token_id_recover = self.reshape_op(mint.nonzero(self.reshape_op(global_map_info, (-1,))), (-1,))
+        token_id_recover = self.reshape_op(self.nonzero(self.reshape_op(global_map_info, (-1,))), (-1,))
         probs = self.index_select_op(global_map_info.ravel(), 0, token_id_recover)
         token_id_recover = self.mod_op(token_id_recover, mask_idx_shape)
         global_map = self.cast_op(self.sum_op(self.cast_op(global_map_info.bool(), ms.int32), axis=1), ms.int32)
@@ -268,7 +268,11 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         self.iep_group = self._get_iep_group_name()
 
         self.mul = ops.Mul().recompute(True)
-        self.nonzero = ops.NonZero().add_prim_attr("recompute", False)
+        self.nonzero = ops.NonZero().recompute(False)
+        self.squeeze_0 = ops.Squeeze(0).recompute(False)
+        self.oep_allgather = ops.AllGather(group=self.oep_group).recompute(False)
+        self.onehot = ops.OneHot().recompute(False)
+        self.iep_alltoallv = ops.AlltoAllV(group=self.iep_group, block_size=1).recompute(False)
 
     def _get_oep_group_name(self):
         """
@@ -333,7 +337,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         mask = ops.logical_and(sorted_expert_ids >= self.a, sorted_expert_ids < self.b)
         x = ops.Depend()(x, mask)
         x = ops.AllGather(group=self.oep_group)(x)
-        idx = mask.reshape(-1).nonzero()
+        idx = self.nonzero(mask.reshape(-1))
         idx = idx.reshape(-1)
         dispatch_idx = IndexSelect()(dispatch_idx_floordiv_k, 0, idx)
         sorted_expert_ids = IndexSelect()(
@@ -350,9 +354,9 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
             routing_map: Tensor
         ):
         x_orig_shape = tokens.shape
-        x = ops.squeeze(tokens, 0)
-        expert_id = ops.squeeze(routing_map, 0).astype(ms.int32)
-        router_coeff = ops.squeeze(probs, 0).astype(ms.bfloat16)
+        x = self.squeeze_0(tokens)
+        expert_id = self.squeeze_0(routing_map).astype(ms.int32)
+        router_coeff = self.squeeze_0(probs).astype(ms.bfloat16)
 
         hidden_size = x.shape[1]
         chosen_expert_nums = expert_id.shape[1]
@@ -368,12 +372,12 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
 
         # prepare counter
         iepones = [node_expert_num // self.iep for i in range(self.iep)]
-        expert_id = ops.AllGather(group=self.oep_group)(expert_id).reshape(-1, chosen_expert_nums)
-        excounter = P.OneHot()(
+        expert_id = self.oep_allgather(expert_id).reshape(-1, chosen_expert_nums)
+        excounter = self.onehot(
             expert_id.reshape(-1), self.expert_num, Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)
         )
         excounter = excounter.sum(axis=0)[self.a: self.b]
-        local_excounter = ops.AlltoAllV(group=self.iep_group, block_size=1)(excounter.reshape(-1), iepones, iepones)
+        local_excounter = self.iep_alltoallv(excounter.reshape(-1), iepones, iepones)
         exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
         exgl = ops.cast(
             ops.cumsum(local_excounter.reshape(self.iep, -1).sum(dim=-2, keepdim=False), 0, ms.int32), ms.int64
@@ -429,7 +433,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         )
 
         # -2. excombine
-        x = ops.mul(probs.unsqueeze(1), x)
+        x = self.mul(probs.unsqueeze(1), x)
         x = excombine_whiteboard.index_add_(0, exdispatch_idx.reshape(-1), x)
 
         # -1 reduce scatter
