@@ -179,8 +179,8 @@ class GenerationMixin:
                 k_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.kv_lora_rank,), dtype=k_cache_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.qk_pos_emb_head_dim,),
                                      dtype=compute_dtype)
-                k_cache = ms.jit(ms_custom_ops.trans_data)(k_cache, transdata_type=1)
-                v_cache = ms.jit(ms_custom_ops.trans_data)(v_cache, transdata_type=1)
+                k_cache = ms_custom_ops.trans_data(k_cache, transdata_type=1)
+                v_cache = ms_custom_ops.trans_data(v_cache, transdata_type=1)
             elif use_ringmla:
                 k_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.kv_lora_rank,), dtype=compute_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-1] + (tansformer_config.qk_pos_emb_head_dim,),
