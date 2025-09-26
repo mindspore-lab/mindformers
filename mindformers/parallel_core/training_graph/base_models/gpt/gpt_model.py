@@ -73,6 +73,80 @@ def func_infer_shape_labels_and_masks(*args):
     return output_shape
 
 
+class PreprocessLabelsAndMasks(nn.Cell):
+    """Preprocess input_ids and generate labels and masks.
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
+
+        # Operations
+        self.cast = aclnn_ops.Cast()
+        self.not_equal = P.NotEqual()
+        self.mul = aclnn_ops.Mul()
+        self.shape = aclnn_ops.Shape()
+        self.reshape = aclnn_ops.Reshape()
+        self.pad_token_id = config.pad_token_id
+        self.ignore_token_id = config.ignore_token_id
+
+         # Internally generates AttentionMask.
+        self.casual_mask = CausalMaskGenerate(
+            seq_length=config.seq_length,
+            compute_type=config.compute_dtype,
+            is_dynamic=config.is_dynamic,
+            pad_token_id=config.pad_token_id,
+            use_flash_attention=config.use_flash_attention,
+            use_attn_mask_compression=self.use_attn_mask_compression,
+            config=config
+        )
+        self.morphed_reshape_labels_and_masks = Morph(
+            self.forward_func_labels_and_masks,
+            func_infer_shape_labels_and_masks,
+            func_infer_dtype
+        ).add_prim_attr("self_define_shard", True)
+
+        self.shard()
+
+    def forward_func_labels_and_masks(self, input_):
+        """Morphed forward."""
+        output = self.reshape(input_, (-1,))
+        return output
+
+    def shard(self):
+        self.morphed_reshape_labels_and_masks.shard(
+            in_strategy=(layout("dp", "cp"),),
+            out_strategy=(layout("dp_cp"),))
+
+
+    def construct(self, input_ids: Tensor,
+                  labels: Tensor = None,
+                  attention_mask: Tensor = None,
+                  loss_mask: Tensor = None):
+        """
+        Preprocess input_ids and generate labels and masks if they are None.
+
+        Args:
+            labels (Tensor): Labels.
+            attention_mask (Tensor): Attention mask.
+            loss_mask (Tensor): Label mask
+        Returns:
+            labels (Tensor): Labels if input is none.
+            attention_mask (Tensor): Attention mask if input is none.
+            loss_mask (Tensor): Loss mask.
+        """
+        if loss_mask is None:
+            loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
+        label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
+        loss_mask = self.mul(loss_mask, label_mask)
+        loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
+        labels = self.morphed_reshape_labels_and_masks(labels)
+        if self.use_attn_mask_compression:
+            attention_mask = self.casual_mask()
+        elif attention_mask is None:
+            attention_mask = self.casual_mask(input_ids)
+        return labels, attention_mask, loss_mask
+
+
 class GPTModel(nn.Cell):
     """GPT Transformer language model.
 
@@ -150,6 +224,7 @@ class GPTModel(nn.Cell):
         self.parallel_output = parallel_output
         self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
         self.is_zbv = ms.get_auto_parallel_context("pipeline_scheduler") == "zero_bubble_v"
+        self.use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
 
         # init layout
         layout.init_layout(config)
@@ -184,7 +259,6 @@ class GPTModel(nn.Cell):
         self.pad_token_id = config.pad_token_id
         self.ignore_token_id = config.ignore_token_id
         self.calculate_per_token_loss = config.calculate_per_token_loss
-        use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
 
         # init parallel state groups
         self.tp = config.tensor_model_parallel_size if config.tensor_model_parallel_size is not None else 1
@@ -195,16 +269,7 @@ class GPTModel(nn.Cell):
         initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
                                   pipeline_model_parallel_size=self.pp, context_parallel_size=self.cp)
 
-        # Internally generates AttentionMask.
-        self.casual_mask = CausalMaskGenerate(
-            seq_length=config.seq_length,
-            compute_type=config.compute_dtype,
-            is_dynamic=config.is_dynamic,
-            pad_token_id=config.pad_token_id,
-            use_flash_attention=config.use_flash_attention,
-            use_attn_mask_compression=use_attn_mask_compression,
-            config=config
-        )
+        self.preprocess_labels_and_masks = PreprocessLabelsAndMasks(config)
 
         # Embeddings
         if self.pre_process or self.mtp_process:
@@ -309,12 +374,6 @@ class GPTModel(nn.Cell):
             func_infer_dtype
             ).add_prim_attr("self_define_shard", True)
 
-        self.morphed_reshape_labels_and_masks = Morph(
-            self.forward_func_labels_and_masks,
-            func_infer_shape_labels_and_masks,
-            func_infer_dtype
-            ).add_prim_attr("self_define_shard", True)
-
         # update topk-bias
         if config.moe_router_enable_expert_bias:
             if not config.num_moe_experts:
@@ -361,11 +420,11 @@ class GPTModel(nn.Cell):
         # Check mindformers.dataset.blended_datasets.gpt_dataset._get_eod_attention_mask() for implement details.
         extra_block_kwargs['actual_seq_len'] = actual_seq_len
 
-        tokens, labels, attention_mask, loss_mask = self._preprocess_input_labels_and_masks(
-            input_ids, labels, attention_mask, loss_mask
-        )
+        labels, attention_mask, loss_mask = self._preprocess_input_labels_and_masks(
+            input_ids, labels, attention_mask, loss_mask)
+
         hidden_states, rotary_pos_emb, extra_loss = self.language_model(
-            tokens,
+            input_ids,
             position_ids,
             attention_mask,
             decoder_input=decoder_input,
@@ -378,13 +437,13 @@ class GPTModel(nn.Cell):
         numerator1, denominator1 = self.init_numerator1, self.init_denominator1
         if self.mtp_process:
             mtp_loss, extra_loss = self.mtp(
-                tokens,
+                input_ids,
                 position_ids,
                 hidden_states,
                 attention_mask,
-                labels=labels.reshape_as(tokens),
+                labels=labels.reshape_as(input_ids),
                 rotary_pos_emb=rotary_pos_emb,
-                loss_mask=loss_mask.reshape_as(tokens),
+                loss_mask=loss_mask.reshape_as(input_ids),
                 extra_block_kwargs=extra_block_kwargs,
                 word_embeddings_weight=self.embedding.word_embeddings.weight,
                 position_embeddings_weight=getattr(self.embedding.position_embeddings, 'weight', None),
@@ -424,11 +483,6 @@ class GPTModel(nn.Cell):
     def forward_func_logits(self, input_):
         """Morphed forward."""
         output = self.reshape(input_, (-1, input_.shape[-1]))
-        return output
-
-    def forward_func_labels_and_masks(self, input_):
-        """Morphed forward."""
-        output = self.reshape(input_, (-1,))
         return output
 
     def language_model(
@@ -517,29 +571,8 @@ class GPTModel(nn.Cell):
                                            attention_mask: Tensor = None,
                                            loss_mask: Tensor = None):
         """Preprocess input_ids and generate labels and masks if they are None.
-
-        Args:
-            labels (Tensor): Labels.
-            attention_mask (Tensor): Attention mask.
-
-        Returns:
-            tokens (Tensor): Processed tokens if in training.
-            labels (Tensor): Labels if input is none.
-            attention_mask (Tensor): Attention mask if input is none.
-            loss_mask (Tensor): Loss mask.
         """
-        tokens = input_ids
-        if loss_mask is None:
-            loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
-        label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
-        loss_mask = self.mul(loss_mask, label_mask)
-        loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
-        labels = self.morphed_reshape_labels_and_masks(labels)
-        if self.config.use_eod_attn_mask_compression or self.config.use_attn_mask_compression:
-            attention_mask = self.casual_mask()
-        elif attention_mask is None:
-            attention_mask = self.casual_mask(tokens)
-        return tokens, labels, attention_mask, loss_mask
+        return self.preprocess_labels_and_masks(input_ids, labels, attention_mask, loss_mask)
 
     def update_topk_bias(self, gradient_accumulation_steps: int = 1):
         """
@@ -623,24 +656,21 @@ class GPTModel(nn.Cell):
                 if self.mtp_process:
                     self.mtp.pipeline_stage = 0
                     self.mtp.pipeline_segment = 1
+                if self.use_attn_mask_compression:
+                    self.preprocess_labels_and_masks.pipeline_stage = 0
+                    self.preprocess_labels_and_masks.pipeline_segment = 1
             else:
                 self.output_layer.pipeline_stage = pipeline_stage - 1
                 if self.mtp_process:
                     self.mtp.pipeline_stage = pipeline_stage - 1
+                if self.use_attn_mask_compression:
+                    self.preprocess_labels_and_masks.pipeline_stage = pipeline_stage - 1
         self.morphed_reshape_logits.shard(
             in_strategy=(
                 layout("dp", "cp", "tp"),
             ),
             out_strategy=(
                 layout("dp_cp", "tp"),
-            )
-        )
-        self.morphed_reshape_labels_and_masks.shard(
-            in_strategy=(
-                layout("dp", "cp"),
-            ),
-            out_strategy=(
-                layout("dp_cp"),
             )
         )
 
