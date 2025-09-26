@@ -170,7 +170,7 @@ class LinearBase(ms.nn.Cell):
                 cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
             else:
                 import ms_custom_ops
-                cast_weight = ms.jit(ms_custom_ops.trans_data)(param, transdata_type=1)
+                cast_weight = ms_custom_ops.trans_data(param, transdata_type=1)
             if move_to_cpu:
                 cast_weight = cast_weight.move_to("CPU")
             param.set_data(cast_weight)

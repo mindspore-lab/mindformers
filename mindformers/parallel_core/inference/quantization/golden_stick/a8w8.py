@@ -108,7 +108,7 @@ class A8W8LinearMethod(LinearMethodBase):
         This can be used for example, to transpose weights for computation.
         """
         if self.is_ms_custom_ops:
-            layer.weight = mindspore.jit(self.ms_custom_ops.trans_data)(layer.weight, transdata_type=1)
+            layer.weight = self.ms_custom_ops.trans_data(layer.weight, transdata_type=1)
         if not self.is_modelslim:
             return
         input_scale = 1 / layer.input_scale.asnumpy()
