@@ -102,7 +102,7 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
         text = f"{self.system} "
         token = self.tokenizer(text)['input_ids']
 
-        # ignore_token_id = -100 default
+        # the default value of ignore_token_id is -100
         labels = [self.ignore_token_id] * len(token)
 
         for message in example:
