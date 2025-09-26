@@ -31,6 +31,13 @@ class A8W8LinearMethod(LinearMethodBase):
         self.quant = QuantV2()
         self.bias_add = ops.Add()
         self.is_modelslim = self.quant_config.is_modelslim
+        self.is_ms_custom_ops = False
+        try:
+            import ms_custom_ops
+            self.is_ms_custom_ops = True
+            self.ms_custom_ops = ms_custom_ops
+        except ModuleNotFoundError:
+            pass
 
     def create_weights(self,
                        layer: mindspore.nn.Cell,
@@ -42,10 +49,10 @@ class A8W8LinearMethod(LinearMethodBase):
         self.output_size_per_partition = output_size_per_partition
         self.input_size_per_partition = input_size_per_partition
         self.params_dtype = params_dtype
-
         self.matmul = QuantBatchMatmul(transpose_x1=False,
                                        transpose_x2=True,
                                        dtype=self.params_dtype)
+
         weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
         weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
         deq_scale_shape = self.output_size_per_partition
@@ -100,6 +107,8 @@ class A8W8LinearMethod(LinearMethodBase):
         Process the weight after loading.
         This can be used for example, to transpose weights for computation.
         """
+        if self.is_ms_custom_ops:
+            layer.weight = mindspore.jit(self.ms_custom_ops.trans_data)(layer.weight, transdata_type=1)
         if not self.is_modelslim:
             return
         input_scale = 1 / layer.input_scale.asnumpy()
@@ -123,7 +132,12 @@ class A8W8LinearMethod(LinearMethodBase):
         qx = self.quant(x, input_scale, input_offset, False, "ROUND", mindspore.dtype.int8)
         output_shape = qx.shape[:-1] + (self.output_size_per_partition,)
         qx = qx.reshape(-1, self.input_size_per_partition)
-        out = self.matmul(qx, weight, deq_scale, None, quant_bias, None)
+        if self.is_ms_custom_ops:
+            out = self.ms_custom_ops.quant_batch_matmul(qx, weight, deq_scale, None, quant_bias, None,
+                                                        transpose_x1=False, transpose_x2=True,
+                                                        x2_format="FRACTAL_NZ", output_dtype=self.params_dtype)
+        else:
+            out = self.matmul(qx, weight, deq_scale, None, quant_bias, None)
         if bias is not None:
             out = self.bias_add(out, bias)
         out = out.reshape(output_shape)
