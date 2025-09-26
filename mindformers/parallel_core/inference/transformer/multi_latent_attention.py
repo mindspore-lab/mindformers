@@ -405,22 +405,22 @@ class MLASelfAttention(MultiLatentAttention):
             q_compressed = hidden_states
             kv_combined = self.linear_kv_down_proj(hidden_states)
             if kv_combined.shape[-1] != self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim:
-                # kv_combined: [s, b, (kv_lora_rank + qk_pos_emb_head_dim)]
+                # the shape of kv_combined is [s, b, (kv_lora_rank + qk_pos_emb_head_dim)]
                 kv_combined = gather_from_model_parallel_region(q_compressed, self.tp)
             kv_compressed, k_pos_emb = mint.split(
                 kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
             )
-            # q: [num_tokens, n * (qk_head_dim + qk_pos_emb_head_dim)]
+            # the shape of q is [num_tokens, n * (qk_head_dim + qk_pos_emb_head_dim)]
             q = self.linear_q_proj(q_compressed)
 
-        # q: [num_tokens, n, q_head_dim]
+        # the shape of q is [num_tokens, n, q_head_dim]
         q = q.reshape(*q.shape[:-1], self.num_attention_heads_per_partition, self.q_head_dim)
-        # q_no_pe: [num_tokens, n, qk_head_dim], q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]
+        # the shape of q_no_pe is [num_tokens, n, qk_head_dim], q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]
         q_no_pe, q_pos_emb = mint.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
-        # kv_compressed: [num_tokens, kv_lora_rank]
+        # the shape of kv_compressed is [num_tokens, kv_lora_rank]
         kv_compressed = self.kv_layernorm(kv_compressed)
 
-        # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
+        # the shape of q_pos_emb is [num_tokens, n, qk_pos_emb_head_dim] -> [num_tokens, n * qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition * self.config.qk_pos_emb_head_dim)
         if rotary_pos_cos is not None and rotary_pos_sin is not None:
             if self.is_pynative:
@@ -429,7 +429,7 @@ class MLASelfAttention(MultiLatentAttention):
             q_pos_emb, k_pos_emb = self.rotary_emb(q_pos_emb, k_pos_emb,
                                                    rotary_pos_cos, rotary_pos_sin,
                                                    batch_valid_length)
-        # q_pos_emb: [num_tokens, n * qk_pos_emb_head_dim] -> [num_tokens, n, qk_pos_emb_head_dim]
+        # the shape of q_pos_emb is from [num_tokens, n * qk_pos_emb_head_dim] to [num_tokens, n, qk_pos_emb_head_dim]
         q_pos_emb = q_pos_emb.reshape(-1, self.num_attention_heads_per_partition, self.config.qk_pos_emb_head_dim)
         return kv_compressed, k_pos_emb, q_no_pe, q_pos_emb
 
@@ -441,20 +441,20 @@ class MLASelfAttention(MultiLatentAttention):
         """
         split k_no_pe, k_pos_emb, value_states from compressed kv and k position embedding
         """
-        # kv: [num_tokens, n * (qk_head_dim + v_head_dim)]
+        # the shape of kv is [num_tokens, n * (qk_head_dim + v_head_dim)]
         kv = self.linear_kv_up_proj(kv_compressed)
 
-        # k_no_pe: [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
-        # value: [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
+        # the shape of k_no_pe is [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
+        # the shape of value is [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
         k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
                                          self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
         k_no_pe = k_no_pe.reshape(-1, self.kv_num_heads_per_partition, self.config.qk_head_dim)
 
-        # value_states: [num_tokens, n, v_head_dim]
+        # the shape of value_states is [num_tokens, n, v_head_dim]
         value_states = value.reshape(-1, self.kv_num_heads_per_partition, self.config.v_head_dim)
-        # k_pos_emb: [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
+        # the shape of k_pos_emb is [num_tokens, qk_pos_emb_head_dim] -> [num_tokens, 1, qk_pos_emb_head_dim]
         k_pos_emb = k_pos_emb.reshape(-1, 1, self.config.qk_pos_emb_head_dim)
-        # k_pos_emb: [num_tokens, n, (qk_head_dim + v_head_dim)]
+        # the shape of k_pos_emb is [num_tokens, n, (qk_head_dim + v_head_dim)]
         k_pos_emb = mint.tile(k_pos_emb, (1, self.kv_num_heads_per_partition, 1))
         return k_no_pe, k_pos_emb, value_states
 
@@ -482,7 +482,7 @@ class MLASelfAttention(MultiLatentAttention):
 
         if self.is_prefill:
             k_no_pe, k_pos_emb, value_states = self.split_kv(kv_compressed, k_pos_emb)
-            # query_states: [num_tokens, n, (qk_head_dim + v_head_dim)]
+            # the shape of query_states is [num_tokens, n, (qk_head_dim + v_head_dim)]
             query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
             key_states = mint.cat((k_no_pe, k_pos_emb), dim=-1)
             value_states = mint.cat((value_states, k_pos_emb), dim=-1)
@@ -766,7 +766,6 @@ class FusedMLASelfAttention(MLASelfAttention):
                                  self.config.v_head_dim), dtype=dtype.bfloat16)
             lse_prev = mint.zeros((self.num_attention_heads_per_partition, hidden_states.shape[0]),
                                   dtype=dtype.float32)
-            #self.ring_mla_mask = self.tile_kv(self.ring_mla_mask, (q_seq_lens.shape[0], 1, 1))
             core_attn_out, lse_out = self.ms_custom_ops.ring_mla(
                 query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
                 mask=self.ring_mla_mask, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None,
