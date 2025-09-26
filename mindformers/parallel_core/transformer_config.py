@@ -656,6 +656,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                         "'recompute' must provide explicit 2D configuration for each interleave, "
                         "such as [[stage0_recompute, stage1_recompute], [stage0_recompute, stage1_recompute]].")
 
+        if self.recompute_slice_activation:
+            raise ValueError("For recompute, `recompute_slice_activation` is not supported in Mcore.")
+
 
 @dataclass
 class MLATransformerConfig(TransformerConfig):
