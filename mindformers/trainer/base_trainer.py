@@ -822,42 +822,154 @@ class BaseTrainer:
     def _check_input_sliced_sig(config, usage_info='special'):
         """Check input_sliced_sig in model config."""
         input_sliced_sig = config.model.model_config.get("input_sliced_sig")
-        if not input_sliced_sig:
+        if not input_sliced_sig and is_legacy_model():
             raise ValueError(
                 f"In this {usage_info} configuration, input_sliced_sig in model_config should be set 'True'")
 
-    def _train_dataset_postprocess(self, dataset, config):
-        """Dataset postprocess."""
-        dataloader_info = config.train_dataset.get('data_loader')
-        if not dataloader_info:
-            return dataset, config
+    @staticmethod
+    def _get_columns_with_strategy(config, dataset_config, dataloader_type):
+        """
+        Determine dataset sharding strategy and column names based on configuration.
+        """
+        dp = config.parallel_config.data_parallel
 
-        # check sink_mode for dataset_broadcast_opt_level
+        # Default sharding strategy and column names
+        dataset_strategy = 'full_batch'
+        column_names = None
+
+        create_compressed_eod_mask = dataset_config.get('create_compressed_eod_mask', False)
+        create_attention_mask = dataset_config.get('create_attention_mask', False)
+
+        if create_compressed_eod_mask:
+            dataset_strategy = [[dp, 1], [dp, 1], [dp, 1], [dp, 1], [dp, 1]]
+            column_names = ['input_ids', 'labels', 'loss_mask', 'position_ids', 'actual_seq_len']
+            config.model.model_config.use_eod_attn_mask_compression = True
+
+        elif create_attention_mask:
+            dataset_strategy = [[dp, 1], [dp, 1], [dp, 1], [dp, 1], [dp, 1, 1, 1]]
+            column_names = ['input_ids', 'labels', 'loss_mask', 'position_ids', 'attention_mask']
+
+        elif dataloader_type == 'BlendedMegatronDatasetDataLoader':
+            dataset_strategy = [[dp, 1], [dp, 1], [dp, 1], [dp, 1]]
+            column_names = ['input_ids', 'labels', 'loss_mask', 'position_ids']
+
+        # Allow overriding defaults from config
+        dataset_strategy = config.parallel.get('dataset_strategy', dataset_strategy)
+        column_names = config.train_dataset.get('input_columns', column_names)
+        construct_args_key = config.train_dataset.get('construct_args_key', column_names)
+
+        return config, dataset_strategy, column_names, construct_args_key
+
+    @staticmethod
+    def _set_full_batch_with_strategy(config, dataset_strategy):
+        """
+        Convert dataset strategy format and set auto parallel context.
+        """
+        # If full_batch is explicitly set in parallel config, log a warning
+        full_batch = config.parallel.get('full_batch')
+        if full_batch is not None:
+            logger.warning("`full_batch` will be deprecated in future interfaces, use `dataset_strategy` instead.")
+
+        # Convert strategy to correct format and set full_batch flag
+        if dataset_strategy != 'full_batch':
+            full_batch = False
+            if isinstance(dataset_strategy, list):
+                dataset_strategy = tuple(tuple(ds_item) for ds_item in dataset_strategy)
+            elif not isinstance(dataset_strategy, tuple):
+                raise ValueError('`dataset_strategy` should be list or tuple.')
+
+        # Apply parallel context settings
+        ms.set_auto_parallel_context(**{
+            'full_batch': full_batch,
+            'dataset_strategy': dataset_strategy
+        })
+
+        return full_batch, dataset_strategy
+
+    def _train_dataset_postprocess(self, dataset, config):
+        """
+        Postprocess the training dataset after construction.
+        Mainly used to adjust dataset size for special dataloaders.
+        """
+        dataloader_config = config.train_dataset.get('data_loader', dict())
+        dataloader_type = dataloader_config.get('type')
+
+        # Special handling for BlendedMegatronDatasetDataLoader
+        if dataloader_type == "BlendedMegatronDatasetDataLoader":
+            dataset_info = config.train_dataset.data_loader
+            # Resize dataset to ensure it's divisible by global batch size (remove redundant data)
+            dataset = dataset.take(int(dataset_info.sizes[0]) // self.global_batch_size)
+            logger.info(
+                f"Use BlendedMegatronDatasetDataLoader, reset dataset size to {dataset.get_dataset_size()}."
+            )
+
+        return dataset
+
+    def _train_dataset_preprocess(self, config):
+        """
+        Preprocess training dataset configuration before building the dataloader.
+        This includes validating broadcast options, setting dataset strategies,
+        and assigning dataset column names depending on the dataloader type.
+        """
+        # Check dataset sink mode with dataset broadcast optimization level
         self._check_sink_mode_with_ds_broadcast(config)
 
-        dataloader_type = dataloader_info.get('type')
-        # postprocess for BlendedMegatronDatasetDataLoader
-        if dataloader_type == "BlendedMegatronDatasetDataLoader":
+        dataloader_config = config.train_dataset.get('data_loader', dict())
+        dataloader_type = dataloader_config.get('type')
+        ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+
+        # Case 1: BlendedMegatronDatasetDataLoader
+        if dataloader_type == 'BlendedMegatronDatasetDataLoader':
+            # Validate that input slicing is enabled
             self._check_input_sliced_sig(config, dataloader_type)
-            return self._process_megatron_dataset(dataset, config)
 
-        # postprocess for CommonDataLoader / HFDataLoader
+            # Must use broadcast opt level >= 3 for this loader
+            if ds_broadcast_level < 3:
+                raise ValueError(
+                    "If using `BlendedMegatronDatasetDataLoader`, please set "
+                    "`dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file."
+                )
+            sub_config = dataloader_config.get('config')
+
+        # Case 2: HFDataLoader or CommonDataLoader
         if dataloader_type in ['HFDataLoader', 'CommonDataLoader']:
-            # check config for HF pack mode
+            # Collect handler types if present
             handler = []
-            if hasattr(dataloader_info, 'handler'):
-                handler = [sub_handler.get('type') for sub_handler in dataloader_info.handler]
-            if is_legacy_model() and 'PackingHandler' in handler:  # CommonDataLoader legacy option
-                self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
+            if dataloader_config.handler is not None:
+                handler = [sub_handler.get('type') for sub_handler in dataloader_config.handler]
 
-            # check config for use_broadcast_data
-            ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
-            if dataloader_info.get('use_broadcast_data', True) and ds_broadcast_level < 3:
+            # Packing or attention mask requires extended dataset strategy
+            if 'PackingHandler' in handler:
+                self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
+                config.train_dataset.data_loader.create_attention_mask = True
+            sub_config = config.train_dataset.data_loader
+
+            # Must use broadcast opt level >= 3 if broadcast is enabled
+            if dataloader_config.get('use_broadcast_data', True) and ds_broadcast_level < 3:
                 raise ValueError(
                     "If you are using `HFDataLoader` or `CommonDataLoader` and enable `use_broadcast_data`, "
                     "please set `dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file."
                 )
-        return dataset, config
+
+        sub_config = dataloader_config
+        config, dataset_strategy, column_names, construct_args_key = self._get_columns_with_strategy(
+            config, sub_config, dataloader_type)
+        logger.info(f"Got dataset config: "
+                    f"dataset_strategy: {dataset_strategy}, "
+                    f"column_names: {column_names}, "
+                    f"construct_args_key: {construct_args_key}")
+
+        full_batch, dataset_strategy = self._set_full_batch_with_strategy(config, dataset_strategy)
+
+        # Update config with resolved column names and construct keys
+        config.train_dataset.input_columns = column_names
+        config.train_dataset.construct_args_key = construct_args_key
+        config.train_dataset_task.dataset_config = config.train_dataset
+
+        config.parallel.full_batch = full_batch
+        config.parallel.dataset_strategy = dataset_strategy
+
+        return config
 
     @staticmethod
     def resume_ckpt_path_with_strategy(config):
@@ -928,9 +1040,15 @@ class BaseTrainer:
             **kwargs):
         """Train or Fine-tune for BaseTrainer in MindFormers."""
         self.kwargs = kwargs
-        self.train_dataset = dataset if dataset else self.train_dataset
+
         self.eval_dataset = kwargs.get('eval_dataset', None)
-        self.compute_metrics = compute_metrics if compute_metrics else self.compute_metrics
+        if dataset:
+            self.train_dataset = dataset
+        if compute_metrics:
+            self.compute_metrics = compute_metrics
+
+        # preprocess config for train dataset
+        config = self._train_dataset_preprocess(config)
         construct_args_key = config.train_dataset.pop("construct_args_key", None)
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
@@ -938,8 +1056,8 @@ class BaseTrainer:
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         dataset = self.create_train_dataset()
-        # postprocess and check dataset configuration
-        dataset, config = self._train_dataset_postprocess(dataset, config)
+        # postprocess dataset
+        dataset = self._train_dataset_postprocess(dataset, config)
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
