@@ -16,6 +16,7 @@
 from .build_context import (
     build_context,
     build_mf_context,
+    build_parallel_context,
     get_context,
     init_context,
     set_context,

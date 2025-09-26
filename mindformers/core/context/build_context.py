@@ -588,6 +588,29 @@ def build_mf_context(config: Union[dict, MindFormerConfig]):
     return MFContextOperator(mf_config)
 
 
+def build_parallel_context(config: Union[dict, MindFormerConfig]):
+    """
+    Build the parallel context from config.
+
+    Note:
+        parameter config must contain keys: 'context', 'parallel',
+        when config is dict.
+
+    Args:
+        config (Union[dict, MindFormerConfig]):
+            The configuration to initialize the context.
+            This can be a dictionary, a MindFormerConfig instance.
+
+    Returns:
+        Mindformer context instance, The instantiated context.
+    """
+
+    mf_config = MindFormerConfig(**config)
+
+    execute_validator(mf_config)
+    return ParallelOperator(mf_config)
+
+
 def is_legacy_model():
     """Determine whether it is use_legacy mode."""
     mf_ctx_instance = MFContextOperator.get_mf_ctx_instance()

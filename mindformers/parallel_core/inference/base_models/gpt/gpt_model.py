@@ -29,10 +29,11 @@ from mindformers.parallel_core.inference.base_models.common.embeddings.language_
 from mindformers.parallel_core.inference.transformer.transformer_block import TransformerBlock
 from mindformers.parallel_core.inference.base_models.common.embeddings.rope_utils import get_rope
 from mindformers.parallel_core.inference.utils import divide, generate_padding_index
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
+from mindformers.parallel_core.process_group_config import ModelCommProcessGroups
 from mindformers.parallel_core.inference.weights_utils import (default_weight_loader, make_expert_params_mapping,
                                                                make_expert_params_mapping_with_expert_dim)
 from mindformers.parallel_core.inference.parallel_state import is_pipeline_last_stage
+from mindformers.parallel_core.process_group_config import get_model_comm_pgs
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
 
@@ -112,7 +113,7 @@ class GPTModel(nn.Cell):
             rope_scaling: bool = False,
             seq_len_interpolation_factor: Optional[float] = None,
             mtp_block_spec: Optional[ModuleSpec] = None,
-            model_comm_pgs: Optional[ModelCommProcessGroups] = default_model_comm_pgs,
+            model_comm_pgs: Optional[ModelCommProcessGroups] = None,
             quant_config: Optional[QuantizationConfig] = None,
     ):
         super(GPTModel, self).__init__()
@@ -128,15 +129,11 @@ class GPTModel(nn.Cell):
         self.parallel_output = parallel_output
         self.compute_dtype = self.config.compute_dtype
         self.max_position_embeddings = max_sequence_length
-        if not hasattr(config, "qk_pos_emb_head_dim"):
-            if hasattr(config, "kv_channels"):
-                self.head_dim = getattr(config, "kv_channels")
-            else:
-                self.head_dim = divide(config.hidden_size, config.num_attention_heads)
-        else:
-            self.head_dim = config.qk_pos_emb_head_dim
+        self.head_dim = self.get_head_dim()
         self.rotary_percent = rotary_percent
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
+        if model_comm_pgs is None:
+            model_comm_pgs = get_model_comm_pgs()
         self.model_comm_pgs = model_comm_pgs
         self.tp = model_comm_pgs.tp
         self.tp_group_size = self.tp.size
@@ -264,7 +261,7 @@ class GPTModel(nn.Cell):
         else:
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions)
-        if self.is_pynative: # ops.move_to not support pynative mode
+        if self.is_pynative:  # ops.move_to not support pynative mode
             batch_valid_length_cpu = batch_valid_length.move_to("CPU")
             q_seq_lens_cpu = q_seq_lens.move_to("CPU")
             context_lens_tensor_cpu = context_lens_tensor.move_to("CPU")
@@ -500,3 +497,11 @@ class GPTModel(nn.Cell):
         network_not_load = set(params_dict.keys()) - loaded_params
         logger.warning(f'These parameters are not loaded in the network: {network_not_load}')
         return loaded_params
+
+    def get_head_dim(self):
+        """ Get head_dim from model config. """
+        if not hasattr(self.config, "qk_pos_emb_head_dim"):
+            if hasattr(self.config, "kv_channels"):
+                return getattr(self.config, "kv_channels")
+            return divide(self.config.hidden_size, self.config.num_attention_heads)
+        return self.config.qk_pos_emb_head_dim

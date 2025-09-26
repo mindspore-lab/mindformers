@@ -17,18 +17,14 @@ __all__ = ['InferenceGlm4MoeForCausalLM']
 
 from typing import Dict
 
-from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
-
 from mindformers.models.utils import jit
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.glm4_moe.utils import Glm4MoePreTrainedModel
-from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel, is_initialized
 from mindformers.parallel_core.inference.utils import update_comm_config
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
 
 from .configuration_glm4_moe import Glm4MoeConfig
@@ -51,18 +47,6 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
         super().__init__(config, auto_prefix=False)
         self.config = config
         config: TransformerConfig = convert_to_transformer_config(self.config)
-        if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(
-                data_parallel_size=config.data_parallel_size,
-                tensor_model_parallel_size=config.tensor_model_parallel_size,
-                expert_model_parallel_size=config.expert_model_parallel_size,
-                order='tp-ep-dp',
-            )
-        if is_initialized():
-            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tp_dp'])
-        else:
-            self.model_comm_pgs = default_model_comm_pgs
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
@@ -88,8 +72,7 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               pre_process=self.config.pre_process,
-                              post_process=self.config.post_process,
-                              model_comm_pgs=self.model_comm_pgs)
+                              post_process=self.config.post_process,)
 
     @jit
     def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,

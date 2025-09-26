@@ -31,6 +31,8 @@ from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.parallel_state import (get_tensor_model_parallel_world_size,
                                                                 get_tensor_model_parallel_rank)
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
+from mindformers.parallel_core.process_group_config import get_model_comm_pgs
+
 
 
 class InferModelMixin(ModelMixin):
@@ -78,19 +80,16 @@ class InferModelMixin(ModelMixin):
         else:
             key_cache = get_input(need_nz=is_310p())
             value_cache = get_input(need_nz=is_310p())
-        if not hasattr(self, 'model_comm_pgs'):
-            raise RuntimeError(
-                "ModelCommProcessGroups is not set, please set it during model initialization."
-            )
 
         dynamic_attn_padding_idx = None
         dynamic_attn_unpadding_idx = None
         dynamic_ffn_padding_idx = None
         dynamic_ffn_unpadding_idx = None
 
-        tp_group_size = self.model_comm_pgs.tp.size
-        dp_group_size = self.model_comm_pgs.dp.size
-        ep_group_size = self.model_comm_pgs.moe_ep.size
+        model_comm_pgs = get_model_comm_pgs()
+        tp_group_size = model_comm_pgs.tp.size
+        dp_group_size = model_comm_pgs.dp.size
+        ep_group_size = model_comm_pgs.moe_ep.size
 
         # Check whether model needs padding index parameters
         if not (dp_group_size == 1 or (dp_group_size == ep_group_size and tp_group_size == 1)):
