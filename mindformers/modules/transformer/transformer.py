@@ -496,6 +496,7 @@ class TransformerRecomputeConfig(_Config):
             "recompute_slice_activation": self._recompute_slice_activation,
             "select_recompute_exclude": self._select_recompute_exclude,
             "select_comm_recompute_exclude": self._select_comm_recompute_exclude,
+            "select_comm_recompute": self._select_comm_recompute,
         }
         return config_dict
 
