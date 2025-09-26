@@ -25,7 +25,7 @@ mindformers.core.CosineAnnealingLR
         \eta_t = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1 + \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right)
 
     参数：
-        - **base_lr** (float) - 初始学习率。
+        - **base_lr** (float) - 学习率的最大值。
         - **t_max** (int) - 重启周期的最大周期数。
         - **eta_min** (float, 可选) - 学习率的最小值。默认值： ``0.`` 。
 

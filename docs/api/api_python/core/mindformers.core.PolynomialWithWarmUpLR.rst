@@ -22,7 +22,7 @@ mindformers.core.PolynomialWithWarmUpLR
     该学习率适用于在训练初期需要稳定学习率并在训练后期逐渐降低学习率的场景。它通过在初期防止梯度爆炸并在后期降低学习率，帮助模型在收敛时获得更好的泛化性能。
 
     参数：
-        - **learning_rate** (float) - 学习率的初始值。
+        - **learning_rate** (float) - 预热阶段结束后的学习率。
         - **total_steps** (int) - 总训练步数。
         - **warmup_steps** (int, 可选) - 预热阶段的步数。默认值： ``None`` 。
         - **lr_end** (float, 可选) - 学习率的最终值。默认值： ``1e-7`` 。

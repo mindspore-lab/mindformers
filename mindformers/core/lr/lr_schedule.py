@@ -101,7 +101,8 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
     the total number of decay steps.
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
+            This learning rate will be unchanged in keep phase.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
         warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
@@ -139,15 +140,15 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
         ...                                        decay_steps=decay_steps,
         ...                                        final_steps=final_steps,
         ...                                        lr_end1=0.002, lr_end2=0.001)
-        >>> print(linear_warmup(Tensor(1)))
+        >>> print(linear_warmup(ms.Tensor(1)))
         0.0005
-        >>> print(linear_warmup(Tensor(15)))
+        >>> print(linear_warmup(ms.Tensor(15)))
         0.005
-        >>> print(linear_warmup(Tensor(25)))
+        >>> print(linear_warmup(ms.Tensor(25)))
         0.0035
-        >>> print(linear_warmup(Tensor(35)))
+        >>> print(linear_warmup(ms.Tensor(35)))
         0.002
-        >>> print(linear_warmup(Tensor(45)))
+        >>> print(linear_warmup(ms.Tensor(45)))
         0.001
     """
 
@@ -243,7 +244,7 @@ class ConstantWarmUpLR(LearningRateSchedule):
         \eta_t = \eta_{\text{main}}
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
         warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
@@ -267,9 +268,9 @@ class ConstantWarmUpLR(LearningRateSchedule):
         >>> constant_warmup = ConstantWarmUpLR(learning_rate=learning_rate,
         ...                                    warmup_steps=warmup_steps,
         ...                                    total_steps=total_steps)
-        >>> print(constant_warmup(Tensor(1)))
+        >>> print(constant_warmup(ms.Tensor(1)))
         0.0005
-        >>> print(constant_warmup(Tensor(15)))
+        >>> print(constant_warmup(ms.Tensor(15)))
         0.005
     """
 
@@ -329,7 +330,7 @@ class LinearWithWarmUpLR(LearningRateSchedule):
     decrease during the remainder of the training, enhancing the stability and effectiveness of the training process.
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         total_steps (int): The number of total steps.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
@@ -353,9 +354,9 @@ class LinearWithWarmUpLR(LearningRateSchedule):
         >>> linear_warmup = LinearWithWarmUpLR(learning_rate=learning_rate,
         ...                                    warmup_steps=warmup_steps,
         ...                                    total_steps=total_steps)
-        >>> print(linear_warmup(Tensor(1)))
+        >>> print(linear_warmup(ms.Tensor(1)))
         0.0005
-        >>> print(linear_warmup(Tensor(15)))
+        >>> print(linear_warmup(ms.Tensor(15)))
         0.0025
     """
 
@@ -420,7 +421,7 @@ class CosineWithWarmUpLR(LearningRateSchedule):
     the total number of epochs until the next restart.
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         total_steps (int, optional): The number of total steps. Default: ``None``.
         num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just
@@ -449,9 +450,9 @@ class CosineWithWarmUpLR(LearningRateSchedule):
         >>> cosine_warmup = CosineWithWarmUpLR(learning_rate=learning_rate,
         ...                                    warmup_steps=warmup_steps,
         ...                                    total_steps=total_steps)
-        >>> print(cosine_warmup(Tensor(1)))
+        >>> print(cosine_warmup(ms.Tensor(1)))
         0.0005
-        >>> print(cosine_warmup(Tensor(15)))
+        >>> print(cosine_warmup(ms.Tensor(15)))
         0.0024999997
     """
 
@@ -526,7 +527,7 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     cosine annealing to allow for multiple restarts.
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         total_steps (int, optional): The number of total steps. Default: ``None``.
         num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just decrease
@@ -554,9 +555,9 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
         >>> cosine_warmup_restart = CosineWithRestartsAndWarmUpLR(learning_rate=learning_rate,
         ...                                                       warmup_steps=warmup_steps,
         ...                                                       total_steps=total_steps)
-        >>> print(cosine_warmup_restart(Tensor(1)))
+        >>> print(cosine_warmup_restart(ms.Tensor(1)))
         0.0005
-        >>> print(cosine_warmup_restart(Tensor(15)))
+        >>> print(cosine_warmup_restart(ms.Tensor(15)))
         0.0024999997
     """
 
@@ -643,7 +644,7 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     generalization as it converges.
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         total_steps (int): The number of total steps.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         lr_end (float, optional): Final value of learning rate. Default: ``1e-7``.
@@ -673,9 +674,9 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         ...                                            warmup_steps=warmup_steps,
         ...                                            total_steps=total_steps,
         ...                                            lr_end=lr_end)
-        >>> print(polynomial_warmup(Tensor(1)))
+        >>> print(polynomial_warmup(ms.Tensor(1)))
         0.0005
-        >>> print(polynomial_warmup(Tensor(15)))
+        >>> print(polynomial_warmup(ms.Tensor(15)))
         0.0025000498
     """
 
@@ -775,9 +776,9 @@ class LearningRateWiseLayer(LearningRateSchedule):
         ...                                    warmup_steps=warmup_steps,
         ...                                    total_steps=total_steps)
         >>> learning_rate_wise_layer = LearningRateWiseLayer(linear_warmup, 0.5)
-        >>> print(learning_rate_wise_layer(Tensor(1)))
+        >>> print(learning_rate_wise_layer(ms.Tensor(1)))
         0.00025
-        >>> print(learning_rate_wise_layer(Tensor(15)))
+        >>> print(learning_rate_wise_layer(ms.Tensor(15)))
         0.00125
     """
 
@@ -828,7 +829,7 @@ class WarmUpStableDecayLR(LearningRateSchedule):
     * :math:`T_{\text{decay_steps}}` is the total number of decay steps (`total_steps - decay_start_steps`)
 
     Args:
-        learning_rate (float): Initial value of learning rate.
+        learning_rate (float): Learning rate after the warm-up phase.
         lr_end (float, optional): Final value of learning rate. Default: ``1e-7``.
         warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
@@ -914,7 +915,7 @@ class CosineAnnealingLR(LearningRateSchedule):
         \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right)
 
     Args:
-        base_lr (float): Initial value of learning rate.
+        base_lr (float): Maximum learning rate.
         t_max (int): Maximum number of iterations.
         eta_min (float, optional): Minimum learning rate. Default: ``0.``.
 
@@ -934,9 +935,9 @@ class CosineAnnealingLR(LearningRateSchedule):
         >>> eta_min = 0.0000001
         >>>
         >>> cosine_annealing = CosineAnnealingLR(base_lr=base_lr, t_max=t_max, eta_min=eta_min)
-        >>> print(cosine_annealing(Tensor(1)))
+        >>> print(cosine_annealing(ms.Tensor(1)))
         0.0048776437
-        >>> print(cosine_annealing(Tensor(15)))
+        >>> print(cosine_annealing(ms.Tensor(15)))
         0.0025000498
     """
 
@@ -981,7 +982,7 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
     It has been proposed in `SGDR: Stochastic Gradient Descent with Warm Restarts <https://arxiv.org/abs/1608.03983>`_ .
 
     Args:
-        base_lr (float): Initial value of learning rate.
+        base_lr (float): Maximum learning rate.
         t_0 (int): Number of iterations for the first restart.
         t_mult (int, optional): A factor increases :math:`T_{i}` after a restart. Default: ``1``.
         eta_min (float, optional): Minimum learning rate. Default: ``0.``.
@@ -1006,9 +1007,9 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
         ...                                                        t_0=t_0,
         ...                                                        t_mult=t_mult,
         ...                                                        eta_min=eta_min)
-        >>> print(cosine_annealing_restart(Tensor(1)))
+        >>> print(cosine_annealing_restart(ms.Tensor(1)))
         0.0048776437
-        >>> print(cosine_annealing_restart(Tensor(15)))
+        >>> print(cosine_annealing_restart(ms.Tensor(15)))
         0.0042677815
     """
 

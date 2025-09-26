@@ -22,7 +22,7 @@ mindformers.core.CosineWithWarmUpLR
     其中， :math:`T_{cur}` 是自预热阶段结束以来的epoch数量， :math:`T_{max}` 是下次重启前的总epoch数。
 
     参数：
-        - **learning_rate** (float) - 学习率的初始值。
+        - **learning_rate** (float) - 预热阶段结束后的学习率。
         - **warmup_steps** (int, 可选) - 预热步骤数。默认值： ``None`` 。
         - **total_steps** (int, 可选) - 总的训练步骤数。默认值： ``None`` 。
         - **num_cycles** (float, 可选) - 余弦调度中的周期数量（默认情况下为半个周期，从最大值递减至 0）。默认值： ``0.5`` 。

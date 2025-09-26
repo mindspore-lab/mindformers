@@ -24,7 +24,7 @@ mindformers.core.LinearWithWarmUpLR
     这种方法允许通过线性预热来平滑地增加学习率，然后在剩余的训练过程中逐步降低学习率，以提高训练的稳定性和效果。
 
     参数：
-        - **learning_rate** (float) - 学习率的初始值。
+        - **learning_rate** (float) - 预热阶段结束后的学习率。
         - **total_steps** (int) - 总步数。
         - **warmup_steps** (int, 可选) - 预热步骤数。默认值： ``None`` 。
         - **warmup_lr_init** (float, 可选) - 预热阶段的初始学习率。默认值： ``0.`` 。
