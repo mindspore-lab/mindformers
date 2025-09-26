@@ -196,9 +196,6 @@ def get_gpt_decoder_block_spec(
     # 0 stands for dense layers, 1 stands for expert layers.
     # For integer N: Creates a pattern with one expert layer every N layers.
     # For string pattern: Evaluates the str directly (e.g. "[1,0,1]" for alternating expert/dense).
-    if config.first_k_dense_replace and config.moe_layer_freq > 1:
-        raise ValueError("Configuration conflict: 'first_k_dense_replace' cannot be"
-                         " used together with 'moe_layer_freq > 1'.")
     if config.first_k_dense_replace:
         moe_layer_pattern = [0] * config.first_k_dense_replace + \
                             [1] * (config.num_layers - config.first_k_dense_replace)
