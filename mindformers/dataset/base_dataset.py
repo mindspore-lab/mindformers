@@ -48,10 +48,10 @@ class BaseDataset:
     @classmethod
     def init_dataset_config(cls, dataset_config):
         """Init dataset config."""
-        ds.config.set_seed(dataset_config.seed)
-        ds.config.set_prefetch_size(dataset_config.prefetch_size)
-        ds.config.set_numa_enable(dataset_config.numa_enable)
-        ds.config.set_num_parallel_workers(dataset_config.num_parallel_workers)
+        ds.config.set_seed(dataset_config.get('seed', 0))
+        ds.config.set_prefetch_size(dataset_config.get('prefetch_size', 1))
+        ds.config.set_numa_enable(dataset_config.get('numa_enable', False))
+        ds.config.set_num_parallel_workers(dataset_config.get('num_parallel_workers', 1))
 
         if dataset_config.auto_tune:
             if dataset_config.profile:
