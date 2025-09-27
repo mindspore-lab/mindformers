@@ -64,13 +64,6 @@ def is_use_gated_sigmoid(score_func: [bool, str]) -> str:
     return "softmax"
 
 
-def get_recompute(recompute):
-    """Get the recompute configs."""
-    if isinstance(recompute, bool):
-        return recompute
-    return recompute['recompute']
-
-
 def get_cp_comm_type(context_parallel_algo: str):
     """
     This method to check types of 'context_parallel_algo'.
@@ -337,11 +330,8 @@ COMMON_CONFIG_MAPPING = {
     "memory_efficient_layer_norm": "memory_efficient_layer_norm",
     "bias_dropout_fusion": "bias_dropout_fusion",
 
-    # Recompute
-    "recompute": (
-        "recompute", get_recompute
-    ),
     # not changes
+    "recompute": "recompute",
     "select_recompute": "select_recompute",
     "parallel_optimizer_comm_recompute": "parallel_optimizer_comm_recompute",
     "select_comm_recompute": "select_comm_recompute",
