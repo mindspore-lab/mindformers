@@ -886,6 +886,18 @@ class BaseTrainer:
 
         return full_batch, dataset_strategy
 
+    @staticmethod
+    def _set_dataset_broadcast_opt_level(config):
+        """Set the dataset broadcast optimization level."""
+        ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+        if ds_broadcast_level == 0:
+            logger.info("Set ds_broadcast_level=3 by default while enabling broadcast dataset.")
+            ds_broadcast_level = 3
+
+        # Override with the value from config if provided, otherwise keep the existing one
+        ds_broadcast_level = config.context.get('dataset_broadcast_opt_level', ds_broadcast_level)
+        ms.set_context(dataset_broadcast_opt_level=ds_broadcast_level)
+
     def _train_dataset_postprocess(self, dataset, config):
         """
         Postprocess the training dataset after construction.
@@ -916,19 +928,12 @@ class BaseTrainer:
 
         dataloader_config = config.train_dataset.get('data_loader', dict())
         dataloader_type = dataloader_config.get('type')
-        ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
 
         # Case 1: BlendedMegatronDatasetDataLoader
         if dataloader_type == 'BlendedMegatronDatasetDataLoader':
             # Validate that input slicing is enabled
             self._check_input_sliced_sig(config, dataloader_type)
-
-            # Must use broadcast opt level >= 3 for this loader
-            if ds_broadcast_level < 3:
-                raise ValueError(
-                    "If using `BlendedMegatronDatasetDataLoader`, please set "
-                    "`dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file."
-                )
+            self._set_dataset_broadcast_opt_level(config)
             sub_config = dataloader_config.get('config')
 
         # Case 2: HFDataLoader or CommonDataLoader
@@ -944,12 +949,9 @@ class BaseTrainer:
                 config.train_dataset.data_loader.create_attention_mask = True
             sub_config = config.train_dataset.data_loader
 
-            # Must use broadcast opt level >= 3 if broadcast is enabled
-            if dataloader_config.get('use_broadcast_data', True) and ds_broadcast_level < 3:
-                raise ValueError(
-                    "If you are using `HFDataLoader` or `CommonDataLoader` and enable `use_broadcast_data`, "
-                    "please set `dataset_broadcast_opt_level: 3` in the `parallel_speed_up.json` file."
-                )
+            # Must use broadcast opt level > 0 if broadcast is enabled
+            if dataloader_config.get('use_broadcast_data', True):
+                self._set_dataset_broadcast_opt_level(config)
 
         sub_config = dataloader_config
         config, dataset_strategy, column_names, construct_args_key = self._get_columns_with_strategy(
