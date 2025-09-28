@@ -211,7 +211,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     select_recompute: Optional[Union[bool, list]] = False
     """Turn on recomputation to recompute only for the operators in the attention layer. Default: False."""
 
-    parallel_optimizer_comm_recompute: Optional[Union[bool, list]] = False
+    parallel_optimizer_comm_recompute: Optional[bool] = False
     """Whether to recompute AllGather communication introduced in parallel by the optimizer. Default: False."""
 
     select_comm_recompute: Optional[bool] = False
