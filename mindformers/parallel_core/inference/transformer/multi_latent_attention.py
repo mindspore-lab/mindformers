@@ -171,6 +171,7 @@ class MultiLatentAttention(Attention):
         self.depend = P.Depend()
         self.dim_slice_3d = P.Slice()
         self.transpose = P.Transpose()
+        self.out_absorb_matmul = P.BatchMatMul(transpose_b=True)
 
     def construct(
             self,
@@ -225,9 +226,7 @@ class MultiLatentAttention(Attention):
                 key_cache=key_cache, value_cache=value_cache)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
-            core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
-                                        self.transpose(out_absorb, (0, 2, 1)))
-            core_attn_out = self.transpose(core_attn_out, (1, 0, 2))
+            core_attn_out = self.out_absorb_matmul(core_attn_out.transpose(1, 0, 2), out_absorb).transpose(1, 0, 2)
 
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================
@@ -804,9 +803,7 @@ class FusedMLASelfAttention(MLASelfAttention):
                                                       input_format=self.input_format)
 
             core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
-            core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
-                                        self.transpose(out_absorb, (0, 2, 1)))
-            core_attn_out = self.transpose(core_attn_out, (1, 0, 2))
+            core_attn_out = self.out_absorb_matmul(core_attn_out.transpose(1, 0, 2), out_absorb).transpose(1, 0, 2)
 
         core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition * self.config.v_head_dim)
         # ==================================
