@@ -25,6 +25,8 @@ from mindformers.tools.utils import (
 
 def is_dataset_built_on_rank() -> bool:
     """check which rank need to build dataset."""
+    ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+
     global_rank_id = get_real_rank()
     stage_num = ms.get_auto_parallel_context("pipeline_stages")
     total_device_num = get_real_group_size() // stage_num
@@ -34,11 +36,11 @@ def is_dataset_built_on_rank() -> bool:
     local_stage_num = int(global_rank_id // (dp * tp))
 
     # when not stage 0 or last stage, no need to build dataset.
-    if 0 < local_stage_num < (stage_num - 1):
+    if 0 < local_stage_num < (stage_num - 1) and ds_broadcast_level in [3, 1]:
         return False
 
     # In tp group, only need one card to build dataset, others don't need to build dataset.
-    if global_rank_id % tp != 0:
+    if global_rank_id % tp != 0 and ds_broadcast_level in [3, 2]:
         return False
 
     return True
