@@ -356,7 +356,7 @@ class ColumnParallelLinear(LinearBase):
                                           'shard': (self.tensor_parallel_group_size,)}
         return state_dict
 
-    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True):
+    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None):
         """
         Load and process weights for ColumnParallelLinear layer with support for sharded loading.
 
@@ -367,7 +367,6 @@ class ColumnParallelLinear(LinearBase):
             param: The parameter tensor to load weights into.
             loaded_weight: The weight tensor loaded from checkpoint.
             loaded_shard_id: Optional identifier for sharded weight loading.
-            is_hf_weight: Determine whether the weights are from Hugging Face.
 
         """
         tp_rank = self.tp_group.rank
@@ -376,11 +375,7 @@ class ColumnParallelLinear(LinearBase):
         loaded_weight = loaded_weight[:]
         if loaded_shard_id is not None and shard_dim is not None:
             if loaded_shard_id == 'q_up':
-                # The q_up weights need to be reordered using the RoPE operator in the following two cases:
-                # 1. Non-quantized Hugging Face weights
-                # 2. Quantized modelslim weights
-                rope_transition = (self.quant_config is None and is_hf_weight is True) or \
-                                  (self.quant_config is not None and self.quant_config.is_modelslim)
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
                 loaded_weight = deal_linear_q_up_weight(loaded_weight,
                                                         self.config,
                                                         shard_dim,
@@ -612,7 +607,7 @@ class QKVParallelLinear(ColumnParallelLinear):
             prefix=prefix
         )
 
-    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True):
+    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None):
         output_dim = getattr(param, "output_dim", None)
 
         if output_dim is None:
@@ -1012,7 +1007,7 @@ class ReplicatedLinear(LinearBase):
         output = self.quant_method.apply(self, input_, weight, self.bias)
         return output
 
-    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True):
+    def weight_loader(self, param, loaded_weight, loaded_shard_id: Optional[str] = None):
         """
         Load weights into the parameter, supporting both full tensor loading and sharded loading.
 
@@ -1022,7 +1017,6 @@ class ReplicatedLinear(LinearBase):
             loaded_shard_id: Optional shard identifier for sharded weight loading.
                            Supported values are 'q_down' and 'kv_down' for different weight parts.
                            When None, performs full tensor loading.
-            is_hf_weight: Determine whether the weights are from Hugging Face.
         """
         offset = None
         size = None
@@ -1037,11 +1031,7 @@ class ReplicatedLinear(LinearBase):
             if loaded_shard_id == 'kv_down':
                 offset = 0
                 size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
-                # The q_up weights need to be reordered using the RoPE operator in the following two cases:
-                # 1. Non-quantized Hugging Face weights
-                # 2. Quantized modelslim weights
-                rope_transition = (self.quant_config is None and is_hf_weight is True) or \
-                                  (self.quant_config is not None and self.quant_config.is_modelslim)
+                rope_transition = self.quant_config is None or self.quant_config.is_modelslim
                 loaded_weight = deal_linear_kv_down_weight(loaded_weight, self.config, rope_transition=rope_transition)
             if loaded_shard_id == 'gating':
                 offset = 0

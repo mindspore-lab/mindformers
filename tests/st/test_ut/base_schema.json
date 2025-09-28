@@ -4017,13 +4017,13 @@
         "signature": "(self)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.ColumnParallelLinear.weight_loader": {
-        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True)"
+        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.QKVParallelLinear": {
         "signature": "(hidden_size: int, head_size: int, total_num_heads: int, total_num_kv_heads: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, bias: bool = True, gather_output: bool = False, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = None, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.QKVParallelLinear.weight_loader": {
-        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True)"
+        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.ReplicatedLinear": {
         "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, stride: int = 1, keep_master_weight_for_test: bool = False, skip_bias_add: bool = False, skip_weight_param_allocation: bool = False, embedding_activation_buffer: Optional[List[mindspore.common.tensor.Tensor]] = None, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = None, quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
@@ -4032,7 +4032,7 @@
         "signature": "(self, input_, weight=None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.ReplicatedLinear.weight_loader": {
-        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None, is_hf_weight=True)"
+        "signature": "(self, param, loaded_weight, loaded_shard_id: Optional[str] = None)"
     },
     "mindformers.parallel_core.inference.tensor_parallel.layers.RowParallelLinear": {
         "signature": "(input_size: int, output_size: int, *, config: mindformers.parallel_core.transformer_config.TransformerConfig, init_method: Callable = 'normal', bias: bool = True, input_is_parallel: bool = True, skip_bias_add: bool = False, stride: int = 1, keep_master_weight_for_test: bool = False, delay_allreduce: bool = False, is_expert: bool = False, tp_comm_buffer_name: str = None, transpose_b: bool = True, compute_dtype: mindspore.common.dtype = mindspore.bfloat16, tp_group: mindformers.parallel_core.inference.parallel_state.ProcessGroup = <mindformers.parallel_core.inference.parallel_state.ProcessGroup object>, quant_config: Optional[mindformers.parallel_core.inference.quantization.base_config.QuantizationConfig] = None, prefix: str = '')"
