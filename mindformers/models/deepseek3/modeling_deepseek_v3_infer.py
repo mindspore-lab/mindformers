@@ -17,23 +17,16 @@ import os
 import json
 from typing import Dict
 
-from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
-
 from mindformers.models.utils import jit
 from mindformers.parallel_core.inference.utils import use_ms_custom_ops
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.models.deepseek3.utils import DeepseekV3PreTrainedModel
-from mindformers.parallel_core.inference.parallel_state import (
-    is_initialized,
-    initialize_model_parallel
-)
 from mindformers.parallel_core.inference.utils import update_comm_config
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import (
     get_gpt_decoder_block_spec, get_gpt_layer_local_spec)
 from mindformers.parallel_core.inference.transformer.multi_token_prediction import get_mtp_layer_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
-from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.quantization.utils import get_quant_config
 from .configuration_deepseek_v3 import DeepseekV3Config
 
@@ -60,20 +53,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             self.config,
             is_mla_model=True,
         )
-        if not is_initialized() and mindspore_comm_has_init():
-            initialize_model_parallel(
-                data_parallel_size=config.data_parallel_size,
-                tensor_model_parallel_size=config.tensor_model_parallel_size,
-                expert_model_parallel_size=config.expert_model_parallel_size,
-                pipeline_model_parallel_size=config.pipeline_model_parallel_size,
-                order='tp-ep-dp-pp',
-            )
-        if is_initialized():
-            self.model_comm_pgs = ModelCommProcessGroups.use_parallel_state_groups(
-                required_groups=['tp', 'moe_ep', 'moe_tp', 'dp', 'tp_dp', 'pp'])
-        else:
-            self.model_comm_pgs = default_model_comm_pgs
-
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)
         self.use_fused_mla = config.use_fused_mla and use_ms_custom_ops() and \
@@ -126,7 +105,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
             rotary_base=config.rotary_base,
             pre_process=config.pre_process,
             post_process=config.post_process,
-            model_comm_pgs=self.model_comm_pgs,
             quant_config=self.quant_config,
             mtp_block_spec=mtp_layer_spec,
         )

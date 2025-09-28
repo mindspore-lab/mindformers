@@ -169,13 +169,14 @@ def generate_masked_orthogonal_rank_groups(
 class RankGenerator:
     '''Generate ranks for each parallel type.'''
 
-    def __init__(self, tp: int, ep: int, dp: int, pp: int, cp: int, order: str) -> None:
+    def __init__(self, tp: int, ep: int, dp: int, pp: int, cp: int, n: int, order: str) -> None:
         self.tp = tp
         self.ep = ep
         self.dp = dp
         self.pp = pp
         self.cp = cp
-        self.world_size = tp * dp * pp * ep * cp
+        self.n = n
+        self.world_size = tp * dp * pp * ep * cp * n
 
         self.name_to_size = {
             "tp": self.tp,
@@ -183,9 +184,12 @@ class RankGenerator:
             "dp": self.dp,
             "ep": self.ep,
             "cp": self.cp,
+            "n": self.n,
         }
-        self.order = order
         order = order.lower()
+        if not order.endswith('-n'):
+            order = order + '-n'
+        self.order = order
 
         for name, size in self.name_to_size.items():
             if name == "cp" and size != 1:
@@ -233,6 +237,40 @@ class RankGenerator:
         return ranks
 
 
+def _valid_parallel_config(tensor_model_parallel_size: int = 1,
+                           data_parallel_size: int = 1,
+                           pipeline_model_parallel_size: int = 1,
+                           expert_model_parallel_size: int = 1,
+                           context_parallel_size: Optional[int] = 1,
+                           num_virtual_instance: int = 1,
+                           order: str = "tp-ep-pp-dp",) -> None:
+    """ Validate the model parallel configuration. """
+    world_size = get_group_size()
+    total_model_size = data_parallel_size * tensor_model_parallel_size \
+        * pipeline_model_parallel_size * context_parallel_size * num_virtual_instance
+
+    if data_parallel_size * tensor_model_parallel_size % expert_model_parallel_size != 0:
+        raise ValueError(
+            f"tensor and data parallel size({data_parallel_size * tensor_model_parallel_size})"
+            f" can not be divisible by expert parallel size({expert_model_parallel_size})"
+        )
+
+    if world_size != total_model_size:
+        raise RuntimeError(f"total_model_size({total_model_size}) = data_parallel_size({data_parallel_size})"
+                           f" * tensor_model_parallel_size({tensor_model_parallel_size})"
+                           f" * pipeline_model_parallel_size({pipeline_model_parallel_size})"
+                           f" * context_parallel_size({context_parallel_size})"
+                           f" * num_virtual_instance({num_virtual_instance}), "
+                           f"which is not equal to world_size ({world_size}).")
+
+    order = order.lower()
+    order_list = order.split('-')
+    if not order:
+        raise RuntimeError("order can not be empty.")
+    if len(set(order_list)) != len(order_list):
+        raise RuntimeError(f"Duplicate elements in order ({order}).")
+
+
 def initialize_moe_model_parallel(expert_model_parallel_size: int,
                                   tensor_and_data_parallel_size: int,
                                   origin_order: str) -> None:
@@ -273,6 +311,7 @@ def initialize_moe_model_parallel(expert_model_parallel_size: int,
                                        dp=1,
                                        pp=1,
                                        cp=1,
+                                       n=1,
                                        order=transform_to_moe_order(origin_order))
     tensor_and_data_parallel_group = _TENSOR_AND_DATA_PARALLEL_GROUP
     rank_id = get_rank()
@@ -312,6 +351,7 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
                               pipeline_model_parallel_size: int = 1,
                               expert_model_parallel_size: int = 1,
                               context_parallel_size: Optional[int] = 1,
+                              num_virtual_instance: int = 1,
                               order: str = "tp-ep-pp-dp",) -> None:
     """Initialize model data parallel groups.
 
@@ -336,6 +376,12 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
         context_parallel_size (int, default = 1):
             The number of context parallel groups.
 
+        num_virtual_instance (int, default = 1):
+            The number of virtual instances, to handle the situation where
+            there are multiple instances globally. For example, if TP4PP4DP4 is
+            running on 128 NPUs, a single instance will occupy 4*4*4=64 NPUs,
+            and there will be 2 virtual instances.
+
         order (str, default="tp-ep-pp-dp"):
             The order of the parallel configuration. It can be `tp`, `dp`, `pp` or `ep`.
             For example, if the order is `tp-ep-pp-dp`, it means that the tensor parallel
@@ -347,30 +393,24 @@ def initialize_model_parallel(tensor_model_parallel_size: int = 1,
             "Distributed communication is not initialized. "
             "Please call `mindspore.communication.init` before `initialize_model_parallel`."
         )
+
+    _valid_parallel_config(tensor_model_parallel_size=tensor_model_parallel_size,
+                           data_parallel_size=data_parallel_size,
+                           pipeline_model_parallel_size=pipeline_model_parallel_size,
+                           expert_model_parallel_size=expert_model_parallel_size,
+                           context_parallel_size=context_parallel_size,
+                           num_virtual_instance=num_virtual_instance,
+                           order=order)
+
     rank_id = get_rank()
     world_size = get_group_size()
-    total_model_size = data_parallel_size * tensor_model_parallel_size \
-        * pipeline_model_parallel_size * context_parallel_size
-
-    if world_size % expert_model_parallel_size != 0:
-        raise ValueError(
-            f"World size({world_size}) can not be divisible by expert parallel size({expert_model_parallel_size})")
-
-    if world_size != total_model_size:
-        raise RuntimeError(f"world_size ({world_size}) is not equal to total_model_size({total_model_size})")
-
-    order = order.lower()
-    order_list = order.split('-')
-    if not order:
-        raise RuntimeError("order can not be empty.")
-    if len(set(order_list)) != len(order_list):
-        raise RuntimeError(f"Duplicate elements in order ({order}).")
 
     rank_generator = RankGenerator(tp=tensor_model_parallel_size,
                                    ep=1,
                                    dp=data_parallel_size,
                                    pp=pipeline_model_parallel_size,
                                    cp=context_parallel_size,
+                                   n=num_virtual_instance,
                                    order=order)
 
     def create_process_group(token: str, group_name_prefix: str) -> Union[ProcessGroup, None]:

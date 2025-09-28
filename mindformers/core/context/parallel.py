@@ -26,6 +26,7 @@ from mindformers.modules.transformer.transformer import (
 from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_strategy_save_path
+from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 
 
 class ParallelOperator:
@@ -97,6 +98,7 @@ class ParallelOperator:
         set_strategy_save_path(self.parallel_ctx)
         self._set_ms_auto_parallel_context(**self.parallel_ctx)
         self._set_ms_parallel()
+        self._set_manmul_parallel()
         return get_rank(), device_num
 
     @staticmethod
@@ -122,3 +124,35 @@ class ParallelOperator:
                 elementwise_op_strategy_follow=True, fully_use_devices=True
             )
         _set_multi_subgraphs()
+
+    def _set_manmul_parallel(self):
+        """ Init parallel for manmul parallel. """
+        parallel_mode = context.get_auto_parallel_context("parallel_mode")
+        if parallel_mode != "stand_alone":
+            return
+
+        model_parallel = getattr(self.parallel, "model_parallel", 1)
+        data_parallel = getattr(self.parallel, "data_parallel", 1)
+        pipeline_stage = getattr(self.parallel, "pipeline_stage", 1)
+        expert_parallel = getattr(self.parallel, "expert_parallel", 1)
+        order = "tp-ep-pp-dp"
+
+        parallel_strategy = ""
+        parallel_map = {
+            "TP": model_parallel,
+            "DP": data_parallel,
+            "EP": expert_parallel,
+            "PP": pipeline_stage,
+        }
+        for parallel_type, parallel_size in parallel_map.items():
+            if parallel_size > 1:
+                parallel_strategy += f"{parallel_type}{parallel_size}"
+        logger.info(f"Initializing model parallel with strategy {parallel_strategy} and order {order}.")
+
+        initialize_model_parallel(
+            tensor_model_parallel_size=model_parallel,
+            data_parallel_size=data_parallel,
+            pipeline_model_parallel_size=pipeline_stage,
+            expert_model_parallel_size=expert_parallel,
+            order=order
+        )

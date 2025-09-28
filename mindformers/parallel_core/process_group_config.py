@@ -132,3 +132,15 @@ class ModelCommProcessGroups:
 
 
 default_model_comm_pgs = ModelCommProcessGroups.get_default_model_comm_pgs()
+
+
+def get_model_comm_pgs() -> ModelCommProcessGroups:
+    """
+    Get the current model communication process groups.
+
+    Returns:
+        ModelCommProcessGroups: The current model communication process groups.
+    """
+    if parallel_state.is_initialized():
+        return ModelCommProcessGroups.use_parallel_state_groups()
+    return default_model_comm_pgs

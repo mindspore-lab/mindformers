@@ -36,6 +36,7 @@ def test_qwen3_0_6b_predict_mcore(device_num: int = 1):
     config_path = os.path.join(os.path.dirname(__file__), "qwen3_0_6b_infer.yaml")
     config = MindFormerConfig(config_path)
     config.use_parallel = device_num > 1
+    config.parallel_config.model_parallel = device_num
     build_context(config)
     # Auto tokenizer
     tokenizer = AutoTokenizer.from_pretrained(config.pretrained_model_dir)
