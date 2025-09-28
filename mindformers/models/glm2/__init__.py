@@ -28,4 +28,3 @@ __all__ = ['ChatGLM2ForConditionalGeneration']
 __all__.extend(glm2_config.__all__)
 __all__.extend(glm3_tokenizer.__all__)
 __all__.extend(glm4_tokenizer.__all__)
-__all__.extend(glm_processor.__all__)

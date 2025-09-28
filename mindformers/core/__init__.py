@@ -72,10 +72,9 @@ from .config_args import (
     ParallelContextConfig,
 )
 
-__all__ = []
+__all__ = ["AdamW"]
 __all__.extend(callback.__all__)
 __all__.extend(context.__all__)
 __all__.extend(loss.__all__)
 __all__.extend(lr.__all__)
 __all__.extend(metric.__all__)
-__all__.extend(optim.__all__)
