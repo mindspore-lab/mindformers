@@ -50,9 +50,6 @@ default_config = {
     'ffn_hidden_size': 18432,
     'moe_ffn_hidden_size': 2048,
     'dtype': torch.bfloat16,
-    'num_attention_heads': 128,
-    'qk_head_dim': 128,
-    'qk_pos_emb_head_dim': 64,
 }
 
 
@@ -105,9 +102,10 @@ def plain_name_replace(weight_name: str):
     return weight_name
 
 
-def mla_name_replace(weight_name: str):
+def mla_name_replace(weight_name: str, ms_layer_id, hf_layer_id):
     """Weight name replacing for MLA module weights"""
-    weight_name = weight_name.replace('decoder.layers.', 'model.layers.')
+    weight_name = weight_name.replace(f'decoder.layers.{ms_layer_id}.', f'model.layers.{hf_layer_id}.')
+    weight_name = weight_name.replace(f'mtp.layers.{ms_layer_id}.transformer_layer.', f'model.layers.{hf_layer_id}.')
 
     weight_name = weight_name.replace('.self_attention.linear_q_up_proj.', '.self_attn.q_b_proj.')
     weight_name = weight_name.replace('.self_attention.linear_kv_up_proj.', '.self_attn.kv_b_proj.')
@@ -121,10 +119,10 @@ def mla_name_replace(weight_name: str):
     return weight_name
 
 
-def mlp_name_replace(weight_name: str):
+def mlp_name_replace(weight_name: str, ms_layer_id, hf_layer_id):
     """Weight name replacing for MLP module, including MoE"""
-    weight_name = weight_name.replace('decoder.layers.', 'model.layers.')
-    weight_name = weight_name.replace('mtp.layers.', 'model.layers.')
+    weight_name = weight_name.replace(f'decoder.layers.{ms_layer_id}.', f'model.layers.{hf_layer_id}.')
+    weight_name = weight_name.replace(f'mtp.layers.{ms_layer_id}.transformer_layer.', f'model.layers.{hf_layer_id}.')
 
     weight_name = weight_name.replace('.pre_mlp_layernorm.', '.post_attention_layernorm.')
 
@@ -240,8 +238,16 @@ def _mla_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
     """Processing weights in MLA module"""
     dtype = config['dtype']
 
+    num_layers = config['num_layers']
+    hf_origin_layer_id = (
+        (num_layers + layer_id)
+        if is_mtp_layers
+        else layer_id
+    )
+
     layer_prefix = (
-        # if MTP layers, pass in the 'mtp_layer_id': (cur_layer_id - config['num_layers'])
+        # When use MTP layers, pass in the 'mtp_layer_id',
+        # and the MTP layer id is (cur_layer_id - config['num_layers'])
         f"mtp.layers.{layer_id}.transformer_layer"
         if is_mtp_layers
         else f"decoder.layers.{layer_id}"
@@ -270,43 +276,28 @@ def _mla_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
     # Mapping the weight keys then add them into HF weight dict
     mla_weight_dict = defaultdict()
 
-    # Process q_up and kv_down weight
-    num_heads = config['num_attention_heads']
-    qk_nope_head_dim = config['qk_head_dim']
-    qk_rope_head_dim = config['qk_pos_emb_head_dim']
-    rope_dim = qk_rope_head_dim + qk_nope_head_dim
-
-    # q_up
-    linear_q_up_proj = linear_q_up_proj.reshape(num_heads, rope_dim, -1)
-    linear_q_up_proj = reverse_trans_rope_weight(linear_q_up_proj, qk_rope_head_dim)
-    linear_q_up_proj = linear_q_up_proj.reshape(num_heads * rope_dim, -1)
-
-    # kv_down
-    linear_kv_down_proj = reverse_trans_rope_weight(linear_kv_down_proj, qk_rope_head_dim)
-
-    # others
-    hf_input_layernorm_key = mla_name_replace(input_layernorm_key)
+    hf_input_layernorm_key = mla_name_replace(input_layernorm_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[hf_input_layernorm_key] = torch.from_numpy(input_layernorm).to(dtype).clone()
 
-    q_a_proj_key = mla_name_replace(linear_q_down_proj_key)
+    q_a_proj_key = mla_name_replace(linear_q_down_proj_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[q_a_proj_key] = torch.from_numpy(linear_q_down_proj).to(dtype).clone()
 
-    q_a_layernorm_key = mla_name_replace(q_layernorm_key)
+    q_a_layernorm_key = mla_name_replace(q_layernorm_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[q_a_layernorm_key] = torch.from_numpy(q_layernorm).to(dtype).clone()
 
-    q_b_proj_key = mla_name_replace(linear_q_up_proj_key)
+    q_b_proj_key = mla_name_replace(linear_q_up_proj_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[q_b_proj_key] = torch.from_numpy(linear_q_up_proj).to(dtype).clone()
 
-    kv_a_proj_with_mqa_key = mla_name_replace(linear_kv_down_proj_key)
+    kv_a_proj_with_mqa_key = mla_name_replace(linear_kv_down_proj_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[kv_a_proj_with_mqa_key] = torch.from_numpy(linear_kv_down_proj).to(dtype).clone()
 
-    kv_a_layernorm_key = mla_name_replace(kv_layernorm_key)
+    kv_a_layernorm_key = mla_name_replace(kv_layernorm_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[kv_a_layernorm_key] = torch.from_numpy(kv_layernorm).to(dtype).clone()
 
-    kv_b_proj_key = mla_name_replace(linear_kv_up_proj_key)
+    kv_b_proj_key = mla_name_replace(linear_kv_up_proj_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[kv_b_proj_key] = torch.from_numpy(linear_kv_up_proj).to(dtype).clone()
 
-    o_proj_key = mla_name_replace(linear_proj_key)
+    o_proj_key = mla_name_replace(linear_proj_key, layer_id, hf_origin_layer_id)
     mla_weight_dict[o_proj_key] = torch.from_numpy(linear_proj).to(dtype).clone()
 
     return mla_weight_dict
@@ -315,6 +306,7 @@ def _mla_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
 def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
     """Processing weights in MLP/MoE module"""
     dtype = config['dtype']
+    num_layers = config['num_layers']
     first_k_dense_replace = config['first_k_dense_replace']
     num_routed_experts = config['num_routed_experts']
 
@@ -322,8 +314,15 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
     ffn_hidden_size = config['ffn_hidden_size']
     moe_ffn_hidden_size = config['moe_ffn_hidden_size']
 
+    hf_origin_layer_id = (
+        (num_layers + layer_id)
+        if is_mtp_layers
+        else layer_id
+    )
+
     layer_prefix = (
-        # if MTP layers, pass in the 'mtp_layer_id': (cur_layer_id - config['num_layers'])
+        # When use MTP layers, pass in the 'mtp_layer_id',
+        # and the MTP layer id is (cur_layer_id - config['num_layers'])
         f"mtp.layers.{layer_id}.transformer_layer"
         if is_mtp_layers
         else f"decoder.layers.{layer_id}"
@@ -332,10 +331,10 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
     mlp_weight_dict = defaultdict()
     pre_mlp_layernorm_key = f"{layer_prefix}.pre_mlp_layernorm.weight"
     pre_mlp_layernorm = cpu_cast(ms_layer_weights.pop(pre_mlp_layernorm_key), ms.float32).numpy()
-    post_attention_layernorm_key = mlp_name_replace(pre_mlp_layernorm_key)
+    post_attention_layernorm_key = mlp_name_replace(pre_mlp_layernorm_key, layer_id, hf_origin_layer_id)
     mlp_weight_dict[post_attention_layernorm_key] = torch.from_numpy(pre_mlp_layernorm).to(dtype).clone()
 
-    if layer_id < first_k_dense_replace:
+    if hf_origin_layer_id < first_k_dense_replace:
         # Dense MLP
         mlp_linear_fc1_key = f"{layer_prefix}.mlp.linear_fc1.weight"
         mlp_linear_fc2_key = f"{layer_prefix}.mlp.linear_fc2.weight"
@@ -353,9 +352,9 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
         )
 
         # Replace keys
-        gate_proj_key = mlp_name_replace(mlp_gating_key)
-        up_proj_key = mlp_name_replace(mlp_up_key)
-        down_proj_key = mlp_name_replace(mlp_linear_fc2_key)
+        gate_proj_key = mlp_name_replace(mlp_gating_key, layer_id, hf_origin_layer_id)
+        up_proj_key = mlp_name_replace(mlp_up_key, layer_id, hf_origin_layer_id)
+        down_proj_key = mlp_name_replace(mlp_linear_fc2_key, layer_id, hf_origin_layer_id)
 
         # Get HF weight
         mlp_weight_dict[gate_proj_key] = torch.from_numpy(mlp_linear_gate).to(dtype).clone()
@@ -403,9 +402,9 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
         # Split each expert weight.
         for i in range(num_routed_experts):
             # Generate current expert keys
-            cur_expert_gate_key = f"model.layers.{layer_id}.mlp.experts.{i}.gate_proj.weight"
-            cur_expert_up_key = f"model.layers.{layer_id}.mlp.experts.{i}.up_proj.weight"
-            cur_expert_down_key = f"model.layers.{layer_id}.mlp.experts.{i}.down_proj.weight"
+            cur_expert_gate_key = f"model.layers.{hf_origin_layer_id}.mlp.experts.{i}.gate_proj.weight"
+            cur_expert_up_key = f"model.layers.{hf_origin_layer_id}.mlp.experts.{i}.up_proj.weight"
+            cur_expert_down_key = f"model.layers.{hf_origin_layer_id}.mlp.experts.{i}.down_proj.weight"
 
             cur_expert_weight1 = mlp_experts_weight1[i]
             # The shape of cur_expert_(gate/up) is (moe_ffn_hidden_size, hidden_size)
@@ -418,11 +417,11 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config, is_mtp_layers=False):
             mlp_weight_dict[cur_expert_down_key] = torch.from_numpy(cur_expert_down).to(dtype).clone().contiguous()
 
         # Replace keys
-        gate_weight_key = mlp_name_replace(mlp_router_weight_key)
-        gate_e_score_correction_bias_key = mlp_name_replace(mlp_router_bias_key)
-        shared_experts_gate_key = mlp_name_replace(mlp_shared_experts_gating_key)
-        shared_experts_up_key = mlp_name_replace(mlp_shared_experts_up_key)
-        shared_experts_down_key = mlp_name_replace(mlp_shared_experts_linear_fc2_key)
+        gate_weight_key = mlp_name_replace(mlp_router_weight_key, layer_id, hf_origin_layer_id)
+        gate_e_score_correction_bias_key = mlp_name_replace(mlp_router_bias_key, layer_id, hf_origin_layer_id)
+        shared_experts_gate_key = mlp_name_replace(mlp_shared_experts_gating_key, layer_id, hf_origin_layer_id)
+        shared_experts_up_key = mlp_name_replace(mlp_shared_experts_up_key, layer_id, hf_origin_layer_id)
+        shared_experts_down_key = mlp_name_replace(mlp_shared_experts_linear_fc2_key, layer_id, hf_origin_layer_id)
 
         # Get the rest HF weight
         mlp_weight_dict[gate_weight_key] = torch.from_numpy(mlp_router_weight).to(dtype).clone()
@@ -543,8 +542,10 @@ def ms_safetensors_convertor(input_path, output_path, config):
         # Get current layer weight keys.
         if layer_id == 0:
             ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=False)
-        elif 0 < layer_id < num_layers:
+        elif 0 < layer_id < num_layers - 1:
             ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=False)
+        elif layer_id == num_layers - 1:
+            ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=True)
         else:
             # For mtp layers, embed weight and lm_head weight are needed for shared weights.
             ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=True)
@@ -631,13 +632,6 @@ if __name__ == "__main__":
     parser.add_argument("--ffn_hidden_size", default=18432, type=int,
                         help="Transformer Feed-Forward Network hidden size.")
     parser.add_argument("--moe_ffn_hidden_size", default=2048, type=int,
-                        help="MoE Feed-Forward Network hidden size.")
-
-    parser.add_argument("--num_attention_heads", default=128, type=int,
-                        help="The size of Hidden layer.")
-    parser.add_argument("--qk_head_dim", default=128, type=int,
-                        help="Transformer Feed-Forward Network hidden size.")
-    parser.add_argument("--qk_pos_emb_head_dim", default=64, type=int,
                         help="MoE Feed-Forward Network hidden size.")
 
     args = parser.parse_args()
