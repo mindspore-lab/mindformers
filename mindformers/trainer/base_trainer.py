@@ -934,7 +934,7 @@ class BaseTrainer:
             # Validate that input slicing is enabled
             self._check_input_sliced_sig(config, dataloader_type)
             self._set_dataset_broadcast_opt_level(config)
-            sub_config = dataloader_config.get('config')
+            dataloader_config = dataloader_config.get('config')
 
         # Case 2: HFDataLoader or CommonDataLoader
         if dataloader_type in ['HFDataLoader', 'CommonDataLoader']:
@@ -947,15 +947,13 @@ class BaseTrainer:
             if 'PackingHandler' in handler:
                 self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
                 config.train_dataset.data_loader.create_attention_mask = True
-            sub_config = config.train_dataset.data_loader
 
             # Must use broadcast opt level > 0 if broadcast is enabled
             if dataloader_config.get('use_broadcast_data', True):
                 self._set_dataset_broadcast_opt_level(config)
 
-        sub_config = dataloader_config
         config, dataset_strategy, column_names, construct_args_key = self._get_columns_with_strategy(
-            config, sub_config, dataloader_type)
+            config, dataloader_config, dataloader_type)
         logger.info(f"Got dataset config: "
                     f"dataset_strategy: {dataset_strategy}, "
                     f"column_names: {column_names}, "
