@@ -16,11 +16,8 @@
 from .build_wrapper import build_wrapper
 from .wrapper import (
     MFPipelineWithLossScaleCell,
-    MFTrainOneStepCell,
-    PipelineCellWithTwoOutput,
-    GradAccumulationCellWithTwoOutput
+    MFTrainOneStepCell
 )
 from .adaptive_loss_scale import AdaptiveLossScaleUpdateCell
 
-__all__ = []
-__all__.extend(wrapper.__all__)
+__all__ = ["MFPipelineWithLossScaleCell", "MFTrainOneStepCell"]
