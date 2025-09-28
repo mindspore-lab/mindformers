@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Union, Optional
 import numpy as np
 
-from mindspore import mint, Tensor, dtype, Parameter
+from mindspore import mint, Tensor, dtype, Parameter, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import Zero
 from mindspore.ops.operations._infer_ops import QuantV2
@@ -358,8 +358,6 @@ class MLASelfAttention(MultiLatentAttention):
             config=self.config,
             eps=self.config.layernorm_epsilon
         )
-        self.q_absorb = None
-        self.out_absorb = None
 
     def process_weights_after_loading(self) -> None:
         """
@@ -595,6 +593,10 @@ class FusedMLASelfAttention(MLASelfAttention):
             # cache dtype and shape: bf16 [blockNum, block_size,1,512], bf16 [blockNum,blockSize,1,64]
             self.cache_mode = 1
 
+        self.paged_attention = ops.auto_generate.PagedAttention(
+            self.num_attention_heads_per_partition, self.softmax_scale, 1, mla_v_dim=512
+        )
+
     def process_weights_after_loading(self) -> None:
         """
         Process the weight after loading.
@@ -673,6 +675,10 @@ class FusedMLASelfAttention(MLASelfAttention):
                 key_out = self.core_attention.reshape_and_cache(key_states_cache, key_cache=key_cache,
                                                                 slot_mapping=slot_mapping)
                 q_no_pe = self.depend(q_no_pe, key_out)
+
+            if self.is_chunked:
+                q_no_pe = self.transpose(mint.matmul(self.transpose(q_no_pe, (1, 0, 2)), self.q_absorb), (1, 0, 2))
+                return q_no_pe, q_pos_emb, None, None, None, self.out_absorb
 
             k_no_pe, k_pos_emb, value_states = self.split_kv(kv_compressed, k_pos_emb)
             if self.use_ringmla:
@@ -761,12 +767,12 @@ class FusedMLASelfAttention(MLASelfAttention):
         # ==================================
         # core attention computation
         # ==================================
-        if self.is_prefill:
+        if self.is_prefill and not self.is_chunked:
             o_prev = mint.zeros((hidden_states.shape[0], self.num_attention_heads_per_partition,
                                  self.config.v_head_dim), dtype=dtype.bfloat16)
             lse_prev = mint.zeros((self.num_attention_heads_per_partition, hidden_states.shape[0]),
                                   dtype=dtype.float32)
-            core_attn_out, lse_out = self.ms_custom_ops.ring_mla(
+            core_attn_out, _ = self.ms_custom_ops.ring_mla(
                 query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
                 mask=self.ring_mla_mask, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None,
                 deq_scale_pv=None, deq_offset_pv=None, quant_p=None, log_n=None, o_prev=o_prev,
@@ -776,32 +782,25 @@ class FusedMLASelfAttention(MLASelfAttention):
                 mask_type=1, #"MASK_TYPE_TRIU",
                 calc_type=1, #"CALC_TYPE_FISRT_RING",
             )
-            # compute_prefill_context
-            if self.is_chunked:
-                if self.fa3_quant:
-                    k_cache, r_cache = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
-                                                                           context_lens_tensor, None, 1)
-                    #reshape
-                    context_len, _ = k_cache.shape
-                    k_cache = k_cache.reshape(context_len, -1, self.config.kv_lora_rank)
-                    r_cache = r_cache.reshape(context_len, -1, self.config.qk_pos_emb_head_dim)
-                    if self.is_fa3_quant_layer:
-                        k_cache = self.cast(k_cache, dtype.bfloat16)
-                        k_cache = k_cache / self.quant_ctkv_scale
-                else:
-                    k_cache, r_cache = self.ms_custom_ops.paged_cache_load(key_cache, value_cache, block_tables,
-                                                                           context_lens_tensor, None, 0)
-                k_no_pe, k_pos_emb, value = self.split_kv(k_cache, r_cache)
-                core_attn_out, _ = self.ms_custom_ops.ring_mla(
-                    query=q_no_pe, query_rope=q_pos_emb, key=k_no_pe, key_rope=k_pos_emb, value=value,
-                    mask=None, alibi_coeff=None, deq_scale_qk=None, deq_offset_qk=None, deq_scale_pv=None,
-                    deq_offset_pv=None, quant_p=None, log_n=None, o_prev=core_attn_out,
-                    lse_prev=lse_out, q_seq_lens=q_seq_lens_cpu, context_lens=context_lens_tensor_cpu,
-                    head_num=self.num_attention_heads_per_partition, scale_value=self.scale_value,
-                    kv_head_num=self.num_attention_heads_per_partition,
-                    mask_type=0, #"MASK_TYPE_TRIU",
-                    calc_type=0, #"CALC_TYPE_FISRT_RING",
-                    )
+        elif self.is_chunked:
+            query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
+            query = query_states.reshape(-1, self.num_attention_heads_per_partition *
+                                         (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
+            k_cache = self.cast(key_cache, dtype.bfloat16) / self.quant_ctkv_scale if self.is_fa3_quant_layer else \
+                key_cache
+            if self.fa3_quant:
+                k_cache = self.ms_custom_ops.trans_data(k_cache, transdata_type=0)
+                v_cache = self.ms_custom_ops.trans_data(value_cache, transdata_type=0)
+                kv_cache = mint.cat((k_cache, v_cache), dim=-1).unsqueeze(2)
+            else:
+                kv_cache = mint.cat((key_cache, value_cache), dim=-1)
+
+            core_attn_out = self.paged_attention(query, kv_cache, kv_cache, block_tables, batch_valid_length,
+                                                 None, None, attention_mask, q_seq_lens)
+            core_attn_out = core_attn_out.reshape(-1, self.num_attention_heads_per_partition, self.config.kv_lora_rank)
+            core_attn_out = mint.matmul(self.transpose(core_attn_out, (1, 0, 2)),
+                                        self.transpose(out_absorb, (0, 2, 1)))
+            core_attn_out = self.transpose(core_attn_out, (1, 0, 2))
         else:
             core_attn_out, _ = self.ms_custom_ops.mla(q_no_pe, q_pos_emb, key_cache, value_cache, block_tables, None,
                                                       self.qk_descale, self.pv_descale, q_seq_lens_cpu,
