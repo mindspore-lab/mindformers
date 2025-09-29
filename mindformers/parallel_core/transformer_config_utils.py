@@ -188,7 +188,7 @@ DEFAULT_WHITE_KEY.update(PRETRAIN_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(PARALLEL_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update(INFER_CONFIG_KEY)
 DEFAULT_WHITE_KEY.update({
-    'monitor_config', 'dataset_config', 'batch_size', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
+    'monitor_config', 'dataset_config', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
     'scaling_factor', 'input_sliced_sig', 'return_extra_loss', 'moe_config'
 })
 
@@ -227,6 +227,7 @@ COMMON_CONFIG_MAPPING = {
     "num_microbatches_with_partial_activation_checkpoints": "num_microbatches_with_partial_activation_checkpoints",
     "print_separate_loss": "print_separate_loss",
     "disable_lazy_inline": "disable_lazy_inline",
+    "batch_size": "batch_size",
 
     # CPU Offloading
     ("swap", "cpu_offloading"): "cpu_offloading",

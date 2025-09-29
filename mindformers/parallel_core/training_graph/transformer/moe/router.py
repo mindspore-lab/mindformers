@@ -20,18 +20,54 @@ from mindspore import nn, ops
 from mindspore.common import dtype as mstype, Parameter, Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
-from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, OneHotExt, Dense, MeanExt, Tile
+from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Reshape, Sigmoid, Softmax, TopkExt, \
+    OneHotExt, Dense, MeanExt, Tile
 # these ops are not supported in auto_generate
 from mindspore.ops.operations import Shape, ReduceSum, ReduceMean
 from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.tools.utils import get_real_group_size, get_real_rank
 
 GATING_ACTIVATION = {
     "softmax": Softmax(axis=-1),
     "sigmoid": Sigmoid(),
 }
+
+balance_router_prob = None
+
+
+def generate_balance_router_prob(model_parallel, context_parallel, pipeline_stages, per_batch_size,
+                                 seq_length, expert_dim, num_experts_chosen, moe_router_dtype):
+    """Generate balanced prob according to rank_id."""
+    global balance_router_prob
+    local_elements = seq_length * per_batch_size * expert_dim // model_parallel // context_parallel
+    balance_router_prob = np.zeros(local_elements)
+    balance_router_prob = balance_router_prob.reshape((1, -1, expert_dim))
+
+    expert_index = 0
+    local_tokens_num = balance_router_prob.shape[1]
+    unbalance_experts = local_tokens_num * num_experts_chosen % expert_dim
+    unbalance_experts_start_index = local_tokens_num * num_experts_chosen - unbalance_experts
+
+    # unbalance experts process
+    device_num = get_real_group_size() // pipeline_stages
+    rank_id = get_real_rank() % device_num
+    unbalance_experts_index = unbalance_experts * rank_id
+
+    for local_token_id in range(local_tokens_num):
+        for _ in range(num_experts_chosen):
+            if expert_index == unbalance_experts_start_index:
+                index = unbalance_experts_index % expert_dim
+                balance_router_prob[:, local_token_id, index] = 1
+                unbalance_experts_index += 1
+            else:
+                index = expert_index % expert_dim
+                balance_router_prob[:, local_token_id, index] = 1
+                expert_index += 1
+
+    balance_router_prob = Tensor(balance_router_prob, moe_router_dtype)
 
 
 class Router(ABC, nn.Cell):
@@ -183,8 +219,14 @@ class TopKRouter(Router):
         if self.force_expert_balance:
             self.tile = Tile()
             self.add = AddExt()
-            self.balance_router_porb = Tensor(self.generate_balance_router_prob(config.data_parallel_size),
-                                              self.moe_router_dtype)
+            generate_balance_router_prob(model_parallel=config.tensor_model_parallel_size,
+                                         context_parallel=config.context_parallel_size,
+                                         pipeline_stages=config.pipeline_model_parallel_size,
+                                         per_batch_size=config.batch_size,
+                                         seq_length=config.seq_length,
+                                         expert_dim=self.expert_dim,
+                                         num_experts_chosen=self.num_experts_chosen,
+                                         moe_router_dtype=self.moe_router_dtype)
 
         # group_limited_greedy
         self.num_groups = config.moe_router_num_groups
@@ -213,9 +255,7 @@ class TopKRouter(Router):
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob = self.gating_activation(logits)
         if self.force_expert_balance:
-            multiple = router_prob.shape[1] // self.balance_router_porb.shape[1]
-            balance_router_porb = self.tile(self.balance_router_porb, (1, multiple, 1))
-            router_prob = self.add(self.mul(0, router_prob), balance_router_porb)
+            router_prob = self.add(self.mul(0, router_prob), balance_router_prob)
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob_for_aux = self._normalize(router_prob) if self.use_gating_sigmoid else router_prob
 
@@ -370,19 +410,6 @@ class TopKRouter(Router):
         expert_load_loss = self.mul_noshard(expert_load_loss, alpha * self.expert_dim ** 2)
         return expert_load_loss
 
-    def generate_balance_router_prob(self, data_parallel):
-        """generate balanced router prob."""
-        total_elements = data_parallel * self.seq_length * self.expert_dim
-        balance_router_prob = np.zeros(total_elements)
-        big_period = int(self.expert_dim / self.num_experts_chosen * self.expert_dim)
-        local_period = self.expert_dim + self.num_experts_chosen
-        for i in range(total_elements):
-            local_index = i % big_period
-            if local_index % local_period == 0:
-                balance_router_prob[i: i + self.num_experts_chosen] = 1
-        balance_router_prob = balance_router_prob.reshape((self.dp, -1, self.expert_dim))
-        return balance_router_prob
-
     def construct(self, inputs):
         """Construct function of TopKRouter."""
         # 1. gating
@@ -453,7 +480,7 @@ class TopKRouter(Router):
         self.add_accu.shard(((1,), (1,)))
 
         if self.force_expert_balance:
-            self.add.shard((layout(dp, "None", "None"), layout(dp, "None", "None")))
+            self.add.shard((layout(dp, "None", "None"), layout("None", "None", "None")))
             self.tile.shard((layout(dp, "None", "None"),))
 
         if self.group_topk:
