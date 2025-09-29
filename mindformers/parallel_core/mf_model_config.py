@@ -79,6 +79,9 @@ class MFModelConfig:
     # General Configuration Items For MindSpore Transformers
     ########################################################
 
+    batch_size: int = 1
+    """Per batch size for training and inference."""
+
     parallel_config: Union[dict, TransformerOpParallelConfig] = None
     """Configs which contains parallel settings."""
 
