@@ -1,6 +1,6 @@
 # Qwen3 权重转换脚本说明
 
-MindSpore Transformers 提供了可以从 MindSpore Transformers 训练权重反转到 Hugging Face 权重的离线转换脚本，如需加载 HuggingFace 权重进行训练，可以直接在训练 yaml 文件中配置 `pretrained_model_dir` 为 Hugging Face 权重路径（包括模型配套的 config.json 等配置文件及词表），同时设置 `auto_trans_ckpt: True` 即可在线加载 Hugging Face 权重，方便进行微调等任务。
+MindSpore Transformers 提供了对 Qwen3 模型从 MindSpore Transformers 训练权重反转到 Hugging Face 权重的离线转换脚本，如需加载 HuggingFace 权重进行训练，可以直接在训练 yaml 文件中配置 `pretrained_model_dir` 为 Hugging Face 权重路径（包括模型配套的 config.json 等配置文件及词表），同时设置 `auto_trans_ckpt: True` 即可在线加载 Hugging Face 权重，方便进行微调等任务。
 
 ## MindSpore Transformers 权重反转为 Hugging Face 权重
 
