@@ -404,7 +404,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             grad_scale_factor = self.grad_scale_factor
 
         if self.print_separate_loss:
-            F.assign_add(self.aux_loss_parameter, aux_loss / self.aux_loss_scale)
+            F.assign_add(self.aux_loss_parameter, aux_loss / self.aux_loss_scale if self.aux_loss_scale > 0 else 0)
             F.assign_add(self.mtp_loss_parameter, mtp_loss)
             F.assign_add(self.lm_loss_parameter, lm_loss)
         return loss, grads, grad_scale_factor
