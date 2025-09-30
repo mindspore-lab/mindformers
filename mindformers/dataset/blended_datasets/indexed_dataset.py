@@ -15,20 +15,8 @@ from functools import lru_cache
 from itertools import accumulate
 from types import TracebackType
 from typing import List, Optional, Tuple, Type, Union
-
-try:
-    import boto3
-except ModuleNotFoundError:
-    pass
 import numpy
 
-from mindformers.dataset.blended_datasets.utils_s3 import (
-    S3Config,
-    is_s3_path,
-    maybe_download_file,
-    object_exists,
-    parse_s3_path,
-)
 from mindformers.tools.logger import logger
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
@@ -421,86 +409,6 @@ class _FileBinReader(_BinReader):
         return sequence
 
 
-class _S3BinReader(_BinReader):
-    """A _BinReader that reads from the data (.bin) file from S3
-
-    Args:
-        bin_path (str): bin_path (str): The path to the data (.bin) file.
-
-        bin_chunk_nbytes (int, optional): If not None, then maintain an in-memory cache to speed up calls to the `read` method. Furthermore, on a cache miss, download this number of bytes to refresh the cache. Otherwise (None), do not maintain an in-memory cache. A class that inherits from _BinReader may not implement caching in which case it should assert that `bin_chunk_nbytes` is None at initialization.
-    """
-
-    def __init__(self, bin_path: str, bin_chunk_nbytes: int) -> None:
-        assert bin_chunk_nbytes > 0
-        self._client = boto3.client("s3")
-        self._s3_bucket, self._s3_key = parse_s3_path(bin_path)
-        self._cache = None
-        self._cache_bytes_start = None
-        self._cache_bytes_end = None
-        self._cache_nbytes = bin_chunk_nbytes
-
-    def _extract_from_cache(self, offset: int, size: int) -> bytes:
-        """Extract `size` bytes starting at `offset` bytes into the cache"""
-        start = offset - self._cache_bytes_start
-        assert start >= 0
-        end = start + size
-        assert end <= len(self._cache)
-        return self._cache[start:end]
-
-    def read(self, dtype: Type[numpy.number], count: int, offset: int) -> numpy.ndarray:
-        """Read bytes into a numpy array.
-
-        Let `size` be the `count` * `DType.size(dtype)`. If the requested span of bytes [`offset`,
-        `offset` + `size`) is covered by the in-memory cache maintained by this class, then this
-        function extracts the requested span from that cache and returns it. Otherwise, this
-        function first refreshes the cache and then extracts the requested span from the refreshed
-        cache and returns it.
-
-        The cache is refreshed based on `offset` and `size`. In particular, we divide all the bytes
-        in an S3 object into blocks, where each block contains `bin_chunk_nbytes` bytes. We assign
-        each block an index starting from 0. We take the block with index (`offset` //
-        `bin_chunk_nbytes`) to refresh the cache. If this new block still does not cover the
-        requested span, we extend it just enough to include `offset` + `size`.
-
-        Args:
-            dtype (Type[numpy.number]): Data-type of the returned array.
-
-            count (int): Number of items to read.
-
-            offset (int): Start reading from this offset (in bytes).
-
-        Returns:
-            numpy.ndarray: An array with `count` items and data-type `dtype` constructed from reading bytes from the data file starting at `offset`.
-        """
-        size = count * DType.size(dtype)
-        if (
-            self._cache is not None
-            and offset >= self._cache_bytes_start
-            and offset + size <= self._cache_bytes_end
-        ):
-            return numpy.frombuffer(self._extract_from_cache(offset, size), dtype=dtype)
-
-        bytes_start = (offset // self._cache_nbytes) * self._cache_nbytes
-        assert bytes_start >= 0
-        assert offset >= bytes_start
-        bytes_end = max(bytes_start + self._cache_nbytes, offset + size)
-        assert bytes_end >= 1
-        self._cache = self._client.get_object(
-            Bucket=self._s3_bucket,
-            Key=self._s3_key,
-            # Subtract 1, because the end of Range is inclusive.
-            Range=f'bytes={bytes_start}-{bytes_end-1}',
-        )['Body'].read()
-        self._cache_bytes_start = bytes_start
-        self._cache_bytes_end = bytes_end
-        return numpy.frombuffer(self._extract_from_cache(offset, size), dtype=dtype)
-
-    def __del__(self) -> None:
-        """Clean up the object"""
-        self._client.close()
-
-
-# class IndexedDataset(torch.utils.data.Dataset):
 class IndexedDataset():
     """The low-level interface dataset class
 
@@ -510,35 +418,29 @@ class IndexedDataset():
         multimodal (bool): Whether the dataset is multimodal. Defaults to False.
 
         mmap (bool): Whether to mmap the .bin files. Defaults to True.
-
-        s3_config (Optional[S3Config]): Supplied only for data stored on S3. IndexedDataset downloads the index (.idx) file to `s3_config.path_to_idx_cache` and streams data from the data (.bin) file in `s3_config.bin_chunk_nbytes` blocks. Note that `mmap` must be disabled for S3 data loading. Defaults to None.
     """
 
     def __init__(
         self,
         path_prefix: str,
         multimodal: bool = False,
-        mmap: bool = True,
-        s3_config: Optional[S3Config] = None,
+        mmap: bool = True
     ) -> None:
         super().__init__()
         self.path_prefix = None
         self.multimodal = None
         self.mmap = None
-        self.s3_config = None
 
         self.index = None
         self.bin_reader = None
 
-        if is_s3_path(path_prefix) and s3_config is not None:
-            idx_path = get_idx_path(path_prefix)
-            cache_idx_path = os.path.join(s3_config.path_to_idx_cache, os.path.basename(idx_path))
-            maybe_download_file(idx_path, cache_idx_path)
+        if path_prefix.startswith("s3://"):
+            raise ValueError("S3 data loading is not supported yet, please set path_prefix an another value.")
 
-        self.initialize(path_prefix, multimodal, mmap, s3_config)
+        self.initialize(path_prefix, multimodal, mmap)
 
     def initialize(
-        self, path_prefix: str, multimodal: bool, mmap: bool, s3_config: Optional[S3Config]
+        self, path_prefix: str, multimodal: bool, mmap: bool
     ) -> None:
         """Initialize the dataset
 
@@ -551,48 +453,37 @@ class IndexedDataset():
             multimodal (bool): Whether the dataset is multimodal
 
             mmap (bool): Whether to mmap the .bin file
-
-            s3_config (Optional[S3Config]): See IndexedDataset docstring for details.
         """
         idx_path = get_idx_path(path_prefix)
         bin_path = get_bin_path(path_prefix)
-        if s3_config is None:
-            assert os.path.exists(idx_path) and os.path.exists(
-                bin_path
-            ), f"One or both of the .idx and .bin files cannot be found at the path prefix {path_prefix}"
+        assert os.path.exists(idx_path) and os.path.exists(
+            bin_path
+        ), f"One or both of the .idx and .bin files cannot be found at the path prefix {path_prefix}"
         self.path_prefix = path_prefix
         self.multimodal = multimodal
         self.mmap = mmap
-        self.s3_config = s3_config
         if mmap:
-            assert not s3_config
             self.bin_reader = _MMapBinReader(bin_path)
-        elif s3_config:
-            assert not mmap
-            self.bin_reader = _S3BinReader(bin_path, s3_config.bin_chunk_nbytes)
-            idx_path = os.path.join(
-                s3_config.path_to_idx_cache, os.path.basename(get_idx_path(path_prefix))
-            )
         else:
             self.bin_reader = _FileBinReader(bin_path)
         self.index = _IndexReader(idx_path, self.multimodal)
 
-    def __getstate__(self) -> Tuple[str, bool, bool, Optional[S3Config]]:
+    def __getstate__(self) -> Tuple[str, bool, bool]:
         """Get the state during pickling
 
         Returns:
-            Tuple[str, bool, bool, Optional[S3Config]]: The state tuple
+            Tuple[str, bool, bool]: The state tuple
         """
-        return self.path_prefix, self.multimodal, self.mmap, self.s3_config
+        return self.path_prefix, self.multimodal, self.mmap
 
-    def __setstate__(self, state: Tuple[str, bool, bool, Optional[S3Config]]) -> None:
+    def __setstate__(self, state: Tuple[str, bool, bool]) -> None:
         """Set the state during un-pickling
 
         Args:
-            state (Tuple[str, bool, bool, Optional[S3Config]]): The state tuple
+            state (Tuple[str, bool, bool]): The state tuple
         """
-        path_prefix, multimodal, mmap, s3_config = state
-        self.initialize(path_prefix, multimodal, mmap, s3_config)
+        path_prefix, multimodal, mmap = state
+        self.initialize(path_prefix, multimodal, mmap)
 
     def __del__(self) -> None:
         """Clean up the object"""
@@ -621,7 +512,8 @@ class IndexedDataset():
             TypeError: When the index is of an unexpected type
 
         Returns:
-            Union[numpy.ndarray, Tuple[numpy.ndarray, numpy.ndarray]]: The sequence tokens and modes at the index or index slice
+            Union[numpy.ndarray, Tuple[numpy.ndarray, numpy.ndarray]]:
+            The sequence tokens and modes at the index or index slice
         """
         if isinstance(idx, (int, numpy.integer)):
             sequence_pointer, sequence_length, sequence_mode = self.index[idx]
@@ -732,11 +624,8 @@ class IndexedDataset():
         Returns:
             bool: Whether the IndexedDataset exists on disk at the prefix
         """
-        if is_s3_path(path_prefix):
-            s3_client = boto3.client("s3")
-            return object_exists(s3_client, get_idx_path(path_prefix)) and object_exists(
-                s3_client, get_bin_path(path_prefix)
-            )
+        if path_prefix.startswith("s3://"):
+            raise ValueError("S3 data loading is not supported yet, please set path_prefix an another value.")
         return os.path.exists(get_idx_path(path_prefix)) and os.path.exists(
             get_bin_path(path_prefix)
         )

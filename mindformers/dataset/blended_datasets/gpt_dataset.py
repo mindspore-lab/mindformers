@@ -11,7 +11,6 @@ from mindformers.dataset.blended_datasets.blended_megatron_dataset_config import
 from mindformers.dataset.blended_datasets.indexed_dataset import IndexedDataset
 from mindformers.dataset.blended_datasets.megatron_dataset import MegatronDataset
 from mindformers.dataset.blended_datasets.utils import Split
-from mindformers.dataset.blended_datasets.utils_s3 import S3Config, is_s3_path
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_rank_info, set_safe_mode_for_file_or_dir
@@ -150,13 +149,8 @@ class GPTDataset(MegatronDataset):
         Returns:
             IndexedDataset: The underlying IndexedDataset
         """
-        if is_s3_path(dataset_path):
-            return IndexedDataset(
-                dataset_path,
-                multimodal=False,
-                mmap=config.mmap_bin_files,
-                s3_config=S3Config(path_to_idx_cache=config.s3_cache_path),
-            )
+        if dataset_path.startswith("s3://"):
+            raise ValueError("S3 data loading is not supported yet, please set dataset_path an another value.")
         return IndexedDataset(dataset_path, multimodal=False, mmap=config.mmap_bin_files)
 
     def __len__(self) -> int:
