@@ -800,7 +800,7 @@ class FusedMLASelfAttention(MLASelfAttention):
                 kv_cache = mint.cat((k_cache, v_cache), dim=-1).reshape(-1, self.config.block_size, 1, \
                     self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim)
             else:
-                kv_cache = mint.cat((k_cache, v_cache), dim=-1)
+                kv_cache = mint.cat((key_cache, value_cache), dim=-1)
 
             core_attn_out = self.paged_attention(query, kv_cache, kv_cache, block_tables, batch_valid_length,
                                                  None, None, attention_mask, q_seq_lens)
