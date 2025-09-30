@@ -54,6 +54,7 @@ train_dataset: &train_dataset
     dataset_dir: ""
     shuffle: True
   input_columns: ["input_ids", "target_ids", "attention_mask"]
+  construct_args_key: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
