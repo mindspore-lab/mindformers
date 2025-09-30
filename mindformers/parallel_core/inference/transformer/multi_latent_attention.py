@@ -786,14 +786,22 @@ class FusedMLASelfAttention(MLASelfAttention):
             query_states = mint.cat((q_no_pe, q_pos_emb), dim=-1)
             query = query_states.reshape(-1, self.num_attention_heads_per_partition *
                                          (self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim))
-            k_cache = self.cast(key_cache, dtype.bfloat16) / self.quant_ctkv_scale if self.is_fa3_quant_layer else \
-                key_cache
             if self.fa3_quant:
-                k_cache = self.ms_custom_ops.trans_data(k_cache, transdata_type=0)
+                if self.is_fa3_quant_layer:
+                    # For fa3 quantized layers, the dtype of k_cache is int8.
+                    # Since trans_data does not support int 8 dtypes when converting from NZ to ND,
+                    # we use the transpose function instead when handling int8 tensors.
+                    k_cache = self.transpose(key_cache.reshape(-1, self.config.kv_lora_rank // 32, \
+                                             self.config.block_size, 32), (0, 2, 1, 3)).reshape( \
+                                             -1, self.config.block_size, self.config.kv_lora_rank)
+                    k_cache = (self.cast(k_cache, dtype.bfloat16) / self.quant_ctkv_scale)
+                else:
+                    k_cache = self.ms_custom_ops.trans_data(key_cache, transdata_type=0)
                 v_cache = self.ms_custom_ops.trans_data(value_cache, transdata_type=0)
-                kv_cache = mint.cat((k_cache, v_cache), dim=-1).unsqueeze(2)
+                kv_cache = mint.cat((k_cache, v_cache), dim=-1).reshape(-1, self.config.block_size, 1, \
+                    self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim)
             else:
-                kv_cache = mint.cat((key_cache, value_cache), dim=-1)
+                kv_cache = mint.cat((k_cache, v_cache), dim=-1)
 
             core_attn_out = self.paged_attention(query, kv_cache, kv_cache, block_tables, batch_valid_length,
                                                  None, None, attention_mask, q_seq_lens)
