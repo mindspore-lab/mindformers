@@ -20,5 +20,5 @@ safetensors
 tensorboardX
 deprecated>=1.2.0
 pybind11 # for megatron dataset
-transformers==4.53.0
+transformers==4.51.3
 datasets>=4.0.0
