@@ -257,15 +257,15 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     moe_ffn_hidden_size: Optional[int] = None
     """MoE Feed-Forward Network hidden size"""
 
-    moe_router_load_balancing_type: str = "aux_loss"
+    moe_router_load_balancing_type: str = "sub_seq_aux_loss"
     """
     The load balancing strategy for the router.
-    - "aux_loss" corresponds to the load balancing loss used in GShard and SwitchTransformer;
+    - "sub_seq_aux_loss" corresponds to the load balancing loss used in Legacy mode,
     - "seq_aux_loss" corresponds to the load balancing loss used in DeepSeekV2 and DeepSeekV3,
         which computes the loss for each individual sample;
-    - "sinkhorn" corresponds to the balancing algorithm used in S-BASE, and "none" implies no load balancing.
+    - "gbs_aux_loss" corresponds to the load balancing loss used in Qwen3MoE.
 
-    The default is "aux_loss".
+    The default is "sub_seq_aux_loss".
     """
 
     moe_router_topk: int = 2
@@ -523,9 +523,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if self.moe_expert_capacity_factor is not None:
             if self.moe_expert_capacity_factor < 0:
                 self.moe_expert_capacity_factor = None
-            if self.moe_router_load_balancing_type not in ["aux_loss", "seq_aux_loss", "none"]:
+            if self.moe_router_load_balancing_type not in ["sub_seq_aux_loss", "seq_aux_loss", "gbs_aux_loss"]:
                 raise ValueError(
-                    'moe_expert_capacity_factor only works with aux_loss or none load balancing'
+                    'moe_expert_capacity_factor only works with supported load balancing types: '
+                    'sub_seq_aux_loss, seq_aux_loss, gbs_aux_loss'
                 )
 
         if self.moe_pad_expert_input_to_capacity:
