@@ -144,7 +144,7 @@ class InferModelMixin(ModelMixin):
         weights_files = [
             os.path.join(weights_path, file)
             for file in os.listdir(weights_path)
-            if file.endswith(".safetensors")
+            if file.endswith(".safetensors") and file != "hyper_param.safetensors"
         ]
         return weights_files
 
@@ -165,11 +165,7 @@ class InferModelMixin(ModelMixin):
             check_weights = list(weights)
             self.model.load_weights(weights, self.generate_mapping(), self.check_hf_weight(weights=check_weights))
         else:
-            weights_files = [
-                os.path.join(weights_path, file)
-                for file in os.listdir(weights_path)
-                if file.endswith(".safetensors") and file != "hyper_param.safetensors"
-            ]
+            weights_files = self.get_weights_files(weights_path)
 
             if not weights_files:
                 raise ValueError(f"No .safetensors files found in {weights_path}")
