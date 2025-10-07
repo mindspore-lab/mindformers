@@ -117,7 +117,7 @@ class VocabParallelEmbedding(nn.Cell):
     def _init_embedding_rearrangement(self):
         """embedding rearrangement"""
         self.rank_id = get_rank()
-        self.tensor_model_parallel_rank = self.rank_id // self.cp % self.tp
+        self.tensor_model_parallel_rank = self.rank_id % self.tp
         (
             self.vocab_start_index,
             self.vocab_end_index,

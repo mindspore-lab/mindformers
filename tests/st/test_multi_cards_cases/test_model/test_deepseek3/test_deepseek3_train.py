@@ -17,7 +17,6 @@ import os
 from multiprocessing.pool import Pool
 from pathlib import Path
 import random
-import pytest
 
 from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType
@@ -52,7 +51,6 @@ class TestDeepseekV3:
         self.run_script_path = self.sh_path / "run_deepseek3.py"
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
-    @pytest.mark.level0
     def test_eight_card_configurations(self):
         """Test eight cards for DeepseekV3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))

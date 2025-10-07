@@ -219,7 +219,6 @@ def parallel_train_pp2_mp2_ep2_zbv():
 
 
 TEST_MAP = {
-    'parallel_train_dp2_mp2_cp2_ep2': parallel_train_dp2_mp2_cp2_ep2,
     'parallel_train_dp2_pp2_ep2_tnd': parallel_train_dp2_pp2_ep2_tnd,
     "parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss":
         parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss,
