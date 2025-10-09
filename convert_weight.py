@@ -27,6 +27,7 @@ dtype_map = {
     'bf16': ms.bfloat16,
     'fp16': ms.float16
 }
+
 reversed_dtype_map = {
     'fp32': torch.float32,
     'bf16': torch.bfloat16,
@@ -41,16 +42,21 @@ convert_map = {
     'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
     'deepseekv3': 'toolkit.weight_convert.deepseekv3.convert_deepseekv3_hf_weight.convert_weight'
 }
+
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
     'glm-n': 'mindformers.models.glm2.convert_reversed.convert_ms_to_pt',
     'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt',
-    'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt'
+    'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt',
+    'deepseekv3': 'toolkit.weight_convert.deepseekv3.reverse_mcore_deepseekv3_weight_to_hf.reverse_weight',
+    'qwen3': 'toolkit.weight_convert.qwen3.reverse_mcore_qwen3_weight_to_hf.reverse_weight',
+    'qwen3-moe': 'toolkit.weight_convert.qwen3_moe.reverse_mcore_qwen3_moe_weight_to_hf.reverse_weight'
 }
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default=None, required=True, help='model name')
+    parser.add_argument('--model', default=None, type=str, required=True, help='model name')
     parser.add_argument('--reversed', action='store_true', help="convert ms to hf")
     parser.add_argument('--input_path', default=None, type=str, required=True)
     parser.add_argument('--output_path', default=None, type=str, required=True)

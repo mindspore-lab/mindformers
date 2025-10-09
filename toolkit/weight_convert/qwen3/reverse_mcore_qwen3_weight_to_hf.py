@@ -35,13 +35,13 @@ from mindformers.tools.logger import logger
 ms.set_context(device_target='CPU')
 cpu_cast = Cast().set_device('CPU')
 
-dtype_map = {
+DTYPE_MAP = {
     'fp32': torch.float32,
     'bf16': torch.bfloat16,
     'fp16': torch.float16
 }
 
-default_config = {
+DEFAULT_CONFIG = {
     'num_layers': 28,
     'kv_channels': 128,
     'num_query_groups': 8,
@@ -107,18 +107,6 @@ def split_linear_fc1_weight(linear_fc1_weight, ffn_hidden_size):
         )
     # 2. Split gate and up, then return them.
     return np.split(linear_fc1_weight, [ffn_hidden_size], axis=0)
-
-
-
-def str2bool(b: str):
-    """String convert to Bool."""
-    if b.lower() in ["false"]:
-        output = False
-    elif b.lower() in ["true"]:
-        output = True
-    else:
-        raise Exception("Invalid Bool Value")
-    return output
 
 
 def plain_name_replace(weight_name: str):
@@ -421,6 +409,31 @@ def convert_ms_to_pt(input_path, output_path, config=None):
     tqdm.write(f"Cost time: {end_time - start_time}s.")
 
 
+def reverse_weight(para):
+    """convert weight entrance"""
+    if not hasattr(para, 'mindspore_ckpt_path'):
+        para.mindspore_ckpt_path = para.input_path
+    if not hasattr(para, 'huggingface_ckpt_path'):
+        para.huggingface_ckpt_path = para.output_path
+
+    for key in DEFAULT_CONFIG:
+        DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
+        if key in ['num_layers', 'num_attention_heads', 'num_query_groups', 'kv_channels', 'ffn_hidden_size']:
+            DEFAULT_CONFIG[key] = int(DEFAULT_CONFIG[key])
+
+    DEFAULT_CONFIG['dtype'] = (
+        DTYPE_MAP.get(DEFAULT_CONFIG['dtype'], DEFAULT_CONFIG['dtype'])
+        if DEFAULT_CONFIG['dtype'] is not None
+        else torch.bfloat16
+    )
+
+    convert_ms_to_pt(
+        input_path=para.mindspore_ckpt_path,
+        output_path=para.huggingface_ckpt_path,
+        config=DEFAULT_CONFIG
+    )
+
+
 if __name__ == "__main__":
     # Get configuration args.
     parser = argparse.ArgumentParser()
@@ -449,12 +462,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    for key in default_config:
-        default_config[key] = getattr(args, key, default_config[key])
-    default_config['dtype'] = dtype_map.get(default_config['dtype'], default_config['dtype'])
-
-    convert_ms_to_pt(
-        input_path=args.mindspore_ckpt_path,
-        output_path=args.huggingface_ckpt_path,
-        config=default_config
-    )
+    reverse_weight(args)

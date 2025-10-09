@@ -27,6 +27,7 @@ import torch
 from tqdm import tqdm
 
 import mindspore as ms
+from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
 
 DTYPE_MAP = {
@@ -166,8 +167,8 @@ def get_hf_layers_model_file_map(file_path):
             weights_map = json.load(f)
         weights_map = weights_map["weight_map"]
     else:
-        warnings.warn(f"Cannot find weight map file model.safetensors.index.json in path {file_path}, " \
-                      f"Trying to load one safetensor file ...")
+        logger.warning(f"Cannot find weight map file model.safetensors.index.json in path {file_path}, "
+                       f"Trying to load one safetensor file ...")
         files = sorted(glob(os.path.join(file_path, "*.safetensors")))
         if not files:
             raise ValueError(f"No safetensors files found in path '{file_path}'.")
