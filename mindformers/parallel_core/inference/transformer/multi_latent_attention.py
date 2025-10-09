@@ -557,7 +557,7 @@ class FusedMLASelfAttention(MLASelfAttention):
             self.quant_ctkv_scale = None
             self.ctkv_scale = Parameter(Tensor(shape=(1,), dtype=dtype.float32, init=Zero()), name="ctkv_scale",
                                         requires_grad=False)
-            self.ctkv_offset = Tensor(shape=(1,), dtype=self.compute_dtype, init=Zero())
+            self.ctkv_offset = Tensor([0], dtype=self.compute_dtype)
             set_weight_attrs(
                 self.ctkv_scale,
                 {
