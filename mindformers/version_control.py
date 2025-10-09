@@ -321,6 +321,11 @@ def check_safetensors_addition_param_support():
     return is_version_ge(ms.__version__, "2.6.0")
 
 
+def check_pin_memory_interface_support():
+    """check mindspore version if support pin_memory() interface."""
+    return is_version_ge(ms.__version__, "2.7.1")
+
+
 def set_ms_deterministic(deterministic):
     """Set deterministic computing through mindspore."""
     logger.debug("The version of MindSpore is %s, "

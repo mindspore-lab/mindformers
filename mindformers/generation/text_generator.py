@@ -16,6 +16,7 @@
 """
 For text generation
 """
+import os
 import copy
 import time
 from typing import Optional, List, Union, Dict
@@ -40,7 +41,7 @@ from mindformers.version_control import is_310p
 from mindformers.models.utils import format_type
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
-from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
+from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput, convert_pin
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
@@ -463,6 +464,7 @@ class GenerationMixin:
             if need_flatten:
                 model_inputs["input_ids"] = model_inputs["input_ids"].reshape(-1)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
+            model_inputs = self.convert_pin_model_inputs(model_inputs)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -482,6 +484,7 @@ class GenerationMixin:
                 self.slice_incremental_inputs(model_inputs, current_index, need_flatten)
             self.detailed_latency.start_predict_timer()
             model_inputs["batch_valid_length"] = Tensor.from_numpy(model_inputs["batch_valid_length"])
+            model_inputs = self.convert_pin_model_inputs(model_inputs)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -1843,3 +1846,11 @@ class GenerationMixin:
         response = tokenizer.decode(output_ids, skip_special_tokens=True)
         history.append({"role": assistant_role_name, "content": response})
         return response, history
+
+    def convert_pin_model_inputs(self, model_inputs):
+        if os.environ.get("EXPERIMENTAL_KERNEL_LAUNCH_GROUP", None):
+            model_inputs["input_ids"] = convert_pin(model_inputs["input_ids"])
+            model_inputs["batch_valid_length"] = convert_pin(model_inputs["batch_valid_length"])
+            model_inputs["block_tables"] = convert_pin(model_inputs["block_tables"])
+            model_inputs["slot_mapping"] = convert_pin(model_inputs["slot_mapping"])
+        return model_inputs

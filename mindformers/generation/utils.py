@@ -19,6 +19,10 @@ from threading import Thread
 from typing import Optional
 import numpy as np
 
+from mindspore.common.tensor import Tensor
+
+from mindformers.version_control import check_pin_memory_interface_support
+
 
 def log_softmax(x, axis=None):
     """
@@ -156,3 +160,20 @@ class InferOutput(UserDict):
             probs=self.probs,
             logits=self.logits
         )
+
+
+def convert_pin(input_tensor):
+    """Convert tensor to pinned memory if it's on CPU and not already pinned.
+
+    Args:
+        input_tensor: Input tensor to convert
+
+    Returns:
+        Tensor with pinned memory if applicable, otherwise original tensor
+    """
+    if not isinstance(input_tensor, Tensor):
+        return input_tensor
+    if input_tensor.device == "CPU" and not input_tensor.is_pinned() and check_pin_memory_interface_support():
+        input_tensor_pinned = input_tensor.pin_memory()
+        return input_tensor_pinned
+    return input_tensor
