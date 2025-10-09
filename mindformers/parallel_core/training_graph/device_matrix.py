@@ -170,7 +170,7 @@ class MoeLayoutManager(LayoutManager):
         moe_comm_group = {
             "cp_dp": ("cp", "dp_ex_ep", "ep"),
             "dp": ("dp_ex_ep", "ep"),
-            "dp_cp": ("dp_ex_ep", "ep", "cp"),
+            "dp_cp": ("dp_ex_ep", "ep"),
         }
 
         if self._layout is None:
@@ -223,10 +223,11 @@ class MoeLayoutManager(LayoutManager):
         parallel_config = self.get_parallel_config(config)
         dp = parallel_config['dp'] * parallel_config['tp']
         ep = parallel_config['ep']
-        dp_ex_ep = dp // ep
+        cp = parallel_config['cp']
+        dp_ex_ep = dp // ep * cp
 
-        dev_mat = (dp_ex_ep, ep, parallel_config['cp'])
-        self._layout = Layout(dev_mat, ("dp_ex_ep", "ep", "cp"))
+        dev_mat = (dp_ex_ep, ep)
+        self._layout = Layout(dev_mat, ("dp_ex_ep", "ep"))
         self._layout_type = "dp_cp_tp_ep"
         return self._layout
 
