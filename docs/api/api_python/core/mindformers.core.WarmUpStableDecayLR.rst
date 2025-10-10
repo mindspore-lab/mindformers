@@ -14,7 +14,7 @@ mindformers.core.WarmUpStableDecayLR
     **预热阶段公式**：
 
     .. math::
-        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{base}} - \eta_{\text{warmup}}}{\text{warmup\_steps}}
+        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{base}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
 
     其中：
 
@@ -25,7 +25,7 @@ mindformers.core.WarmUpStableDecayLR
     **衰减阶段公式**：
 
     .. math::
-        \eta_t = \eta_{\text{base}} - (\eta_{\text{base}} - \eta_{\text{end}}) \times \frac{t - T_{\text{decay\_start}}}{T_{\text{decay\_steps}}}
+        \eta_t = \eta_{\text{base}} - (\eta_{\text{base}} - \eta_{\text{end}}) \times \frac{t - T_{\text{decay_start}}}{T_{\text{decay_steps}}}
 
     其中：
     

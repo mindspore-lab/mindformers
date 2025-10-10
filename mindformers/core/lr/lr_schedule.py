@@ -807,8 +807,8 @@ class WarmUpStableDecayLR(LearningRateSchedule):
     **Warm-up Phase Formula**:
 
     .. math::
-        \eta\_t = \eta\_{\text{warmup}} + t \times \frac{\eta\_{\text{base}} -
-        \eta\_{\text{warmup}}}{\text{warmup_steps}}
+        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{base}} -
+        \eta_{\text{warmup}}}{\text{warmup_steps}}
 
     Where:
 
@@ -819,8 +819,8 @@ class WarmUpStableDecayLR(LearningRateSchedule):
     **Decay Phase Formula**:
 
     .. math::
-        \eta\_t = \eta\_{\text{base}} - (\eta\_{\text{base}} - \eta\_{\text{end}}) \times
-        \frac{t - T\_{\text{decay_start}}}{T\_{\text{decay_steps}}}
+        \eta_t = \eta_{\text{base}} - (\eta_{\text{base}} - \eta_{\text{end}}) \times
+        \frac{t - T_{\text{decay_start}}}{T_{\text{decay_steps}}}
 
     Where:
 
