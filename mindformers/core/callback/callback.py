@@ -1704,6 +1704,10 @@ class CheckpointMonitor(ModelCheckpoint):
 
     def _save_megatron_ckpt_file_format(self, cb_params):
         """Save the checkpoints like megatron format."""
+        # Check whether the checkpoint of current step has been saved.
+        if cb_params.cur_step_num == self._last_triggered_step:
+            return
+
         # Get current step as iteration
         iteration = self._append_step_num + cb_params.cur_step_num
 
@@ -1732,6 +1736,9 @@ class CheckpointMonitor(ModelCheckpoint):
             global_strategy_info=global_strategy_info,
             remove_redundancy=self.need_remove_redundancy
         )
+
+        # After saving, update the counter of last saved step.
+        self._last_triggered_step = cb_params.cur_step_num
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
