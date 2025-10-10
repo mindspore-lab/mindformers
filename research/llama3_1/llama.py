@@ -24,6 +24,7 @@ from multiprocessing.synchronize import Condition
 from safetensors import safe_open
 import numpy as np
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication._comm_helper import _is_initialized as mindspore_comm_has_init
@@ -38,6 +39,7 @@ from mindformers.tools.register.register import MindFormerModuleType, MindFormer
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.tools.logger import logger
 from mindformers.models.utils import jit
+from mindformers.generation.utils import convert_pin
 from research.llama3_1.infer.layers import ColumnParallelLinear
 from research.llama3_1.infer.transformer import ParallelTransformer
 from research.llama3_1.utils import convert_model_config
@@ -138,13 +140,13 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
                                                                     slot_mapping,
                                                                     model_inputs,)
         position_ids = batch_valid_length.astype(np.int32) - 1
-        model_inputs["position_ids"] = Tensor.from_numpy(position_ids.reshape((-1,)))
+        model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
 
         if not prefill:
             q_seq_lens = np.ones(batch_valid_length.shape, dtype=np.int32).reshape(-1)
         else:
             q_seq_lens = batch_valid_length.astype(np.int32).reshape(-1)
-        model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
+        model_inputs["q_seq_lens"] = convert_pin(Tensor.from_numpy(q_seq_lens))
 
         model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
         model_inputs["need_flatten"] = True
