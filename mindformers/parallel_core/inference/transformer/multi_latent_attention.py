@@ -617,8 +617,8 @@ class FusedMLASelfAttention(MLASelfAttention):
             q_layernorm = q_layernorm / q_up_input_scale
             self.q_layernorm_weight = Tensor(q_layernorm, dtype=q_layernorm_dtype)
             self.q_up_proj_input_scale = Tensor([1], dtype=dtype.bfloat16)
-            self.qkv_down_beta = Tensor(shape=(self.config.hidden_size,), dtype=dtype.bfloat16, init=Zero())
-            self.q_up_beta = Tensor(shape=(self.config.q_lora_rank,), dtype=dtype.bfloat16, init=Zero())
+            self.qkv_down_beta = mint.zeros((self.config.hidden_size,), dtype=dtype.bfloat16)
+            self.q_up_beta = mint.zeros((self.config.q_lora_rank,), dtype=dtype.bfloat16)
         else:
             self.input_layernorm_weight = self.input_layernorm.weight
             self.qkv_down_proj_input_scale = self.linear_qkv_down_proj.input_scale
