@@ -138,13 +138,13 @@ class PreprocessLabelsAndMasks(nn.Cell):
             loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
         label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
         loss_mask = self.mul(loss_mask, label_mask)
-        loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
-        labels = self.morphed_reshape_labels_and_masks(labels)
+        local_loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
+        local_labels = self.morphed_reshape_labels_and_masks(labels)
         if self.use_attn_mask_compression:
             attention_mask = self.casual_mask()
         elif attention_mask is None:
             attention_mask = self.casual_mask(input_ids)
-        return labels, attention_mask, loss_mask
+        return labels, attention_mask, loss_mask, local_labels, local_loss_mask
 
 
 class GPTModel(nn.Cell):
@@ -420,7 +420,7 @@ class GPTModel(nn.Cell):
         # Check mindformers.dataset.blended_datasets.gpt_dataset._get_eod_attention_mask() for implement details.
         extra_block_kwargs['actual_seq_len'] = actual_seq_len
 
-        labels, attention_mask, loss_mask = self._preprocess_input_labels_and_masks(
+        labels, attention_mask, loss_mask, local_labels, local_loss_mask = self._preprocess_input_labels_and_masks(
             input_ids, labels, attention_mask, loss_mask)
 
         hidden_states, rotary_pos_emb, extra_loss = self.language_model(
@@ -441,9 +441,9 @@ class GPTModel(nn.Cell):
                 position_ids,
                 hidden_states,
                 attention_mask,
-                labels=labels.reshape_as(input_ids),
+                labels=labels,
                 rotary_pos_emb=rotary_pos_emb,
-                loss_mask=loss_mask.reshape_as(input_ids),
+                loss_mask=loss_mask,
                 extra_block_kwargs=extra_block_kwargs,
                 word_embeddings_weight=self.embedding.word_embeddings.weight,
                 position_embeddings_weight=getattr(self.embedding.position_embeddings, 'weight', None),
@@ -473,7 +473,7 @@ class GPTModel(nn.Cell):
             return logits.contiguous()
 
         # labels origin shape is [b s], Transpose is not required.
-        loss = self.compute_language_model_loss(labels, logits, loss_mask)
+        loss = self.compute_language_model_loss(local_labels, logits, local_loss_mask)
 
         if self.calculate_per_token_loss:
             numerator0, denominator0 = loss
