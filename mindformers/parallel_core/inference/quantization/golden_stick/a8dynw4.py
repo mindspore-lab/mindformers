@@ -18,7 +18,7 @@ from typing import Union
 import numpy as np
 
 import mindspore
-from mindspore import nn, Parameter, ops
+from mindspore import nn, Parameter, ops, mint
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import WeightQuantBatchMatmul, DynamicQuantExt, GroupedMatmulV4
 
@@ -102,23 +102,20 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
         """calculate gmm_bias"""
         if isinstance(layer, GroupedMLP):
             return
-
-        # int4 pack to int8
         np_data = layer.weight.asnumpy().astype(np.uint8)
-        np_data_low = ((np_data & 0x0F) << 4).astype(np.int8) >> 4
-        np_data_high = ((np_data >> 4) << 4).astype(np.int8) >> 4
-
-        np_int4_data = np.zeros((np_data.shape[0], np_data.shape[1], np_data.shape[2] * 2),
-                                dtype=np.int8)
-        np_int4_data[:, :, ::2] = np_data_low
-        np_int4_data[:, :, 1::2] = np_data_high
-        w_scale = layer.w_scale.asnumpy()
-        w_scale_repeat = np.repeat(w_scale, layer.weight.shape[1] // w_scale.shape[1],
-                                   axis=1).astype(np.uint32).view(np.float32)
-        gmm_bias = 8 * np.sum(
-            np_int4_data.astype(np.float32) * w_scale_repeat, axis=1)
-
-        layer.gmm_bias = mindspore.Tensor(gmm_bias, dtype=mindspore.float32)
+        packed_data = mindspore.Tensor(np_data, dtype=mindspore.uint8)
+        high_4bit = (packed_data // 16).astype(mindspore.int8)
+        low_4bit = (packed_data & 0x0F).astype(mindspore.int8)
+        high_8bit = ops.where(high_4bit > 7, high_4bit - 16, high_4bit)
+        low_8bit = ops.where(low_4bit > 7, low_4bit - 16, low_4bit)
+        unpacked = ops.stack([low_8bit, high_8bit], axis=-1)
+        new_shape = (packed_data.shape[0], packed_data.shape[1], packed_data.shape[2] * 2)
+        weight_expand = ops.reshape(unpacked, new_shape).astype(mindspore.float32)
+        w_scale = layer.w_scale.asnumpy().astype(np.uint32).view(np.float32)
+        w_scale = mindspore.Tensor(w_scale, dtype=mindspore.float32)
+        w_scale_repeat = mint.repeat_interleave(w_scale, layer.weight.shape[1] // layer.w_scale.shape[1],
+                                                dim=1)
+        layer.gmm_bias = 8 * mint.sum(ops.mul(weight_expand, w_scale_repeat), 1)
 
     def apply(self,
               layer: mindspore.nn.Cell,
