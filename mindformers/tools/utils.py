@@ -71,12 +71,9 @@ def check_in_modelarts():
     Returns:
         (bool): If it is True, it means ModelArts environment.
     """
-    # 'KUBERNETES_PORT' in os.environ or \
     return 'MA_LOG_DIR' in os.environ or \
         'MA_JOB_DIR' in os.environ or \
         'MA_LOCAL_LOG_PATH' in os.environ or \
-        'S3_ACCESS_KEY_ID' in os.environ or \
-        'S3_SECRET_ACCESS_KEY' in os.environ or \
         'BATCH_GROUP_NAME' in os.environ or \
         'MA_LOCAL_LOG_PATH' in os.environ
 
