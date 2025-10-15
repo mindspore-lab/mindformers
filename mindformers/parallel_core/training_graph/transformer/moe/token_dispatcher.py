@@ -21,14 +21,46 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
 import mindspore.mint as mint
+from mindspore import nn, ParallelMode
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
+from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.version_control import get_all2allvc
 
 _OEP_GROUP_NAME = {}
 _IEP_GROUP_NAME = {}
+
+
+class AlltoAll(nn.Cell):
+    """AlltoAll operation wrapper."""
+    def __init__(self, split_count, split_dim, concat_dim, group=None):
+        super().__init__()
+        self.group_is_none = group is None
+        if not self.group_is_none:
+            self.ops = ops.AlltoAll(split_count, split_dim, concat_dim, group)
+
+    def construct(self, input_x):
+        if self.group_is_none:
+            return input_x
+        input_x = self.ops(input_x)
+        return input_x
+
+
+class AlltoAllV(nn.Cell):
+    """AlltoAllV operation wrapper."""
+    def __init__(self, group=None, block_size=1):
+        super().__init__()
+        self.group_is_none = group is None
+        if not self.group_is_none:
+            self.ops = ops.AlltoAllV(group=group, block_size=block_size)
+
+    def construct(self, input_x, send_numel_list, recv_numel_list):
+        if self.group_is_none:
+            return input_x
+        tensor = self.ops(input_x, send_numel_list, recv_numel_list)
+        return tensor
 
 
 class MoETokenDispatcher:
@@ -52,6 +84,8 @@ class MoETokenDispatcher:
 
     def _ep_group(self):
         """Get expert model parallel group."""
+        if _get_parallel_mode() == ParallelMode.STAND_ALONE:
+            return None
         rank_id = get_rank()
         ep = self.config.expert_model_parallel_size
 
@@ -491,7 +525,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         It also initializes the necessary data structures for AlltoAll communication, such as input
         and output splits, and the mapping between global tokens and local experts.
         """
-        num_global_tokens_per_expert = ops.AlltoAll(
+        num_global_tokens_per_expert = AlltoAll(
             split_count=self.ep,
             split_dim=-1,
             concat_dim=-2,
@@ -594,10 +628,10 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         # Perform expert parallel AlltoAll communication
         # The shape change is: global_input_tokens <- [B, S, h]
         original_shape = permuted_input.shape
-        global_input_tokens = ops.AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
+        global_input_tokens = AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
             permuted_input.reshape(-1), input_splits, output_splits).reshape(1, -1, self.hidden_size)
         # The shape change is: routing_map <- [B, S]
-        routing_map = ops.AlltoAllV(group=self.ep_group, block_size=1)(
+        routing_map = AlltoAllV(group=self.ep_group, block_size=1)(
             routing_map.astype(ms.float32).reshape(-1), input_splits, output_splits).reshape(1, -1)
 
         # Permutation 2: Sort tokens by local expert.
@@ -662,7 +696,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
 
         # Perform expert parallel AlltoAll communication
-        permutated_local_input_tokens = ops.AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
+        permutated_local_input_tokens = AlltoAllV(group=self.ep_group, block_size=self.hidden_size)(
             tokens.reshape(-1), output_splits, input_splits).reshape(1, -1, self.hidden_size)
         permutated_local_input_tokens = permutated_local_input_tokens.reshape(original_shape)
 
