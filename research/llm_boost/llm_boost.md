@@ -1,5 +1,11 @@
 # Llm_boost
 
+> ## 🚨 弃用说明
+>
+> 本文档中的模型已过时，不再进行维护，并将在 *1.8.0* 版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/master/introduction/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 功能描述
 
 llm_boost为大模型推理加速模块, 支持对接第三方推理框架进行推理
