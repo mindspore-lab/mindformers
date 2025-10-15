@@ -266,8 +266,9 @@ class GPTModel(nn.Cell):
         self.pp = config.pipeline_model_parallel_size if config.pipeline_model_parallel_size is not None else 1
         self.cp = config.context_parallel_size if config.context_parallel_size is not None else 1
 
-        initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
-                                  pipeline_model_parallel_size=self.pp, context_parallel_size=self.cp)
+        if _get_parallel_mode() != ParallelMode.STAND_ALONE:
+            initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
+                                      pipeline_model_parallel_size=self.pp, context_parallel_size=self.cp)
 
         self.preprocess_labels_and_masks = PreprocessLabelsAndMasks(config)
 
