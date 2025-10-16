@@ -118,7 +118,6 @@ recompute_config:
   select_recompute: False
   parallel_optimizer_comm_recompute: True
   mp_comm_recompute: True
-  recompute_slice_activation: True
 
 # Model configuration
 model:
