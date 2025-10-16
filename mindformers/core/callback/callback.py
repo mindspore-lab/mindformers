@@ -1591,13 +1591,9 @@ class CheckpointMonitor(ModelCheckpoint):
 
     def remove_redundancy(self, network, cur_file, append_dict, train_network):
         """remove redundancy when saving checkpoint files."""
-        if self._config.remove_redundancy:
+        parallel_mode = context.get_auto_parallel_context("parallel_mode")
+        if self._config.remove_redundancy and parallel_mode != "stand_alone":
             logger.info('......Removing redundancy......')
-            parallel_mode = context.get_auto_parallel_context("parallel_mode")
-            if parallel_mode == "stand_alone":
-                raise TypeError(f"The deduplication feature for saving checkpoint can only be used "
-                                f"in parallel scenarios, but got {parallel_mode}.")
-
             if train_network:
                 param_layout = train_network.parameter_layout_dict
             else:
