@@ -1334,6 +1334,7 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.need_remove_extra_ckpt = False
         self.common_info = CommonInfo()
+        self.save_checkpoint_steps = save_checkpoint_steps
 
     def print_savetime(self, record_step, batch_num):
         """print the time cost of saving checkpoint files."""
@@ -1356,6 +1357,13 @@ class CheckpointMonitor(ModelCheckpoint):
 
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
+        # if fault occurs, ensure that saving ckpt of the recover node should synchronize with other nodes.
+        if check_arf_status(cb_params):
+            self._last_triggered_step = \
+                int(cb_params.cur_step_num / self.save_checkpoint_steps) * self.save_checkpoint_steps
+            if cb_params.cur_step_num < self._last_triggered_step + self.save_checkpoint_steps:
+                return
+
         # pylint: disable=E0203
         if cb_params.cur_step_num == self._last_triggered_step:
             return
