@@ -589,8 +589,7 @@ Qwen3的模型文件包括以下内容：
   recompute: True
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -619,8 +618,7 @@ Qwen3的模型文件包括以下内容：
   recompute: True
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -649,8 +647,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -679,8 +676,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -709,8 +705,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -739,8 +734,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -785,8 +779,7 @@ Qwen3的模型文件包括以下内容：
   recompute: True
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -815,8 +808,7 @@ Qwen3的模型文件包括以下内容：
   recompute: True
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -845,8 +837,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -875,8 +866,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -905,8 +895,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
@@ -935,8 +924,7 @@ Qwen3的模型文件包括以下内容：
   recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
