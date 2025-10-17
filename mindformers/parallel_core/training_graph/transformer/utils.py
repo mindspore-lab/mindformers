@@ -15,7 +15,7 @@
 """utils"""
 __all__ = ["get_attn_mask_func"]
 
-import re
+import regex
 import numpy as np
 import mindspore as ms
 from mindspore.ops import operations as P
@@ -91,6 +91,14 @@ def get_attn_mask_func(mask_func_type):
                        "mask function are ['attn_mask_fill'] "
                        ", but got {}.".format(mask_func_type))
     return ATTNMASK_FUNC_MAP[mask_func_type]
+
+
+def regex_match(pattern, string, timeout=1):
+    try:
+        return regex.fullmatch(pattern, string, timeout=timeout)
+    except TimeoutError as e:
+        logger.warning(f"{e} Please check and fix it.")
+    return []
 
 
 class LayerSetting:
@@ -218,7 +226,7 @@ class LayerSetting:
             if len(key) != len(split_pattern):
                 continue
             for p1, p2 in zip(key, split_pattern):
-                if not re.fullmatch(p1, p2) and not re.fullmatch(p2, p1):
+                if not regex_match(p1, p2) and not regex_match(p2, p1):
                     break
             else:
                 repeat_key = pattern
@@ -355,20 +363,20 @@ class LayerSetting:
         if p_list:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     log = LayerSetting.set_pattern_swap(cell, p_list, value, info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:
             for attr in dir(layer):
-                if re.fullmatch(p, attr):
+                if regex_match(p, attr):
                     operator = getattr(layer, attr)
                     if hasattr(operator, '_offload'):
                         operator._offload(backward_prefetch=value)
                         log = f"{info}.{attr}, value={value}"
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     cell.offload(backward_prefetch=value)
                     log = f"{info}.{name}, value={value}"
         p_list.insert(0, p)
@@ -584,13 +592,13 @@ class LayerSetting:
         if p_list:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, set_on, info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:
             for attr in dir(layer):
-                if re.fullmatch(p, attr):
+                if regex_match(p, attr):
                     operator = getattr(layer, attr)
                     if add_prim_attr:
                         operator.add_prim_attr("recompute_comm_op", set_on)
@@ -600,7 +608,7 @@ class LayerSetting:
                         log = f"{info}.{attr}"
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
-                if re.fullmatch(p, name):
+                if regex_match(p, name):
                     if not set_on:
                         logger.info(f"For select recompute/comm_recompute exclude, {info.replace('.', '', 1)}.{name} "
                                     "is expected to be operation but got cell, "
