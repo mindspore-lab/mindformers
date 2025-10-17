@@ -209,12 +209,15 @@ def deal_training_qkv_weight(weight, config):
     q_shard_size = q_channel // tp_size
     q_start_idx = tp_rank * q_shard_size
     q_weight = split_loaded_weight(q_weight, 0, q_start_idx, q_shard_size)
-    k_shard_size = kv_channel // tp_size
-    k_start_idx = tp_rank * k_shard_size
-    k_weight = split_loaded_weight(k_weight, 0, k_start_idx, k_shard_size)
-    v_shard_size = kv_channel // tp_size
-    v_start_idx = tp_rank * v_shard_size
-    v_weight = split_loaded_weight(v_weight, 0, v_start_idx, v_shard_size)
+    if tp_size > config.num_query_groups:
+        replicate = tp_size // config.num_query_groups
+        kv_shard_size = kv_channel // (tp_size // replicate)
+        kv_start_idx = tp_rank // replicate * kv_shard_size
+    else:
+        kv_shard_size = kv_channel // tp_size
+        kv_start_idx = tp_rank * kv_shard_size
+    k_weight = split_loaded_weight(k_weight, 0, kv_start_idx, kv_shard_size)
+    v_weight = split_loaded_weight(v_weight, 0, kv_start_idx, kv_shard_size)
     cat_qkv_weight = np.concatenate((q_weight, k_weight, v_weight), axis=0)
     if qkv_dim == 1:
         cat_qkv_weight = cat_qkv_weight.reshape(w // tp_size,)
