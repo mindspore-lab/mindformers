@@ -18,10 +18,8 @@ from typing import Union
 import math
 
 from mindspore import nn, Tensor
-from mindspore.ops.auto_generate import Cast, Shape, Reshape, Transpose, Tile, Concat, StridedSlice, SplitWithSize, \
-    ExpandDims
+from mindspore.ops.auto_generate import Cast, Shape, Reshape, Transpose, Tile, Concat, SplitWithSize, ExpandDims
 from mindspore.ops import functional as F
-from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
@@ -121,14 +119,8 @@ class MultiLatentAttention(nn.Cell):
                              .format(self.num_attention_heads, self.tp, self.cp_ds))
 
         zero_pad_length = self.q_head_dim - self.v_head_dim
-        if zero_pad_length == 0:
-            self.use_zero_pad = False
-        elif zero_pad_length < 0:
+        if zero_pad_length < 0:
             raise ValueError("qk_head_dim + qk_pos_emb_head_dim should not less than v_head_dim")
-        else:
-            self.use_zero_pad = True
-            self.pad_zeros = initializer('zeros', shape=(1, 1, self.num_attention_heads, zero_pad_length),
-                                         dtype=self.compute_dtype)
 
         mscale = _yarn_get_mscale(self.config.rotary_scaling_factor, self.config.mscale)
         self.softmax_scale = mscale * mscale / math.sqrt(self.q_head_dim)
@@ -157,9 +149,6 @@ class MultiLatentAttention(nn.Cell):
         self.reshape = Reshape()
         self.bs_transpose = Transpose()
         self.tnd_transpose = Transpose()
-        self.tile = Tile()
-        self.value_concat = Concat(-1)
-        self.dim_slice = StridedSlice()
         self.cast = Cast()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -195,14 +184,6 @@ class MultiLatentAttention(nn.Cell):
 
         self.bs_transpose.shard(((dp, cp, tp),))
         self.tnd_transpose.shard(((cp, dp, tp, 1),))
-        self.tile.shard(((cp, dp, tp, 1),))
-
-        if self.input_layout == "TND":
-            self.value_concat.shard(((cp * dp, tp, 1), (cp * dp, tp, 1)))
-            self.dim_slice.shard(((cp * dp, tp, 1),))
-        else:
-            self.value_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
-            self.dim_slice.shard(((cp, dp, tp, 1),))
 
     def construct(self, x: Tensor, attention_mask=None, rotary_pos_emb=None, rotary_pos_cos=None,
                   rotary_pos_sin=None, prefix_keys_values=None, pad_zeros=None, actual_seq_len=None):
@@ -240,26 +221,11 @@ class MultiLatentAttention(nn.Cell):
         key = self.cast(key, self.compute_dtype)
         value = self.cast(value, self.compute_dtype)
         if self.use_flash_attention:
-            if self.use_zero_pad:
-                pad_zeros = self.tile(self.pad_zeros, (seq_len, bs, 1, 1))
-                if self.input_layout == "TND":
-                    pad_zeros = self.reshape(pad_zeros, (bs * seq_len, -1, pad_zeros.shape[-1]))
-                    value = self.value_concat((value, pad_zeros))
-                elif self.cp > 1:
-                    value = self.reshape(value, (seq_len, bs, self.num_attention_heads, -1))
-                    value = self.value_concat((value, pad_zeros))
-                    value = self.reshape(value, (seq_len, bs, -1))
-                else:
-                    value = self.value_concat((value, pad_zeros))
             if self.use_eod_attn_mask_compression:
                 context_layer = self.core_attention(
                     query, key, value, attention_mask,
                     actual_seq_qlen=actual_seq_len, actual_seq_kvlen=actual_seq_len
                 )
-                if self.use_zero_pad:
-                    context_layer = self.dim_slice(context_layer, (0, 0, 0),
-                                                   (seq_len * bs, self.num_attention_heads, self.v_head_dim),
-                                                   (1, 1, 1))
                 attn_out = self.reshape(context_layer, (bs, seq_len, -1))
                 attn_out = self.bs_transpose(attn_out, (1, 0, 2))
             else:
@@ -268,11 +234,6 @@ class MultiLatentAttention(nn.Cell):
                 )
                 if self.cp > 1 and self.cp_ds > 1:
                     context_layer = self._ulysses_context_layer_a2a(context_layer)
-                if self.use_zero_pad:
-                    context_layer = self.reshape(context_layer, (seq_len, bs, self.num_attention_heads, -1))
-                    context_layer = self.dim_slice(context_layer, (0, 0, 0, 0),
-                                                   (seq_len, bs, self.num_attention_heads, self.v_head_dim),
-                                                   (1, 1, 1, 1))
                 attn_out = self.reshape(context_layer, (seq_len, bs, -1))
         else:
             attn_out = self.core_attention(query, key, value, attention_mask)
