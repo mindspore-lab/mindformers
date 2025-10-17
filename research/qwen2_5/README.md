@@ -46,8 +46,7 @@ Qwen2.5是Qwen系列的新的大型语言模型。Qwen2.5发布了许多基本�
 
    ```text
    research/qwen2_5
-     ├── convert_weight.py                         # 权重转换脚本
-     └── run_qwen2_5.py                              # qwen2_5多轮对话脚本
+     └── convert_weight.py                         # 权重转换脚本
    ```
 
 ## 环境及数据准备
@@ -72,7 +71,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 - 静态shape数据集处理流程：
 
-  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。
+  1. 执行`research/qwen2_5/alpaca_converter.py`，将原始数据集转换为指定格式。
 
   ```shell
   python alpaca_converter.py \
@@ -84,10 +83,10 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
   output_path: 输出文件的保存路径
   ```
 
-  2. 执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+  2. 执行`research/qwen2_5/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
   ```shell
-  python qwen2_preprocess.py \
+  python qwen2_5_preprocess.py \
    --dataset_type 'qa' \
    --input_glob /path/alpaca-data-messages.json \
    --vocab_file /path/vocab.json \
@@ -106,7 +105,7 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 - 动态shape数据集处理流程：
 
-  1. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。
+  1. 执行`research/qwen2_5/alpaca_converter_json.py`，将原始数据集转换为指定格式。
 
   ```shell
   python alpaca_converter_json.py \

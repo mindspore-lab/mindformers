@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Convert checkpoint from mindspore"""
-import argparse
 import re
 from collections import defaultdict
 from typing import Dict
@@ -263,36 +262,3 @@ def convert_ms_to_pt(input_path, output_path, config, dtype=torch.float32, **kwa
     print('saving pt ckpt....')
     torch.save(pt_param, output_path)
     print(f"Convert finished, the output is saved to {output_path}")
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="GLM2/3 weight convert script")
-    parser.add_argument("--mindspore_ckpt_path",
-                        type=str,
-                        required=True,
-                        default="None",
-                        help='The mindspore checkpoint path.')
-    parser.add_argument("--torch_ckpt_path",
-                        type=str,
-                        required=True,
-                        default="None",
-                        help="The output torch checkpoint path.")
-    parser.add_argument("--dtype",
-                        type=str,
-                        default="fp32",
-                        choices=["fp32", "fp16", "bf16"],
-                        help="The dtype of transformed mindspore weight.")
-    parser.add_argument("--config",
-                        type=str,
-                        required=True,
-                        help="Path to model config yaml")
-
-    mapping = {
-        "fp32": torch.float32,
-        "fp16": torch.float16,
-        "bf16": torch.bfloat16
-    }
-
-    opt = parser.parse_args()
-    convert_ms_to_pt(opt.mindspore_ckpt_path, opt.torch_ckpt_path, config=opt.config,
-                     dtype=mapping.get(opt.dtype, ms.bfloat16),)

@@ -19,12 +19,11 @@ Support mindspore format and Meta format.
 
 import json
 import os
-import argparse
 from collections import defaultdict
+from safetensors.torch import save_file
 import torch
 import mindspore as ms
 from mindspore.ops.operations import Cast
-from safetensors.torch import save_file
 from mindformers import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
@@ -307,15 +306,3 @@ def convert_ms_to_pt(input_path, output_path, config_path):
         ms_ckpt_convertor(input_path, output_path, config)
 
     logger.info("Finish converting mindspore checkpoints into Huggingface checkpoints!")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mindspore_ckpt_path', required=True, default='transform.ckpt')
-    parser.add_argument('--torch_ckpt_path', required=True, default='./qwen2/qwen2-hf/')
-    parser.add_argument('--config_path', required=True, type=str, help='config file path.')
-
-    args = parser.parse_args()
-
-    convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_path,
-                     config_path=args.config_path)

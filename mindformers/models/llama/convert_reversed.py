@@ -18,7 +18,6 @@ Support mindspore format and Meta format.
 """
 
 import json
-import argparse
 import torch
 import mindspore as ms
 
@@ -63,11 +62,3 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     torch.save(state_dict, output_path)
     print(f"\rConvert mindspore checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.",
           flush=True)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mindspore_ckpt_path', default='./llama_model/llama-13b-hf/')
-    parser.add_argument('--torch_ckpt_path', default='transform.ckpt')
-    args = parser.parse_args()
-    convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_path)
