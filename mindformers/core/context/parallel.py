@@ -23,7 +23,6 @@ from mindformers.core.config_args import ParallelConfig
 from mindformers.modules.transformer.transformer import (
     TransformerOpParallelConfig,
 )
-from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_strategy_save_path
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
@@ -48,17 +47,10 @@ class ParallelOperator:
         """Set pipeline stage number."""
         input_stages = self.config.parallel_config.pipeline_stage or 1
         if self.config.parallel.auto_pipeline:
-            micro_batch = self.config.parallel_config.micro_batch_num
-            servers = get_server_num()
-            final_stages = min(max(input_stages, servers), micro_batch)
-            logger.info(
-                "Automatic pipeline stage provider will search in "
-                f"[1...{final_stages}], where {final_stages} = "
-                f"min( max( stages input: {input_stages}, "
-                f"servers: {servers}), micro batch: {micro_batch})"
+            raise ValueError(
+                "Automatic pipeline stage is unavailable for now, please set auto_pipeline to False in the yaml."
             )
-        else:
-            final_stages = input_stages
+        final_stages = input_stages
 
         self.config.parallel_config.pipeline_stage = final_stages
         if final_stages > 1:
