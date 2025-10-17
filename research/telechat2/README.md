@@ -108,7 +108,6 @@ TeleChat2-39b-a12b:
    ```text
    telechat
        ├── run_telechat_predict.py              # 推理脚本
-       └── run_telechat.py                      # telechat高阶接口使用脚本
        └── infer
            └── run_telechat_predict_parallel.py # telechat推理脚本（前端并行）
    ```
