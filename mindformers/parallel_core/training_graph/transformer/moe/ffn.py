@@ -83,6 +83,12 @@ class FFNGroupedGEMM(nn.Cell):
             name='w2')
 
         # init token dispatcher
+        if _get_parallel_mode() == ParallelMode.STAND_ALONE:
+            if self.moe_token_dispatcher_type != "alltoall":
+                raise ValueError(
+                    f"In STAND_ALONE mode, only 'alltoall' is supported for "
+                    f"moe_token_dispatcher_type, but got {self.moe_token_dispatcher_type!r}.")
+
         if self.moe_token_dispatcher_type == "alltoall":
             self.token_dispatcher = MoEAlltoAllTokenDispatcher(config)
         elif self.moe_token_dispatcher_type == "alltoall_deredundency":
