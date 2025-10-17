@@ -206,8 +206,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
   recompute: True
   select_recompute: False
   parallel_optimizer_comm_recompute: True
-  mp_comm_recompute: True
-  recompute_slice_activation: True</code></pre>
+  mp_comm_recompute: True</code></pre>
     </td>
     <td>
       <pre><code class="language-yaml">context:
