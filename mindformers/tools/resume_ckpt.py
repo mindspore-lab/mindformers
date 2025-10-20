@@ -77,7 +77,6 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
                                   use_checkpoint_health_monitor=False, health_ckpts_record_dir="./output"):
     """get resume checkpoint by meta."""
     rank_id = get_real_rank()
-    device_num = get_real_group_size()
 
     if check_in_modelarts():
         resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
@@ -91,8 +90,10 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
     resume_ckpt = None
     if rank_id == 0:
         try:
+            rank_dir_num = len([rank_dir for rank_dir in os.listdir(checkpoint_dir) \
+                                if rank_dir.startswith("rank_")])
             # 1. get basic resume ckpt file
-            last_epoch, last_step, last_ckpt_file = get_info_from_meta(checkpoint_dir, ckpt_format)
+            last_epoch, last_step, last_ckpt_file = get_info_from_meta(checkpoint_dir, rank_dir_num, ckpt_format)
             if last_epoch is None or last_step is None or last_ckpt_file is None:
                 logger.info("No meta.json available and will use the checkpoints "
                             "from the last timestamp for resume training.")
@@ -106,7 +107,7 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
 
                 # 2. get ckpt files suitable for resume training per rank
                 resume_ckpt_list = get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id,
-                                                        device_num, ckpt_format, use_checkpoint_health_monitor)
+                                                        rank_dir_num, ckpt_format, use_checkpoint_health_monitor)
 
                 if use_checkpoint_health_monitor:
                     resume_ckpt_list = checkpoint_health_monitor(health_ckpts_record_dir, resume_ckpt_list)
@@ -185,7 +186,7 @@ def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
     return resume_ckpt
 
 
-def get_info_from_meta(checkpoint_dir, ckpt_format='ckpt'):
+def get_info_from_meta(checkpoint_dir, rank_dir_num, ckpt_format='ckpt'):
     """
     Parse all the meta.json files under checkpoint_dir and
     return the minimum epoch, step and ckpt file.
@@ -193,7 +194,7 @@ def get_info_from_meta(checkpoint_dir, ckpt_format='ckpt'):
     last_epoch = None
     last_step = None
     last_ckpt_file = None
-    for rank_id_tmp in range(get_real_group_size()):
+    for rank_id_tmp in range(rank_dir_num):
         meta_json = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}", "meta.json")
         if not os.path.exists(meta_json):
             logger.warning("%s is not found.", meta_json)
@@ -223,7 +224,7 @@ def get_info_from_meta(checkpoint_dir, ckpt_format='ckpt'):
     return last_epoch, last_step, last_ckpt_file
 
 
-def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num,
+def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, rank_dir_num,
                          ckpt_format='ckpt', use_checkpoint_health_monitor=False):
     """
     get ckpts suitable for resuming, where their rank numbers are intact,
@@ -234,7 +235,7 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num,
     last_epoch, last_step = get_epoch_and_step_from_ckpt_name(last_ckpt_file, ckpt_format)
     original_rank = get_rank_id_from_ckpt_name(last_ckpt_file)
     valid_ckpts = {}
-    for rank_id_tmp in range(device_num):
+    for rank_id_tmp in range(rank_dir_num):
         ckpt_prefix_tmp = ckpt_prefix.replace(f"rank_{original_rank}", f"rank_{rank_id_tmp}")
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         if not os.path.exists(checkpoint_rank_dir):
@@ -254,7 +255,7 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num,
     # epoch and step are consistent, and the path exists.
     resume_ckpt_list = []
     for key in valid_ckpts:
-        if check_checkpoints_by_rank(valid_ckpts[key], device_num):
+        if check_checkpoints_by_rank(valid_ckpts[key], rank_dir_num):
             ckpt_file = replace_rank_id_in_ckpt_name(valid_ckpts[key][0], rank_id)
             resume_ckpt = os.path.join(checkpoint_dir, f"rank_{rank_id}", ckpt_file)
             if not os.path.exists(resume_ckpt):
