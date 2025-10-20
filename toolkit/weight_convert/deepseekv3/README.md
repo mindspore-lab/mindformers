@@ -11,9 +11,10 @@ MindSpore Transformers 提供了可以从 Hugging Face 权重到 MindSpore Trans
 脚本使用示例指令如下：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/convert_deepseekv3_hf_weight.py \
-  --huggingface_ckpt_path HF_CKPT_PATH \
-  --mindspore_ckpt_path MS_CKPT_PATH \
+python convert_weight.py \
+  --input_path HF_CKPT_PATH \
+  --output_path MS_CKPT_PATH \
+  --model 'deepseekv3' \
   --num_layers 61 \
   --hidden_size 7168 \
   --ffn_hidden_size 18432 \
@@ -26,25 +27,27 @@ python toolkit/weight_convert/deepseekv3/convert_deepseekv3_hf_weight.py \
 
 所有指令参数介绍如下：
 
-| 配置项                      | 数据类型    | 是否可选 | 默认值     | 说明                                                                                     |
-|--------------------------|---------|------|---------|----------------------------------------------------------------------------------------|
-| huggingface_ckpt_path    | string  | 必选   | 无       | 需要转换的 Hugging Face 权重路径。                                                               |
-| mindspore_ckpt_path      | string  | 必选   | 无       | 转换后的 MindSpore Transformers 权重目标路径。                                                    |
-| num_layers               | int     | 可选   | 61      | 模型层数（计算时不包括 MTP 层数），配置在 Hugging Face 仓库上的 `config.json` 中的 `num_hidden_layers` 。       |
-| hidden_size              | int     | 可选   | 7168    | 模型隐藏层大小，配置在 Hugging Face 仓库上的 `config.json` 中的 `hidden_size` 。                         |
-| ffn_hidden_size          | int     | 可选   | 18432   | 模型前馈神经网络层的维度，配置在 Hugging Face 仓库上的 `config.json` 中的 `intermediate_size` 。              |
-| moe_ffn_hidden_size      | int     | 可选   | 2048    | 模型 MoE 中前馈神经网络层的维度，配置在 Hugging Face 仓库上的 `config.json` 中的 `moe_intermediate_size` 。    |
-| num_routed_experts       | int     | 可选   | 256     | 模型专家数，配置在 Hugging Face 仓库上的 `config.json` 中的 `n_routed_experts` 。                      |
-| num_nextn_predict_layers | int     | 可选   | 1       | MTP 层数，配置在 Hugging Face 仓库上的 `config.json` 中的 `num_nextn_predict_layers` 。             |
-| first_k_dense_replace    | int     | 可选   | 3       | 指定模型的前几层为 Dense 层，配置在 Hugging Face 仓库上的 `config.json` 中的 `first_k_dense_replace` 。     |
-| dtype                    | string  | 可选   | 'bf16'  | 目标转换的 MindSpore Transformers 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。 |
+| 配置项                      | 数据类型   | 是否可选 | 默认值    | 说明                                                                                     |
+|--------------------------|--------|------|--------|----------------------------------------------------------------------------------------|
+| input_path               | string | 必选   | 无      | 需要转换的 Hugging Face 权重路径。                                                               |
+| output_path              | string | 必选   | 无      | 转换后的 MindSpore Transformers 权重目标路径。                                                    |
+| model                    | string | 必选   | 无      | 选择进行权重转换的模型，此处对应配置为 `'deepseekv3'`。                                                    |
+| num_layers               | int    | 可选   | 61     | 模型层数（计算时不包括 MTP 层数），配置在 Hugging Face 仓库上的 `config.json` 中的 `num_hidden_layers` 。       |
+| hidden_size              | int    | 可选   | 7168   | 模型隐藏层大小，配置在 Hugging Face 仓库上的 `config.json` 中的 `hidden_size` 。                         |
+| ffn_hidden_size          | int    | 可选   | 18432  | 模型前馈神经网络层的维度，配置在 Hugging Face 仓库上的 `config.json` 中的 `intermediate_size` 。              |
+| moe_ffn_hidden_size      | int    | 可选   | 2048   | 模型 MoE 中前馈神经网络层的维度，配置在 Hugging Face 仓库上的 `config.json` 中的 `moe_intermediate_size` 。    |
+| num_routed_experts       | int    | 可选   | 256    | 模型专家数，配置在 Hugging Face 仓库上的 `config.json` 中的 `n_routed_experts` 。                      |
+| num_nextn_predict_layers | int    | 可选   | 1      | MTP 层数，配置在 Hugging Face 仓库上的 `config.json` 中的 `num_nextn_predict_layers` 。             |
+| first_k_dense_replace    | int    | 可选   | 3      | 指定模型的前几层为 Dense 层，配置在 Hugging Face 仓库上的 `config.json` 中的 `first_k_dense_replace` 。     |
+| dtype                    | string | 可选   | 'bf16' | 目标转换的 MindSpore Transformers 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。 |
 
 如果转换时不需要 MTP 层（如进行 MindSpore Transformer 推理场景），可以将上述指令的 `--num_nextn_predict_layers` 参数设置为 `0`，例如：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/convert_deepseekv3_hf_weight.py \
-  --huggingface_ckpt_path HF_CKPT_PATH \
-  --mindspore_ckpt_path MS_CKPT_PATH \
+python convert_weight.py \
+  --input_path HF_CKPT_PATH \
+  --output_path MS_CKPT_PATH \
+  --model 'deepseekv3' \
   --num_nextn_predict_layers 0
 ```
 
@@ -53,9 +56,10 @@ python toolkit/weight_convert/deepseekv3/convert_deepseekv3_hf_weight.py \
 如果转换时只需要前四层，且不需要 MTP 层，可以将上述指令的 `--num_layers` 参数设置为 `4`，并将 `--num_nextn_predict_layers` 参数设置为 `0`：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/convert_deepseekv3_hf_weight.py \
-  --huggingface_ckpt_path HF_CKPT_PATH \
-  --mindspore_ckpt_path MS_CKPT_PATH \
+python convert_weight.py \
+  --input_path HF_CKPT_PATH \
+  --output_path MS_CKPT_PATH \
+  --model 'deepseekv3' \
   --num_layers 4 \
   --num_nextn_predict_layers 0
 ```
@@ -98,9 +102,11 @@ python toolkit/safetensors/unified_safetensors.py \
 假设下面使用 `MS_TRAIN_CKPT_PATH` 代指 `'1000_1_ckpt_convert/unified_safe'`，则可以使用反转脚本将权重反转为 Hugging Face 格式， 反转脚本的使用示例指令如下：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/reverse_mcore_deepseekv3_weight_to_hf.py \
-  --mindspore_ckpt_path MS_TRAIN_CKPT_PATH \
-  --huggingface_ckpt_path HF_REVERSE_CKPT_PATH \
+python convert_weight.py \
+  --input_path MS_TRAIN_CKPT_PATH \
+  --output_path HF_REVERSE_CKPT_PATH \
+  --model 'deepseekv3' \
+  --reversed \
   --num_layers 61 \
   --hidden_size 7168 \
   --ffn_hidden_size 18432 \
@@ -113,25 +119,29 @@ python toolkit/weight_convert/deepseekv3/reverse_mcore_deepseekv3_weight_to_hf.p
 
 所有指令参数介绍如下：
 
-| 配置项                      | 数据类型    | 是否可选 | 默认值    | 说明                                                                                                                           |
-|--------------------------|---------|------|--------|------------------------------------------------------------------------------------------------------------------------------|
-| mindspore_ckpt_path      | string  | 必选   | 无      | 需要转换的 MindSpore Transformers 训练权重路径。                                                                                         |
-| huggingface_ckpt_path    | string  | 必选   | 无      | 转换后的 Hugging Face 权重的目标路径。                                                                                                   |
-| num_layers               | int     | 可选   | 61     | 模型层数（计算时不包括 MTP 层数），对应训练 yaml 文件中的 `model.mocel_config.num_layers`（别名可能为`model.mocel_config.num_hidden_layers`）。             |
-| hidden_size              | int     | 可选   | 7168   | 模型隐藏层大小，对应训练 yaml 文件中的 `model.mocel_config.hidden_size`。                                                                     |
-| ffn_hidden_size          | int     | 可选   | 18432  | 模型前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.ffn_hidden_size`。（别名可能为`model.mocel_config.intermediate_size`）。              |
-| moe_ffn_hidden_size      | int     | 可选   | 2048   | 模型 MoE 中前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.moe_ffn_hidden_size`（别名可能为`model.mocel_config.moe_intermediate_size`）。 |
-| num_routed_experts       | int     | 可选   | 256    | 模型专家数，对应训练 yaml 文件中的 `model.mocel_config.num_routed_experts`（别名可能为`model.mocel_config.n_routed_experts`）。                    |
-| num_nextn_predict_layers | int     | 可选   | 1      | MTP 层数，对应训练 yaml 文件中的 `model.mocel_config.mtp_num_layers`（别名可能为`model.mocel_config.num_nextn_predict_layers`）。               |
-| first_k_dense_replace    | int     | 可选   | 3      | 指定模型的前几层为 Dense 层，对应训练 yaml 文件中的 `model.mocel_config.first_k_dense_replace`。                                                 |
-| dtype                    | string  | 可选   | 'bf16' | 目标转换的 Hugging Face 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。                                                 |
+| 配置项                      | 数据类型   | 是否可选 | 默认值    | 说明                                                                                                                           |
+|--------------------------|--------|------|--------|------------------------------------------------------------------------------------------------------------------------------|
+| input_path               | string | 必选   | 无      | 需要转换的 MindSpore Transformers 训练权重路径。                                                                                         |
+| output_path              | string | 必选   | 无      | 转换后的 Hugging Face 权重的目标路径。                                                                                                   |
+| model                    | string | 必选   | 无      | 选择进行权重转换的模型，此处对应配置为 `'deepseekv3'`。                                                                                          |
+| reversed                 | bool   | 必选   | False  | 是否进行权重反转。使用时，仅需设置 `--reversed` 即可，效果与 `--reversed True` 一致。                                                                  |
+| num_layers               | int    | 可选   | 61     | 模型层数（计算时不包括 MTP 层数），对应训练 yaml 文件中的 `model.mocel_config.num_layers`（别名可能为`model.mocel_config.num_hidden_layers`）。             |
+| hidden_size              | int    | 可选   | 7168   | 模型隐藏层大小，对应训练 yaml 文件中的 `model.mocel_config.hidden_size`。                                                                     |
+| ffn_hidden_size          | int    | 可选   | 18432  | 模型前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.ffn_hidden_size`。（别名可能为`model.mocel_config.intermediate_size`）。              |
+| moe_ffn_hidden_size      | int    | 可选   | 2048   | 模型 MoE 中前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.moe_ffn_hidden_size`（别名可能为`model.mocel_config.moe_intermediate_size`）。 |
+| num_routed_experts       | int    | 可选   | 256    | 模型专家数，对应训练 yaml 文件中的 `model.mocel_config.num_routed_experts`（别名可能为`model.mocel_config.n_routed_experts`）。                    |
+| num_nextn_predict_layers | int    | 可选   | 1      | MTP 层数，对应训练 yaml 文件中的 `model.mocel_config.mtp_num_layers`（别名可能为`model.mocel_config.num_nextn_predict_layers`）。               |
+| first_k_dense_replace    | int    | 可选   | 3      | 指定模型的前几层为 Dense 层，对应训练 yaml 文件中的 `model.mocel_config.first_k_dense_replace`。                                                 |
+| dtype                    | string | 可选   | 'bf16' | 目标转换的 Hugging Face 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。                                                 |
 
 如果转换时不需要 MTP 层（如权重反转后用于 vLLM 推理场景），可以将上述指令的 `--num_nextn_predict_layers` 参数设置为 `0`，例如：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/reverse_mcore_deepseekv3_weight_to_hf.py \
-  --mindspore_ckpt_path MS_TRAIN_CKPT_PATH \
-  --huggingface_ckpt_path HF_REVERSE_CKPT_PATH \
+python convert_weight.py \
+  --input_path MS_TRAIN_CKPT_PATH \
+  --output_path HF_REVERSE_CKPT_PATH \
+  --model 'deepseekv3' \
+  --reversed \
   --num_nextn_predict_layers 0
 ```
 
@@ -140,9 +150,11 @@ python toolkit/weight_convert/deepseekv3/reverse_mcore_deepseekv3_weight_to_hf.p
 如果训练时模型有 1 层 Dense、2 层 MoE 和 1 层 MTP（注意 `num_layers` 的计算不包括 MTP 层，所以为 1 + 2 = 3 层），转换时需要修改 `--num_layers` 、 `--num_nextn_predict_layers` 和 `first_k_dense_replace`：
 
 ```bash
-python toolkit/weight_convert/deepseekv3/reverse_mcore_deepseekv3_weight_to_hf.py \
-  --mindspore_ckpt_path MS_TRAIN_CKPT_PATH \
-  --huggingface_ckpt_path HF_REVERSE_CKPT_PATH \
+python convert_weight.py \
+  --input_path MS_TRAIN_CKPT_PATH \
+  --output_path HF_REVERSE_CKPT_PATH \
+  --model 'deepseekv3' \
+  --reversed \
   --num_layers 3 \
   --first_k_dense_replace 1 \
   --num_nextn_predict_layers 1

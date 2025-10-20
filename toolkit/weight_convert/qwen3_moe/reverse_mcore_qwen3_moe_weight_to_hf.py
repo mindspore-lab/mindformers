@@ -35,13 +35,13 @@ from mindformers.tools.logger import logger
 ms.set_context(device_target='CPU')
 cpu_cast = Cast().set_device('CPU')
 
-dtype_map = {
+DTYPE_MAP = {
     'fp32': torch.float32,
     'bf16': torch.bfloat16,
     'fp16': torch.float16
 }
 
-default_config = {
+DEFAULT_CONFIG = {
     'num_layers': 48,
     'num_attention_heads': 32,
     'num_query_groups': 4,
@@ -413,7 +413,7 @@ def ms_safetensors_convertor(input_path, output_path, config):
 def convert_ms_to_pt(input_path, output_path, config=None):
     """convert ms weight to huggingface."""
     if config is None:
-        config = default_config
+        config = DEFAULT_CONFIG
     os.makedirs(output_path, exist_ok=True)
 
     tqdm.write(f"Trying to convert huggingface checkpoint in '{input_path}'.")
@@ -425,6 +425,32 @@ def convert_ms_to_pt(input_path, output_path, config=None):
     end_time = time()
     print("Finish converting mindspore checkpoints into Huggingface checkpoints!")
     tqdm.write(f"Cost time: {end_time - start_time}s.")
+
+
+def reverse_weight(para):
+    """convert weight entrance"""
+    if not hasattr(para, 'mindspore_ckpt_path'):
+        para.mindspore_ckpt_path = para.input_path
+    if not hasattr(para, 'huggingface_ckpt_path'):
+        para.huggingface_ckpt_path = para.output_path
+
+    for key in DEFAULT_CONFIG:
+        DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
+        if key in ['num_layers', 'num_attention_heads', 'num_query_groups', 'kv_channels',
+                   'num_routed_experts', 'hidden_size', 'moe_ffn_hidden_size']:
+            DEFAULT_CONFIG[key] = int(DEFAULT_CONFIG[key])
+
+    DEFAULT_CONFIG['dtype'] = (
+        DTYPE_MAP.get(DEFAULT_CONFIG['dtype'], DEFAULT_CONFIG['dtype'])
+        if DEFAULT_CONFIG['dtype'] is not None
+        else torch.bfloat16
+    )
+
+    convert_ms_to_pt(
+        input_path=para.mindspore_ckpt_path,
+        output_path=para.huggingface_ckpt_path,
+        config=DEFAULT_CONFIG
+    )
 
 
 if __name__ == "__main__":
@@ -459,12 +485,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    for key in default_config:
-        default_config[key] = getattr(args, key, default_config[key])
-    default_config['dtype'] = dtype_map.get(default_config['dtype'], default_config['dtype'])
-
-    convert_ms_to_pt(
-        input_path=args.mindspore_ckpt_path,
-        output_path=args.huggingface_ckpt_path,
-        config=default_config
-    )
+    reverse_weight(args)
