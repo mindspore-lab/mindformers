@@ -1348,6 +1348,7 @@ class Trainer:
         self._using_checkpoint_name_or_path_if_needed()
         self._clear_redundant_model_checkpoint_name()
         self._warn_if_resume_training_is_string()
+        self._error_if_checkpoint_prefix_contains_rank_info()
 
     def _adjust_resume_training_if_ckpt_path_invalid(self):
         """Disable resume_training if checkpoint path is empty or invalid."""
@@ -1429,6 +1430,13 @@ class Trainer:
             logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                            "when `load_checkpoint` is a file path.")
             self.config.resume_training = True
+
+    def _error_if_checkpoint_prefix_contains_rank_info(self):
+        """Error if checkpoint prefix contains rank info"""
+        for callback in self.config.callbacks:
+            if "type" in callback and callback["type"] == "CheckpointMonitor":
+                if "rank" in callback.get("prefix", "mindformers"):
+                    raise ValueError("The prefix for saving checkpoint is not allowed to contain 'rank'.")
 
     def _check_args_task_and_model(self):
         """Check args, task and model."""

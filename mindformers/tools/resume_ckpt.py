@@ -50,6 +50,18 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True,
     if isinstance(resume_training, str):
         if not resume_training.endswith(f".{ckpt_format}"):
             resume_training = f"{resume_training}.{ckpt_format}"
+
+        if rank_id == 0:
+            rank_dir_num = len([rank_dir for rank_dir in os.listdir(checkpoint_dir)
+                                if rank_dir.startswith("rank_")])
+            for rank_id_tmp in range(rank_dir_num):
+                checkpoint_file = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}",
+                                               replace_rank_id_in_ckpt_name(resume_training, rank_id_tmp))
+                if not os.path.exists(checkpoint_file):
+                    raise ValueError(f"{checkpoint_file} is not found.")
+
+        barrier_world("Rank 0 verifies the existence of all checkpoint files.")
+
         resume_training = replace_rank_id_in_ckpt_name(resume_training, rank_id)
         logger.info("Specify resume checkpoint: %s",
                     os.path.join(checkpoint_dir, f"rank_{rank_id}", resume_training))
