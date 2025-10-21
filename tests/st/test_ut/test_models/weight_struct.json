@@ -1,0 +1,279 @@
+{
+  "train_version": {
+    "weights": {
+      "embedding.word_embeddings.weight": [
+        1000,
+        128
+      ],
+      "embedding.embedding_dropout.seed": [],
+      "embedding.embedding_dropout.offset": [],
+      "decoder.layers.0.input_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.0.self_attention.linear_proj.weight": [
+        128,
+        512
+      ],
+      "decoder.layers.0.self_attention.linear_q_down_proj.weight": [
+        512,
+        128
+      ],
+      "decoder.layers.0.self_attention.linear_q_up_proj.weight": [
+        768,
+        512
+      ],
+      "decoder.layers.0.self_attention.linear_kv_down_proj.weight": [
+        576,
+        128
+      ],
+      "decoder.layers.0.self_attention.linear_kv_up_proj.weight": [
+        1024,
+        512
+      ],
+      "decoder.layers.0.pre_mlp_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.0.mlp.linear_fc1.weight": [
+        512,
+        128
+      ],
+      "decoder.layers.0.mlp.linear_fc2.weight": [
+        128,
+        256
+      ],
+      "decoder.layers.0.hidden_states_dropout.seed": [],
+      "decoder.layers.0.hidden_states_dropout.offset": [],
+      "decoder.layers.1.input_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.1.self_attention.linear_proj.weight": [
+        128,
+        512
+      ],
+      "decoder.layers.1.self_attention.linear_q_down_proj.weight": [
+        512,
+        128
+      ],
+      "decoder.layers.1.self_attention.linear_q_up_proj.weight": [
+        768,
+        512
+      ],
+      "decoder.layers.1.self_attention.linear_kv_down_proj.weight": [
+        576,
+        128
+      ],
+      "decoder.layers.1.self_attention.linear_kv_up_proj.weight": [
+        1024,
+        512
+      ],
+      "decoder.layers.1.pre_mlp_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.1.mlp.router.weight": [
+        2,
+        128
+      ],
+      "decoder.layers.1.mlp.router.fi_accu": [
+        2
+      ],
+      "decoder.layers.1.mlp.experts.weight1": [
+        256,
+        512
+      ],
+      "decoder.layers.1.mlp.experts.weight2": [
+        512,
+        128
+      ],
+      "decoder.layers.1.hidden_states_dropout.seed": [],
+      "decoder.layers.1.hidden_states_dropout.offset": [],
+      "decoder.final_layernorm.weight": [
+        128
+      ],
+      "mtp.layers.0.enorm.weight": [
+        128
+      ],
+      "mtp.layers.0.hnorm.weight": [
+        128
+      ],
+      "mtp.layers.0.eh_proj.weight": [
+        128,
+        256
+      ],
+      "mtp.layers.0.transformer_layer.input_layernorm.weight": [
+        128
+      ],
+      "mtp.layers.0.transformer_layer.self_attention.linear_proj.weight": [
+        128,
+        512
+      ],
+      "mtp.layers.0.transformer_layer.self_attention.linear_q_down_proj.weight": [
+        512,
+        128
+      ],
+      "mtp.layers.0.transformer_layer.self_attention.linear_q_up_proj.weight": [
+        768,
+        512
+      ],
+      "mtp.layers.0.transformer_layer.self_attention.linear_kv_down_proj.weight": [
+        576,
+        128
+      ],
+      "mtp.layers.0.transformer_layer.self_attention.linear_kv_up_proj.weight": [
+        1024,
+        512
+      ],
+      "mtp.layers.0.transformer_layer.pre_mlp_layernorm.weight": [
+        128
+      ],
+      "mtp.layers.0.transformer_layer.mlp.router.weight": [
+        2,
+        128
+      ],
+      "mtp.layers.0.transformer_layer.mlp.router.fi_accu": [
+        2
+      ],
+      "mtp.layers.0.transformer_layer.mlp.experts.weight1": [
+        256,
+        512
+      ],
+      "mtp.layers.0.transformer_layer.mlp.experts.weight2": [
+        512,
+        128
+      ],
+      "mtp.layers.0.transformer_layer.hidden_states_dropout.seed": [],
+      "mtp.layers.0.transformer_layer.hidden_states_dropout.offset": [],
+      "mtp.layers.0.final_layernorm.weight": [
+        128
+      ],
+      "mtp.embedding.embedding_dropout.seed": [],
+      "mtp.embedding.embedding_dropout.offset": [],
+      "output_layer.weight": [
+        1000,
+        128
+      ]
+    },
+    "weight_count": 48
+  },
+  "infer_version": {
+    "weights": {
+      "embedding.word_embeddings.weight": [
+        1000,
+        128
+      ],
+      "decoder.layers.0.input_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.0.self_attention.linear_proj.weight": [
+        128,
+        512
+      ],
+      "decoder.layers.0.self_attention.linear_qkv_down_proj.weight": [
+        1088,
+        128
+      ],
+      "decoder.layers.0.self_attention.linear_q_up_proj.weight": [
+        768,
+        512
+      ],
+      "decoder.layers.0.self_attention.linear_kv_up_proj.weight": [
+        1024,
+        512
+      ],
+      "decoder.layers.0.self_attention.q_layernorm.weight": [
+        512
+      ],
+      "decoder.layers.0.self_attention.kv_layernorm.weight": [
+        512
+      ],
+      "decoder.layers.0.pre_mlp_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.0.mlp.linear_fc1.weight": [
+        512,
+        128
+      ],
+      "decoder.layers.0.mlp.linear_fc2.weight": [
+        128,
+        256
+      ],
+      "decoder.layers.1.input_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.1.self_attention.linear_proj.weight": [
+        128,
+        512
+      ],
+      "decoder.layers.1.self_attention.linear_qkv_down_proj.weight": [
+        1088,
+        128
+      ],
+      "decoder.layers.1.self_attention.linear_q_up_proj.weight": [
+        768,
+        512
+      ],
+      "decoder.layers.1.self_attention.linear_kv_up_proj.weight": [
+        1024,
+        512
+      ],
+      "decoder.layers.1.self_attention.q_layernorm.weight": [
+        512
+      ],
+      "decoder.layers.1.self_attention.kv_layernorm.weight": [
+        512
+      ],
+      "decoder.layers.1.pre_mlp_layernorm.weight": [
+        128
+      ],
+      "decoder.layers.1.mlp.router.weight": [
+        2,
+        128
+      ],
+      "decoder.layers.1.mlp.experts.weight1": [
+        2,
+        128,
+        512
+      ],
+      "decoder.layers.1.mlp.experts.weight2": [
+        2,
+        256,
+        128
+      ],
+      "decoder.final_layernorm.weight": [
+        128
+      ],
+      "output_layer.weight": [
+        1000,
+        128
+      ]
+    },
+    "weight_count": 24
+  },
+  "metadata": {
+    "config": {
+      "hidden_size": 128,
+      "ffn_hidden_size": 256,
+      "num_attention_heads": 4,
+      "num_layers": 2,
+      "seq_length": 32,
+      "vocab_size": 1000,
+      "max_position_embeddings": 128,
+      "tensor_model_parallel_size": 1,
+      "pipeline_model_parallel_size": 1,
+      "data_parallel_size": 1,
+      "normalization": "RMSNorm",
+      "hidden_act": "silu",
+      "position_embedding_type": "rope",
+      "add_bias_linear": false,
+      "gated_linear_unit": true,
+      "mla_qkv_concat": false,
+      "use_fused_mla": false,
+      "use_flash_attention": true,
+      "num_moe_experts": 2,
+      "moe_grouped_gemm": true,
+      "mtp_num_layers": 1,
+      "first_k_dense_replace": 1,
+      "parallel_config": {}
+    },
+    "generated_at": "2025-10-17 22:34:54"
+  }
+}
