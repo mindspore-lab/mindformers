@@ -41,3 +41,4 @@ mindformers/research/deepseek3/deepseek2_model.py:__init__
 mindformers/mindformers/modules/transformer/moe.py:__init__
 mindformers/research/deepseek3/deepseek3_config.py:__init__
 mindformers/research/deepseek3/deepseek2_config.py:__init__
+mindformers/mindformers/utils/load_checkpoint_utils.py:load_checkpoint_with_safetensors
