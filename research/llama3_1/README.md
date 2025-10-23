@@ -1,5 +1,11 @@
 # Llama 3.1
 
+> ## 🚨 弃用说明
+>
+> 本文档中的模型已过时，不再进行维护，并将在 *1.8.0* 版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/master/introduction/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 Llama 3.1，是开源Llama系列的最新产品，目前有三个版本：Llama 3.1-8B，Llama 3.1-70B，Llama 3.1-405B。

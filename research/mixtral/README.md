@@ -1,5 +1,11 @@
 # Mixtral-8x7B
 
+> ## 🚨 弃用说明
+>
+> 本文档中的模型已过时，不再进行维护，并将在 *1.8.0* 版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/master/introduction/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-8x7B，Mixtral-8x7B-Instruct，Mixtral-8x22B，Mixtral-8x22B-Instruct。Mixtral模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。目前仓上提供的Mixtral模型是Mixtral-8x7B，其模型结构与Llama2-7b几乎一致，只是在Llama2-7b的基础上添加了MoE，并采用了分组查询注意力机制(GQA)。
