@@ -216,6 +216,41 @@ def _get_src_file_suffix(config):
     return config.load_checkpoint, file_suffix
 
 
+def _get_src_file(checkpoint_dir, checkpoint_name=None, ckpt_format='ckpt'):
+    """
+    Retrieves the path to a checkpoint source file.
+
+    This function constructs the path to a checkpoint file by first determining the
+    rank-specific checkpoint directory (appending "rank_{real_rank}" to the base
+    checkpoint directory). If a specific checkpoint name is provided, it directly
+    forms the path using that name within the rank directory. If no name is given,
+    it fetches the most recent checkpoint file in the specified format from the
+    rank directory. It validates the existence of the constructed path and raises
+    a FileNotFoundError if the file does not exist.
+
+    Args:
+        checkpoint_dir (str): Base directory where checkpoints are stored.
+        checkpoint_name (str, optional): Specific name of the checkpoint file to retrieve.
+            If None, the latest checkpoint in the specified format will be used. Defaults to None.
+        ckpt_format (str, optional): Format/extension of the checkpoint files (e.g., 'ckpt').
+            Used when fetching the latest checkpoint. Defaults to 'ckpt'.
+
+    Returns:
+        str: Full path to the valid checkpoint source file.
+
+    Raises:
+        FileNotFoundError: If the constructed checkpoint path does not exist.
+    """
+    checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{get_real_rank()}")
+    if isinstance(checkpoint_name, str):
+        ckpt_path = os.path.join(checkpoint_rank_dir, checkpoint_name)
+    else:
+        ckpt_path = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f"{ckpt_path} is not found.")
+    return ckpt_path
+
+
 def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
                                      do_predict=False, optimizer=None):
     """load different format checkpoint interface."""
@@ -271,14 +306,9 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
                 sf_file_name = load_checkpoint
                 logger.info(f"......tft is enabled and not enable remove_redundancy, sf_file_name={sf_file_name}......")
             else:
-                _, file_suffix = _get_src_file_suffix(config)
-                rank_id = get_real_rank() if get_real_rank() else 0
-                load_checkpoint_by_rank = os.path.join(load_checkpoint, f"rank_{rank_id}")
-                if file_suffix is None:
-                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*.{config.load_ckpt_format}")
-                else:
-                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
-                logger.info(f"......file_suffix={file_suffix}, sf_file_name={sf_file_name}......")
+                sf_file_name = _get_src_file(load_checkpoint, config.resume_training, config.load_ckpt_format)
+                logger.info(f"......sf_file_name={sf_file_name}......")
+
             load_checkpoint_files = glob(sf_file_name, recursive=False)
 
     # use resume_training in train/finetune mode
@@ -404,6 +434,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
             **addition_args
         )
         # Load optimizer param in resume_training
+        logger.info(f"load checkpoint unified: {load_ckpt_path}")
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
         if optimizer and config.resume_training:
             if not os.path.exists(hyper_param_file):
@@ -417,6 +448,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         params_dict = dict()
         remove_redundancy = config.get('remove_redundancy', False)
         for checkpoint_file in load_checkpoint_files:
+            logger.info(f"load checkpoint file: {checkpoint_file}")
             with safe_open(checkpoint_file, framework='np') as f:
                 remove_redundancy = _revise_remove_redundancy_with_file(remove_redundancy, f)
             params_dict.update(ms.load_checkpoint(
