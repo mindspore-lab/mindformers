@@ -135,7 +135,7 @@ class AdamW:
 
         swap (bool, optional): Enables swap_optimizer feature when True, offloading optimizer states to CPU instead of
             storing them on NPU. When enabled, set the environment variable `MS_DEV_RUNTIME_CONF="switch_inline:False"`.
-             Default: False.
+            Default: False.
 
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.

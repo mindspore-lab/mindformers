@@ -1,7 +1,7 @@
 mindformers.core.AdamW
 ======================
 
-.. py:class:: mindformers.core.AdamW(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False)
+.. py:class:: mindformers.core.AdamW(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False)
 
     权重衰减Adam算法的实现。
 
@@ -67,6 +67,7 @@ mindformers.core.AdamW
         - **use_fused** (bool, 可选) - 是否启用融合算子。默认值： ``False`` 。
         - **amsgrad** (bool, 可选) - 是否使用 Adam 算法的 AMSGrad 变体。该变体会保留历史梯度平方的最大值，而非使用指数移动平均值。在某些情况下，这有助于改善模型的收敛性。为 `True` 时使用 AMSGrad 变体，仅支持 `use_fused=True` 的场景。默认值： ``False`` 。
         - **maximize** (bool, 可选) - 是否对目标函数执行最大化（而非最小化）操作。该选项适用于需要最大化奖励函数或效用函数的场景。为 `True` 时最大化目标函数，仅支持 `use_fused=True` 的场景。默认值： ``False`` 。
+        - **swap** (bool, 可选) - 是否启用 swap_optimizer 特性，将优化器状态卸载到 CPU 存储，而非保留在 NPU 上。启用后需设置环境变量 `MS_DEV_RUNTIME_CONF="switch_inline:False"`。默认值： ``False`` 。
 
     输入：
         - **gradients** (tuple[Tensor]) - `params` 的梯度，shape与 `params` 相同。
