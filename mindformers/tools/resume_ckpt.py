@@ -50,18 +50,6 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True,
     if isinstance(resume_training, str):
         if not resume_training.endswith(f".{ckpt_format}"):
             resume_training = f"{resume_training}.{ckpt_format}"
-
-        if rank_id == 0:
-            rank_dir_num = len([rank_dir for rank_dir in os.listdir(checkpoint_dir)
-                                if rank_dir.startswith("rank_")])
-            for rank_id_tmp in range(rank_dir_num):
-                checkpoint_file = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}",
-                                               replace_rank_id_in_ckpt_name(resume_training, rank_id_tmp))
-                if not os.path.exists(checkpoint_file):
-                    raise ValueError(f"{checkpoint_file} is not found.")
-
-        barrier_world("Rank 0 verifies the existence of all checkpoint files.")
-
         resume_training = replace_rank_id_in_ckpt_name(resume_training, rank_id)
         logger.info("Specify resume checkpoint: %s",
                     os.path.join(checkpoint_dir, f"rank_{rank_id}", resume_training))
@@ -89,8 +77,6 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
                                   use_checkpoint_health_monitor=False, health_ckpts_record_dir="./output"):
     """get resume checkpoint by meta."""
     rank_id = get_real_rank()
-    rank_dir_num = len([rank_dir for rank_dir in os.listdir(checkpoint_dir) \
-                        if rank_dir.startswith("rank_")])
 
     if check_in_modelarts():
         resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
@@ -104,6 +90,8 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
     resume_ckpt = None
     if rank_id == 0:
         try:
+            rank_dir_num = len([rank_dir for rank_dir in os.listdir(checkpoint_dir) \
+                                if rank_dir.startswith("rank_")])
             # 1. get basic resume ckpt file
             last_epoch, last_step, last_ckpt_file = get_info_from_meta(checkpoint_dir, rank_dir_num, ckpt_format)
             if last_epoch is None or last_step is None or last_ckpt_file is None:
