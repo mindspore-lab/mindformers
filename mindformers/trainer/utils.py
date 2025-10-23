@@ -33,6 +33,7 @@ from mindformers.tools.utils import get_real_rank
 from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, build_model
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
+    replace_rank_id_in_ckpt_name,
     replace_tk_to_mindpet,
     check_shared_disk,
     get_device_num_per_node,
@@ -307,6 +308,10 @@ def load_resume_context_from_checkpoint(config, dataset):
         raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
+        if config.use_graceful_exit:
+            rank_id = get_real_rank()
+        else:
+            rank_id = 0
         if isinstance(config.resume_training, bool):
             # if load checkpoint is complete safetensors, get resume param from hyper_param.safetensors
             if is_hyper_param_existed_in_sf_dir(config.load_checkpoint, config.load_ckpt_format):
@@ -317,17 +322,14 @@ def load_resume_context_from_checkpoint(config, dataset):
                                'step_num': resume_param['step_num'],
                                'global_batch_size': resume_param['global_batch_size']}
             else:
-                if config.use_graceful_exit:
-                    rank_id = get_real_rank()
-                else:
-                    rank_id = 0
                 resume_dict = load_distributed_checkpoint(config.load_checkpoint,
                                                           choice_func=lambda x: x in ["loss_scale", "epoch_num",
                                                                                       "step_num", "global_batch_size"],
                                                           rank_id=rank_id, ckpt_format=config.load_ckpt_format,
                                                           remove_redundancy=config.remove_redundancy)
         else:
-            checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
+            checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{rank_id}",
+                                          replace_rank_id_in_ckpt_name(config.resume_training, rank_id))
             resume_dict = load_checkpoint(
                 checkpoint_tmp,
                 choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],

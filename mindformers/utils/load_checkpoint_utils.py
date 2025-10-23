@@ -14,6 +14,7 @@
 #  ============================================================================
 """utils of load checkpoint file"""
 import os
+import re
 import shutil
 import time
 from enum import Enum
@@ -28,8 +29,11 @@ from mindspore.common.api import _pynative_executor
 from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import (is_main_rank, get_epoch_and_step_from_ckpt_name,
-                                     get_real_rank, clear_auto_trans_output)
+from mindformers.tools.utils import (
+    is_main_rank,
+    get_real_rank,
+    clear_auto_trans_output
+)
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
 from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.version_control import check_safetensors_addition_param_support
@@ -142,34 +146,63 @@ def _get_src_strategy(config):
     return src_strategy_path
 
 
-def _is_distributed_checkpoint(checkpoint_file, ckpt_format='safetensors'):
-    """check if checkpoint_file is a distributed checkpoint."""
-    is_distributed = True
-    file_suffix = None
-    try:
-        epoch, step = get_epoch_and_step_from_ckpt_name(checkpoint_file, ckpt_format)
-        is_distributed = False
-        file_suffix = f"{epoch}_{step}"
-    except ValueError as e:
-        logger.info(f"Get epoch and step in {checkpoint_file} failed, check if it's "
-                    f"distributed checkpoint and ignore error {e}")
-    except Exception as e:
-        raise ValueError(f"get_epoch_and_step_from_ckpt_name from {checkpoint_file} failed.") from e
-    return is_distributed, file_suffix
+def extract_suffix(file_path):
+    """
+    Extracts the suffix from safetensor filenames based on specific patterns.
+
+    The function handles two filename patterns:
+    1. {prefix}_rank_{rank_id}-{epoch}_{step}.safetensors
+    2. {prefix}_rank_{rank_id}_{task_id}-{epoch}_{step}.safetensors
+
+    Args:
+        file_path: Path to the file or just the filename
+
+    Returns:
+        str: Extracted suffix in the format:
+             - "{epoch}_{step}" for pattern 1
+             - "{task_id}-{epoch}_{step}" for pattern 2
+             Returns None if the filename doesn't match either pattern or if epoch/step are missing.
+    """
+    filename = os.path.basename(file_path)
+    base_name = os.path.splitext(filename)[0]
+
+    # Regular expression pattern to match both filename formats
+    # Pattern groups: (task_id), (epoch), (step)
+    pattern = r'^.+_rank_\d+(?:_(\d+))?-(\d+)_(\d+)$'
+    match = re.match(pattern, base_name)
+
+    if not match:
+        logger.info(f"Filename '{filename}' does not match expected pattern. "
+                    "Skipping suffix extraction.")
+        return None
+
+    # Extract matched groups
+    task_id = match.group(1)  # Will be None if no task_id in filename
+    epoch = match.group(2)
+    step = match.group(3)
+
+    if not epoch or not step:
+        logger.info(f"Filename '{filename}' is missing epoch or step information. "
+                    "Skipping suffix extraction.")
+        return None
+
+    # Construct the appropriate suffix based on presence of task_id
+    if task_id:
+        return f"_{task_id}-{epoch}_{step}"
+    return f"-{epoch}_{step}"
 
 
 def _get_src_file_suffix(config):
     """get file_suffix from config.load_checkpoint."""
     if isinstance(config.resume_training, str):
-        file_suffix, _ = os.path.splitext(config.resume_training)
+        file_suffix = extract_suffix(config.resume_training)
         return config.load_checkpoint, file_suffix
 
     if os.path.isfile(config.load_checkpoint):
         # only support path format: path/rank_x/prefix-{epoch}_{step}.{config.load_ckpt_format}
-        file_name = os.path.basename(config.load_checkpoint)
-        epoch, step = get_epoch_and_step_from_ckpt_name(file_name, config.load_ckpt_format)
+        file_suffix = extract_suffix(config.load_checkpoint)
         checkpoint_dir = '/'.join(config.load_checkpoint.split('/')[:-2])
-        return checkpoint_dir, f"{epoch}_{step}"
+        return checkpoint_dir, file_suffix
 
     # config.load_checkpoint is folder
     rank_id = get_real_rank()
@@ -178,11 +211,43 @@ def _get_src_file_suffix(config):
         raise FileNotFoundError(f"{rank_path} not found.")
 
     last_checkpoint = get_last_checkpoint(rank_path, config.load_ckpt_format)
-    is_distributed, file_suffix = _is_distributed_checkpoint(
-        last_checkpoint, config.load_ckpt_format)
-    logger.info(f"Last checkpoint in {rank_path}: {last_checkpoint}, is_distributed: {is_distributed}, "
-                f"file_suffix: {file_suffix}")
+    file_suffix = extract_suffix(last_checkpoint)
     return config.load_checkpoint, file_suffix
+
+
+def _get_src_file(checkpoint_dir, checkpoint_name=None, ckpt_format='ckpt'):
+    """
+    Retrieves the path to a checkpoint source file.
+
+    This function constructs the path to a checkpoint file by first determining the
+    rank-specific checkpoint directory (appending "rank_{real_rank}" to the base
+    checkpoint directory). If a specific checkpoint name is provided, it directly
+    forms the path using that name within the rank directory. If no name is given,
+    it fetches the most recent checkpoint file in the specified format from the
+    rank directory. It validates the existence of the constructed path and raises
+    a FileNotFoundError if the file does not exist.
+
+    Args:
+        checkpoint_dir (str): Base directory where checkpoints are stored.
+        checkpoint_name (str, optional): Specific name of the checkpoint file to retrieve.
+            If None, the latest checkpoint in the specified format will be used. Defaults to None.
+        ckpt_format (str, optional): Format/extension of the checkpoint files (e.g., 'ckpt').
+            Used when fetching the latest checkpoint. Defaults to 'ckpt'.
+
+    Returns:
+        str: Full path to the valid checkpoint source file.
+
+    Raises:
+        FileNotFoundError: If the constructed checkpoint path does not exist.
+    """
+    checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{get_real_rank()}")
+    if isinstance(checkpoint_name, str):
+        ckpt_path = os.path.join(checkpoint_rank_dir, checkpoint_name)
+    else:
+        ckpt_path = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f"{ckpt_path} is not found.")
+    return ckpt_path
 
 
 def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
@@ -240,14 +305,9 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
                 sf_file_name = load_checkpoint
                 logger.info(f"......tft is enabled and not enable remove_redundancy, sf_file_name={sf_file_name}......")
             else:
-                _, file_suffix = _get_src_file_suffix(config)
-                rank_id = get_real_rank() if get_real_rank() else 0
-                load_checkpoint_by_rank = os.path.join(load_checkpoint, f"rank_{rank_id}")
-                if file_suffix is None:
-                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*.{config.load_ckpt_format}")
-                else:
-                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
-                logger.info(f"......file_suffix={file_suffix}, sf_file_name={sf_file_name}......")
+                sf_file_name = _get_src_file(load_checkpoint, config.resume_training, config.load_ckpt_format)
+                logger.info(f"......sf_file_name={sf_file_name}......")
+
             load_checkpoint_files = glob(sf_file_name, recursive=False)
 
     # use resume_training in train/finetune mode
@@ -366,6 +426,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
             **addition_args
         )
         # Load optimizer param in resume_training
+        logger.info(f"load checkpoint unified: {load_ckpt_path}")
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
         if optimizer and config.resume_training:
             if not os.path.exists(hyper_param_file):
@@ -379,6 +440,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         params_dict = dict()
         remove_redundancy = config.get('remove_redundancy', False)
         for checkpoint_file in load_checkpoint_files:
+            logger.info(f"load checkpoint file: {checkpoint_file}")
             with safe_open(checkpoint_file, framework='np') as f:
                 remove_redundancy = _revise_remove_redundancy_with_file(remove_redundancy, f)
             params_dict.update(ms.load_checkpoint(

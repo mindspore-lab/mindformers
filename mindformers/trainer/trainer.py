@@ -1363,6 +1363,15 @@ class Trainer:
                            "when `load_checkpoint` is a file path")
             self.config.resume_training = True
 
+        self._error_if_checkpoint_prefix_contains_rank_info()
+
+    def _error_if_checkpoint_prefix_contains_rank_info(self):
+        """Error if checkpoint prefix contains rank info"""
+        for callback in self.config.callbacks:
+            if "type" in callback and callback["type"] == "CheckpointMonitor":
+                if "rank" in callback.get("prefix", "mindformers"):
+                    raise ValueError("The prefix for saving checkpoint is not allowed to contain 'rank'.")
+
     def _check_args_task_and_model(self):
         """Check args, task and model."""
         # get support model names of task
