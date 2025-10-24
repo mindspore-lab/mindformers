@@ -651,6 +651,16 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                                 f"but got {type(self.moe_layer_freq)}")
 
         self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
+        if self.is_dryrun:
+            if self.num_moe_experts is not None and self.seq_length % self.num_moe_experts != 0:
+                raise ValueError(
+                    f"When using moe_dry_run, seq_length ({self.seq_length}) must be divisible by "
+                    f"num_moe_experts ({self.num_moe_experts})"
+                    )
+            elif self.moe_token_dispatcher_type != "alltoall":
+                raise ValueError(
+                    "When using moe_dry_run, moe_token_dispatcher_type must be alltoall."
+                    )
 
         if isinstance(self.rope_scaling, dict):
             self.position_embedding_type = (self.rope_scaling.pop("type", None) or
