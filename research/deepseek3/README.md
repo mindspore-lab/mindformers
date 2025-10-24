@@ -62,9 +62,9 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
 DeepSeek-V3所依赖的版本配套如下：
 
-| MindFormers | MindSpore | CANN | 固件与驱动 |
-|:-----------:|:---------:|:----:|:-----:|
-|    在研版本     |   在研版本    | 在研版本 | 在研版本  |
+| MindSpore Transformers | MindSpore |  CANN   |  固件与驱动   |
+|:----------------------:|:---------:|:-------:|:--------:|
+|         1.7.0          |   2.7.1   | 8.3.RC1 | 25.3.RC1 |
 
 环境的详细安装指南参考[环境安装指南](https://www.mindspore.cn/mindformers/docs/zh-CN/master/installation.html)。
 
