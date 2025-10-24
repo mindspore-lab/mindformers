@@ -303,6 +303,7 @@ COMMON_CONFIG_MAPPING = {
     "untie_embeddings_and_output_weights": "untie_embeddings_and_output_weights",
     "hidden_act": "hidden_act",
     "mask_func_type": "mask_func_type",
+    "param_init_std_rules": "param_init_std_rules",
     ("extend_method", "position_embedding_type"): "position_embedding_type",
     ("init_method_std", "initializer_range"): "init_method_std",
 
@@ -481,7 +482,7 @@ def convert_to_transformer_config(
         if not isinstance(mapping_key, str):
             (mapping_key, trans_func) = mapping_key
             value = trans_func(value)
-        if mapping_key in update_dict.keys():
+        if mapping_key in update_dict:
             raise KeyError(f"Multiple configurations provided for the same setting. "
                            f"Please check these conflicting configs: {list(reversed_mapping[mapping_key])}")
         update_dict[mapping_key] = value
@@ -491,16 +492,16 @@ def convert_to_transformer_config(
         for parallel_key, parallel_value in model_config['parallel_config'].items():
             if parallel_key == 'recompute' and isinstance(parallel_value, dict):
                 for recompute_key, recompute_value in parallel_value.items():
-                    if recompute_key in convert_map.keys():
+                    if recompute_key in convert_map:
                         mapping_config(recompute_key, recompute_value)
                 continue
-            if parallel_key in convert_map.keys():
+            if parallel_key in convert_map:
                 mapping_config(parallel_key, parallel_value)
         model_config.pop('parallel_config')
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
             continue
-        if model_config_key in convert_map.keys():
+        if model_config_key in convert_map:
             mapping_config(model_config_key, model_config_value)
         else:
             not_convert_keys_list.append(model_config_key)
