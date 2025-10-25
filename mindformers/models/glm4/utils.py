@@ -36,6 +36,8 @@ class Glm4PreTrainedModel(PreTrainedModel, ModelMixin):
         ('.self_attn.o_proj.', '.self_attention.linear_proj.'),
         ('.mlp.gate_up_proj.', '.mlp.linear_fc1.'),
         ('.mlp.down_proj.', '.mlp.linear_fc2.'),
+        ('.mlp.gate_proj.', '.mlp.gating.'),
+        ('.mlp.up_proj.', '.mlp.hidden.'),
         ('.gate.weight', '.router.weight.weight'),
         ('.gate.e_score_correction_bias', '.router.expert_bias'),
         ('.post_attention_layernorm.', '.pre_mlp_layernorm.'),

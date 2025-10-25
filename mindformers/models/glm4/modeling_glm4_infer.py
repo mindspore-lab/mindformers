@@ -23,6 +23,7 @@ from mindformers.models.glm4.utils import Glm4PreTrainedModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 from mindformers.parallel_core.inference.model_utils import InferModelMixin
+from mindformers.parallel_core.inference.quantization.utils import get_quant_config
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -52,6 +53,7 @@ class InferenceGlm4ForCausalLM(Glm4PreTrainedModel, InferModelMixin):
             self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
         else:
             self.plugin_type = None
+        self.quant_config = get_quant_config(self.config, self.weight_mapping)
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
                                   normalization=config.normalization,
@@ -64,7 +66,8 @@ class InferenceGlm4ForCausalLM(Glm4PreTrainedModel, InferModelMixin):
                               rotary_base=self.config.rope_theta,
                               share_embeddings_and_output_weights=self.config.tie_word_embeddings,
                               pre_process=self.config.pre_process,
-                              post_process=self.config.post_process,)
+                              post_process=self.config.post_process,
+                              quant_config=self.quant_config,)
 
     @jit
     def construct(self, input_ids, hidden_states=None, positions=None, batch_valid_length=None,
