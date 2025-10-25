@@ -110,6 +110,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     position_embedding_type: str = "rope"
     """Position embedding type to use for the attention layer."""
 
+    nope_layer_interval: int = None
+    """Interval for inserting NoPE (No Position Embedding) layers among RoPE layers."""
+
     rotary_base: float = 10000.0
     """Rotary base for the rotary embeddings, used by rope and yarn. Mindformers required."""
 
@@ -459,8 +462,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             self.num_query_groups = self.num_attention_heads
 
         if self.context_parallel_size > 1 and not self.use_flash_attention:
-            raise ValueError(f"context_parallel is only available for flash attention for now, "
-                             f"please set use_flash_attention=True.")
+            raise ValueError("context_parallel is only available for flash attention for now, "
+                             "please set use_flash_attention=True.")
 
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
@@ -507,7 +510,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         if self.moe_shared_expert_intermediate_size is not None:
             if self.shared_expert_num == 0:
-                logger.warning(f"The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
+                logger.warning("The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
                                "but get shared_expert_num = 0. The shared_expert_num will be ignored.")
             elif self.moe_shared_expert_intermediate_size != self.moe_ffn_hidden_size * self.shared_expert_num:
                 logger.warning(
@@ -650,7 +653,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise TypeError("'moe_layer_freq' should be <int> or <list[int]>, "
                                 f"but got {type(self.moe_layer_freq)}")
 
-        self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
+        self.is_dryrun = os.environ.get('MS_SIMULATION_LEVEL', '0') != '0'
         if self.is_dryrun:
             if self.num_moe_experts is not None and self.seq_length % self.num_moe_experts != 0:
                 raise ValueError(

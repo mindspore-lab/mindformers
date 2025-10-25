@@ -24,6 +24,7 @@ from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode
 import mindspore.common.dtype as mstype
 
+from mindformers.tools.logger import logger
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
@@ -141,26 +142,31 @@ class Attention(nn.Cell):
         self.next_tokens = 0 if self.config.attention_next_tokens is None else self.config.attention_next_tokens
         self.keep_prob = 1.0 if self.config.attention_dropout is None else 1 - self.config.attention_dropout
         self.use_attention_mask = True if self.config.use_attention_mask is None else self.config.use_attention_mask
+        self.is_nope_layer = (
+            config.nope_layer_interval is not None
+            and (layer_number + 1) % config.nope_layer_interval == 0
+        )
+
+        if config.nope_layer_interval is not None and config.nope_layer_interval > 0:
+            logger.info(f"NOPE layer interleaving is enabled. Layer {layer_number} is_nope_layer={self.is_nope_layer}")
 
         # Define ulysses context parallel related parameters
         self.cp_ds = self.config.hierarchical_context_parallel_sizes
         self.cp_co = self.cp // self.cp_ds
 
         if self.hidden_size % self.num_heads != 0:
-            raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
-                             "of 'num_heads', but got the hidden_size is {} and the num_heads is {}."
-                             .format(self.hidden_size, self.num_heads))
+            raise ValueError(f"For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
+                             f"of 'num_heads', but got the hidden_size is {self.hidden_size} "
+                             f"and the num_heads is {self.num_heads}.")
         # Check if num_heads and kv_num_heads are multiples of tp * cp_ds
         if self.num_heads % (self.tp * self.cp_ds) != 0:
-            raise ValueError("For 'ParallelAttention', the class variable 'num_heads' must be a multiple of "
-                             "'tensor_parallel * ulysses_cp_num', but got num_heads is {}, tensor_parallel is {}, "
-                             "ulysses_cp_num is {}."
-                             .format(self.num_heads, self.tp, self.cp_ds))
+            raise ValueError(f"For 'ParallelAttention', the class variable 'num_heads' must be a multiple of "
+                             f"'tensor_parallel * ulysses_cp_num', but got num_heads is {self.num_heads}, "
+                             f"tensor_parallel is {self.tp}, ulysses_cp_num is {self.cp_ds}.")
         if self.kv_num_heads % (self.tp * self.cp_ds) != 0 and self.kv_num_heads % self.tp != 0:
-            raise ValueError("For 'ParallelAttention', the class variable 'kv_num_heads' must be a multiple of "
-                             "'tensor_parallel * ulysses_cp_num', but got kv_num_heads is {}, tensor_parallel is {}, "
-                             "ulysses_cp_num is {}."
-                             .format(self.kv_num_heads, self.tp, self.cp_ds))
+            raise ValueError(f"For 'ParallelAttention', the class variable 'kv_num_heads' must be a multiple of "
+                             f"'tensor_parallel * ulysses_cp_num', but got kv_num_heads is {self.kv_num_heads}, "
+                             f"tensor_parallel is {self.tp}, ulysses_cp_num is {self.cp_ds}.")
 
         self.core_attention = build_module(
             submodules.core_attention,
@@ -271,7 +277,7 @@ class Attention(nn.Cell):
         key = self.reshape(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
 
         # apply rotary position embedding
-        if rotary_pos_emb is not None:
+        if not self.is_nope_layer and rotary_pos_emb is not None:
             query = self.apply_rotary_pos_emb(query, rotary_pos_emb)
             key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
 

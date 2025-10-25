@@ -319,6 +319,9 @@ class GPTModel(nn.Cell):
             )
         elif self.position_embedding_type == 'mrope':
             raise NotImplementedError("position_embedding_type = mrope is not supported now.")
+        elif self.position_embedding_type == 'none':
+            self.rotary_pos_emb = None
+
         if self.use_rotary_position_embeddings:
             self.rotary_pos_emb.shard(config)
         # Transformer.
