@@ -165,8 +165,10 @@ MindSpore Transformers released version preservation policy:
 
 | **MindSpore Transformers Version** | **Corresponding Label** | **Current Status** | **Release Time** |        **Subsequent Status**         | **EOL Date** |
 |:----------------------------------:|:-----------------------:|:------------------:|:----------------:|:------------------------------------:|:------------:|
-|               1.5.0                |         v1.5.0          |      Preserve      |    2025/04/29    | No preserve expected from 2025/10/29 |  2026/01/29  |
-|               1.3.2                |         v1.3.2          |      Preserve      |    2024/12/20    | No preserve expected from 2025/06/20 |  2025/09/20  |
+|               1.7.0                |         v1.7.0          |      Preserve      |    2025/10/27    | No preserve expected from 2025/04/27 |  2026/07/27  |
+|               1.6.0                |         v1.6.0          |      Preserve      |    2025/07/29    | No preserve expected from 2025/01/29 |  2026/04/29  |
+|               1.5.0                |         v1.5.0          |    No Preserve     |    2025/04/29    | End of Life expected from 2026/01/29 |  2026/01/29  |
+|               1.3.2                |         v1.3.2          |    End of Life     |    2024/12/20    |                  -                   |  2025/09/20  |
 |               1.2.0                |         v1.2.0          |    End of Life     |    2024/07/12    |                  -                   |  2025/04/12  |
 |               1.1.0                |         v1.1.0          |    End of Life     |    2024/04/15    |                  -                   |  2025/01/15  |
 
