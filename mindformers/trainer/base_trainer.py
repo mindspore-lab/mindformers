@@ -81,6 +81,7 @@ from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
 from ..version_control import check_tft_valid, check_tre_valid, check_tsp_valid, check_is_reboot_node
 
+# pylint: disable=import-outside-toplevel
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
@@ -105,12 +106,12 @@ class BaseTrainer:
     def __init__(self, task: str = None, model_name: str = None):
 
         host_name_output = subprocess.run(['hostname'], shell=False, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE, encoding='utf-8')
+                                          stderr=subprocess.PIPE, encoding='utf-8', check=True)
         host_ip_output = subprocess.run(['hostname', '-I'], shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, encoding='utf-8')
+                                        stderr=subprocess.PIPE, encoding='utf-8', check=True)
         host_name = host_name_output.stdout.strip()
         host_ip = host_ip_output.stdout.strip().split(' ')[0]
-        logger.info("host_name: %s, host_ip: %s" % (host_name, host_ip))
+        logger.info(f"host_name: {host_name}, host_ip: {host_ip}")
 
         if model_name is None:
             model_name = "model name unspecified."
@@ -139,6 +140,9 @@ class BaseTrainer:
 
         self.network_delay_inited = False
         self.optimizer_delay_inited = False
+
+        self.lr_scheduler = None
+        self.grouped_lr_scheduler = None
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
@@ -579,93 +583,136 @@ class BaseTrainer:
             self.config.processor.image_processor, default_args=default_args)
         return self.image_processor
 
-    def create_optimizer_scheduler(self, network, model_params: set, layer_scale=False):
+    def _create_grouped_lr_scheduler(self, learning_scale, scale_factor):
+        """
+        Create learning rate (LR) schedulers for both default and parameter-grouped configurations.
+        """
+        default_config = self.config.grouped_lr_schedule.default
+        default_lr_scheduler = self.create_lr_scheduler(default_config, learning_scale, scale_factor)
+
+        grouped_lr_scheduler = []
+        grouped_config = self.config.grouped_lr_schedule.grouped
+
+        # Iterate over each grouped LR configuration
+        for lr_config in grouped_config:
+            params = lr_config.pop('params', None)
+            if not params:
+                raise ValueError("If using grouped_lr_schedule, 'params' must be set correctly in `grouped`.")
+
+            lr_config = MindFormerConfig(**lr_config)
+            lr_scheduler = self.create_lr_scheduler(lr_config, learning_scale, scale_factor)
+            grouped_lr_scheduler.append({
+                'params': params,
+                'lr_scheduler': lr_scheduler,
+                'lr_config': lr_config
+            })
+
+        return default_lr_scheduler, grouped_lr_scheduler
+
+    def create_optimizer_scheduler(self, network, model_params: set):
         """Create the optimizer for training."""
-        logger.info(".........Build Optimizer From Config..........")
-        # learning rate scale for multi-nodes training
+        logger.info("..........Build Optimizer From Config..........")
+        # Get learning rate scaling settings
         learning_scale = self.config.lr_scale
         scale_factor = self.config.lr_scale_factor
 
-        # build learning rate schedule
-        lr_schedule = self.create_lr_scheduler(learning_scale, scale_factor)
-
-        weight_decay = self.config.optimizer.weight_decay if self.config.optimizer.weight_decay else 0.
-        layer_decay = self.config.layer_decay if self.config.layer_decay else 1.0
-        group_params = get_optimizer_grouped_parameters(network,
-                                                        weight_decay,
-                                                        lr_schedule,
-                                                        layer_scale=layer_scale,
-                                                        layer_decay=layer_decay,
-                                                        optimizer_type=self.config.optimizer.type,
-                                                        model_params=model_params)
-        if lr_schedule is not None:
-            self.optimizer = build_optim(
-                self.config.optimizer,
-                default_args={"params": group_params,
-                              "learning_rate": lr_schedule})
+        # Build the learning rate scheduler
+        if self.config.grouped_lr_schedule is not None:
+            # Create grouped LR scheduler if configured (e.g., different LRs for different parameter groups)
+            self.lr_scheduler, self.grouped_lr_scheduler = self._create_grouped_lr_scheduler(
+                learning_scale, scale_factor)
         else:
-            if self.config.optimizer.learning_rate is None:
-                raise ValueError("learning_rate must be input")
-            self.config.optimizer.learning_rate = self.learning_rate_scale(
-                self.config.optimizer.learning_rate, scale_factor) \
-                if learning_scale and scale_factor is not None else self.config.optimizer.learning_rate
+            # Create standard LR scheduler
+            self.lr_scheduler = self.create_lr_scheduler(
+                self.config.lr_schedule, learning_scale, scale_factor)
+
+        # Build optimizer parameter groups (apply weight decay, LR groups, etc.)
+        group_params = get_optimizer_grouped_parameters(
+            model=network,
+            weight_decay=self.config.optimizer.weight_decay,
+            dynamic_lr_schedule=self.lr_scheduler,
+            grouped_lr_schedule=self.grouped_lr_scheduler,
+            model_params=model_params,
+            optimizer_type=self.config.optimizer.type,
+            layer_scale=self.config.layer_scale,
+            layer_decay=self.config.layer_decay
+        )
+
+        # Build optimizer with dynamic lr_scheduler if available
+        if self.lr_scheduler is not None:
             self.optimizer = build_optim(
                 self.config.optimizer,
-                default_args={"params": group_params})
+                default_args={"params": group_params, "learning_rate": self.lr_scheduler})
+        else:
+            # Otherwise, create lr_scheduler with static learning rate from config
+            if self.config.optimizer.learning_rate is None:
+                raise ValueError("")
+
+            learning_rate = self.config.optimizer.learning_rate
+            if learning_scale and scale_factor is not None:
+                # reset learning_rate in optimizer with scale_factor if learning_scale is True
+                self.config.optimizer.learning_rate = self.learning_rate_scale(learning_rate, scale_factor)
+
+            # Build optimizer with fixed learning rate
+            self.optimizer = build_optim(
+                self.config.optimizer, default_args={"params": group_params})
+
         return self.optimizer
 
-    def create_optimizer_scheduler_without_param_init(self, network, model_params: set, layer_scale=False):
+    def create_optimizer_scheduler_without_param_init(self, network, model_params: set):
         """Create the optimizer for training without initialize parameters."""
         with no_init_parameters():
-            optimizer = self.create_optimizer_scheduler(network=network,
-                                                        model_params=model_params,
-                                                        layer_scale=layer_scale)
+            optimizer = self.create_optimizer_scheduler(network=network, model_params=model_params)
         logger.info("Parameters are not initialized during optimizer initialization.")
         self.optimizer_delay_inited = True
         return optimizer
 
-    def create_lr_scheduler(self, learning_scale: bool = False, scale_factor: int = 256):
+    def create_lr_scheduler(self, lr_config: dict, learning_scale: bool = False, scale_factor: int = 256):
         """Create the learning rate scheduler."""
-        logger.info(".........Build LR Schedule From Config..........")
+        logger.info("..........Build LR Schedule From Config..........")
         train_data_size = self.get_train_data_size()
+
         warmup_lr_init = None
-        if self.config.lr_schedule:
-            warmup_epochs = self.config.lr_schedule.pop("warmup_epochs", None)
-            warmup_lr_init = self.config.lr_schedule.get("warmup_lr_init", None)
+        if lr_config:
+            warmup_epochs = lr_config.warmup_epochs
+            warmup_ratio = lr_config.warmup_ratio
+            warmup_lr_init = lr_config.warmup_lr_init
 
-            if warmup_epochs is not None:
-                if not isinstance(warmup_epochs, int):
-                    raise ValueError(f"The type of warmup_epochs must be int, but got type {type(warmup_epochs)}.")
-                if warmup_epochs < 0:
-                    raise ValueError(f"The value of warmup_epochs must be non-negative integer, "
-                                     f"but got {warmup_epochs}.")
-
-            if not self.config.runner_config.sink_mode:
-                total_steps = int(self.config.runner_config.epochs * train_data_size)
-            else:
+            # Calculate total training steps depending on sink_mode
+            if self.config.runner_config.sink_mode:
                 total_steps = int(self.config.runner_config.epochs * self.config.runner_config.sink_size)
+            else:
+                total_steps = int(self.config.runner_config.epochs * train_data_size)
 
-            if warmup_epochs is not None and self.config.lr_schedule.warmup_ratio is not None:
-                logger.warning("warmup_epochs and warmup_ratio are set simultaneously,"
-                               "warmup_ratio takes precedence.")
-                warmup_epochs = None
+            # Set total_steps in `lr_schedule` if not explicitly defined
+            if lr_config.total_steps is None or lr_config.total_steps == -1:
+                lr_config.total_steps = total_steps
+            else:
+                lr_config.total_steps = int(lr_config.total_steps)
 
-            if warmup_epochs is not None:
-                logger.warning("warmup_epochs was set in lr_schedule,"
-                               "it will multiply the data size to represent the warmup steps")
-                self.config.lr_schedule.warmup_steps = int(warmup_epochs * train_data_size)
+            # Compute warmup steps if warmup is enabled
+            if warmup_epochs:
+                if not isinstance(warmup_epochs, int) or warmup_epochs < 0:
+                    raise ValueError("`warmup_epochs` must be a non-negative integer.")
+                if not warmup_ratio:
+                    raise ValueError("`warmup_ratio` must be specified when warmup is enabled.")
 
-            self.config.lr_schedule.total_steps = total_steps \
-                if self.config.lr_schedule.total_steps is None or self.config.lr_schedule.total_steps == -1 \
-                else int(self.config.lr_schedule.total_steps)
+                warmup_steps = int(warmup_epochs * train_data_size)
+                lr_config.warmup_steps = warmup_steps
+                logger.info(
+                    f"Get warmup_steps({warmup_steps}) = "
+                    f"int(warmup_epochs({warmup_epochs}) * train_data_size({train_data_size}))"
+                )
 
-            self.config.lr_schedule.learning_rate = self.learning_rate_scale(
-                self.config.lr_schedule.learning_rate, scale_factor) \
-                if learning_scale and scale_factor is not None else self.config.lr_schedule.learning_rate
-        lr_schedule = build_lr(self.config.lr_schedule)
-        if lr_schedule and hasattr(lr_schedule, "warmup_lr_init") and warmup_lr_init is None:
-            logger.info(f"warmup_lr_init is not set. The default value {lr_schedule.warmup_lr_init} will be applied.")
-        return lr_schedule
+            if learning_scale and scale_factor is not None:
+                lr_config.learning_rate = self.learning_rate_scale(lr_config.learning_rate, scale_factor)
+
+        # Build learning rate scheduler from configuration
+        lr_scheduler = build_lr(lr_config)
+
+        if lr_scheduler and hasattr(lr_scheduler, "warmup_lr_init") and warmup_lr_init is None:
+            logger.info(f"warmup_lr_init is not set. The default value {lr_scheduler.warmup_lr_init} will be applied.")
+        return lr_scheduler
 
     def create_model_wrapper(self, network, optimizer):
         """Create the model wrapper for training."""
@@ -683,8 +730,9 @@ class BaseTrainer:
                                                     "calculate_per_token_loss": calculate_per_token_loss,
                                                     "global_norm_spike_threshold": global_norm_spike_threshold,
                                                     "print_separate_loss": print_separate_loss,
-                                                    "use_skip_data_by_global_norm": use_skip_data_by_global_norm
-                                                    })
+                                                    "use_skip_data_by_global_norm": use_skip_data_by_global_norm,
+                                                    "lr_scheduler": self.lr_scheduler,
+                                                    "grouped_lr_scheduler": self.grouped_lr_scheduler})
         return model_wrapper
 
     def create_callbacks(self, default_args: dict = None):
@@ -903,7 +951,7 @@ class BaseTrainer:
         Postprocess the training dataset after construction.
         Mainly used to adjust dataset size for special dataloaders.
         """
-        dataloader_config = config.train_dataset.get('data_loader', dict())
+        dataloader_config = config.train_dataset.get('data_loader', {})
         dataloader_type = dataloader_config.get('type')
 
         # Special handling for BlendedMegatronDatasetDataLoader
@@ -926,7 +974,7 @@ class BaseTrainer:
         # Check dataset sink mode with dataset broadcast optimization level
         self._check_sink_mode_with_ds_broadcast(config)
 
-        dataloader_config = config.train_dataset.get('data_loader', dict())
+        dataloader_config = config.train_dataset.get('data_loader', {})
         dataloader_type = dataloader_config.get('type')
 
         # Case 1: BlendedMegatronDatasetDataLoader
@@ -990,7 +1038,7 @@ class BaseTrainer:
         """
 
         cur_rank = get_rank()
-        src_strategy_files = sorted([f for f in os.listdir(config.src_strategy_path_or_dir)])
+        src_strategy_files = sorted(list(os.listdir(config.src_strategy_path_or_dir)))
         if len(src_strategy_files) - 1 < cur_rank:
             raise ValueError(f" rank {cur_rank} src_strategy is not exist")
         src_strategy_file = os.path.join(config.src_strategy_path_or_dir, src_strategy_files[cur_rank])
@@ -1100,9 +1148,9 @@ class BaseTrainer:
                     logger.info("..............Start resume checkpoint path from strategy..............")
                     resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
                     if resume_ckpt_path is None:
-                        raise ValueError("Try to resume from checkpoints with strategy in directory '{}' failed, "
-                                        "please specify load_checkpoint to specific checkpoint file to resume training."
-                                        .format(config.load_checkpoint))
+                        raise ValueError(f"Try to resume from checkpoints with strategy in directory "
+                                         f"'{config.load_checkpoint}' failed, please specify load_checkpoint to "
+                                         f"specific checkpoint file to resume training.")
                     config.load_checkpoint = resume_ckpt_path
                 load_resume_context_from_checkpoint(config, dataset)
                 resume_dict = {
@@ -1211,11 +1259,9 @@ class BaseTrainer:
         logger.info(".........Build Optimizer For Train..........")
         if optimizer is None:
             if config.load_checkpoint:
-                optimizer = self.create_optimizer_scheduler_without_param_init(network,
-                                                                               model_params,
-                                                                               layer_scale=config.layer_scale)
+                optimizer = self.create_optimizer_scheduler_without_param_init(network, model_params)
             else:
-                optimizer = self.create_optimizer_scheduler(network, model_params, layer_scale=config.layer_scale)
+                optimizer = self.create_optimizer_scheduler(network, model_params)
 
         # build model wrapper
         logger.info(".........Build Running Wrapper From Config For Train..........")

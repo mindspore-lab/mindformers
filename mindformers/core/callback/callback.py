@@ -83,6 +83,7 @@ from mindformers.parallel_core.training_graph.loss_func import (
 )
 from mindformers.checkpoint.checkpoint import AsyncSaveManager, CommonInfo, save_checkpoint
 
+# pylint: disable=import-outside-toplevel
 __all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
 _cur_dir = os.getcwd()
@@ -97,7 +98,7 @@ class AllReduceNet(Cell):
     """
 
     def __init__(self, group_name):
-        super(AllReduceNet, self).__init__()
+        super().__init__()
         self.allreduce_sum = P.AllReduce(op=P.ReduceOp.SUM, group=group_name)
         self.add_flags(skip_auto_parallel_compile=True)
 
@@ -120,6 +121,22 @@ def _get_separate_loss():
     parameter_register.clear("mtp_loss")
     parameter_register.clear("lm_loss")
     return lm_loss, aux_loss, mtp_loss
+
+
+def _log_grouped_lr_info():
+    """Log the current learning rate values for the default and grouped parameter sets."""
+    from mindformers.trainer.optimizer_grouped_parameters import GROUPED_PARAMS
+    if not GROUPED_PARAMS:  # Skip logging if no grouped parameters are registered
+        return
+
+    # Retrieve the current default learning rate from parameter registry
+    default_lr = parameter_register.get("current_default_lr").asnumpy()
+    logger.info(f"default_lr: {default_lr:.6e}, equal to `lr:` above.")
+
+    # Retrieve the current grouped learning rate from parameter registry
+    grouped_lr = parameter_register.get("current_grouped_lr").asnumpy()
+    for group_id, params in enumerate(GROUPED_PARAMS):
+        logger.info(f"group_{group_id}_lr: {grouped_lr[group_id]:.6e}, group_{group_id}_params: {params}")
 
 
 def _get_loss_output(output):
@@ -224,7 +241,7 @@ class MFLossMonitor(Callback):
                  calculate_per_token_loss: bool = False,
                  print_separate_loss: bool = False,
                  **kwargs):
-        super(MFLossMonitor, self).__init__()
+        super().__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
         self.last_print_time = 0
@@ -423,8 +440,8 @@ class MFLossMonitor(Callback):
             return False
 
         if not is_legacy_model() and self.is_moe_model:
-            logger.warning(f"Model Flops computation is not support when using GroupMatMul MoELayer, "
-                           f"due to dynamic shape")
+            logger.warning("Model Flops computation is not support when using GroupMatMul MoELayer, "
+                           "due to dynamic shape")
             return False
 
         self.current_phase = network.current_phase
@@ -520,7 +537,7 @@ class MFLossMonitor(Callback):
         global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
         if self.mf_calculated:
             throughput_per_npu = self.full_model_flops / per_step_seconds / 1e9
-            throughput_info = ', train_throughput_per_npu: %.3fT' % (throughput_per_npu)
+            throughput_info = f', train_throughput_per_npu: {throughput_per_npu:.3f}T'
             if self.tensor_writer is not None:
                 self.tensor_writer.add_scalar('model-flops-throughput-per-npu',
                                               float(throughput_per_npu),
@@ -529,15 +546,15 @@ class MFLossMonitor(Callback):
             throughput_info = ''
 
         if cb_params.dataset_sink_mode:
-            loss_info = "loss: %5.6f, " % loss
+            loss_info = f"loss: {loss:5.6f}, "
         else:
-            loss_info = "loss:[%5.6f/%5.6f], " % (loss, np.mean(self.loss_list))
+            loss_info = f"loss:[{loss:5.6f}/{np.mean(self.loss_list):5.6f}], "
         if self.print_separate_loss:
-            separate_loss = "lm_loss: %5.6f, " % main_loss
+            separate_loss = f"lm_loss: {main_loss[0]:5.6f}, "
             if self.is_moe_model and np.all(extra_loss > 0):
-                separate_loss += "load_balancing_loss: %5.6f, " % extra_loss
+                separate_loss += f"load_balancing_loss: {extra_loss[0]:5.6f}, "
             if self.is_mtp_model:
-                separate_loss += "mtp_loss: %5.6f, " % mtp_loss
+                separate_loss += f"mtp_loss: {mtp_loss[0]:5.6f}, "
         else:
             separate_loss = ""
         if current_lr is not None:
@@ -556,9 +573,12 @@ class MFLossMonitor(Callback):
                         int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
 
         # print progress bar
-        show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
+        bar = int(50 * percent / 100) * "█"
+        show_str = f"|{bar:<50}|"
         logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                     timedelta(seconds=int(time_remain)))
+        # log grouped lr info if enabled
+        _log_grouped_lr_info()
 
         # write tensorboard
         if self.tensor_writer is not None:
@@ -674,7 +694,7 @@ class TrainingStateMonitor(Callback):
                  use_skip_data_by_global_norm: bool = False,
                  embedding_size: int = 4096,
                  use_local_norm: bool = False):
-        super(TrainingStateMonitor, self).__init__()
+        super().__init__()
         if not (isinstance(step_interval, int) and step_interval > 0):
             logger.warning(f"The value of 'monitor_config.step_interval' should be positive integer, "
                            f"but get {step_interval}. Use default value: 1.")
@@ -831,7 +851,7 @@ class TrainingStateMonitor(Callback):
                     parent_dirs = os.path.dirname(self.global_norm_record_path)
                     if not os.path.exists(parent_dirs):
                         os.makedirs(parent_dirs)
-                    with open(self.global_norm_record_path, 'w') as file:
+                    with open(self.global_norm_record_path, 'w', encoding="utf-8") as file:
                         json.dump(self.abnormal_global_norms, file)
                     set_safe_mode_for_file_or_dir(self.global_norm_record_path)
                 logger.info(f"Current global norm {global_norm} is greater equal than "
@@ -897,7 +917,7 @@ class TrainingStateMonitor(Callback):
 
         if self.print_struct is None:
             self.print_struct = False
-        if not (isinstance(self.target, list) and self.target and all([isinstance(i, str) for i in self.target])):
+        if not (isinstance(self.target, list) and self.target and all(isinstance(i, str) for i in self.target)):
             raise TypeError("The value of 'target' should be a list of str.")
         if not isinstance(self.invert, bool):
             raise TypeError("The value of 'invert' should be bool.")
@@ -913,7 +933,7 @@ class TrainingStateMonitor(Callback):
         if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
             # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
             # because json cannot use number as key, we convert it to string
-            with open(self.global_norm_record_path, 'r') as file:
+            with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
                 self.abnormal_global_norms = json.load(file)
 
     def _check_attr_formats(self, attr):
@@ -1271,7 +1291,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.save_checkpoint_path = save_checkpoint_path
         self.need_remove_redundancy = remove_redundancy
 
-        prefix = prefix + "_rank_{}".format(self.rank_id)
+        prefix = prefix + f"_rank_{self.rank_id}"
 
         self.global_batch_size = global_batch_size
         # this list records parameters which will be ignored when saving ckpt.
@@ -1316,8 +1336,7 @@ class CheckpointMonitor(ModelCheckpoint):
                                      format=checkpoint_format,
                                      exception_save=exception_save,
                                      remove_redundancy=remove_redundancy)
-        super(CheckpointMonitor, self).__init__(prefix, ckpt_directory if self.use_legacy_format else None,
-                                                config=config_ck)
+        super().__init__(prefix, ckpt_directory if self.use_legacy_format else None, config=config_ck)
         self.meta_json = os.path.join(self._directory, "meta.json")
         if self._config.async_save:
             self.last_epoch_num = None
@@ -1378,8 +1397,8 @@ class CheckpointMonitor(ModelCheckpoint):
             keys = list(self.save_info_list.keys())
             for record_step in keys:
                 self.print_savetime(record_step, cb_params.batch_num)
-                if not any([self.save_info_list[record_step][key]['ckpt_file_path']
-                            for key in ['ckpt', 'network', 'trainable_params']]):
+                if not any(self.save_info_list[record_step][key]['ckpt_file_path']
+                            for key in ['ckpt', 'network', 'trainable_params']):
                     self.save_info_list.pop(record_step)
 
         if self._config.async_save and not ms.async_ckpt_thread_status() and \
@@ -1469,11 +1488,11 @@ class CheckpointMonitor(ModelCheckpoint):
                 }
                 all_step_health_data = []
                 if os.path.exists(dump_health_json_path):
-                    with open(dump_health_json_path, 'r') as file:
+                    with open(dump_health_json_path, 'r', encoding="utf-8") as file:
                         data = json.load(file)
                         all_step_health_data = list(data)
                 all_step_health_data.append(health_step_data)
-                with open(dump_health_json_path, 'w') as file:
+                with open(dump_health_json_path, 'w', encoding="utf-8") as file:
                     json.dump(all_step_health_data, file, indent=4)
                 set_safe_mode_for_file_or_dir(dump_health_json_path)
 
@@ -1859,7 +1878,7 @@ class ProfileMonitor(Callback):
                  start_profile=True, profile_rank_ids=None, profile_pipeline=False,
                  profile_communication=False, profile_memory=False, config=None,
                  profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs):
-        super(ProfileMonitor, self).__init__()
+        super().__init__()
         self.mstx_range_id = None
         self.mstx_enabled = not _check_mspti_is_on()
         self.stop_step = stop_step
@@ -1891,8 +1910,8 @@ class ProfileMonitor(Callback):
             if not output_path:
                 output_path = get_output_subpath('profile', rank_id)
             else:
-                output_path = os.path.join(output_path, 'profile', 'rank_{}'.format(rank_id))
-            logger.info("Profile save path: %s", output_path)
+                output_path = os.path.join(output_path, 'profile', f'rank_{rank_id}')
+            logger.info(f"Profile save path: {output_path}")
 
             if ms.get_context("device_target") == "GPU" and profile_memory:
                 logger.warning("The parameter profile_memory is not supported on GPU currently, "
@@ -2168,7 +2187,7 @@ class ColdHotExpertMonitor(Callback):
         self.local_expert_num = self.expert_num // self.ep
         start_index = (self.rank_id // self.mp) * self.local_expert_num
         end_index = start_index + self.local_expert_num
-        self.local_expert_index = [i for i in range(start_index, end_index)]
+        self.local_expert_index = list(range(start_index, end_index))
         self.rank_size = int(os.getenv("RANK_SIZE"))
 
     def on_train_step_end(self, run_context):
@@ -2541,14 +2560,14 @@ class MoEDropRateCallback(Callback):
                     if fi.sum() > 0:
                         delta = fi - self.capacity_factor_over_expert_num
                         droprate = ms.ops.sum(delta * (delta > 0))
-                        logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
+                        logger.info(f"layer: {i}, drop_rate: {droprate:.5f}")
             else:
                 if hasattr(network.model.layers[i].feed_forward, "router"):
                     fi = network.model.layers[i].feed_forward.router.router.fi_parameter.value()
                     if fi.sum() > 0:
                         delta = fi - self.capacity_factor_over_expert_num
                         droprate = ms.ops.sum(delta * (delta > 0))
-                        logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
+                        logger.info(f"layer: {i}, drop_rate: {droprate:.5f}")
 
     def on_train_step_end(self, run_context):
         """get expert drop rate at the end of step."""
@@ -2602,7 +2621,7 @@ class StressTestModelMonitor(Callback):
                  check_stresslog_interval_time=60):
         logger.warning('StressTestModelMonitor serves as an experimental interface and its functionality is '
                        'not yet stable.')
-        super(StressTestModelMonitor, self).__init__()
+        super().__init__()
 
         self.interval_steps = interval_steps
         self.last_checked_step = 0
@@ -2676,20 +2695,19 @@ class StressTestModelMonitor(Callback):
             log_file_path = os.path.join(saved_dir, "worker_0.log")
             # Start the subprocess
             command = shlex.split(command)
-            result_1 = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as result_1:
+                # Monitor the log file
+                while result_1.poll() is None:  # While the subprocess is running
+                    time.sleep(self.check_stresslog_interval_time)
+                    log_msg = self.readlog(log_file_path)
+                    logger.info(f"Checking stress test log every {self.check_stresslog_interval_time} seconds")
+                    logger.info(f"Current state of stress_test: {log_msg}")
 
-            # Monitor the log file
-            while result_1.poll() is None:  # While the subprocess is running
-                time.sleep(self.check_stresslog_interval_time)
-                log_msg = self.readlog(log_file_path)
-                logger.info(f"Checking stress test log every {self.check_stresslog_interval_time} seconds")
-                logger.info(f"Current state of stress_test: {log_msg}")
-
-            # Once the subprocess has finished, check the result
-            if result_1.returncode != 0:
-                logger.warning(f"An error occurred while running the stress test model on rank {rank_id}: \
-                               {result_1.stderr.read().decode('utf-8')}")
-                logger.warning(f"Check the sub task workers log for rank {rank_id} for more details.")
+                # Once the subprocess has finished, check the result
+                if result_1.returncode != 0:
+                    logger.warning(f"An error occurred while running the stress test model on rank {rank_id}: \
+                                {result_1.stderr.read().decode('utf-8')}")
+                    logger.warning(f"Check the sub task workers log for rank {rank_id} for more details.")
         barrier()
 
         logger.info("Stress tests ended, now starting to collect and compare results")
@@ -2700,6 +2718,7 @@ class StressTestModelMonitor(Callback):
                            "so only the last step result is compared.")
         else:
             interval_results = None
+            subtask_global_step_num = None
             logger.info(f"Test results are compared every {self.compare_interval_steps} steps")
             for i in range(self.worker_num):
                 if get_rank() % self.worker_num == i:
@@ -2755,7 +2774,7 @@ class StressTestModelMonitor(Callback):
         """Extract the last step's results from the log file."""
         loss_value = None
         global_norm_value = None
-        with open(log_file, 'r') as file:
+        with open(log_file, 'r', encoding="utf-8") as file:
             lines = file.readlines()
             for line in reversed(lines):
                 if "INFO - {" in line:
@@ -2771,7 +2790,7 @@ class StressTestModelMonitor(Callback):
         last_recorded_step = 0
         results = []
         steps_per_epoch = None
-        with open(log_file, 'r') as file:
+        with open(log_file, 'r', encoding="utf-8") as file:
             lines = file.readlines()
             for line in lines:
                 if "INFO - {" in line:
@@ -2855,7 +2874,7 @@ class StressTestModelMonitor(Callback):
         """
         Search for the latest line indicating training has started, based on key identifiers.
         """
-        with open(file_path, 'r', errors='ignore') as f:
+        with open(file_path, 'r', errors='ignore', encoding="utf-8") as f:
             lines = f.readlines()
 
         # Define the keywords indicating training has started
@@ -2894,7 +2913,7 @@ class SDCMonitor(Callback):
                  strike_num: int = 3,
                  checksum_time: int = 5,
                  checksum_cooldown_time: int = 180):
-        super(SDCMonitor, self).__init__()
+        super().__init__()
         logger.warning('SDCMonitor serves as an experimental interface and its functionality is not yet stable.')
 
         npu_asd_enable = int(os.getenv('NPU_ASD_ENABLE', '0'))
@@ -2946,7 +2965,7 @@ class SDCMonitor(Callback):
             file_path = os.path.join(self.device_log_path, file)
             if not os.path.exists(file_path):
                 continue
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding="utf-8") as f:
                 logs = f.read()
             error_logs = self.silent_check_error_pattern.findall(logs)
             for log in error_logs:

@@ -18,13 +18,6 @@ import os
 import shutil
 from copy import deepcopy
 
-from mindformers.core.clip_grad import ClipGradNorm
-from mindformers.core.context.build_context import is_legacy_model
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank
-from mindformers.utils.parameter_register import parameter_register
-from mindformers.version_control import get_identity
-
 from mindspore._checkparam import args_type_check
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
@@ -39,6 +32,13 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.auto_generate import SumExt
 from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
+
+from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.core.context.build_context import is_legacy_model
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import get_real_rank
+from mindformers.utils.parameter_register import parameter_register
+from mindformers.version_control import get_identity
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'PipelineCellWithTwoOutput',
            'GradAccumulationCellWithTwoOutput']
@@ -114,6 +114,21 @@ def _reset_accu_gbs_fi(network):
         raise NotImplementedError(f"network: {network} does not Implemented function `reset_accu_gbs_fi`")
 
 
+def _check_network_with_micro_size(cls_name, network, micro_size):
+    """
+    Check the validity of network and micro_size parameters for cls_name
+    """
+    if not isinstance(network, nn.Cell):
+        raise TypeError(f"For `{cls_name}`, the argument 'network' must cell type, "
+                        f"but got the type : {type(network)}.")
+    if not isinstance(micro_size, int):
+        raise TypeError(f"For `{cls_name}`, the argument 'micro_size' must be integer, "
+                        f"but got the type : {type(micro_size)}.")
+    if micro_size <= 0:
+        raise ValueError(f"For `{cls_name}`, the argument 'micro_size' must be large than 0, "
+                         f"but got {micro_size}.")
+
+
 @_grad_scale.register("Tensor", "Tensor")
 def tensor_grad_scale(scale, grad):
     return F.cast(grad, mstype.float32) * reciprocal(scale)
@@ -153,7 +168,7 @@ def _get_size(grad):
 
 class LocalNorm(nn.Cell):
     def __init__(self):
-        super(LocalNorm, self).__init__()
+        super().__init__()
         self.hyper_map = C.HyperMap()
 
     def construct(self, grads):
@@ -249,7 +264,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
-        super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
+        super().__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
@@ -294,6 +309,20 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                 transformer_config.num_layers
             )
 
+        # Get grouped LR schedulers from base_trainer
+        grouped_lr_scheduler = kwargs.get('grouped_lr_scheduler')
+        self.use_grouped_lr = grouped_lr_scheduler is not None
+        if self.use_grouped_lr:
+            # Register default_lr
+            self.default_lr = kwargs.get('lr_scheduler')
+            self.default_lr_parameter = parameter_register.register(
+                "current_default_lr", Tensor(0., mstype.float32))
+            # Register grouped_lr
+            self.grouped_lr = nn.CellList(
+                [deepcopy(current_lr.get('lr_scheduler')) for current_lr in grouped_lr_scheduler])
+            self.grouped_lr_parameter = parameter_register.register(
+                "current_grouped_lr", Tensor([0.] * len(self.grouped_lr), mstype.float32))
+
     def construct(self, *inputs):
         """forward and backward."""
         scaling_sens = self.scale_sense
@@ -326,7 +355,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
-            if self.optimizer.is_group_lr:
+            if self.use_grouped_lr:
+                # Get default_lr, grouped_lr and update parameters registered
+                learning_rate = self.default_lr(self.optimizer.global_step).reshape(())
+                self.default_lr_parameter = learning_rate
+                for group_id, current_lr in enumerate(self.grouped_lr):
+                    self.grouped_lr_parameter[group_id] = current_lr(self.optimizer.global_step).reshape(())
+            elif self.optimizer.is_group_lr:
                 learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
             else:
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
@@ -414,13 +449,15 @@ class DataOrderWrapperCell(nn.Cell):
     """For passing parameters in lexicographical order."""
 
     def __init__(self, construct_args_key, network):
-        super(DataOrderWrapperCell, self).__init__(auto_prefix=False)
+        super().__init__(auto_prefix=False)
         self.construct_args_key = construct_args_key
         self.network = network
 
     def construct(self, *inputs):
         """The construct processes of inputs in lexicographical order."""
-        key_inputs = {key: val for key, val in zip(self.construct_args_key, inputs)}
+        key_inputs = {}
+        for key, val in zip(self.construct_args_key, inputs):
+            key_inputs[key] = val
         return self.network(**key_inputs)
 
 
@@ -472,15 +509,7 @@ class GradAccumulationCellWithTwoOutput(nn.Cell):
         self.micro_inputs = nn.CellList()
         self.micro_size = micro_size
         self.add_list = []
-        if not isinstance(network, nn.Cell):
-            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'network' must cell type, "
-                            "but got the type : {}.".format(type(network)))
-        if not isinstance(micro_size, int):
-            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be integer, "
-                            "but got the type : {}.".format(type(micro_size)))
-        if micro_size <= 0:
-            raise ValueError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
-                             "but got {}.".format(micro_size))
+        _check_network_with_micro_size('GradAccumulationCellWithTwoOutput', network, micro_size)
         for i in range(micro_size):
             micro_input = _MicroBatch(micro_size)
             micro_input.strided_slice.add_prim_attr("grad_accu_num", micro_size)
@@ -532,15 +561,7 @@ class GradAccumulationCellWithMultiOutputs(nn.Cell):
         self.micro_inputs = nn.CellList()
         self.micro_size = micro_size
         self.add_list = []
-        if not isinstance(network, nn.Cell):
-            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'network' must cell type, "
-                            "but got the type : {}.".format(type(network)))
-        if not isinstance(micro_size, int):
-            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be integer, "
-                            "but got the type : {}.".format(type(micro_size)))
-        if micro_size <= 0:
-            raise ValueError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
-                             "but got {}.".format(micro_size))
+        _check_network_with_micro_size('GradAccumulationCellWithMultiOutputs', network, micro_size)
         for i in range(micro_size):
             micro_input = _MicroBatch(micro_size)
             micro_input.strided_slice.add_prim_attr("grad_accu_num", micro_size)
@@ -658,15 +679,7 @@ class PipelineCellWithTwoOutput(nn.Cell):
         self.micro_inputs = nn.CellList()
         self.micro_size = micro_size
         self.add_list = []
-        if not isinstance(network, nn.Cell):
-            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'network' must cell type, "
-                            "but got the type : {}.".format(type(network)))
-        if not isinstance(micro_size, int):
-            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be integer, "
-                            "but got the type : {}.".format(type(micro_size)))
-        if micro_size <= 0:
-            raise ValueError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
-                             "but got {}.".format(micro_size))
+        _check_network_with_micro_size('PipelineCellWithTwoOutput', network, micro_size)
         for i in range(micro_size):
             micro_input = _MicroBatch(micro_size)
             self.micro_inputs.append(micro_input)
@@ -724,15 +737,7 @@ class PipelineCellWithMultiOutputs(nn.Cell):
         self.micro_inputs = nn.CellList()
         self.micro_size = micro_size
         self.add_list = []
-        if not isinstance(network, nn.Cell):
-            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'network' must cell type, "
-                            "but got the type : {}.".format(type(network)))
-        if not isinstance(micro_size, int):
-            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be integer, "
-                            "but got the type : {}.".format(type(micro_size)))
-        if micro_size <= 0:
-            raise ValueError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
-                             "but got {}.".format(micro_size))
+        _check_network_with_micro_size('PipelineCellWithMultiOutputs', network, micro_size)
         for i in range(micro_size):
             micro_input = _MicroBatch(micro_size)
             self.micro_inputs.append(micro_input)
@@ -870,7 +875,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
                  use_skip_data_by_global_norm=False, print_separate_loss=False, **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
-        super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
+        super().__init__(network, optimizer, scale_sense)
         self.network = network
         self.network.add_flags(defer_inline=True)
         self.weights = optimizer.parameters
@@ -897,13 +902,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             self.scale_sense = Parameter(Tensor(scale_sense.get_loss_scale(), dtype=mstype.float32),
                                          name="scale_sense")
         elif isinstance(scale_sense, Tensor):
-            if scale_sense.shape == (1,) or scale_sense.shape == ():
+            if scale_sense.shape in ((1, ), ()):
                 self.scale_sense = Parameter(scale_sense, name='scale_sense')
             else:
-                raise ValueError("The shape of 'scale_sense' must be (1,) or (), but got {}"
-                                 .format(scale_sense.shape))
+                raise ValueError(f"The shape of 'scale_sense' must be (1,) or (), but got {scale_sense.shape}")
         else:
-            raise TypeError("The 'scale_sense' must be Cell or Tensor, but got {}".format(type(scale_sense)))
+            raise TypeError(f"The 'scale_sense' must be Cell or Tensor, but got {type(scale_sense)}")
         self.opt_shard = _get_enable_parallel_optimizer()
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
@@ -953,6 +957,20 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
                 transformer_config.num_layers
             )
 
+        # Get grouped LR schedulers from base_trainer
+        grouped_lr_scheduler = kwargs.get('grouped_lr_scheduler')
+        self.use_grouped_lr = grouped_lr_scheduler is not None
+        if self.use_grouped_lr:
+            # Register default_lr
+            self.default_lr = kwargs.get('lr_scheduler')
+            self.default_lr_parameter = parameter_register.register(
+                "current_default_lr", Tensor(0., mstype.float32))
+            # Register grouped_lr
+            self.grouped_lr = nn.CellList(
+                [deepcopy(current_lr.get('lr_scheduler')) for current_lr in grouped_lr_scheduler])
+            self.grouped_lr_parameter = parameter_register.register(
+                "current_grouped_lr", Tensor([0.] * len(self.grouped_lr), mstype.float32))
+
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
         """The construct processes of pipeline wrapper cell."""
@@ -986,7 +1004,13 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
 
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
-            if self.optimizer.is_group_lr:
+            if self.use_grouped_lr:
+                # Get default_lr, grouped_lr and update parameters registered
+                learning_rate = self.default_lr(self.optimizer.global_step).reshape(())
+                self.default_lr_parameter = learning_rate
+                for group_id, current_lr in enumerate(self.grouped_lr):
+                    self.grouped_lr_parameter[group_id] = current_lr(self.optimizer.global_step).reshape(())
+            elif self.optimizer.is_group_lr:
                 learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
             else:
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
