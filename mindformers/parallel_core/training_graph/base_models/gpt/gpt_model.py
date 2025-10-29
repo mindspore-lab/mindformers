@@ -48,6 +48,7 @@ from mindformers.parallel_core.training_graph.transformer.transformer_block impo
 )
 from mindformers.parallel_core.training_graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
+from mindformers.parallel_core.utils.init_method import init_method_normal
 from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
@@ -390,10 +391,25 @@ class GPTModel(nn.Cell):
             self.zeros_tensor = ms.Tensor(np.zeros([config.num_moe_experts]), ms.float32)
             self.assign_aux = aclnn_ops.Assign()
 
+        rules = config.param_init_std_rules
+        if rules is not None:
+            self.update_weight(rules)
+
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
         else:
             self.shard(config)
+
+    def update_weight(self, rules):
+        logger.info(f"update weight with rules {rules}")
+        for rule_ in rules:
+            pattern = rule_['target']
+            init_method_std = rule_['init_method_std']
+            for param_name, param in self.parameters_and_names():
+                if pattern.match(param_name):
+                    weight_shape = list(param.shape)
+                    param.set_data(init_method_normal(init_method_std)(weight_shape))
+                    logger.info(f"{param_name} initial weight will be update, new init_std: {init_method_std}")
 
     def construct(
             self,

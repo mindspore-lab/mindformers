@@ -4,6 +4,7 @@
 """Transformer Config"""
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
 
@@ -143,6 +144,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     Standard deviation of the zero mean normal for the default initialization method,
     not used if init_method and output_layer_init_method are provided.
     """
+
+    param_init_std_rules: List[dict[str, Union[str, float]]] = None
+    """Configuration for decoupled weight initialization."""
 
     init_model_with_meta_device: bool = False
     """
@@ -459,8 +463,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             self.num_query_groups = self.num_attention_heads
 
         if self.context_parallel_size > 1 and not self.use_flash_attention:
-            raise ValueError(f"context_parallel is only available for flash attention for now, "
-                             f"please set use_flash_attention=True.")
+            raise ValueError("context_parallel is only available for flash attention for now, "
+                             "please set use_flash_attention=True.")
 
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
@@ -507,7 +511,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         if self.moe_shared_expert_intermediate_size is not None:
             if self.shared_expert_num == 0:
-                logger.warning(f"The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
+                logger.warning("The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
                                "but get shared_expert_num = 0. The shared_expert_num will be ignored.")
             elif self.moe_shared_expert_intermediate_size != self.moe_ffn_hidden_size * self.shared_expert_num:
                 logger.warning(
@@ -650,7 +654,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise TypeError("'moe_layer_freq' should be <int> or <list[int]>, "
                                 f"but got {type(self.moe_layer_freq)}")
 
-        self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
+        self.is_dryrun = os.environ.get('MS_SIMULATION_LEVEL', '0') != '0'
         if self.is_dryrun:
             if self.num_moe_experts is not None and self.seq_length % self.num_moe_experts != 0:
                 raise ValueError(
@@ -707,6 +711,45 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         if self.recompute_slice_activation:
             raise ValueError("For recompute, `recompute_slice_activation` is not supported in Mcore.")
+
+        self._validate_param_init_std_rules()
+
+    def _validate_param_init_std_rules(self):
+        """Validate and compile decoupling initialization rules."""
+        rules = self.param_init_std_rules
+
+        # Only process if rules are provided (non-empty list)
+        if rules:
+            # Ensure rules is a list
+            if not isinstance(rules, list):
+                raise TypeError(
+                    f"param_init_std_rules must be a list, "
+                    f"but got {type(rules)}(value: {rules})"
+                )
+
+            for idx, rule in enumerate(rules):
+                if not isinstance(rule, dict):
+                    raise TypeError(f"Rule {idx} is not a dict, got {type(rule)}")
+
+                target = rule.get("target")
+                init_std = rule.get("init_method_std")
+
+                # Validate 'target' field
+                if not isinstance(target, str):
+                    raise TypeError(f"Rule {idx}: 'target' must be a string, but got {type(target)}")
+
+                # Validate 'init_method_std' field
+                if not isinstance(init_std, (int, float)):
+                    raise TypeError(
+                        f"Rule {idx}: 'init_method_std' must be a number, "
+                        f"but got {type(init_std)}"
+                    )
+                if init_std < 0:
+                    raise ValueError(f"Rule {idx}: 'init_method_std' must be >= 0, but got {init_std}")
+
+                # Compile the regex pattern and replace the string in-place
+                compiled_pattern = re.compile(target)
+                rule["target"] = compiled_pattern
 
 
 @dataclass
