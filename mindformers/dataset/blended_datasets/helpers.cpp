@@ -483,7 +483,8 @@ py::array build_mapping_impl(const py::array_t<int64_t> &docs_,
       }
       assert(maps == NULL);
       assert(num_samples < 0);
-      maps = new DocIdx[3 * map_index];
+      maps = new(std::nothrow) DocIdx[3 * map_index];
+      assert(maps != nullptr);
       num_samples = static_cast<int64_t>(map_index);
     }
 
@@ -761,7 +762,8 @@ py::array build_blocks_mapping_impl(const py::array_t<int64_t> &docs_,
       }
       assert(maps == NULL);
       assert(num_samples < 0);
-      maps = new DocIdx[4 * map_index];
+      maps = new(std::nothrow) DocIdx[4 * map_index];
+      assert(maps != nullptr);
       num_samples = static_cast<int64_t>(map_index);
     }
 
