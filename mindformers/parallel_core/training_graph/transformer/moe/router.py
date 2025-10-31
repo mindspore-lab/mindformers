@@ -231,7 +231,8 @@ class TopKRouter(Router):
         # group_limited_greedy
         self.num_groups = config.moe_router_num_groups
         self.group_topk = config.moe_router_group_topk
-        if self.group_topk:
+        self.enable_group_limited = self.num_groups and self.num_groups > 1
+        if self.enable_group_limited:
             self.tc_topk = TopkExt()
             self.tc_topk.recompute(False)
             self.tc_sum = ReduceSum(keep_dims=False)
@@ -266,7 +267,7 @@ class TopKRouter(Router):
             router_prob_with_bias = self.add(self.mul(0, router_prob_with_bias), balance_router_prob)
             router_prob = router_prob_with_bias
 
-        if self.group_topk:
+        if self.enable_group_limited:
             expert_gate, expert_index = self._group_limited_topk(router_prob, router_prob_with_bias)
         else:
             expert_gate, expert_index = self._topk(router_prob, router_prob_with_bias)
@@ -481,7 +482,7 @@ class TopKRouter(Router):
             self.add.shard((layout(dp, "None", "None"), layout("None", "None", "None")))
             self.tile.shard((layout(dp, "None", "None"),))
 
-        if self.group_topk:
+        if self.enable_group_limited:
             self.tc_topk.add_prim_attr("self_define_shard", True)
             self.tc_topk.shard(in_strategy=(layout(dp, "None", "None", "None"), layout(), layout(), layout(), layout()),
                                out_strategy=(layout(dp, "None", "None", "None"), layout(dp, "None", "None", "None")))
