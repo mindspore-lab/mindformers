@@ -467,7 +467,7 @@ class ContextConfig(BaseArgsConfig):
             save_graphs_path: str = ".",
             **kwargs,
     ):
-        super(ContextConfig, self).__init__(
+        super().__init__(
             mode=mode,
             device_id=device_id,
             device_target=device_target,
@@ -499,6 +499,7 @@ class MFContextConfig(BaseArgsConfig):
         'resume_training',
         'use_graceful_exit',
         'affinity_cpu_list',
+        'affinity_config',
         'monitor_local_loss',
         'monitor_device_local_loss',
         'profile',
@@ -515,7 +516,7 @@ class MFContextConfig(BaseArgsConfig):
             use_graceful_exit: bool = False,
             **kwargs,
     ):
-        super(MFContextConfig, self).__init__(
+        super().__init__(
             exclude_cann_cpu=exclude_cann_cpu,
             postprocess_use_numpy=postprocess_use_numpy,
             use_graceful_exit=use_graceful_exit,
@@ -721,7 +722,7 @@ class ParallelContextConfig(BaseArgsConfig):
             auto_pipeline: bool = False,
             **kwargs
     ):
-        super(ParallelContextConfig, self).__init__(
+        super().__init__(
             parallel_mode=parallel_mode,
             device_num=device_num,
             gradients_mean=gradients_mean,
@@ -747,7 +748,7 @@ class ParallelConfig(BaseArgsConfig):
 
     # pylint: disable=W0235
     def __init__(self, **kwargs):
-        super(ParallelConfig, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
 
 @dataclass
@@ -788,7 +789,7 @@ class ConfigArguments(BaseArgsConfig):
             save_checkpoint: Optional[Union[dict, BaseArgsConfig]] = None,
             cloud_config: Optional[Union[dict, BaseArgsConfig]] = None,
     ):
-        super(ConfigArguments, self).__init__(
+        super().__init__(
             output_dir=output_dir,
             profile=profile,
             auto_tune=auto_tune,
