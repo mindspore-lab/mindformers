@@ -255,16 +255,22 @@ class TopKRouter(Router):
         """
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob = self.gating_activation(logits)
-        if self.force_expert_balance:
-            router_prob = self.add(self.mul(0, router_prob), balance_router_prob)
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob_for_aux = self._normalize(router_prob) if self.use_gating_sigmoid else router_prob
 
         # (dp, N, k) fp32,  (dp, N, k) int32 <-- (dp, N, E) fp32
-        if self.enable_group_limited:
-            expert_gate, expert_index = self._group_limited_topk(router_prob)
+        if self.moe_router_enable_expert_bias:
+            router_prob_with_bias = self.afb_add_topk_bias(router_prob, self.expert_bias)
         else:
-            expert_gate, expert_index = self._topk(router_prob)
+            router_prob_with_bias = router_prob
+        if self.force_expert_balance:
+            router_prob_with_bias = self.add(self.mul(0, router_prob_with_bias), balance_router_prob)
+            router_prob = router_prob_with_bias
+
+        if self.enable_group_limited:
+            expert_gate, expert_index = self._group_limited_topk(router_prob, router_prob_with_bias)
+        else:
+            expert_gate, expert_index = self._topk(router_prob, router_prob_with_bias)
 
         if self.num_experts_chosen > 1 and self.config.norm_topk_prob:
             # (dp, N, k) fp32 <-- (dp, N, k) fp32
@@ -283,7 +289,7 @@ class TopKRouter(Router):
         # The shape change is: (dp, N, k)
         return x
 
-    def _group_limited_topk(self, router_prob):
+    def _group_limited_topk(self, router_prob, router_prob_with_bias):
         """Perform top-k routing on a subset of expert groups.
 
         When using group-limited routing:
@@ -307,11 +313,6 @@ class TopKRouter(Router):
         Returns:
             Tuple[Tensor, Tensor]: expert_gate and expert_index.
         """
-        if self.moe_router_enable_expert_bias:
-            router_prob_with_bias = self.afb_add_topk_bias(router_prob, self.expert_bias)
-        else:
-            router_prob_with_bias = router_prob
-
         # (dp, N, n_groups, E/n_groups) <-- (dp, N, E) fp32
         group_scores = self.reshape(router_prob_with_bias,
                                     (router_prob_with_bias.shape[0],
@@ -340,22 +341,19 @@ class TopKRouter(Router):
             expert_index = self.cast(expert_index, mstype.int32)
         return expert_gate, expert_index
 
-    def _topk(self, router_prob):
+    def _topk(self, router_prob, router_prob_with_bias):
         """Forward of topk routing."""
         # topk with bias
         if self.moe_router_enable_expert_bias:
-            return self._topk_with_bias(router_prob)
+            return self._topk_with_bias(router_prob, router_prob_with_bias)
         # normal topk
         expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
         expert_index = self.cast(expert_index, mstype.int32)
         return expert_gate, expert_index
 
-    def _topk_with_bias(self, router_prob):
+    def _topk_with_bias(self, router_prob, router_prob_with_bias):
         """compute topk with bias."""
-        _, expert_index = self.afb_topk(
-            self.afb_add_topk_bias(router_prob, self.expert_bias),
-            self.num_experts_chosen
-        )
+        _, expert_index = self.afb_topk(router_prob_with_bias, self.num_experts_chosen)
         # expert_index will be int64 without this cast,
         # and compile fails for the grad ReduceScatter don't support int64
         expert_index = self.cast(expert_index, mstype.int32)
