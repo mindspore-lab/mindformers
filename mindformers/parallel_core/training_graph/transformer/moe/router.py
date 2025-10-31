@@ -82,7 +82,7 @@ class Router(ABC, nn.Cell):
         Args:
             config (TransformerConfig): Configuration object for the Transformer model.
         """
-        super(Router, self).__init__()
+        super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
         self.expert_dim = config.num_moe_experts
@@ -129,7 +129,7 @@ class TopKRouter(Router):
         Args:
             config (TransformerConfig): The configuration for the transformer model.
         """
-        super(TopKRouter, self).__init__(config)
+        super().__init__(config)
         self.shape = Shape()
         self.reshape = Reshape()
         self.cast = Cast()
@@ -144,7 +144,7 @@ class TopKRouter(Router):
         self.div_3d = Div()
         # gating activation, softmax or sigmoid
         gating_type = config.moe_router_score_function
-        self.use_gating_sigmoid = (gating_type == "sigmoid")
+        self.use_gating_sigmoid = gating_type == "sigmoid"
         self.gating_activation = GATING_ACTIVATION[gating_type]
         # topk
         self.topk = TopkExt()
@@ -231,7 +231,8 @@ class TopKRouter(Router):
         # group_limited_greedy
         self.num_groups = config.moe_router_num_groups
         self.group_topk = config.moe_router_group_topk
-        if self.group_topk:
+        self.enable_group_limited = self.num_groups and self.num_groups > 1
+        if self.enable_group_limited:
             self.tc_topk = TopkExt()
             self.tc_topk.recompute(False)
             self.tc_sum = ReduceSum(keep_dims=False)
@@ -260,7 +261,7 @@ class TopKRouter(Router):
         router_prob_for_aux = self._normalize(router_prob) if self.use_gating_sigmoid else router_prob
 
         # (dp, N, k) fp32,  (dp, N, k) int32 <-- (dp, N, E) fp32
-        if self.group_topk:
+        if self.enable_group_limited:
             expert_gate, expert_index = self._group_limited_topk(router_prob)
         else:
             expert_gate, expert_index = self._topk(router_prob)
@@ -483,7 +484,7 @@ class TopKRouter(Router):
             self.add.shard((layout(dp, "None", "None"), layout("None", "None", "None")))
             self.tile.shard((layout(dp, "None", "None"),))
 
-        if self.group_topk:
+        if self.enable_group_limited:
             self.tc_topk.add_prim_attr("self_define_shard", True)
             self.tc_topk.shard(in_strategy=(layout(dp, "None", "None", "None"), layout(), layout(), layout(), layout()),
                                out_strategy=(layout(dp, "None", "None", "None"), layout(dp, "None", "None", "None")))
