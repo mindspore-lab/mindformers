@@ -19,8 +19,8 @@ from abc import abstractmethod
 from typing import Any
 import numpy as np
 import mindspore as ms
-import mindspore.ops as ops
-import mindspore.mint as mint
+from mindspore import ops
+from mindspore import mint
 from mindspore import nn, ParallelMode
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
@@ -91,7 +91,7 @@ class MoETokenDispatcher:
 
         rank_start = rank_id // ep * ep
         rand_end = rank_id // ep * ep + ep
-        rank_list = [i for i in range(rank_start, rand_end)]
+        rank_list = list(range(rank_start, rand_end))
 
         rank_list_str = "-".join([str(i) for i in range(rank_start, rand_end)])
         hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
@@ -319,7 +319,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         rank_start = self.rank_id // self.ep * self.ep
         rank_start = rank_start + self.rank_id % self.iep
         rand_end = rank_start + self.ep
-        rank_list = [i for i in range(rank_start, rand_end, self.iep)]
+        rank_list = list(range(rank_start, rand_end, self.iep))
 
         rank_list_str = "-".join([str(i) for i in rank_list])
         if rank_list_str in _OEP_GROUP_NAME:
@@ -341,7 +341,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         """
         rank_start = self.rank_id // self.iep * self.iep
         rand_end = rank_start + self.iep
-        rank_list = [i for i in range(rank_start, rand_end)]
+        rank_list = list(range(rank_start, rand_end))
 
         rank_list_str = "-".join([str(i) for i in rank_list])
         if rank_list_str in _IEP_GROUP_NAME:
@@ -418,9 +418,10 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         )
         exsl = ops.cast(excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
         exgl = ops.Depend()(exgl, exrl)
-        exsl = ops.Depend()(exsl, exgl)
+        exsl = self.d2h(exsl, "CPU", False)
+        exrl = self.d2h(exrl, "CPU", False)
 
-        router_coeff = ops.Depend()(router_coeff, exgl)
+        router_coeff = ops.Depend()(router_coeff, (exsl, exrl))
         expert_id = ops.Depend()(expert_id, exsl)
 
         # 1. allgather
@@ -429,9 +430,9 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         # 2. exdispatch
         x, exdispatch_idx, expert_id, router_coeff = self.get_exdispatch_idx(x, expert_id, router_coeff)
         exgl = ops.Depend()(exgl, x)
-        exsl = ops.Depend()(exsl, exdispatch_idx)
-        exsl = self.d2h(exsl, "CPU", True)
-        exrl = self.d2h(exrl, "CPU", True)
+        exsl = ops.Depend()(exsl, router_coeff)
+        exrl = ops.Depend()(exrl, router_coeff)
+
         excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
         x = IndexSelect()(x, 0, exdispatch_idx)
 
