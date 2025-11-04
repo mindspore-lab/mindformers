@@ -671,9 +671,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     f"When using moe_dry_run, seq_length ({self.seq_length}) must be divisible by "
                     f"num_moe_experts ({self.num_moe_experts})"
                     )
-            elif self.moe_token_dispatcher_type != "alltoall":
+            elif self.moe_token_dispatcher_type not in ("alltoall", "alltoall_deredundency"):
                 raise ValueError(
-                    "When using moe_dry_run, moe_token_dispatcher_type must be alltoall."
+                    "When using moe_dry_run, moe_token_dispatcher_type must be 'alltoall' or 'alltoall_deredundency'."
                     )
 
         if isinstance(self.rope_scaling, dict):
