@@ -638,7 +638,7 @@ class ConfigTemplate:
         "metric"
     ]
 
-    _run_modes = ['train', 'eval', 'predict', 'finetune']
+    _run_modes = ['train', 'eval', 'predict', 'finetune', 'predict_with_train_model']
 
     @classmethod
     def apply_template(cls, config):
@@ -657,7 +657,7 @@ class ConfigTemplate:
         if run_mode not in cls._run_modes:
             logger.warning(f"The specified run_mode '{run_mode}' is invalid. Expected one of {cls._run_modes}.")
             template = cls.general_configs
-        elif run_mode in ['train', 'finetune']:
+        elif run_mode in ['train', 'finetune', 'predict_with_train_model']:
             template = cls._train_template(config.get("do_eval", False))
         elif run_mode == "predict":
             template = cls._predict_template()

@@ -306,7 +306,7 @@ class MFContextOperator(MFContextConfig):
         lccl_deterministic = os.getenv('LCCL_DETERMINISTIC')
         run_mode = getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
         if run_mode in (
-                RunMode.TRAIN.value, RunMode.FINETUNE.value
+                RunMode.TRAIN.value, RunMode.FINETUNE.value, RunMode.PREDICT_WITH_TRAIN_MODEL.value
         ) and self.train_precision_sync is not None:
             _, _ = self._call_ms_deterministic(self.train_precision_sync)
 

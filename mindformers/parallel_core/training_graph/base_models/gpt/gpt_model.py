@@ -139,10 +139,16 @@ class PreprocessLabelsAndMasks(nn.Cell):
         """
         if loss_mask is None:
             loss_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), dtype.float32)
-        label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
-        loss_mask = self.mul(loss_mask, label_mask)
-        local_loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
-        local_labels = self.morphed_reshape_labels_and_masks(labels)
+
+        if labels is not None:
+            label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), dtype.float32)
+            loss_mask = self.mul(loss_mask, label_mask)
+            local_loss_mask = self.morphed_reshape_labels_and_masks(loss_mask)
+            local_labels = self.morphed_reshape_labels_and_masks(labels)
+        else:
+            local_loss_mask = None
+            local_labels = None
+
         if self.use_attn_mask_compression:
             attention_mask = self.casual_mask()
         elif attention_mask is None:

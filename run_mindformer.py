@@ -70,7 +70,7 @@ def main(config):
         trainer.train()
     elif config.run_mode == 'eval':
         trainer.evaluate(eval_checkpoint=config.load_checkpoint)
-    elif config.run_mode == 'predict':
+    elif config.run_mode in ['predict', 'predict_with_train_model']:
         trainer.predict(predict_checkpoint=config.load_checkpoint, input_data=config.input_data,
                         batch_size=config.predict_batch_size, adapter_id=config.adapter_id)
 
@@ -272,15 +272,16 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    if config_.run_mode not in ['train', 'eval', 'predict', 'finetune']:
-        raise TypeError(f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but {config_.run_mode}")
+    if config_.run_mode not in ['train', 'eval', 'predict', 'finetune', 'predict_with_train_model']:
+        raise TypeError(f"run status must be in {['train', 'eval', 'predict', 'finetune', 'predict_with_train_model']}"
+                        f", but {config_.run_mode}")
     if args_.train_dataset_dir:
         config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
     if args_.eval_dataset_dir:
         config_.eval_dataset.data_loader.dataset_dir = args_.eval_dataset_dir
     if args_.do_sample is not None:
         config_.model.model_config.do_sample = args_.do_sample
-    if config_.run_mode == 'predict':
+    if config_.run_mode in ['predict', 'predict_with_train_model']:
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
         if isinstance(args_.predict_data, list):

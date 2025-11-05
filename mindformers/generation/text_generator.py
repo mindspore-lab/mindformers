@@ -22,12 +22,23 @@ import time
 from typing import Optional, List, Union, Dict
 
 import numpy as np
+
+try:
+    import ms_custom_ops
+except ImportError:
+    ms_custom_ops = None
+
 import mindspore as ms
 from mindspore import mint, mutable, ops
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
+
+try:
+    from mindspore.common.api import _pynative_executor
+except ImportError:
+    _pynative_executor = None
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -127,8 +138,7 @@ class GenerationMixin:
 
             tp_group_size = get_tp_world_size()
             # When kv heads < tp size, will replicate kv heads
-            if num_query_groups < tp_group_size:
-                num_query_groups = tp_group_size
+            num_query_groups = max(num_query_groups, tp_group_size)
 
             if hasattr(tansformer_config, 'kv_channels'):
                 hidden_size_per_attention_head = getattr(tansformer_config, 'kv_channels')
@@ -166,7 +176,7 @@ class GenerationMixin:
         fa3_quant_layer = self.model.quant_config.fa3_quant_layer if self.model.quant_config else set()
         compute_dtype = tansformer_config.compute_dtype
         if fa3_quant and not use_ringmla:
-            raise ValueError(f'For fa3_quant, it is necessary to set use_ringmla to True.')
+            raise ValueError('For fa3_quant, it is necessary to set use_ringmla to True.')
         key_cache = []
         value_cache = []
         if is_310p():
@@ -175,7 +185,6 @@ class GenerationMixin:
             kv_cache_shape = (num_blocks, block_size, merge_dim)
         for num_layer in range(tansformer_config.num_layers):
             if fa3_quant:
-                import ms_custom_ops
                 k_cache_dtype = mstype.int8 if num_layer in fa3_quant_layer else compute_dtype
                 k_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.kv_lora_rank,), dtype=k_cache_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.qk_pos_emb_head_dim,),
@@ -629,8 +638,7 @@ class GenerationMixin:
         encoder_output = None
         encoder_mask = None
         if self.config.is_encoder_decoder:
-            if target_length > self.config.max_decode_length:
-                target_length = self.config.max_decode_length
+            target_length = min(target_length, self.config.max_decode_length)
             logger.debug("target_length is: %s", target_length)
 
             # When do encoder and decoder prediction, the encoder can be cached
@@ -943,7 +951,7 @@ class GenerationMixin:
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
 
-        if not use_legacy:
+        if not use_legacy and not hasattr(self, "is_train_model"):
             self._set_block_mgr(batch_size, self.config.seq_length)
             self._set_kv_cache()
             self._set_lower_triangle_mask()
@@ -1017,8 +1025,7 @@ class GenerationMixin:
             encoder_mask = None
             target_mask = None
             if self.config.is_encoder_decoder:
-                if generation_config.max_length > self.config.max_decode_length:
-                    generation_config.max_length = self.config.max_decode_length
+                generation_config.max_length = min(generation_config.max_length, self.config.max_decode_length)
                 logger.debug("max decode length is: %s", generation_config.max_length)
 
                 # When do encoder and decoder prediction, the encoder can be cached
@@ -1058,7 +1065,7 @@ class GenerationMixin:
                 self.detailed_latency.start_preprocess_timer()
                 block_tables = None
                 slot_mapping = None
-                if not use_legacy or generation_config.use_past:
+                if (not use_legacy or generation_config.use_past) and not hasattr(self, "is_train_model"):
                     if prefill:
                         if (use_legacy and self.is_pynative and self.config.is_dynamic):
                             max_input_length = len(origin_inputs[0])
@@ -1071,7 +1078,7 @@ class GenerationMixin:
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
                                                                                            is_finished)
                 self.profile.start_profiling(valid_length_each_example[0] - input_ids_length)
-                if use_legacy:
+                if use_legacy or (hasattr(self, "is_train_model") and self.is_train_model):
                     infer_output, is_finished = self.infer(input_ids=input_ids,
                                                            valid_length_each_example=valid_length_each_example,
                                                            generation_config=generation_config,
@@ -1382,7 +1389,7 @@ class GenerationMixin:
                                             prefill: bool = None,
                                             **model_kwargs):
         """prepare inputs for mcore"""
-        model_inputs = dict()
+        model_inputs = {}
         seq_lens = np.array(valid_length_each_example)
 
         q_seq_lens = model_kwargs.get("q_seq_lens", None)
@@ -1668,7 +1675,6 @@ class GenerationMixin:
             is_finished, whether the sequence has completed its generation task.
         """
         if not self.is_pynative:
-            from mindspore.common.api import _pynative_executor
             _pynative_executor.set_async_for_graph(True)
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
@@ -1762,7 +1768,6 @@ class GenerationMixin:
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
         if not self.is_pynative:
-            from mindspore.common.api import _pynative_executor
             _pynative_executor.sync()
             _pynative_executor.set_async_for_graph(False)
         return target_list, next_probs_cache, next_logits_cache, is_finished

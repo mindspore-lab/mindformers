@@ -14,6 +14,8 @@
 # ============================================================================
 """ModelMixin for train models"""
 
+from mindspore import Tensor
+import mindspore.common.dtype as mstype
 import numpy as np
 
 from mindformers.tools.logger import logger
@@ -124,6 +126,8 @@ class ModelMixin:
 
 class TrainModelMixin:
     """General interfaces for train models."""
+
+    is_train_model = True
 
     def concat_qkv_weight_megatron(self, wq_keys, wk_keys, wv_keys, qkv_weight_dict, condition, ms_weight_dict,
                                    head_dim, n_kv_heads, num_attention_heads):
@@ -503,3 +507,6 @@ class TrainModelMixin:
             parameters, param_names, param_layers,
             logit_threshold, split_fn, merge_fn
         )
+
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        return Tensor(input_ids, mstype.int32), None, None, None, None, None, None, None, None
