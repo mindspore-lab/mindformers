@@ -1110,7 +1110,7 @@ class BaseTrainer:
 
         append_info = None
         if not config.ckpt_use_legacy_format:
-            if config.resume_training and config.load_checkpoint:
+            if config.resume_training and config.load_checkpoint and not check_is_reboot_node():
                 logger.info(".............Start load resume context from common.json..................")
                 common_file = os.path.join(config.load_checkpoint, 'common.json')
                 if not os.path.exists(common_file):
@@ -1142,7 +1142,7 @@ class BaseTrainer:
                 config.runner_config.initial_epoch = 0
                 config.runner_config.initial_step = 0
         else:
-            if config.resume_training and config.load_checkpoint:
+            if config.resume_training and config.load_checkpoint and not check_is_reboot_node():
                 logger.info(".............Start load resume context from checkpoint..................")
                 if check_tft_valid() and not config.remove_redundancy:
                     logger.info("..............Start resume checkpoint path from strategy..............")
