@@ -16,10 +16,11 @@
 __all__ = ['FlashAttention']
 
 import math
+import numpy as np
 
 import mindspore.common.dtype as mstype
 import mindspore as ms
-from mindspore import ops, ParallelMode
+from mindspore import ops, ParallelMode, Parameter
 from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
 from mindspore.ops import auto_generate as aclnn_ops
@@ -31,6 +32,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
 from mindformers.parallel_core.training_graph.device_matrix import layout
+from mindformers.core.context.build_context import Context, get_context
 
 
 class FlashAttention(Cell):
@@ -90,7 +92,7 @@ class FlashAttention(Cell):
                  softmax_scale: float = None,
                  cp_comm_type: str = None,
                  ):
-        super(FlashAttention, self).__init__()
+        super().__init__()
 
         # FA (Flash Attention) is an optimized version of DotProductAttention in Megatron v0.12.0,
         # with nearly identical computational precision.
@@ -158,6 +160,18 @@ class FlashAttention(Cell):
         self.shape = aclnn_ops.Shape()
         self.reshape = aclnn_ops.Reshape()
         self.fa_out_transpose = aclnn_ops.Transpose()
+
+        if Context.is_exists():
+            self.monitor_max_attention_logit = get_context("monitor_max_attention_logit")
+        else:
+            self.monitor_max_attention_logit = False
+        if self.monitor_max_attention_logit:
+            self.max_logits_val = Parameter(
+                Tensor(np.zeros((1, self.head_num)), dtype=mstype.float32),
+                parallel_optimizer=False, requires_grad=False
+            )
+            self.assign_add = ops.AssignAdd()
+            self.assign_add.add_prim_attr("self_define_shard", True)
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -283,7 +297,7 @@ class FlashAttention(Cell):
             drop_mask_bits = None
         if self.use_alibi_mask:
             alibi_mask = self.alibi_rescale_mul(alibi_mask, F.cast(self.alibi_rescale_factor, alibi_mask.dtype))
-        _, _, _, output = self.flash_attention(query,
+        softmax_val, _, _, output = self.flash_attention(query,
                                                key,
                                                value,
                                                alibi_mask,
@@ -291,6 +305,11 @@ class FlashAttention(Cell):
                                                padding_mask,
                                                attention_mask,
                                                prefix)
+        if self.monitor_max_attention_logit:
+            max_logits = ops.ReduceMax()(softmax_val, (2,3))
+            max_logits = ops.ReduceMax(keep_dims=True)(max_logits, (0))
+            output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
+
         if self.input_layout == "BNSD":
             output = self._merge_heads(output)
         elif self.input_layout == "BSH":
@@ -331,4 +350,14 @@ class FlashAttention(Cell):
         if self.use_alibi_mask:
             self.alibi_rescale_mul.shard(((dp, tp, cp, 1), (1,)))
 
+        if self.monitor_max_attention_logit:
+            self.assign_add.shard(
+                in_strategy=(
+                    layout("None", "tp"),
+                    layout("None", "tp"),
+                ),
+                out_strategy=(
+                    layout("None", "tp"),
+                )
+            )
         return self

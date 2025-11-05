@@ -645,6 +645,20 @@ class GPTModel(nn.Cell):
             if hasattr(self.decoder.layers[i].mlp, "router"):
                 self.assign_aux(self.decoder.layers[i].mlp.router.fi_accu, self.zeros_tensor)
 
+    def reset_max_attention_logit(self,):
+        """Reset max attention logit for all layers."""
+        num_layers = self.config.num_layers
+        mtp_num_layers = self.config.mtp_num_layers
+        for i in range(num_layers):
+            if hasattr(self.decoder.layers[i].self_attention.core_attention, "max_logits_val"):
+                param = self.decoder.layers[i].self_attention.core_attention.max_logits_val
+                F.assign(param, F.zeros_like(param))
+
+        for i in range(mtp_num_layers):
+            if hasattr(self.mtp.layers[i].transformer_layer.self_attention.core_attention, "max_logits_val"):
+                param = self.mtp.layers[i].transformer_layer.self_attention.core_attention.max_logits_val
+                F.assign(param, F.zeros_like(param))
+
     def shard(self, config: TransformerConfig):
         """parallel shard."""
         dp = config.data_parallel_size
@@ -701,8 +715,9 @@ class GPTModel(nn.Cell):
         if ms.get_auto_parallel_context('pipeline_stages') > 1:
             if current_pipeline_stage == self.output_layer.pipeline_stage:
                 params.update(get_model_parameters(self.output_layer))
-            if current_pipeline_stage == self.mtp.pipeline_stage:
-                params.update(get_model_parameters(self.mtp))
+            if hasattr(self, "mtp"):
+                if current_pipeline_stage == self.mtp.pipeline_stage:
+                    params.update(get_model_parameters(self.mtp))
             params.update(self.decoder.get_model_parameters())
             params.update(get_model_parameters(self.embedding))
         else:

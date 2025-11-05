@@ -671,7 +671,9 @@ class TrainingStateMonitor(Callback):
         dataset_size (int, optional): Required in sink mode. Training dataset size. Default: ``None``.
         initial_epoch (int, optional): The beginning epoch. Default: ``0``.
         initial_step (int, optional): The beginning step. Default: ``0``.
+        micro_batch_num (int, optional): MicroBatch size for Pipeline Parallel. Default: ``0``.
         global_batch_size (int, optional): The total batch size. Default: ``0``.
+        tensor_model_parallel_size (int, optional): Tensor model parallel size. Default: ``0``.
         check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
             Default: ``False``.
         use_skip_data_by_global_norm (bool, optional): Whether to use the skip data function
@@ -689,7 +691,9 @@ class TrainingStateMonitor(Callback):
                  dataset_size: int = None,
                  initial_epoch: int = 0,
                  initial_step: int = 0,
+                 micro_batch_num: int = 0,
                  global_batch_size: int = 0,
+                 tensor_model_parallel_size: int = 0,
                  check_for_nan_in_loss_and_grad: bool = False,
                  use_skip_data_by_global_norm: bool = False,
                  embedding_size: int = 4096,
@@ -708,7 +712,9 @@ class TrainingStateMonitor(Callback):
         self.origin_epochs = origin_epochs
         self.initial_epoch = initial_epoch
         self.initial_step = initial_step
+        self.micro_batch_num = micro_batch_num
         self.global_batch_size = global_batch_size
+        self.tensor_model_parallel_size = tensor_model_parallel_size
         self.global_norm_spike_count = 0
         self.use_skip_data_by_global_norm = use_skip_data_by_global_norm
         self.embedding_size = embedding_size
@@ -785,6 +791,8 @@ class TrainingStateMonitor(Callback):
                 self._dump_data_in_step(cb_params.cur_step_num)
             if self.optimizer_state_format:
                 self._dump_optimizer_state(cb_params)
+            if self.max_attention_logit_format:
+                self._dump_max_attention_logit(cb_params)
             if self.weight_state_format:
                 network = cb_params.network
                 if isinstance(network, ms.nn.TrainOneStepCell):
@@ -904,6 +912,7 @@ class TrainingStateMonitor(Callback):
         self.device_local_norm_format = config.get('device_local_norm_format', None)
         self.device_local_loss_format = \
             config.get('device_local_loss_format', None) if is_last_pipeline_stage() else None
+        self.max_attention_logit_format = config.get('max_attention_logit_format', None)
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
         self.throughput_baseline = config.get('throughput_baseline', None)
@@ -927,7 +936,7 @@ class TrainingStateMonitor(Callback):
         if not isinstance(self.print_struct, bool):
             raise TypeError("The value of 'print_struct' should be bool.")
         attrs = ['local_norm_format', 'local_loss_format', 'device_local_norm_format', 'device_local_loss_format',
-                 'optimizer_state_format', 'weight_state_format']
+                 'optimizer_state_format', 'weight_state_format', 'max_attention_logit_format']
         for attr in attrs:
             self._check_attr_formats(attr)
         if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
@@ -1036,6 +1045,49 @@ class TrainingStateMonitor(Callback):
             if 'tensorboard' in self.local_loss_format:
                 self._output(f'local_{loss_tag}_loss', np.mean(loss_list), self.dump_step, ['tensorboard'])
 
+    def _dump_max_attention_logit(self, cb_params):
+        """write the max attention logit to log/tensorboard"""
+        if cb_params.optimizer is not None:
+            cb_optimizer = cb_params.optimizer
+        else:
+            cb_optimizer = cb_params.network.optimizer
+        params = cb_optimizer._parameters  # pylint: disable=W0212
+        if not params:
+            return
+        step = cb_params.cur_step_num
+        vals = []
+        tags = []
+        for param in params:
+            name = getattr(param, "name", "")
+            if "max_logits_val" not in name:
+                continue
+
+            t = param.value()
+            v = t.asnumpy().squeeze()
+            v = v / max(1, self.micro_batch_num)
+
+            tag = f"max_attention_logit/{name}"
+            if 'log' in self.max_attention_logit_format:
+                self._output(tag, v.tolist(), step, ['log'])
+            if 'tensorboard' in self.max_attention_logit_format:
+                tp_id =  get_rank() // self.tensor_model_parallel_size
+                head_start = tp_id * len(v)
+                data = {f"head_{head_start+i}": max_attention_logit for i, max_attention_logit in enumerate(v)}
+                self._output(tag, data, step, ['tensorboard'])
+
+            vals.append(v)
+            tags.append(tag)
+
+        if vals:
+            mean_v = float(np.mean(vals))
+            max_v = float(np.max(vals))
+            if 'tensorboard' in self.max_attention_logit_format:
+                self._output('max_attention_logit/mean', mean_v, step, ['tensorboard'])
+                self._output('max_attention_logit/max', max_v, step, ['tensorboard'])
+            if 'log' in self.max_attention_logit_format:
+                self._output('max_attention_logit/mean', mean_v, step, ['log'])
+                self._output('max_attention_logit/max', max_v, step, ['log'])
+
     def _dump_optimizer_state(self, cb_params):
         """write the optimizer state to tensorboard"""
         optimizer = cb_params.optimizer
@@ -1075,19 +1127,33 @@ class TrainingStateMonitor(Callback):
             return
         file_list = os.listdir(self.dump_path)
         for f in file_list:
+            if f.startswith(".nfs"):
+                continue
             os.remove(os.path.join(self.dump_path, f))
 
     def _to_tensorboard(self, tag, data, global_step):
         """Write data to tensorboard if possible"""
         if self.tensor_writer is not None:
-            self.tensor_writer.add_scalar(tag, data, global_step=global_step)
+            if isinstance(data, dict):
+                self.tensor_writer.add_scalars(tag, data, global_step=global_step)
+            else:
+                self.tensor_writer.add_scalar(tag, data, global_step=global_step)
 
     def _to_log(self, tag, data, global_step):
         """Write data to log file"""
         cur_epoch_num = (global_step + self.initial_step - 1) // self.steps_per_epoch + 1
         cur_step_num = (global_step + self.initial_step - 1) % self.steps_per_epoch + 1
-        logger.info("Epoch:[%3d/%3d], step:[%5d/%5d] %s: %.4f",
-                    cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag, data)
+        if isinstance(data, list):
+            logger.info(
+                "Epoch:[%3d/%3d], step:[%5d/%5d] %s: %s",
+                cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag,
+                [round(x, 4) if isinstance(x, (float, int)) else x for x in data]
+            )
+        else:
+            logger.info(
+                "Epoch:[%3d/%3d], step:[%5d/%5d] %s: %.4f",
+                cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag, data
+            )
 
     def _output(self, tag, data, global_step, formats):
         """Write data in specified formats"""
@@ -1296,7 +1362,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.global_batch_size = global_batch_size
         # this list records parameters which will be ignored when saving ckpt.
         self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache',
-                            '_device_local_norm', '_device_local_loss', 'expert_load']
+                            '_device_local_norm', '_device_local_loss', 'expert_load', 'max_logits_val']
 
         self.save_info_list = defaultdict(
             lambda: {
@@ -2424,6 +2490,46 @@ class StressDetectCallBack(Callback):
             else:
                 logger.warning(f"Stress detection failed with error code: {ret}")
 
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class MaxLogitsMonitor(Callback):
+    """
+    Callback to reset max attention logits during training.
+    
+    This callback resets the maximum attention logit values at the end of each training step.
+    """
+
+    def __init__(self,):
+        pass
+
+    def _reset_max_attention_logit(self, network):
+        """Reset max attention logit in the network.
+        
+        Args:
+            network: The network to reset max attention logit.
+            
+        Raises:
+            RuntimeError: If the network does not have reset_max_attention_logit method.
+        """
+        while hasattr(network, "network"):
+            network = network.network
+        if hasattr(network, "reset_max_attention_logit"):
+            network.reset_max_attention_logit()
+        else:
+            raise RuntimeError(f"network {type(network).__name__} should have reset_max_attention_logit")
+
+    def on_train_step_end(self, run_context):
+        """update expert bias at the end of step."""
+        cb_params = run_context.original_args()
+        self.cur_step = cb_params.cur_step_num
+        # pylint: disable=W0212
+        network = cb_params.train_network
+        while hasattr(network, 'network'):
+            network = network.network
+        parallel_mode = get_auto_parallel_context("parallel_mode")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
+            network = network._backbone
+        self._reset_max_attention_logit(network)
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class TopkBiasBalanceCallback(Callback):

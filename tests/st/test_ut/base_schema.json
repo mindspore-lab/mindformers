@@ -273,7 +273,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, micro_batch_num: int = 0, global_batch_size: int = 0, tensor_model_parallel_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)"
     },
     "mindformers.core.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
@@ -471,7 +471,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.callback.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, micro_batch_num: int = 0, global_batch_size: int = 0, tensor_model_parallel_size: int = 0, check_for_nan_in_loss_and_grad: bool = False, use_skip_data_by_global_norm: bool = False, embedding_size: int = 4096, use_local_norm: bool = False)"
     },
     "mindformers.core.callback.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"

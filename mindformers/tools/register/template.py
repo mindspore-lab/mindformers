@@ -544,6 +544,7 @@ class MonitorConfig(Config):
     device_local_loss_format = None
     optimizer_state_format = None
     weight_state_format = None
+    max_attention_logit_format = None
     throughput_baseline = None
     print_struct = False
     check_for_global_norm = False
@@ -686,7 +687,7 @@ class ConfigTemplate:
                 continue
             new_config[sub_config] = class_.apply(config.pop(sub_config, None))
 
-        unused_config = [key for key in config.keys()]
+        unused_config = list(config.keys())
         if unused_config:
             logger.warning(f"Some configs in yaml are useless for {run_mode}: {unused_config}")
         config.update(new_config)

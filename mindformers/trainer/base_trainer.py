@@ -640,22 +640,30 @@ class BaseTrainer:
 
         # Build optimizer with dynamic lr_scheduler if available
         if self.lr_scheduler is not None:
+            default_args = {"params": group_params, "learning_rate": self.lr_scheduler}
+            if self.config.optimizer.type == "Muon":
+                default_args["micro_batch_num"] = self.config.parallel_config.micro_batch_num
+                default_args["network"] = network
             self.optimizer = build_optim(
                 self.config.optimizer,
-                default_args={"params": group_params, "learning_rate": self.lr_scheduler})
+                default_args=default_args)
         else:
             # Otherwise, create lr_scheduler with static learning rate from config
             if self.config.optimizer.learning_rate is None:
-                raise ValueError("")
+                raise ValueError("learning_rate must be input")
 
             learning_rate = self.config.optimizer.learning_rate
             if learning_scale and scale_factor is not None:
                 # reset learning_rate in optimizer with scale_factor if learning_scale is True
                 self.config.optimizer.learning_rate = self.learning_rate_scale(learning_rate, scale_factor)
 
+            default_args = {"params": group_params}
+            if self.config.optimizer.type == "Muon":
+                default_args["micro_batch_num"] = self.config.parallel_config.micro_batch_num
+                default_args["network"] = network
             # Build optimizer with fixed learning rate
             self.optimizer = build_optim(
-                self.config.optimizer, default_args={"params": group_params})
+                self.config.optimizer, default_args=default_args)
 
         return self.optimizer
 
@@ -1227,7 +1235,7 @@ class BaseTrainer:
             network = self.network
 
         model_params = set()
-        if self.config.optimizer.type in ("PmaAdamW", "FusedPmaAdamW"):
+        if self.config.optimizer.type in ("PmaAdamW", "FusedPmaAdamW", "Muon"):
             if hasattr(network, "get_model_parameters"):
                 model_params.update(network.get_model_parameters())
             else:
@@ -1325,7 +1333,9 @@ class BaseTrainer:
                     "dataset_size": config.data_size,
                     "initial_epoch": config.runner_config.initial_epoch,
                     "initial_step": config.runner_config.initial_step,
+                    "micro_batch_num": config.parallel_config.micro_batch_num,
                     "global_batch_size": self.global_batch_size,
+                    "tensor_model_parallel_size": config.parallel_config.model_parallel,
                     "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False),
                     "use_skip_data_by_global_norm": getattr(config, "use_skip_data_by_global_norm", False),
                     "embedding_size": embedding_size,
@@ -1392,6 +1402,13 @@ class BaseTrainer:
                 "ckpt_load_fn": ckpt_load_func
             }
             default_callbacks.append(build_callback({"type": "TrainFaultTolerance"}, default_args=default_args))
+
+        if config.optimizer.type == "Muon" or config.monitor_config.max_attention_logit_format is not None:
+            logger.info(
+                f"Added MaxLogitsMonitor | optimizer={config.optimizer.type}, "
+                f"max_attention_logit_format={config.monitor_config.max_attention_logit_format}"
+            )
+            default_callbacks.append(build_callback({"type": "MaxLogitsMonitor"}))
 
         if callbacks is not None:
             if isinstance(callbacks, list):

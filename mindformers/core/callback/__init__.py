@@ -21,10 +21,12 @@ from .callback import (
     ProfileMonitor,
     SummaryMonitor,
     StressDetectCallBack,
-    TrainingStateMonitor
+    TrainingStateMonitor,
+    MaxLogitsMonitor
 )
 
 __all__ = [
     'CheckpointMonitor', 'EvalCallBack', 'MFLossMonitor',
-    'ProfileMonitor', 'SummaryMonitor', 'TrainingStateMonitor'
+    'ProfileMonitor', 'SummaryMonitor', 'TrainingStateMonitor',
+    'MaxLogitsMonitor'
 ]
