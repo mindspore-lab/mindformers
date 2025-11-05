@@ -417,7 +417,7 @@ class AutoConfig:
             The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            model_type (str): The model type like "llama3_1".
+            model_type (str): The model type like "qwen2_5".
             config (PretrainedConfig): The config to register.
             exist_ok (bool, optional): If set to True, no error will be raised even if model_type already exists.
                 Default: ``False``.

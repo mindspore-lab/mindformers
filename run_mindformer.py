@@ -66,7 +66,7 @@ def main(config):
     build_context(config)
 
     trainer = Trainer(config)
-    if config.run_mode == 'train' or config.run_mode == 'finetune':
+    if config.run_mode in ('train', 'finetune'):
         trainer.train()
     elif config.run_mode == 'eval':
         trainer.evaluate(eval_checkpoint=config.load_checkpoint)
@@ -132,8 +132,6 @@ if __name__ == "__main__":
     parser.add_argument(
         '--load_checkpoint', default=None, type=str,
         help="load model checkpoint to train/finetune/eval/predict, "
-             "it is also support input model name, such as 'llama3_1_8b', "
-             "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
         '--src_strategy_path_or_dir', default=None, type=str,
@@ -217,7 +215,7 @@ if __name__ == "__main__":
                   for item in rest_args_
                   for i in item.split("=")]
     if len(rest_args_) % 2 != 0:
-        raise ValueError(f"input arg key-values are not in pair, please check input args. ")
+        raise ValueError("input arg key-values are not in pair, please check input args. ")
 
     if args_.config is not None and not os.path.isabs(args_.config):
         args_.config = os.path.join(work_path, args_.config)
