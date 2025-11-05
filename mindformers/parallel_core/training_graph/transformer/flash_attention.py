@@ -32,7 +32,6 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.parallel_core.transformer_config import MLATransformerConfig
 from mindformers.parallel_core.training_graph.transformer.enums import AttnMaskType
 from mindformers.parallel_core.training_graph.device_matrix import layout
-from mindformers.core.context.build_context import Context, get_context
 
 
 class FlashAttention(Cell):
@@ -161,10 +160,8 @@ class FlashAttention(Cell):
         self.reshape = aclnn_ops.Reshape()
         self.fa_out_transpose = aclnn_ops.Transpose()
 
-        if Context.is_exists():
-            self.monitor_max_attention_logit = get_context("monitor_max_attention_logit")
-        else:
-            self.monitor_max_attention_logit = False
+        self.monitor_max_attention_logit = self.config.monitor_max_attention_logit
+
         if self.monitor_max_attention_logit:
             self.max_logits_val = Parameter(
                 Tensor(np.zeros((1, self.head_num)), dtype=mstype.float32),
@@ -306,7 +303,7 @@ class FlashAttention(Cell):
                                                attention_mask,
                                                prefix)
         if self.monitor_max_attention_logit:
-            max_logits = ops.ReduceMax()(softmax_val, (2,3))
+            max_logits = ops.ReduceMax()(softmax_val, (2, 3))
             max_logits = ops.ReduceMax(keep_dims=True)(max_logits, (0))
             output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
 

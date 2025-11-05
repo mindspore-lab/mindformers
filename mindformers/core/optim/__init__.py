@@ -21,8 +21,9 @@ from .adamw import AdamW as BasicAdamW
 from .fused_adamw import FusedAdamW
 from .pma_adamw import PmaAdamW as BasicPmaAdamW
 from .fused_pma_adamw import FusedPmaAdamW
+from .muon import Muon
 
-__all__ = ['AdamW', 'PmaAdamW']
+__all__ = ['AdamW', 'PmaAdamW', 'Muon']
 
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)

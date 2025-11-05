@@ -451,12 +451,55 @@ class TrainModelMixin:
                     raise ValueError(f"the length of cur_layer_linear_fc2_weights_dict is "
                                      f"{len(cur_layer_linear_fc2_weights_dict)}, can't stack them.")
 
-    def get_model_parameters(self):
-        """Get current rank trainable parameters in model ."""
+    def check_and_get_model(self):
+        """Check and get GPT model instance."""
         if not hasattr(self, 'model'):
             raise RuntimeError("Mcore model definition should use the fixed paradigm: "
                                "self.model = GPTModel(*args, **kwargs) definition. "
                                "Currently, this attribute cannot be correctly recognized. "
                                "Please modify the GPTModel definition method.")
-        model = getattr(self, 'model')
+        return getattr(self, 'model')
+
+    def get_model_parameters(self):
+        """Get current rank trainable parameters in model ."""
+        model = self.check_and_get_model()
         return model.get_model_parameters()
+
+    def make_model_muon_fns(self):
+        """Make model muon functions."""
+        model = self.check_and_get_model()
+        return model.make_model_muon_fns()
+
+    def get_muon_filter(self):
+        """Get muon filter."""
+        model = self.check_and_get_model()
+        return model.get_muon_filter()
+
+    def get_tp_dims(self, parameters):
+        """Get tensor parallel dimensions for parameters."""
+        model = self.check_and_get_model()
+        return model.get_tp_dims(parameters)
+
+    def get_op_groups_info(self, parameters, op_size, tp_group, op_group):
+        """Get operation groups information for parameters."""
+        model = self.check_and_get_model()
+        return model.get_op_groups_info(parameters, op_size, tp_group, op_group)
+
+    def get_parallel_config_for_muon(self):
+        """Get parallel configuration for Muon optimizer."""
+        model = self.check_and_get_model()
+        return model.get_parallel_config_for_muon()
+
+    def get_param_layer_indices(self, parameters):
+        """Get layer indices for parameters."""
+        model = self.check_and_get_model()
+        return model.get_param_layer_indices(parameters)
+
+    def apply_qk_clip_scaling(self, parameters, param_names, param_layers,
+                              logit_threshold, split_fn, merge_fn):
+        """Apply QK clip scaling to parameters."""
+        model = self.check_and_get_model()
+        return model.apply_qk_clip_scaling(
+            parameters, param_names, param_layers,
+            logit_threshold, split_fn, merge_fn
+        )

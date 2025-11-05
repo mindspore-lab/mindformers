@@ -304,6 +304,7 @@ COMMON_CONFIG_MAPPING = {
     "hidden_act": "hidden_act",
     "mask_func_type": "mask_func_type",
     "param_init_std_rules": "param_init_std_rules",
+    "monitor_max_attention_logit": "monitor_max_attention_logit",
     ("extend_method", "position_embedding_type"): "position_embedding_type",
     ("init_method_std", "initializer_range"): "init_method_std",
 

@@ -26,6 +26,7 @@ from mindspore.ops.operations import Morph
 from mindspore import Tensor, dtype, nn
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore import ops
 
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock
@@ -52,6 +53,7 @@ from mindformers.parallel_core.utils.init_method import init_method_normal
 from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
+from mindformers.core.optim.muon_utils import make_muon_fns
 
 
 def func_infer_dtype(*args):
@@ -723,3 +725,271 @@ class GPTModel(nn.Cell):
         else:
             params.update(get_model_parameters(self))
         return params
+
+    def make_model_muon_fns(self,):
+        """Read values from TransformersConfig and generate schema."""
+
+        num_moe_experts = self.config.num_moe_experts
+        hidden_size = self.config.hidden_size
+        moe_ffn_hidden_size = self.config.moe_ffn_hidden_size
+        qk_head_dim = self.config.qk_head_dim
+        qk_pos_emb_head_dim = self.config.qk_pos_emb_head_dim
+        num_attention_heads = self.config.num_attention_heads
+        kv_lora_rank = self.config.kv_lora_rank
+        value_head_dim = self.config.v_head_dim
+
+        schema = [
+            # experts.weight1: reshape → split into two [num_moe_experts, hidden_size, moe_ffn_hidden_size]
+            {
+                "patterns": ["*mlp.experts.weight1*"],
+                "kind": "reshape_concat",
+                "reshape": (num_moe_experts, hidden_size, 2 * moe_ffn_hidden_size),
+            },
+            # experts.weight2: reshape → [num_moe_experts, moe_ffn_hidden_size, hidden_size]
+            {
+                "patterns": ["*mlp.experts.weight2*"],
+                "kind": "reshape_only",
+                "reshape": (num_moe_experts, moe_ffn_hidden_size, hidden_size),
+            },
+            # q_proj / q_up_proj: periodic split across heads
+            {
+                "patterns": [
+                    "*self_attention.linear_q_proj.weight*",
+                    "*self_attention.linear_q_up_proj.weight*",
+                ],
+                "kind": "periodic",
+                "parts": (qk_head_dim, qk_pos_emb_head_dim, num_attention_heads),
+            },
+            # kv_down_proj: one block
+            {
+                "patterns": ["*self_attention.linear_kv_down_proj.weight*"],
+                "kind": "periodic",
+                "parts": (kv_lora_rank, qk_pos_emb_head_dim, 1),
+            },
+            # kv_up_proj: periodic split across heads
+            {
+                "patterns": ["*self_attention.linear_kv_up_proj.weight*"],
+                "kind": "periodic",
+                "parts": (qk_head_dim, value_head_dim, num_attention_heads),
+            },
+            # fc1 and shared_fc1: alternating 1,1 split along rows
+            {
+                "patterns": [
+                    "*mlp.shared_experts.linear_fc1.weight*",
+                    "*mlp.linear_fc1.weight*",
+                ],
+                "kind": "alt_pair_periodic",
+            },
+        ]
+
+        return make_muon_fns(schema)
+
+    def get_muon_filter(self):
+        """Return a filter function to determine if a parameter should use Muon optimization.
+        
+        Returns:
+            A function that takes a parameter and returns True if it should use Muon.
+        """
+        def muon_filter(param):
+            return (
+                (len(param.shape) == 2 or len(param.shape) == 3)
+                and "word_embeddings" not in param.name
+                and "output_layer" not in param.name
+            )
+        return muon_filter
+
+    def get_tp_dims(self, params):
+        """Return tensor parallel dimensions for each parameter.
+        
+        Args:
+            params: List of parameters from the optimizer.
+            
+        Returns:
+            Tuple of TP dimensions for each parameter.
+        """
+        no_tp_list = [
+            "linear_q_down_proj",
+            "linear_kv_down_proj",
+            "shared_experts",
+            "mlp.router",
+            "hnorm.weight", "enorm.weight", "eh_proj.weight",
+        ]
+
+        tp_dim_1_list = [
+            "self_attention.linear_proj.weight",
+            "mlp.linear_fc2.weight"
+        ]
+
+        def name_filter(param_name, full_name_list):
+            for full_name in full_name_list:
+                if full_name in param_name:
+                    return True
+            return False
+
+        tp_dims = []
+        for param in params:
+            if name_filter(param.name, tp_dim_1_list):
+                tp_dims.append(1)
+            elif name_filter(param.name, no_tp_list):
+                tp_dims.append(-1)
+            else:
+                tp_dims.append(0)
+        return tuple(tp_dims)
+
+    def get_op_groups_info(self, params, op, tp_group, op_group):
+        """Return optimizer parallel group information for each parameter.
+        
+        Args:
+            params: List of parameters from the optimizer.
+            op: Optimizer parallel size.
+            tp_group: Tensor parallel group name.
+            
+        Returns:
+            Tuple of (ops, op_groups) where:
+                - ops: tuple of op values for each parameter
+                - op_groups: tuple of group names for each parameter
+        """
+        no_op_list = [
+            "self_attention.linear_q_proj.weight",
+            "self_attention.linear_q_up_proj.weight",
+            "self_attention.linear_q_down_proj.weight",
+            "self_attention.linear_kv_up_proj.weight",
+            "self_attention.linear_kv_down_proj.weight",
+            "eh_proj"
+        ]
+
+        use_tp_group_list = [
+            "mlp.router.weight",
+            "mlp.shared_experts.linear_fc",
+            "self_attention.linear_q_down_proj.weight",
+            "eh_proj",
+        ]
+
+        def name_filter(param_name, full_name_list):
+            for full_name in full_name_list:
+                if full_name in param_name:
+                    return True
+            return False
+
+        op_list = []
+        op_groups = []
+
+        for param in params:
+            if name_filter(param.name, no_op_list):
+                op_list.append(1)
+
+                op_groups.append("")
+                if param.parallel_optimizer:
+                    param.parallel_optimizer = False
+                    logger.warning(
+                        f"Parameter {param.name}: parallel_optimizer was set to False due to the use of Muon optimizer."
+                    )
+            else:
+                op_list.append(op)
+
+                if name_filter(param.name, use_tp_group_list):
+                    op_groups.append(tp_group)
+                else:
+                    op_groups.append(op_group)
+
+        return tuple(op_list), tuple(op_groups)
+
+    def get_param_layer_indices(self, params):
+        """Return layer indices for each parameter (used for QK-clip).
+
+        Args:
+            params: List of parameters from the optimizer.
+            
+        Returns:
+            Tuple of layer indices for each parameter, where:
+                - layer_idx >= 0 stands for the layer_idx-th decoder layer
+                - layer_idx < 0 stands for the -(layer_idx+1)-th MTP layer
+        """
+        param_layer = []
+        for param in params:
+            name = param.name
+            try:
+                layer_idx = int(name.split(".")[2])
+            except (ValueError, IndexError):
+                layer_idx = 0
+            if name.startswith('mtp'):
+                layer_idx = -layer_idx - 1
+            param_layer.append(layer_idx)
+        return tuple(param_layer)
+
+    def apply_qk_clip_scaling(self, params, param_names, param_layer, logit_threshold,
+                               muon_split_fn, muon_merge_fn):
+        """Apply QK-clip scaling to attention weight parameters.
+
+        Args:
+            params: List of all parameters.
+            param_names: Tuple of parameter names.
+            param_layer: Tuple of layer indices for each parameter.
+            logit_threshold: Threshold for logit clipping.
+            muon_split_fn: Function to split parameters.
+            muon_merge_fn: Function to merge parameters.
+            
+        Returns:
+            List of (param_idx, scaled_weights) tuples to be updated.
+        """
+        if not self.config.multi_latent_attention:
+            return []
+        ones = ms.Tensor([1.0], dtype.float32)
+        qk_head_dim = self.config.qk_head_dim
+        qk_pos_emb_head_dim = self.config.qk_pos_emb_head_dim
+
+        def get_scale_broadcast(scales, head_dim):
+            scale_broadcast = ops.tile(ops.expand_dims(scales, 1), (1, head_dim)).reshape(-1)
+            scale_broadcast = ops.expand_dims(scale_broadcast, 1)
+            return scale_broadcast
+
+        # Build param name to index mapping
+        param_idx_in_opt = {name: idx for idx, name in enumerate(param_names)}
+
+        updates = []
+        for idx, param_name in enumerate(param_names):
+            if (
+                "self_attention.linear_q_proj.weight" not in param_name
+                and "self_attention.linear_q_up_proj.weight" not in param_name
+                and "self_attention.linear_kv_up_proj.weight" not in param_name
+            ):
+                continue
+
+            layer_idx = param_layer[idx]
+            param = params[idx]
+
+            # Compute per-head scale factor
+            logit_threshold_f32 = ops.cast(logit_threshold, dtype=dtype.float32)
+            if layer_idx >= 0:
+                max_logits_name = (f"decoder.layers.{layer_idx}.self_attention."
+                                   "core_attention.max_logits_val")
+            else:
+                max_logits_name = (f"mtp.layers.{-(layer_idx+1)}.transformer_layer."
+                                   "self_attention.core_attention.max_logits_val")
+
+            if max_logits_name not in param_idx_in_opt:
+                continue
+
+            logits_row = params[param_idx_in_opt[max_logits_name]].reshape(-1)
+            mask = ops.greater_equal(logits_row, logit_threshold_f32)
+            safe_den = ops.where(mask, logits_row, ones)
+            scales = ops.where(mask, logit_threshold_f32 / safe_den, ones)
+
+            weights = None
+            if (
+                "self_attention.linear_q_proj.weight" in param_name
+                or "self_attention.linear_q_up_proj.weight" in param_name
+            ):
+                l2q_nope_proj, l2q_pe_proj = muon_split_fn(param_name, param)
+                l2q_nope_proj *= get_scale_broadcast(ops.sqrt(scales), qk_head_dim)
+                l2q_pe_proj *= get_scale_broadcast(scales, qk_pos_emb_head_dim)
+                weights = muon_merge_fn(param_name, [l2q_nope_proj, l2q_pe_proj])
+            elif "self_attention.linear_kv_up_proj.weight" in param_name:
+                lkv2kv_k_nope, lkv2kv_v = muon_split_fn(param_name, param)
+                lkv2kv_k_nope *= get_scale_broadcast(ops.sqrt(scales), qk_head_dim)
+                weights = muon_merge_fn(param_name, [lkv2kv_k_nope, lkv2kv_v])
+
+            if weights is not None:
+                updates.append((idx, weights))
+
+        return updates
