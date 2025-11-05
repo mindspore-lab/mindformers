@@ -13,12 +13,24 @@
 #  limitations under the License.
 #  ============================================================================
 """test adjust resume training"""
+import numpy as np
 import pytest
+import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.llama.llama import LlamaForCausalLM
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers import Trainer, TrainingArguments
-from tests.st.test_model.test_mixtral_model.test_trainer import generator_train
+
+ms.set_context(mode=0)
+
+
+def generator_train():
+    """train dataset generator"""
+    seq_len = 513
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    train_data = (input_ids,)
+    for _ in range(16):
+        yield train_data
 
 
 class DummyTrainer(Trainer):
