@@ -506,7 +506,8 @@ class MFContextConfig(BaseArgsConfig):
         'profile_level',
         'profile_start_step',
         'profile_stop_step',
-        'pretrained_model_dir'
+        'pretrained_model_dir',
+        'monitor_max_attention_logit'
     ]
 
     def __init__(

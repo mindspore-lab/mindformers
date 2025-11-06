@@ -219,7 +219,7 @@ class Trainer:
         # check_task_and_model
         if self.task not in SUPPORT_TASKS.keys():
             raise ValueError(
-                "The value of task must be in {}, but get {}".format(SUPPORT_TASKS.keys(), self.task))
+                f"The value of task must be in {SUPPORT_TASKS.keys()}, but get {self.task}")
 
         if isinstance(self.model, (Cell, PreTrainedModel)):
             logger.info("The model instance has been entered, "
@@ -232,7 +232,7 @@ class Trainer:
         else:
             self.is_model_instance = False
             if isinstance(self.model, str):
-                self.model = self.model + '_{}'.format(self.pet_method) if self.pet_method else self.model
+                self.model = f"{self.model}_{self.pet_method}" if self.pet_method else self.model
                 if self.model not in SUPPORT_MODEL_NAMES:
                     raise ValueError(f"model must be in {SUPPORT_MODEL_NAMES} "
                                      f"when model's type is string, but got {self.model}.")
@@ -268,6 +268,8 @@ class Trainer:
         task_config = self.get_task_config(self.task, self.model_name)
 
         self.config = self._config_init(args, task_config)
+        if self.config.optimizer.type == "Muon":
+            set_context(monitor_max_attention_logit=True)
         self._reassign_monitor_config()
         # build parallel config
         build_parallel_config(self.config)
@@ -298,7 +300,7 @@ class Trainer:
         if (self.config.auto_trans_ckpt or self.config.resume_training) and \
                 check_in_modelarts() and self.config.remote_save_url:
             set_remote_save_url(self.config.remote_save_url)
-            logger.info(f"Set remote_save_url: %s, the output file will be uploaded to here.",
+            logger.info("Set remote_save_url: %s, the output file will be uploaded to here.",
                         self.config.remote_save_url)
 
         # build trainer
@@ -343,6 +345,8 @@ class Trainer:
             )
             if monitor_config.local_loss_format:
                 set_context(monitor_local_loss=True)
+            if monitor_config.max_attention_logit_format:
+                set_context(monitor_max_attention_logit=True)
             if monitor_config.device_local_loss_format:
                 set_context(monitor_device_local_loss=True)
             for callback in self.config.callbacks:
@@ -1026,7 +1030,7 @@ class Trainer:
                 logger.warning("The `use_past` is set to False and reinit the incoming model.")
             model_config.parallel_config = self.config.parallel_config
             model_config.moe_config = self.config.moe_config
-            self.model.__init__(model_config)
+            self.model.__class__.__init__(self.model, model_config)  # pylint: disable=unnecessary-dunder-call
             self.reset_model = False
 
     @staticmethod
@@ -1054,7 +1058,7 @@ class Trainer:
         """get last checkpoint for resuming or finetune."""
         output_folder = self.config.output_dir
         checkpoint_dir = os.path.join(
-            output_folder, DEFAULT_CHECKPOINT_DIR, 'rank_{}'.format(self.rank_id))
+            output_folder, DEFAULT_CHECKPOINT_DIR, f'rank_{self.rank_id}')
         return get_last_checkpoint(checkpoint_dir, self.config.load_ckpt_format)
 
     @staticmethod
@@ -1218,7 +1222,7 @@ class Trainer:
         """
         Initializes a git repo in `self.config.hub_model_id`.
         """
-        from modelfoundry_hub import create_repo
+        from modelfoundry_hub import create_repo  # pylint: disable=import-outside-toplevel
         if self.config.rank_id:
             return
 
@@ -1284,10 +1288,10 @@ class Trainer:
         config_dict = _reset_config_for_save(config)
         if config_dir is None:
             config_dir = os.path.join(
-                self.configs_directory, model_name.lower() + '_new')
+                self.configs_directory, f"{model_name.lower()}_new")
         if not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
-        run_yaml_path = os.path.join(config_dir, 'run_{}.yaml'.format(model_name.lower()))
+        run_yaml_path = os.path.join(config_dir, f"run_{model_name.lower()}.yaml")
 
         _save_config_to_yaml(run_yaml_path, config_dict)
 
@@ -1380,7 +1384,7 @@ class Trainer:
     def _try_use_pretrained_model_dir_as_ckpt(self):
         """Use `pretrained_model_dir` as fallback for checkpoint if applicable."""
         if not self.config.load_checkpoint and self.config.pretrained_model_dir:
-            from mindformers.utils import contains_safetensors_files
+            from mindformers.utils import contains_safetensors_files  # pylint: disable=import-outside-toplevel
             if contains_safetensors_files(self.config.pretrained_model_dir):
                 self.config.load_checkpoint = self.config.pretrained_model_dir
                 logger.info(f'Parameter load_checkpoint does not set the weight path. Defaulting to '
@@ -1505,7 +1509,7 @@ class Trainer:
             The URL of the repository where the model was pushed if `blocking=False`, or a `Future` object tracking the
             progress of the commit if `blocking=True`.
         """
-        from modelfoundry_hub import upload_folder
+        from modelfoundry_hub import upload_folder  # pylint: disable=import-outside-toplevel
         if self.hub_model_id is None:
             self.init_openmind_repo()
 

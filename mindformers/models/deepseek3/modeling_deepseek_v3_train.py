@@ -90,3 +90,10 @@ class TrainingDeepseekV3ForCausalLM(TrainModelMixin, DeepseekV3PreTrainedModel):
         update topk bias and reset expert_load of router in MoELayers.
         """
         return self.model.update_topk_bias(gradient_accumulation_steps)
+
+    def reset_max_attention_logit(self,):
+        """
+        Will be called by mindformer.core.callback.TopkBiasBalanceCallback to
+        update topk bias and reset expert_load of router in MoELayers.
+        """
+        return self.model.reset_max_attention_logit()
