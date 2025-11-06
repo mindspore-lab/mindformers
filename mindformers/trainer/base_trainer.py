@@ -596,8 +596,11 @@ class BaseTrainer:
         # Iterate over each grouped LR configuration
         for lr_config in grouped_config:
             params = lr_config.pop('params', None)
-            if not params:
-                raise ValueError("If using grouped_lr_schedule, 'params' must be set correctly in `grouped`.")
+            if not params or not isinstance(params, list):
+                raise ValueError(
+                    "Got invalid 'params' in grouped_lr_schedule.grouped: each item must include "
+                    "a non-empty 'params' list."
+                )
 
             lr_config = MindFormerConfig(**lr_config)
             lr_scheduler = self.create_lr_scheduler(lr_config, learning_scale, scale_factor)
@@ -650,7 +653,7 @@ class BaseTrainer:
         else:
             # Otherwise, create lr_scheduler with static learning rate from config
             if self.config.optimizer.learning_rate is None:
-                raise ValueError("learning_rate must be input")
+                raise ValueError("No learning rate specified — please set 'optimizer.learning_rate'.")
 
             learning_rate = self.config.optimizer.learning_rate
             if learning_scale and scale_factor is not None:
