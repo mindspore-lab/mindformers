@@ -24,7 +24,7 @@ from safetensors.numpy import save_file
 
 from mindformers import LlamaForCausalLM, ChatGLM2Model
 from mindformers.tools.register import MindFormerConfig
-from mindformers.utils import validate_qkv_concat
+from mindformers.utils.load_checkpoint_utils import validate_qkv_concat
 
 
 class TestValidateQKVConcat:
@@ -151,7 +151,7 @@ class TestValidateQKVConcat:
         assert "does not support qkv concat check" in log_content
 
     def _get_log_content(self):
-        with open(self.log_file_path, 'r') as log_file:
+        with open(self.log_file_path, 'r', encoding='utf-8') as log_file:
             log_content = log_file.read()
         return log_content
 
