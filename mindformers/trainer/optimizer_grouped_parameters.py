@@ -86,6 +86,10 @@ def _get_gouped_lr_map(model, grouped_lr_scheduler=None):
                 param_group_map[param.name] = group_id
                 GROUPED_PARAMS[group_id].append(param.name)
                 break
+    for group_id, sub_params in enumerate(GROUPED_PARAMS):
+        if not sub_params:
+            raise ValueError(
+                f"No matched parameters were found for `params` in group {group_id}.")
     return param_group_map, grouped_lr_map
 
 

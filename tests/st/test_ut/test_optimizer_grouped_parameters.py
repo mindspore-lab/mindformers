@@ -147,3 +147,57 @@ def test_get_grouped_params_with_grouped_lr():
         {'weight_decay': 0.0, 'params': [model.model.bias]}
     ]
     assert grouped_params == target_dict, f"Get params {grouped_params}, but should be {target_dict}."
+
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
+def test_get_grouped_params_with_invalid_group():
+    """
+    Feature: get_optimizer_grouped_parameters api
+    Description: Test get_optimizer_grouped_parameters function with invalid group
+    Expectation: ValueError.
+    """
+
+    model = Net()
+    weight_decay = 0.01
+    dynamic_lr_schedule = LinearWithWarmUpLR(
+        learning_rate=0.001,
+        total_steps=100,
+        warmup_steps=0,
+        warmup_lr_init=0.0,
+        warmup_ratio=None
+    )
+
+    lr_config = MindFormerConfig(**{
+        'type':'LinearWithWarmUpLR',
+        'params': ['alpha*'],
+        'learning_rate': 1.e-6,
+        'warmup_steps': 0,
+        'total_steps': -1
+    })
+    lr_scheduler = LinearWithWarmUpLR(
+        learning_rate=1.e-6,
+        total_steps=100,
+        warmup_steps=0,
+        warmup_lr_init=0.0,
+        warmup_ratio=None
+    )
+    grouped_lr_schedule = [{
+        'params': lr_config.params,
+        'lr_scheduler': lr_scheduler,
+        'lr_config': lr_config
+    }]
+
+    with pytest.raises(ValueError):
+        get_optimizer_grouped_parameters(
+            model=model,
+            weight_decay=weight_decay,
+            dynamic_lr_schedule=dynamic_lr_schedule,
+            layer_scale=False,
+            layer_decay=1.0,
+            # use for ("PmaAdamW", "FusedPmaAdamW")
+            optimizer_type='AdamW',
+            model_params=None,
+            grouped_lr_schedule=grouped_lr_schedule,
+        )
