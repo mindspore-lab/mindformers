@@ -321,6 +321,11 @@ class GPTModel(nn.Cell):
             raise NotImplementedError("position_embedding_type = mrope is not supported now.")
         if self.use_rotary_position_embeddings:
             self.rotary_pos_emb.shard(config)
+        if config.rotary_dtype == dtype.float16:
+            raise ValueError("rotary_dtype `float16` is not supported now.")
+        if config.rotary_dtype != dtype.float32:
+            logger.warning("For training stability, rotary_dtype is recommended to `float32`.")
+
         # Transformer.
         self.decoder = TransformerBlock(
             config=self.config,

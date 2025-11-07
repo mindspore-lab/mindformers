@@ -244,9 +244,6 @@ COMMON_CONFIG_MAPPING = {
     ("n_kv_heads", "num_key_value_heads", "num_query_groups"): "num_query_groups",
     ("intermediate_size", "ffn_hidden_size"): "ffn_hidden_size",
     ("head_dim", "kv_channels"): "kv_channels",
-    ("residual_dtype", "fp32_residual_connection"): (
-        "fp32_residual_connection", is_float_32
-    ),
     ("rms_norm_eps", "layernorm_epsilon", "layer_norm_epsilon"): "layernorm_epsilon",
     ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
@@ -254,6 +251,7 @@ COMMON_CONFIG_MAPPING = {
     ("rope_interleave", "rotary_interleaved"): "rotary_interleaved",
     ("use_qk_norm", "qk_layernorm"): "qk_layernorm",
     # not changes
+    "fp32_residual_connection": "fp32_residual_connection",
     "hidden_size": "hidden_size",
     "softmax_scale": "softmax_scale",
     "hidden_dropout": "hidden_dropout",
@@ -481,7 +479,7 @@ def convert_to_transformer_config(
         if not isinstance(mapping_key, str):
             (mapping_key, trans_func) = mapping_key
             value = trans_func(value)
-        if mapping_key in update_dict.keys():
+        if mapping_key in update_dict:
             raise KeyError(f"Multiple configurations provided for the same setting. "
                            f"Please check these conflicting configs: {list(reversed_mapping[mapping_key])}")
         update_dict[mapping_key] = value
@@ -491,16 +489,16 @@ def convert_to_transformer_config(
         for parallel_key, parallel_value in model_config['parallel_config'].items():
             if parallel_key == 'recompute' and isinstance(parallel_value, dict):
                 for recompute_key, recompute_value in parallel_value.items():
-                    if recompute_key in convert_map.keys():
+                    if recompute_key in convert_map:
                         mapping_config(recompute_key, recompute_value)
                 continue
-            if parallel_key in convert_map.keys():
+            if parallel_key in convert_map:
                 mapping_config(parallel_key, parallel_value)
         model_config.pop('parallel_config')
     for model_config_key, model_config_value in model_config.items():
         if model_config_key in not_convert_whitelist:
             continue
-        if model_config_key in convert_map.keys():
+        if model_config_key in convert_map:
             mapping_config(model_config_key, model_config_value)
         else:
             not_convert_keys_list.append(model_config_key)

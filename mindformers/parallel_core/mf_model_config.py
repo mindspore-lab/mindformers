@@ -62,7 +62,7 @@ def convert_str_to_mstype(type_str) -> dtype:
     if not isinstance(type_str, str):
         raise TypeError(f"The type of 'type_str' must 'string', but got '{type(type_str)}'.")
 
-    if type_str in ms_dtype_mapping.keys():
+    if type_str in ms_dtype_mapping:
         return ms_dtype_mapping[type_str]
 
     raise ValueError(f"The value of 'type_str' must be in {list(ms_dtype_mapping.keys())}, "
@@ -342,12 +342,6 @@ class MFModelConfig:
     hidden_dropout: float = 0.0
     """Dropout probability for transformer hidden state."""
 
-    residual_dtype: str = None
-    """
-    Data type computed in residual connections.
-    It will be converted to `fp32_residual_connection` in `TransformerConfig`.
-    """
-
     print_separate_loss: bool = True
     """Print lm_loss, extra_loss and mtp_loss separately."""
 
@@ -425,6 +419,3 @@ class MFModelConfig:
 
     def __post_init__(self):
         self.parallel_config = default_transformer_config
-
-        if self.residual_dtype is None:
-            self.residual_dtype = self.compute_dtype

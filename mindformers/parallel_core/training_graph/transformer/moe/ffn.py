@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """FFN layer for MoE."""
-import mindspore.nn as nn
+from mindspore import nn
 from mindspore.common.parameter import Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import Shape, Cast, GroupedMatmul, Reshape, Swiglu, StridedSlice
@@ -45,7 +45,7 @@ class FFNGroupedGEMM(nn.Cell):
     """
 
     def __init__(self, config: TransformerConfig):
-        super(FFNGroupedGEMM, self).__init__()
+        super().__init__()
         self.config = config
         layout.init_layout(self.config)
         self.num_local_experts = config.num_moe_experts
@@ -126,12 +126,14 @@ class FFNGroupedGEMM(nn.Cell):
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             tokens = self.stride_slice(tokens, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         dtype = tokens.dtype
-        w1 = self.cast_op(self.weight1, dtype)
-        w2 = self.cast_op(self.weight2, dtype)
+        tokens = self.cast_op(tokens, self.compute_dtype)
+        w1 = self.cast_op(self.weight1, self.compute_dtype)
+        w2 = self.cast_op(self.weight2, self.compute_dtype)
         # reshape w1 and w2 to [E, h, H] and [E, H, h]
         output = self.morphed_forward(tokens, probs, routing_map, w1, w2)
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             output = self.stride_slice(output, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
+        output = self.cast_op(output, dtype)
         return output
 
     def forward_func(self, tokens, probs, routing_map, w1, w2):
