@@ -17,8 +17,8 @@ from pathlib import Path
 import subprocess
 import pytest
 import numpy as np
-from mindformers.tools.logger import logger
 from tests.utils.double_benchmark import DoubleBenchmarkStandard, DoubleBenchmarkComparator
+from mindformers.tools.logger import logger
 
 from .data_gen_utils import GOLDEN_DATA, GPU_DATA
 
