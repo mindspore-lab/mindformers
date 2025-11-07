@@ -19,9 +19,7 @@ from abc import abstractmethod
 from typing import Any
 import numpy as np
 import mindspore as ms
-from mindspore import ops
-from mindspore import mint
-from mindspore import nn, ParallelMode
+from mindspore import nn, ParallelMode, ops, mint
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
 from mindspore.parallel._utils import _get_parallel_mode
@@ -75,7 +73,11 @@ class MoETokenDispatcher:
         self.config = config
         self.use_pad_tokens = config.use_pad_tokens
         self.expert_num = config.num_moe_experts
+        self.moe_router_topk = config.moe_router_topk
+        self.seq_length = config.seq_length
         self.ep = config.expert_model_parallel_size
+        self.tp = config.tensor_model_parallel_size
+        self.cp = config.context_parallel_size
 
         self.num_out_tokens = None
         self.ep_group = self._ep_group()
@@ -286,6 +288,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         """
         super().__init__(config)
         self.rank_id = get_rank()
+        self.is_dryrun = config.is_dryrun
 
         self.outer_dp = self.config.data_parallel_size // self.ep
         self.inner_dp = self.ep
@@ -371,7 +374,10 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         mask = ops.logical_and(sorted_expert_ids >= self.a, sorted_expert_ids < self.b)
         x = ops.Depend()(x, mask)
         x = ops.AllGather(group=self.oep_group)(x)
-        idx = self.nonzero(mask.reshape(-1))
+        if self.is_dryrun:
+            idx = ops.range(0, self.seq_length // (self.tp * self.cp) * self.moe_router_topk, 1)
+        else:
+            idx = self.nonzero(mask.reshape(-1))
         idx = idx.reshape(-1)
         dispatch_idx = IndexSelect()(dispatch_idx_floordiv_k, 0, idx)
         sorted_expert_ids = IndexSelect()(
@@ -412,14 +418,19 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         )
         excounter = excounter.sum(axis=0)[self.a: self.b]
         local_excounter = self.iep_alltoallv(excounter.reshape(-1), iepones, iepones)
-        exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
-        exgl = ops.cast(
-            ops.cumsum(local_excounter.reshape(self.iep, -1).sum(dim=-2, keepdim=False), 0, ms.int32), ms.int64
-        )
-        exsl = ops.cast(excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
-        exgl = ops.Depend()(exgl, exrl)
-        exsl = self.d2h(exsl, "CPU", False)
-        exrl = self.d2h(exrl, "CPU", False)
+        if self.is_dryrun:
+            exrl = [self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.iep] * self.iep
+            exgl = Tensor([self.seq_length] * (self.expert_num // self.iep // self.oep), dtype=ms.int64)
+            exsl = [self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.iep] * self.iep
+        else:
+            exrl = ops.cast(local_excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+            exgl = ops.cast(
+                ops.cumsum(local_excounter.reshape(self.iep, -1).sum(dim=-2, keepdim=False), 0, ms.int32), ms.int64
+            )
+            exsl = ops.cast(excounter.reshape(self.iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+            exgl = ops.Depend()(exgl, exrl)
+            exsl = self.d2h(exsl, "CPU", False)
+            exrl = self.d2h(exrl, "CPU", False)
 
         router_coeff = ops.Depend()(router_coeff, (exsl, exrl))
         expert_id = ops.Depend()(expert_id, exsl)
@@ -429,9 +440,10 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
 
         # 2. exdispatch
         x, exdispatch_idx, expert_id, router_coeff = self.get_exdispatch_idx(x, expert_id, router_coeff)
-        exgl = ops.Depend()(exgl, x)
-        exsl = ops.Depend()(exsl, router_coeff)
-        exrl = ops.Depend()(exrl, router_coeff)
+        if not self.is_dryrun:
+            exgl = ops.Depend()(exgl, x)
+            exsl = ops.Depend()(exsl, router_coeff)
+            exrl = ops.Depend()(exrl, router_coeff)
 
         excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
         x = IndexSelect()(x, 0, exdispatch_idx)
@@ -447,6 +459,10 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         _, sort_map = ops.sort(expert_id.astype(ms.float32))
         _, unsort_map = ops.sort(sort_map.astype(ms.float32))
         x = IndexSelect()(x, 0, sort_map)
+
+        if self.is_dryrun:
+            exrl = [self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.iep] * self.iep
+            exsl = [self.seq_length // (self.tp * self.cp) * self.moe_router_topk // self.iep] * self.iep
 
         ctx = (router_coeff, unsort_map, exrl, exsl, excombine_whiteboard, exdispatch_idx, x_orig_shape)
         return x, exgl, ctx
@@ -500,12 +516,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
 
         self.moe_permute_fusion = config.moe_permute_fusion
         self.hidden_size = config.hidden_size
-        self.seq_length = config.seq_length
-        self.moe_router_topk = config.moe_router_topk
         self.is_dryrun = config.is_dryrun
-
-        self.tp = config.tensor_model_parallel_size
-        self.cp = config.context_parallel_size
 
         # compute parameters
         self.on_value = Tensor(1.0, dtype=ms.int32)
