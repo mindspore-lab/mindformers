@@ -590,11 +590,11 @@ class GPTModel(nn.Cell):
             return []
 
         def _update_expert_load(router, gradient_accumulation_steps):
-            expert_load_data = router.expert_load.value()
+            expert_load_data = router.expert_load.copy()
             if expert_load_data.sum() > 0:
                 err = F.sub(self.step_over_expert_num * gradient_accumulation_steps, expert_load_data)
                 expert_bias_new = F.add(
-                    router.expert_bias.value(),
+                    router.expert_bias.copy(),
                     F.mul(F.sign(err), self.moe_router_bias_update_rate)
                 )
                 self.assign(router.expert_bias, expert_bias_new)
