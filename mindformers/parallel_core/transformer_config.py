@@ -111,6 +111,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     position_embedding_type: str = "rope"
     """Position embedding type to use for the attention layer."""
 
+    nope_layer_interval: int = None
+    """Interval for inserting NoPE (No Position Embedding) layers among RoPE layers."""
+
     rotary_base: float = 10000.0
     """Rotary base for the rotary embeddings, used by rope and yarn. Mindformers required."""
 

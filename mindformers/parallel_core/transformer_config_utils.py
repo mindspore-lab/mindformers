@@ -265,6 +265,7 @@ COMMON_CONFIG_MAPPING = {
     "activation_func": "activation_func",
     "normalization": "normalization",
     "fused_norm": "fused_norm",
+    "nope_layer_interval": "nope_layer_interval",
     "calculate_per_token_loss": "calculate_per_token_loss",
     "multi_latent_attention": "multi_latent_attention",
     "compute_dtype": "compute_dtype",
