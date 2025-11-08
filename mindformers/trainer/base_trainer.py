@@ -471,6 +471,7 @@ class BaseTrainer:
         if self.config.get("generation_config", None):
             self.config.model.generation_config = self.config.generation_config
         network = build_network(self.config.model, default_args=default_args)
+        self.real_model = network
         if hasattr(network, "check_pipeline_stage") and callable(network.check_pipeline_stage):
             network.check_pipeline_stage()
         return network
@@ -646,7 +647,7 @@ class BaseTrainer:
             default_args = {"params": group_params, "learning_rate": self.lr_scheduler}
             if self.config.optimizer.type == "Muon":
                 default_args["micro_batch_num"] = self.config.parallel_config.micro_batch_num
-                default_args["network"] = network
+                default_args["model"] = None if not hasattr(self, 'real_model') else self.real_model
             self.optimizer = build_optim(
                 self.config.optimizer,
                 default_args=default_args)
@@ -663,7 +664,7 @@ class BaseTrainer:
             default_args = {"params": group_params}
             if self.config.optimizer.type == "Muon":
                 default_args["micro_batch_num"] = self.config.parallel_config.micro_batch_num
-                default_args["network"] = network
+                default_args["model"] = None if not hasattr(self, 'real_model') else self.real_model
             # Build optimizer with fixed learning rate
             self.optimizer = build_optim(
                 self.config.optimizer, default_args=default_args)

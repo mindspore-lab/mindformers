@@ -1070,7 +1070,7 @@ class TrainingStateMonitor(Callback):
             if 'log' in self.max_attention_logit_format:
                 self._output(tag, v.tolist(), step, ['log'])
             if 'tensorboard' in self.max_attention_logit_format:
-                tp_id =  get_rank() // self.tensor_model_parallel_size
+                tp_id = get_rank() // self.tensor_model_parallel_size
                 head_start = tp_id * len(v)
                 data = {f"head_{head_start+i}": max_attention_logit for i, max_attention_logit in enumerate(v)}
                 self._output(tag, data, step, ['tensorboard'])
@@ -2530,6 +2530,7 @@ class MaxLogitsMonitor(Callback):
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = network._backbone
         self._reset_max_attention_logit(network)
+
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class TopkBiasBalanceCallback(Callback):
