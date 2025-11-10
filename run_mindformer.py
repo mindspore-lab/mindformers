@@ -132,6 +132,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--load_checkpoint', default=None, type=str,
         help="load model checkpoint to train/finetune/eval/predict, "
+             "it is also support input model name, such as 'llama3_1_8b', "
+             "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
         '--src_strategy_path_or_dir', default=None, type=str,
