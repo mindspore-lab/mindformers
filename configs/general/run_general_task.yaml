@@ -46,7 +46,6 @@ parallel_config:
   pipeline_stage: 1
   use_seq_parallel: False
   micro_batch_num: 1
-  vocab_emb_dp: True
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
 
