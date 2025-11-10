@@ -159,7 +159,7 @@ model:
     layernorm_compute_dtype: "float32"
     softmax_compute_dtype: "float32"
     rotary_dtype: "float32"
-    residual_dtype: "float32"
+    fp32_residual_connection: True
     model_type: "qwen3"
     architectures: ["Qwen3ForCausalLM"]
 
