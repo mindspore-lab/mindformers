@@ -76,6 +76,7 @@ from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
 from ..version_control import check_delay_init_valid, check_tft_valid, check_tre_valid, check_tsp_valid, check_is_reboot_node
 
+# pylint: disable=import-outside-toplevel
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
@@ -100,12 +101,12 @@ class BaseTrainer:
     def __init__(self, task: str = None, model_name: str = None):
 
         host_name_output = subprocess.run(['hostname'], shell=False, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE, encoding='utf-8')
+                                          stderr=subprocess.PIPE, encoding='utf-8', check=True)
         host_ip_output = subprocess.run(['hostname', '-I'], shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, encoding='utf-8')
+                                        stderr=subprocess.PIPE, encoding='utf-8', check=True)
         host_name = host_name_output.stdout.strip()
         host_ip = host_ip_output.stdout.strip().split(' ')[0]
-        logger.info(f"host_name: %s, host_ip: %s" % (host_name, host_ip))
+        logger.info(f"host_name: {host_name}, host_ip: {host_ip}")
 
         if model_name is None:
             model_name = "model name unspecified."
@@ -196,8 +197,8 @@ class BaseTrainer:
 
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             if pp == 1 and micro_batch_num > 1:
-                logger.warning(f"When pipeline parallel is not enabled, "
-                               f"config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")
+                logger.warning("When pipeline parallel is not enabled, "
+                               "config.parallel_config.micro_batch_num does not take effect. Reset it to 1.")
                 micro_batch_num = self.config.parallel_config.micro_batch_num = 1
             if full_batch:
                 if ds_stra != 'full_batch':
@@ -841,7 +842,7 @@ class BaseTrainer:
         """
 
         cur_rank = get_rank()
-        src_strategy_files = sorted([f for f in os.listdir(config.src_strategy_path_or_dir)])
+        src_strategy_files = sorted(list(os.listdir(config.src_strategy_path_or_dir)))
         if len(src_strategy_files) - 1 < cur_rank:
             raise ValueError(f" rank {cur_rank} src_strategy is not exist")
         src_strategy_file = os.path.join(config.src_strategy_path_or_dir, src_strategy_files[cur_rank])
@@ -906,15 +907,15 @@ class BaseTrainer:
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
-        if config.resume_training and config.load_checkpoint:
+        if config.resume_training and config.load_checkpoint and not check_is_reboot_node():
             logger.info(".............Start load resume context from checkpoint..................")
             if check_tft_valid() and not config.remove_redundancy:
                 logger.info("..............Start resume checkpoint path from strategy..............")
                 resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
                 if resume_ckpt_path is None:
-                    raise ValueError("Try to resume from checkpoints with strategy in directory '{}' failed, "
-                                     "please specify load_checkpoint to specific checkpoint file to resume training."
-                                     .format(config.load_checkpoint))
+                    raise ValueError(f"Try to resume from checkpoints with strategy in directory "
+                                     f"'{config.load_checkpoint}' failed, please specify load_checkpoint to "
+                                     f"specific checkpoint file to resume training.")
                 config.load_checkpoint = resume_ckpt_path
             load_resume_context_from_checkpoint(config, dataset)
             resume_dict = {
@@ -1353,7 +1354,7 @@ class BaseTrainer:
                 if self.config.load_ckpt_format == 'safetensors':
                     network.load_weights(config.load_checkpoint)
                 else:
-                    raise ValueError(f'The process of MCore does not support the weights of ckpt.')
+                    raise ValueError('The process of MCore does not support the weights of ckpt.')
             else:
                 if config.load_checkpoint or config.only_save_strategy:
                     if ms.context.get_auto_parallel_context('parallel_mode') in \
