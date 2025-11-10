@@ -3176,3 +3176,119 @@ class SDCMonitor(Callback):
             self.step_times = {now: cur_step_num}
             if log_files:
                 self.prev_log_file_time = re.search(r'_(\d{17})\.log$', log_files[-1]).group(1)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class ExpertMigrateCallback(Callback):
+    """
+    Callback for expert migration in mixture of experts (MoE) training.
+
+    This callback handles expert load history statistics and printing during training.
+    """
+
+    def __init__(self, print_expert_load=False, config=None):
+
+        self.print_expert_load = print_expert_load
+        self.config = config
+
+        self.rank_id = get_rank()
+
+        self.pp = self.config.pipeline_model_parallel_size
+        self.dp = self.config.data_parallel_size
+        self.tp = self.config.tensor_model_parallel_size
+        self.ep = self.config.expert_model_parallel_size
+
+        self.pp_stage_id = self.rank_id // (self.dp * self.tp)
+        self.dp_group_id = (self.rank_id // self.tp) % self.dp
+        self.tp_group_id = self.rank_id % self.tp
+        self.ep_group_id = self.rank_id % self.ep
+
+        self.num_layers = self.config.num_layers
+        self.mtp_num_layers = self.config.mtp_num_layers
+
+    def _get_moe_layers_in_current_stage(self):
+        """Get all MoE layers in current pipeline stage."""
+        moe_layers = []
+        for layer_index in range(self.num_layers):
+            if not (hasattr(self.network, "model") and hasattr(self.network.model, "decoder") and
+                    hasattr(self.network.model.decoder, "layers")):
+                continue
+            layer = self.network.model.decoder.layers[layer_index]
+            if hasattr(layer, 'pipeline_stage') and layer.pipeline_stage != self.pp_stage_id:
+                continue
+            if hasattr(layer, 'mlp') and hasattr(layer.mlp, 'experts'):
+                moe_layers.append((layer_index, layer))
+
+        for layer_index in range(self.mtp_num_layers):
+            if self.pp_stage_id < self.pp - 1:
+                continue
+            if not (hasattr(self.network, "model") and hasattr(self.network.model, "mtp") and
+                    hasattr(self.network.model.mtp, "layers")):
+                continue
+            layer = self.network.model.mtp.layers[layer_index]
+            if hasattr(layer, 'transformer_layer'):
+                transformer_layer = layer.transformer_layer
+                if hasattr(transformer_layer, 'mlp') and hasattr(transformer_layer.mlp, 'experts'):
+                    moe_layers.append((layer_index + self.num_layers, transformer_layer))
+
+        return moe_layers
+
+    def _update_expert_load_history(self):
+        """Update expert load history for all layers."""
+        for _, layer in self._get_moe_layers_in_current_stage():
+            if hasattr(layer.mlp, 'expert_load_history'):
+                num_tokens_per_expert = layer.mlp.experts.num_tokens_per_expert
+                layer.mlp.update_expert_load_history(num_tokens_per_expert)
+                layer.mlp.experts.num_tokens_per_expert.set_data(
+                    ms.mint.zeros(self.config.num_moe_experts, dtype=ms.int32))
+
+    def _print_expert_load(self):
+        """Print expert load statistics for monitoring load balancing."""
+        for layer_index, layer in self._get_moe_layers_in_current_stage():
+            num_local_experts = layer.mlp.num_local_experts
+            expert_load_history = layer.mlp.expert_load_history.asnumpy()
+            expert_load_per_device = expert_load_history.reshape(-1, num_local_experts).sum(-1)
+
+            min_load = expert_load_per_device.min()
+            max_load = expert_load_per_device.max()
+            std_load = expert_load_per_device.std()
+            expert_load = expert_load_per_device.astype(int).tolist()
+
+            rank_info = (f"rank {self.rank_id} dp {self.dp_group_id} "
+                         f"pp {self.pp_stage_id} "
+                         f"tp {self.tp_group_id} ep {self.ep_group_id}")
+
+            logger.info(f"[expert load] iter {self.cur_step}: {rank_info}, "
+                        f"layer {layer_index}, load: min {min_load:.2f}, "
+                        f"max {max_load:.2f}, std {std_load:.2f}, "
+                        f"details {expert_load}")
+
+    def on_train_step_end(self, run_context):
+        """
+        Print training info at the end of step.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+        cb_params = run_context.original_args()
+        self.cur_step = cb_params.cur_step_num
+        # pylint: disable=W0212
+        network = cb_params.train_network
+        while hasattr(network, 'network'):
+            network = network.network
+        parallel_mode = get_auto_parallel_context("parallel_mode")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
+            network = network._backbone
+        while hasattr(network, "network"):
+            network = network.network
+        self.network = network
+
+        optimizer = cb_params.optimizer
+        if optimizer is None:
+            optimizer = getattr(cb_params.network, "optimizer", None)
+        self.optimizer = optimizer
+
+        self._update_expert_load_history()
+
+        if self.print_expert_load:
+            self._print_expert_load()

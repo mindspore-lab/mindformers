@@ -21,7 +21,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import ops
 from mindspore import mint
-from mindspore import nn, ParallelMode
+from mindspore import nn, ParallelMode, Parameter
 from mindspore.common.tensor import Tensor
 from mindspore.communication import create_group, get_rank
 from mindspore.parallel._utils import _get_parallel_mode
@@ -81,6 +81,8 @@ class MoETokenDispatcher:
         self.ep_group = self._ep_group()
 
         self.d2h = ops.MoveTo().add_prim_attr("recompute", False)
+        if self.config.print_expert_load:
+            self.assign_add = ops.AssignAdd()
 
     def _ep_group(self):
         """Get expert model parallel group."""
@@ -119,7 +121,8 @@ class MoETokenDispatcher:
             self,
             tokens: Tensor,
             probs: Tensor,
-            routing_map: Tensor
+            routing_map: Tensor,
+            ffn_num_tokens_per_expert: Parameter = None
         ):
         """Dispatch tokens to experts.
 
@@ -127,6 +130,7 @@ class MoETokenDispatcher:
             tokens (torch.Tensor): Input tokens.
             probs (torch.Tensor): The routing probability tensor [num_tokens, num_experts].
             routing_map (torch.Tensor): Token to expert mapping tensor.
+            num_tokens_per_expert (Parameter, optional): Number of global tokens per global expert. Defaults to None.
 
         Returns:
             torch.Tensor: Tokens tensor.
@@ -497,6 +501,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             config (TransformerConfig): Configuration for the transformer model.
         """
         super().__init__(config)
+        self.rank_id = get_rank()
 
         self.moe_permute_fusion = config.moe_permute_fusion
         self.hidden_size = config.hidden_size
@@ -518,7 +523,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         self.cumsum = CumsumExt()
         self.sort = SortExt()
 
-    def preprocess(self, num_local_tokens_per_expert):
+    def preprocess(self, num_local_tokens_per_expert, ffn_num_tokens_per_expert):
         """
         Preprocess token routing map for AlltoAll communication and token permutation.
 
@@ -526,21 +531,44 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         It also initializes the necessary data structures for AlltoAll communication, such as input
         and output splits, and the mapping between global tokens and local experts.
         """
-        num_global_tokens_per_expert = AlltoAll(
-            split_count=self.ep,
-            split_dim=-1,
-            concat_dim=-2,
-            group=self.ep_group)(num_local_tokens_per_expert)
+        if not self.config.print_expert_load:
+            num_global_tokens_per_expert = AlltoAll(
+                split_count=self.ep,
+                split_dim=-1,
+                concat_dim=-2,
+                group=self.ep_group)(num_local_tokens_per_expert)
 
-        # [ep, E/ep]  -->  [ep]
-        input_splits = ops.cast(
-            num_local_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
-        # [ep, E/ep]  --> [ep]
-        output_splits = ops.cast(
-            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
-        # [ep, E/ep]  --> (E/ep) int64
-        tokens_per_expert = ops.cast(self.cumsum(
-            num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+            # [ep, E/ep]  -->  [ep]
+            input_splits = ops.cast(
+                num_local_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+            # [ep, E/ep]  --> [ep]
+            output_splits = ops.cast(
+                num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+            # [ep, E/ep]  --> (E/ep) int64
+            tokens_per_expert = ops.cast(
+                self.cumsum(num_global_tokens_per_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+
+        else:
+            local_expert_start = (self.rank_id % self.ep) * (self.expert_num // self.ep)
+            local_expert_end = local_expert_start + (self.expert_num // self.ep)
+            local_expert_indices = mint.arange(local_expert_start, local_expert_end)
+
+            num_global_tokens_per_expert = ops.AllGather(group=self.ep_group)(num_local_tokens_per_expert)
+            num_global_tokens_per_local_expert = IndexSelect()(num_global_tokens_per_expert, -1, local_expert_indices)
+
+            # [ep, E/ep]  -->  [ep]
+            input_splits = ops.cast(
+                num_local_tokens_per_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+            # [ep, E/ep]  -->  [ep]
+            output_splits = ops.cast(
+                num_global_tokens_per_local_expert.reshape(self.ep, -1).sum(dim=-1, keepdim=False), ms.int64)
+            # [ep, E/ep]  --> (E/ep) int64
+            tokens_per_expert = ops.cast(
+                self.cumsum(
+                    num_global_tokens_per_local_expert.reshape(self.ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
+
+            num_tokens_per_expert_new = ops.cast(num_global_tokens_per_expert.sum(dim=0, keepdim=False), ms.int32)
+            self.assign_add(ffn_num_tokens_per_expert, num_tokens_per_expert_new.reshape(self.expert_num))
 
         input_splits = ops.Depend()(input_splits, output_splits)
         input_splits = ops.Depend()(input_splits, tokens_per_expert)
@@ -597,7 +625,8 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
             self,
             tokens: Tensor,
             probs: Tensor,
-            routing_map: Tensor
+            routing_map: Tensor,
+            ffn_num_tokens_per_expert: Parameter = None
     ):
         """Dispatch tokens to experts.
 
@@ -624,7 +653,10 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         if self.is_dryrun:
             tokens_per_expert, input_splits, output_splits = self.preprocess_with_dryrun(permuted_input)
         else:
-            tokens_per_expert, input_splits, output_splits = self.preprocess(num_tokens_per_expert)
+            tokens_per_expert, input_splits, output_splits = self.preprocess(
+                num_tokens_per_expert,
+                ffn_num_tokens_per_expert
+            )
 
         # Perform expert parallel AlltoAll communication
         # The shape change is: global_input_tokens <- [B, S, h]

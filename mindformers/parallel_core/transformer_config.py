@@ -392,6 +392,13 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     shared_expert_num: int = 0
     """Number of shared experts."""
 
+    print_expert_load: bool = False
+    """
+    Whether to print expert load information.
+    When enabled, detailed expert load statistics will be printed during training.
+    Contributed by Xirang Intelligent Computing Team of State Cloud.
+    """
+
     ##################
     # Context Parallel
     ##################

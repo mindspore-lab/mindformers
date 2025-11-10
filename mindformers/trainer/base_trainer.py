@@ -60,6 +60,7 @@ from mindformers.core.callback.callback import (
     MFLossMonitor,
     TrainingStateMonitor,
     CheckpointMonitor,
+    ExpertMigrateCallback,
     ColdHotExpertMonitor,
     TopkBiasBalanceCallback
 )
@@ -90,7 +91,8 @@ CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
 NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer"]
 CALLBACK_HAS_SORT = [
-    MFLossMonitor, TrainingStateMonitor, ColdHotExpertMonitor, TopkBiasBalanceCallback, CheckpointMonitor
+    MFLossMonitor, TrainingStateMonitor, ExpertMigrateCallback, ColdHotExpertMonitor,
+    TopkBiasBalanceCallback, CheckpointMonitor
 ]
 
 
@@ -1248,9 +1250,11 @@ class BaseTrainer:
 
         is_moe_model = False
         is_mtp_model = False
+        transformer_config = None
         if not is_legacy_model():
             is_moe_model = network.is_moe_model()
             is_mtp_model = network.is_mtp_model()
+            transformer_config = network.get_gpt_transformer_config()
 
         config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
@@ -1488,6 +1492,17 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
+
+        if transformer_config and transformer_config.print_expert_load:
+            expert_relocation = ExpertMigrateCallback(
+                print_expert_load=transformer_config.print_expert_load,
+                config=transformer_config)
+            ckpt_callback_idx = -1
+            for i, callback in enumerate(callbacks):
+                if isinstance(callback, CheckpointMonitor):
+                    ckpt_callback_idx = i
+                    break
+            callbacks.insert(ckpt_callback_idx, expert_relocation)
 
         if config.moe_config.enable_cold_hot_expert:
             save_checkpoint_steps = -1
