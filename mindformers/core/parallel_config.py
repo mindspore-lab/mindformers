@@ -61,14 +61,14 @@ def build_parallel_config(config):
         if not isinstance(config.parallel_config, TransformerOpParallelConfig):
             logger.info("initial parallel_config from dict: %s", config.parallel_config)
             if config.parallel_config.auto_parallel or config.parallel_config.pipeline_stage > 1:
-                logger.info("pipeline_stage = %s > 1, vocab_emd_dp will be reset to False.",
+                logger.warning("pipeline_stage = %s > 1, vocab_emb_dp will be reset to False.",
                             config.parallel_config.pipeline_stage)
                 config.parallel_config.vocab_emb_dp = False
             _set_rp_matmul_mem_coef(config.parallel_config.get('mem_coeff', 0.1))
             if config.parallel_config.context_parallel_algo and \
                 config.parallel_config.context_parallel_algo == "hybird_cp":
-                logger.warning(f"context_parallel_algo `hybird_cp` will not take effect in later versions, "
-                               f"and will be replaced by `hybrid_cp` in the new version.")
+                logger.warning("context_parallel_algo `hybird_cp` will not take effect in later versions, "
+                               "and will be replaced by `hybrid_cp` in the new version.")
             config.parallel_config = TransformerOpParallelConfig(recompute=config.recompute_config,
                                                                  swap=config.swap_config,
                                                                  **config.parallel_config)

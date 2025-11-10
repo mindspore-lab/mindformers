@@ -435,6 +435,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
         if not isinstance(self.attention_dropout, float) or not 0 <= self.attention_dropout < 1:
             raise ValueError(f"attention_dropout should be a float within [0, 1), but get {self.attention_dropout}.")
 
+        if self.vocab_emb_dp:
+            logger.warning("vocab_emb_dp is not supported in MCore, it will be converted to False automatically.")
+            self.vocab_emb_dp = False
+
         if self.pad_token_id is None:
             self.pad_token_id = 0
 
