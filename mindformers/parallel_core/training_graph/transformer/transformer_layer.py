@@ -15,6 +15,7 @@
 """Transformer Layer"""
 from dataclasses import dataclass
 from typing import Union
+import mindspore as ms
 from mindspore.ops import auto_generate as aclnn_ops
 from mindspore import nn
 from mindspore.context import ParallelMode
@@ -92,6 +93,8 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.hidden_dropout = config.hidden_dropout if hidden_dropout is None else hidden_dropout
         self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.sequence_parallel = config.sequence_parallel
+        self.fp32_residual_connection = config.fp32_residual_connection
+        self.compute_dtype = config.compute_dtype
 
         self.input_layernorm = build_module(
             submodules.input_layernorm,
@@ -149,6 +152,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.hidden_states_dropout = Dropout(drop_prob=self.hidden_dropout)
         self.add = aclnn_ops.AddExt()
         self.add_bias = aclnn_ops.AddExt()
+        self.cast = aclnn_ops.Cast()
 
         # NOTE: Recompute configuration is managed by
         # training_graph.transformer.utils.LayerSetting
@@ -224,6 +228,9 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # Dropout
         dropout_output = self.hidden_states_dropout(attention_output)
 
+        if self.fp32_residual_connection:
+            residual = self.cast(residual, ms.float32)
+            dropout_output = self.cast(dropout_output, ms.float32)
         norm_input = self.add(residual, dropout_output)
 
         # Layer norm post the self attention
@@ -246,7 +253,12 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         # Dropout
         dropout_output = self.hidden_states_dropout(mlp_output)
 
+        if self.fp32_residual_connection:
+            residual = self.cast(residual, ms.float32)
+            dropout_output = self.cast(dropout_output, ms.float32)
         output = self.add(residual, dropout_output)
+        output = self.cast(output, self.compute_dtype)
+
         # 'return context' is useless, this param may be deprecated later.
         return output, context, extra_loss
 

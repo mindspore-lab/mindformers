@@ -15,9 +15,9 @@
 """Test module for testing fused RoPE in ApplyRotaryPosEmb used for mindformers."""
 import pytest
 import mindspore as ms
+from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rope_utils import ApplyRotaryPosEmb
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from tests.utils.double_benchmark import DoubleBenchmarkComparator, DoubleBenchmarkStandard
 
 from .data_gen_utils import get_init_params
 
@@ -34,10 +34,12 @@ class TestFusedRoPE:
         self.freqs = (self.input_freqs, self.mscale)
         self.no_fused_rope_config = TransformerConfig(num_attention_heads=1,
                                                       num_layers=1,
-                                                      apply_rope_fusion=False)
+                                                      apply_rope_fusion=False,
+                                                      rotary_dtype='bf16')
         self.fused_rope_config = TransformerConfig(num_attention_heads=1,
                                                    num_layers=1,
-                                                   apply_rope_fusion=True)
+                                                   apply_rope_fusion=True,
+                                                   rotary_dtype='bf16')
 
     def run_test(self):
         """Helper function to run test"""

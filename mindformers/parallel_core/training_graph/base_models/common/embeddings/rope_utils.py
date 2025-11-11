@@ -22,7 +22,7 @@ __all__ = [
 from mindspore import nn, Tensor, ops
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindspore.ops.auto_generate import AddExt, Reshape, Mul, Cos, Sin, Split, Neg, Concat, StackExt, StridedSlice
+from mindspore.ops.auto_generate import AddExt, Reshape, Mul, Cos, Sin, Split, Neg, Concat, StackExt, StridedSlice, Cast
 from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.rotary_pos_embedding import (
@@ -75,7 +75,7 @@ class ApplyRotaryPosEmb(nn.Cell):
                  config: TransformerConfig,
                  for_k_pos_emb=False
                  ):
-        super(ApplyRotaryPosEmb, self).__init__()
+        super().__init__()
         self.append_eod = config.use_eod_reset
         self.add = AddExt()
         self.mul = Mul()
@@ -89,8 +89,10 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.slice = StridedSlice()
         self.strideslice = StridedSlice()
         self.reshape = Reshape()
+        self.cast = Cast()
         self.apply_rope_fusion = config.apply_rope_fusion
         self.for_k_pos_emb = for_k_pos_emb
+        self.rotary_dtype = config.rotary_dtype
 
         if self.apply_rope_fusion:
             self.rope = ops.auto_generate.gen_ops_prim.RotaryPositionEmbedding()
@@ -118,6 +120,7 @@ class ApplyRotaryPosEmb(nn.Cell):
         Returns:
             Tensor: Output tensor after applying rotary position embedding
         """
+        origin_dtype = t.dtype
         seq_len, bs, n_heads, head_dim = t.shape
         freqs, m_scale = freqs
         rot_dim = freqs.shape[-1]
@@ -132,8 +135,9 @@ class ApplyRotaryPosEmb(nn.Cell):
             x2 = self.strideslice(t, (0, 0, 0, 1), (seq_len, bs, n_heads, head_dim), (1, 1, 1, 2))
             t = self.cat((x1, x2))
 
-        cos_ = self.cos(self.mul_mscale(freqs, m_scale)).astype(t.dtype)
-        sin_ = self.sin(self.mul_mscale(freqs, m_scale)).astype(t.dtype)
+        t = self.cast(t, self.rotary_dtype)
+        cos_ = self.cast(self.cos(self.mul_mscale(freqs, m_scale)), self.rotary_dtype)
+        sin_ = self.cast(self.sin(self.mul_mscale(freqs, m_scale)), self.rotary_dtype)
 
         if self.apply_rope_fusion:
             output = self.rope(t, cos_, sin_, 0)
@@ -143,7 +147,7 @@ class ApplyRotaryPosEmb(nn.Cell):
 
         if t_not_rotary is not None:
             output = self.cat((output, t_not_rotary))
-        return output
+        return self.cast(output, origin_dtype)
 
     def _rotate_half(self, t: Tensor, rotary_interleaved: bool = False) -> Tensor:
         """Rotates half of the input tensor for rotary position embeddings.

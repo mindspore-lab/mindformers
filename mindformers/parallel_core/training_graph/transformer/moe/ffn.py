@@ -140,12 +140,14 @@ class FFNGroupedGEMM(nn.Cell):
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             tokens = self.stride_slice(tokens, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         dtype = tokens.dtype
-        w1 = self.cast_op(self.weight1, dtype)
-        w2 = self.cast_op(self.weight2, dtype)
+        tokens = self.cast_op(tokens, self.compute_dtype)
+        w1 = self.cast_op(self.weight1, self.compute_dtype)
+        w2 = self.cast_op(self.weight2, self.compute_dtype)
         # reshape w1 and w2 to [E, h, H] and [E, H, h]
         output = self.morphed_forward(tokens, probs, routing_map, w1, w2, self.num_tokens_per_expert)
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             output = self.stride_slice(output, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
+        output = self.cast_op(output, dtype)
         return output
 
     def forward_func(self, tokens, probs, routing_map, w1, w2, num_tokens_per_expert=None):
