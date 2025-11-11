@@ -106,6 +106,8 @@ class VocabParallelEmbedding(nn.Cell):
         self.weight = Parameter(init_method([self.num_embeddings, self.embedding_dim]), name="weight")
         self.embedding_morph = P.Morph(
             self.embedding_func, embedding_infer_shape, embedding_infer_dtype).add_prim_attr("self_define_shard", True)
+        self.enable_embedding_tp = self.tp > 1 and self.num_embeddings % self.tp == 0
+
         self.reshape = Reshape()
         self.config = config
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -144,7 +146,7 @@ class VocabParallelEmbedding(nn.Cell):
         bs, seq_len = input_.shape
         _, hidden = weight.shape
         input_ = self.reshape(input_, (bs * seq_len,))
-        if self.tp > 1:
+        if self.enable_embedding_tp:
             # Build the mask. # Mask the input.
             input_ = input_ - self.vocab_start_index
             masked_input = self.relu(input_)
@@ -157,7 +159,7 @@ class VocabParallelEmbedding(nn.Cell):
         output_parallel = mint.nn.functional.embedding(masked_input, weight)
 
         # Mask the output embedding.
-        if self.tp > 1:
+        if self.enable_embedding_tp:
             input_mask = input_mask.expand_dims(-1)
             output_parallel = ops.mul(output_parallel, input_mask)
 
@@ -175,10 +177,10 @@ class VocabParallelEmbedding(nn.Cell):
                 output = output.reshape(bs, -1, hidden)
             return output
 
-        if self.tp == 1:
-            output = output_parallel
-        else:
+        if self.enable_embedding_tp:
             output = ops.AllReduce(group=self.group)(output_parallel)
+        else:
+            output = output_parallel
 
         return output
 
@@ -189,24 +191,18 @@ class VocabParallelEmbedding(nn.Cell):
         else:
             out_strategy = layout("dp", "cp", "None")
 
-        if config.vocab_emb_dp or (self.num_embeddings % self.tp != 0):
-            self.embedding_morph.shard(
-                in_strategy=(
-                    layout("dp", "cp",),
-                    layout("None", "None"),
-                ),
-                out_strategy=(
-                    out_strategy,
-                )
-            )
+        if self.enable_embedding_tp:
+            embedding_strategy = layout("tp", "None")
         else:
-            self.embedding_morph.shard(
-                in_strategy=(
-                    layout("dp", "cp"),
-                    layout("tp", "None"),
-                ),
-                out_strategy=(out_strategy,),
-            )
+            embedding_strategy = layout("None", "None")
+
+        self.embedding_morph.shard(
+            in_strategy=(
+                layout("dp", "cp"),
+                embedding_strategy,
+            ),
+            out_strategy=(out_strategy,),
+        )
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
@@ -258,7 +254,7 @@ class ColumnParallelLinear(nn.Cell):
                  transpose_b: bool = True,
                  bias_init: Callable = None
                  ):
-        super(ColumnParallelLinear, self).__init__()
+        super().__init__()
         if gather_output:
             raise NotImplementedError("For ColumnParallelLinear, `gather_output` is not supported for now")
         if stride > 1:
@@ -470,7 +466,7 @@ class RowParallelLinear(nn.Cell):
                  transpose_b: bool = True,
                  bias_init: Callable = None
                  ):
-        super(RowParallelLinear, self).__init__()
+        super().__init__()
         if input_is_parallel:
             raise NotImplementedError("For RowParallelLinear, `input_is_parallel` is not supported for now")
         if stride > 1:

@@ -93,7 +93,11 @@ class ModelParallelConfig:
     """
 
     vocab_emb_dp: Optional[bool] = False
-    """Whether to split the vocabulary only along the dp dimension. Default: True."""
+    """
+    Whether to split the vocabulary only along the dp dimension.
+    This setting is not supported to be configured as True at present; 
+    otherwise, it will be converted to False automatically.
+    """
 
     ###################
     # Training
