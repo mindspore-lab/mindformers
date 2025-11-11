@@ -13,8 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """FFN layer for MoE."""
-import mindspore.nn as nn
+import numpy as np
+import mindspore as ms
+from mindspore import nn
 from mindspore.common.parameter import Parameter
+from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops.auto_generate import Shape, Cast, GroupedMatmul, Reshape, Swiglu, StridedSlice
 from mindspore.ops.operations import Morph
@@ -45,7 +48,7 @@ class FFNGroupedGEMM(nn.Cell):
     """
 
     def __init__(self, config: TransformerConfig):
-        super(FFNGroupedGEMM, self).__init__()
+        super().__init__()
         self.config = config
         layout.init_layout(self.config)
         self.num_local_experts = config.num_moe_experts
@@ -104,6 +107,17 @@ class FFNGroupedGEMM(nn.Cell):
                 "Expected 'alltoall' or 'alltoall_deredundency'."
             )
 
+        self.num_tokens_per_expert = None
+        if self.config.print_expert_load:
+            if self.moe_token_dispatcher_type != "alltoall":
+                raise ValueError(
+                    f"Expert load statistics (print_expert_load=True) currently only supports "
+                    f"'alltoall' moe_token_dispatcher_type, but got {self.moe_token_dispatcher_type!r}. "
+                    f"Please set moe_token_dispatcher_type to 'alltoall' or disable expert load statistics."
+                )
+            self.num_tokens_per_expert = Parameter(
+                Tensor(np.zeros((self.num_local_experts)), dtype=ms.int32), requires_grad=False)
+
         # init morphed layer
         self.morphed_forward = Morph(self.forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
             "self_define_shard", True)
@@ -129,18 +143,18 @@ class FFNGroupedGEMM(nn.Cell):
         w1 = self.cast_op(self.weight1, dtype)
         w2 = self.cast_op(self.weight2, dtype)
         # reshape w1 and w2 to [E, h, H] and [E, H, h]
-        output = self.morphed_forward(tokens, probs, routing_map, w1, w2)
+        output = self.morphed_forward(tokens, probs, routing_map, w1, w2, self.num_tokens_per_expert)
         if self.moe_token_dispatcher_type == "alltoall_deredundency":
             output = self.stride_slice(output, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         return output
 
-    def forward_func(self, tokens, probs, routing_map, w1, w2):
+    def forward_func(self, tokens, probs, routing_map, w1, w2, num_tokens_per_expert=None):
         """Morphed forward."""
         w1 = self.reshape(w1, (-1, self.hidden_size, self.moe_ffn_hidden_size * 2))
         w2 = self.reshape(w2, (-1, self.moe_ffn_hidden_size, self.hidden_size))
 
         dispatched_input, tokens_per_expert, ctx = \
-            self.token_dispatcher.token_permutation(tokens, probs, routing_map)
+            self.token_dispatcher.token_permutation(tokens, probs, routing_map, num_tokens_per_expert)
 
         expert_output = self.experts_forward(dispatched_input, tokens_per_expert, w1, w2)
 
@@ -193,6 +207,7 @@ class FFNGroupedGEMM(nn.Cell):
                 layout(dp, sp, mp0),  # routing_map  [B, S, k]
                 layout(inner_dp, mp0),  # w1  [E, h, H]
                 layout(inner_dp, mp0),  # w2  [E, H, h]
+                layout("None"),
             ),
             out_strategy=(
                 layout(dp, sp, mp0),  # output       [B, S, h]

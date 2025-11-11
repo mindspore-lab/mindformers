@@ -13,13 +13,16 @@
 # limitations under the License.
 # ============================================================================
 """Transformer MoE Layer."""
+import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Union
-
-from mindspore import nn
+import numpy as np
+import mindspore as ms
+from mindspore import nn, ops, Tensor, Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops.operations import Morph
+from mindspore.communication.management import get_rank, get_group_size, create_group
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
@@ -61,6 +64,12 @@ class BaseMoELayer(nn.Cell, ABC):
         self.use_shared_expert = self.config.moe_shared_expert_intermediate_size is not None
         self.shared_expert_overlap = self.config.moe_shared_expert_overlap
 
+        if self.config.print_expert_load:
+            self.expert_load_history = Parameter(
+                Tensor(np.zeros(self.config.num_moe_experts), ms.float32), requires_grad=False)
+            self.expert_load_history_cnt = Parameter(
+                Tensor(0, dtype=ms.int32), requires_grad=False)
+
     @abstractmethod
     def construct(self, x, extra_loss=0., seq_chunk=None):
         r"""Forward process of the moe layer"""
@@ -98,6 +107,12 @@ class MoELayer(BaseMoELayer):
         self.dp = config.data_parallel_size * config.tensor_model_parallel_size * config.context_parallel_size
         self.tp = config.tensor_model_parallel_size
         self.cp = config.context_parallel_size
+
+        if self.config.print_expert_load:
+            self.ep = config.expert_model_parallel_size
+            self.expert_num = config.num_moe_experts
+            self.num_local_experts = self.expert_num // self.ep
+            self.dp_modulo_ep_group = self._dp_modulo_ep_group()
 
         # ops
         self.add = AddExt()
@@ -146,6 +161,27 @@ class MoELayer(BaseMoELayer):
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
 
+    def _dp_modulo_ep_group(self):
+        """Create MoE data parallel group across DP."""
+        rank_id = get_rank()
+        world_size = get_group_size()
+        dp_group_id = rank_id // self.dp
+
+        start_rank = dp_group_id * self.dp
+        end_rank = min(start_rank + self.dp, world_size)
+
+        rank_list = []
+        ep_group_id_in_dp = (rank_id % self.dp) % self.ep
+        for r in range(start_rank, end_rank):
+            if r % self.ep == ep_group_id_in_dp:
+                rank_list.append(r)
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
+        dp_group_name = str(hashed)
+        create_group(dp_group_name, rank_list)
+        return dp_group_name
+
     def permute_reshape_infer_shape(self, *args):
         origin_shape = args[0]
         return (self.dp, origin_shape[0] * origin_shape[1] // self.dp, origin_shape[-1])
@@ -166,7 +202,7 @@ class MoELayer(BaseMoELayer):
     def unpermute_reshape_fn(self, x, shp):
         return Reshape()(x, shp)
 
-
+    # pylint: disable=W0237
     def construct(self, hidden_states, extra_loss=0., seq_chunk=None):
         """Construct function of the MoELayer."""
         x = self.transpose(hidden_states, (1, 0, 2))
@@ -207,3 +243,33 @@ class MoELayer(BaseMoELayer):
         else:
             self.transpose2.shard((layout("dp", "cp", "None"),))
             self.add.shard((layout("cp", "dp", "None"), layout("cp", "dp", "None")))
+
+    def update_expert_load_history(self, num_tokens_per_expert):
+        """
+        Update expert load history based on token distribution.
+
+        Args:
+            num_tokens_per_expert: Array containing number of tokens assigned to each expert.
+        """
+        # update expert load
+        expert_load_history_cnt_new = self.expert_load_history_cnt + 1
+        expert_load_new = ops.cast((self.expert_load_history * self.expert_load_history_cnt
+                                    + num_tokens_per_expert) / (expert_load_history_cnt_new), ms.float32)
+
+        expert_load_gathered = self.gather_expert_load_data_parallel(expert_load_new)
+        self.expert_load_history.set_data(expert_load_gathered)
+        if self.config.print_expert_load:
+            expert_load_history_cnt_new = ops.minimum(
+                expert_load_history_cnt_new, Tensor(100, ms.int32))
+
+        self.expert_load_history_cnt.set_data(expert_load_history_cnt_new)
+
+    def gather_expert_load_data_parallel(self, num_tokens_per_expert):
+        dp_modulo_ep_group_size = self.dp // self.ep
+        if dp_modulo_ep_group_size > 1:
+            num_tokens_per_expert_overall = ops.AllReduce(
+                group=self.dp_modulo_ep_group)(num_tokens_per_expert)
+            num_tokens_per_expert_overall = num_tokens_per_expert_overall // dp_modulo_ep_group_size
+        else:
+            num_tokens_per_expert_overall = num_tokens_per_expert.clone()
+        return num_tokens_per_expert_overall
