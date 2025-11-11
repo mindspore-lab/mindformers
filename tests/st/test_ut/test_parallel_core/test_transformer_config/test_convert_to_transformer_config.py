@@ -16,6 +16,7 @@
 
 import pytest
 
+# pylint: disable=import-outside-toplevel
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
 
@@ -123,11 +124,10 @@ def test_trans_func_case():
     """
     Feature: Test the function `trans_func` can run normally.
     Description: Input config contains the key that will trigger `trans_func`,
-        such as 'residual_dtype', 'softmax_compute_dtype', 'first_k_dense_replace', 'use_gating_sigmoid'.
+        such as 'softmax_compute_dtype', 'first_k_dense_replace', 'use_gating_sigmoid'.
     Expectation: `trans_func` can convert the mapping of special keys, and instantiate TransformerConfig successfully.
     """
     config = DummyConfig({
-        'residual_dtype': 'fp32',
         'softmax_compute_dtype': 'float16',
         'first_k_dense_replace': 2,
         'use_gating_sigmoid': True,
@@ -138,14 +138,12 @@ def test_trans_func_case():
         'context_parallel': 1,
     })
     result = convert_to_transformer_config(config)
-    used_parameter = True
     unused_parameter = False
     assert result.num_layers == 2
     assert result.hidden_size == 128
     assert result.num_attention_heads == 8
     assert result.pipeline_model_parallel_size == 1
     assert result.context_parallel_size == 1
-    assert result.fp32_residual_connection == used_parameter
     assert result.attention_softmax_in_fp32 == unused_parameter
     assert result.first_k_dense_replace == 2
     assert result.moe_router_score_function == "sigmoid"

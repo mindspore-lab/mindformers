@@ -144,7 +144,7 @@ model:
     layernorm_compute_dtype: "float32"
     softmax_compute_dtype: "float32"
     rotary_dtype: "float32"
-    residual_dtype: "float32"
+    fp32_residual_connection: True
 
 # Callbacks configuration, reference: https://www.mindspore.cn/mindformers/docs/en/r1.5.0/appendix/conf_files.html?highlight=enable_alltoall#callbacks-configuration
 callbacks:

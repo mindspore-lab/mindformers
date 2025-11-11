@@ -47,7 +47,6 @@ model:
     param_init_type: "bfloat16"
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
-    residual_dtype: "bfloat16"
     use_past: True
     is_dynamic: True
     qkv_concat: True

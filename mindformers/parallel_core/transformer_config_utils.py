@@ -244,9 +244,6 @@ COMMON_CONFIG_MAPPING = {
     ("n_kv_heads", "num_key_value_heads", "num_query_groups"): "num_query_groups",
     ("intermediate_size", "ffn_hidden_size"): "ffn_hidden_size",
     ("head_dim", "kv_channels"): "kv_channels",
-    ("residual_dtype", "fp32_residual_connection"): (
-        "fp32_residual_connection", is_float_32
-    ),
     ("rms_norm_eps", "layernorm_epsilon", "layer_norm_epsilon"): "layernorm_epsilon",
     ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
@@ -283,6 +280,7 @@ COMMON_CONFIG_MAPPING = {
     "post_process": "post_process",
     "add_mlp_fc1_bias_linear": "add_mlp_fc1_bias_linear",
     "add_mlp_fc2_bias_linear": "add_mlp_fc2_bias_linear",
+    "fp32_residual_connection": "fp32_residual_connection",
 
     # Flash Attention
     # not changes
