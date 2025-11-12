@@ -22,7 +22,6 @@ from mindformers.tools.utils import (
     check_in_modelarts,
     check_ckpt_file_name,
     get_real_rank,
-    get_real_group_size,
     get_epoch_and_step_from_ckpt_name,
     get_times_epoch_and_step_from_ckpt_name,
     get_rank_id_from_ckpt_name,
@@ -38,6 +37,8 @@ from mindformers.trainer.utils import get_last_checkpoint, is_hyper_param_existe
 
 if check_in_modelarts():
     import moxing as mox
+else:
+    mox = None
 
 NO_META = "FOUND NO META.JSON"
 
@@ -97,7 +98,7 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
             if last_epoch is None or last_step is None or last_ckpt_file is None:
                 logger.info("No meta.json available and will use the checkpoints "
                             "from the last timestamp for resume training.")
-                check_last_timestamp_checkpoints(checkpoint_dir, ckpt_format)
+                check_last_timestamp_checkpoints(checkpoint_dir, rank_dir_num, ckpt_format)
                 create_file(latest_checkpointed_iteration_txt, NO_META)
                 resume_ckpt = True
             else:
@@ -135,7 +136,7 @@ def checkpoint_health_monitor(health_ckpts_record_dir, resume_ckpt_list):
     health_ckpts = []
     health_monitoring_json = os.path.join(health_ckpts_record_dir, 'health_ckpts.json')
     if os.path.exists(health_monitoring_json):
-        with open(health_monitoring_json, "r") as json_file:
+        with open(health_monitoring_json, "r", encoding="utf-8") as json_file:
             json_data = json.load(json_file)
             if not json_data:
                 logger.warning(f"Get nothing from {json_file}.")
@@ -165,7 +166,7 @@ def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
     if not check_in_modelarts():
         if not os.path.exists(latest_checkpointed_iteration_txt):
             raise ValueError(f"Can not find {latest_checkpointed_iteration_txt}")
-        with open(latest_checkpointed_iteration_txt, 'r') as f:
+        with open(latest_checkpointed_iteration_txt, 'r', encoding='utf-8') as f:
             resume_info = [line.strip() for line in f.readlines()]
     else:
         if not mox.file.exists(latest_checkpointed_iteration_txt):
@@ -199,7 +200,7 @@ def get_info_from_meta(checkpoint_dir, rank_dir_num, ckpt_format='ckpt'):
         if not os.path.exists(meta_json):
             logger.warning("%s is not found.", meta_json)
             continue
-        with open(meta_json, "r") as json_file:
+        with open(meta_json, "r", encoding='utf-8') as json_file:
             try:
                 meta_data = json.load(json_file)
                 if not meta_data:
@@ -231,7 +232,7 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, rank_dir_num,
     epoch and step are consistent, and the path exists.
     """
     # get all valid ckpts where the epoch and step values are not greater than those of last_ckpt_file.
-    ckpt_prefix = last_ckpt_file[:last_ckpt_file.rfind("-")]
+    ckpt_prefix = last_ckpt_file[:last_ckpt_file.rfind("-") + 1]
     last_epoch, last_step = get_epoch_and_step_from_ckpt_name(last_ckpt_file, ckpt_format)
     original_rank = get_rank_id_from_ckpt_name(last_ckpt_file)
     valid_ckpts = {}
@@ -254,9 +255,9 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, rank_dir_num,
     # get ckpts suitable for resuming, where their rank numbers are intact,
     # epoch and step are consistent, and the path exists.
     resume_ckpt_list = []
-    for key in valid_ckpts:
-        if check_checkpoints_by_rank(valid_ckpts[key], rank_dir_num):
-            ckpt_file = replace_rank_id_in_ckpt_name(valid_ckpts[key][0], rank_id)
+    for key, ckpts in valid_ckpts.items():
+        if check_checkpoints_by_rank(ckpts, rank_dir_num):
+            ckpt_file = replace_rank_id_in_ckpt_name(ckpts[0], rank_id)
             resume_ckpt = os.path.join(checkpoint_dir, f"rank_{rank_id}", ckpt_file)
             if not os.path.exists(resume_ckpt):
                 raise FileNotFoundError(f"{resume_ckpt} is not found!")
@@ -311,14 +312,14 @@ def check_meta_info(epoch, step, ckpt_file, meta_json, ckpt_format='ckpt'):
     return True
 
 
-def check_last_timestamp_checkpoints(checkpoint_dir, ckpt_format='ckpt'):
+def check_last_timestamp_checkpoints(checkpoint_dir, rank_dir_num, ckpt_format='ckpt'):
     """
     Verify that the prefix, epoch and step of the checkpoints from the last timestamp
     are equal across all rank folders in the checkpoint_dir directory.
     """
     compared_checkpoint_name = None
     compared_original_checkpoint_name = None
-    for rank_id_tmp in range(get_real_group_size()):
+    for rank_id_tmp in range(rank_dir_num):
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         last_checkpoint = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
         if not last_checkpoint:
@@ -334,7 +335,7 @@ def check_last_timestamp_checkpoints(checkpoint_dir, ckpt_format='ckpt'):
         return
 
     find_diff_ckpt = False
-    for rank_id_tmp in range(get_real_group_size()):
+    for rank_id_tmp in range(rank_dir_num):
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         last_checkpoint = get_last_checkpoint(checkpoint_rank_dir)
 
