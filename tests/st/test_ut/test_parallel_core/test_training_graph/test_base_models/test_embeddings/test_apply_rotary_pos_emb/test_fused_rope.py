@@ -35,11 +35,11 @@ class TestFusedRoPE:
         self.no_fused_rope_config = TransformerConfig(num_attention_heads=1,
                                                       num_layers=1,
                                                       apply_rope_fusion=False,
-                                                      rotary_dtype='bf16')
+                                                      rotary_dtype='fp32')
         self.fused_rope_config = TransformerConfig(num_attention_heads=1,
                                                    num_layers=1,
                                                    apply_rope_fusion=True,
-                                                   rotary_dtype='bf16')
+                                                   rotary_dtype='fp32')
 
     def run_test(self):
         """Helper function to run test"""
