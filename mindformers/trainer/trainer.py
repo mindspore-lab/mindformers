@@ -268,7 +268,7 @@ class Trainer:
         task_config = self.get_task_config(self.task, self.model_name)
 
         self.config = self._config_init(args, task_config)
-        if self.config.optimizer.type == "Muon":
+        if self.config.get('optimizer') and self.config.optimizer.type == "Muon":
             self.config.model.model_config.monitor_max_attention_logit = True
         self._reassign_monitor_config()
         # build parallel config
