@@ -43,7 +43,7 @@ from mindformers import (
     AutoTokenizer
 )
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.tools import set_output_path
+from mindformers.utils.file_utils import set_output_path
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
 eval_logger = utils.eval_logger
@@ -413,8 +413,8 @@ class MFLM(TemplateLM):
                 if not continuation_enc:
                     raise ValueError("continuation_enc must not be None")
                 if len(continuation_enc) > self.max_length:
-                    raise ValueError("The length of continuation_enc must be less than \
-                        or equal to max_length, but got {}".format(len(continuation_enc)))
+                    raise ValueError("The length of continuation_enc must be less than "
+                                     f"or equal to max_length, but got {len(continuation_enc)}")
 
                 # how this all works (illustrated on a causal decoder-only setup):
                 #          CTX      CONT
@@ -456,7 +456,7 @@ class MFLM(TemplateLM):
                 # (discard context toks if decoder-only ; discard right-padding)
                 # also discards + checks for "virtual tokens" in the causal LM's input window
                 # from prompt/prefix tuning tokens, if applicable
-                ctx_len = (inplen + (logits.shape[0] - padding_len_inp))
+                ctx_len = inplen + (logits.shape[0] - padding_len_inp)
                 logits = self._select_cont_toks(logits, contlen=contlen, inplen=ctx_len)
 
                 logits = logits.unsqueeze(0)  # [1, seq, vocab]

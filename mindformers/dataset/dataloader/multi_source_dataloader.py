@@ -23,10 +23,12 @@ from tqdm import tqdm
 
 from mindspore.dataset import Dataset, GeneratorDataset, Shuffle
 
+from mindformers.utils.file_utils import is_publicly_accessible_path
+
 from .build_dataloader import build_dataset_loader
 from ...tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
-from ...tools.utils import get_real_rank, is_publicly_accessible_path, get_device_num_per_node
+from ...tools.utils import get_real_rank, get_device_num_per_node
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
@@ -49,21 +51,7 @@ class MultiSourceDataLoader:
         shard_id = kwargs.pop("shard_id", None)
 
         if dataset_ratios is not None:
-            if any([ratios < 0 for ratios in dataset_ratios]):
-                raise ValueError(
-                    f"the dataset_ratios should be a list of positive value, but got {dataset_ratios}")
-
-            if abs(sum(dataset_ratios) - 1) > 1e-5:
-                raise ValueError("the sum of ratios is not equals to 1")
-
-            if samples_count is None or samples_count <= 0:
-                raise ValueError(f"the samples_count should be a positive int when dataset_ratios is not None, "
-                                 f"but got {samples_count}")
-
-            if not isinstance(dataset_ratios, list) or len(dataset_ratios) != len(sub_data_loader):
-                raise ValueError(
-                    "the dataset_ratios should be a list and the length should equal to sub_data_loader")
-
+            validate_dataset_ratios(dataset_ratios, sub_data_loader, samples_count)
             nums_per_dataset = [int(ratio * samples_count) for ratio in dataset_ratios]
             need_sample = True
         else:
@@ -71,35 +59,13 @@ class MultiSourceDataLoader:
                 nums_per_dataset = []
                 need_sample = False
             else:
-                if not isinstance(nums_per_dataset, list) or len(nums_per_dataset) != len(sub_data_loader):
-                    raise ValueError(
-                        "the nums_per_dataset should be a list and the length should equal to sub_data_loader")
-
-                if any([num < 0 for num in nums_per_dataset]):
-                    raise ValueError(
-                        f"the nums_per_dataset should be a list of positive value, but got {nums_per_dataset}")
-
+                validate_nums_per_dataset(nums_per_dataset, sub_data_loader)
                 need_sample = True
 
         if sub_data_loader_args is None:
-            sub_data_loader_args = dict()
+            sub_data_loader_args = {}
 
-        if not isinstance(shuffle, bool) and shuffle.lower() not in ["global", "files", "infile"]:
-            raise ValueError(
-                f"shuffle should be a bool or a str and the value must be one of ['global', 'files', 'infile']")
-
-        if isinstance(shuffle, bool):
-            shuffle_dataset = shuffle
-            shuffle_file = shuffle
-        elif shuffle == Shuffle.INFILE:
-            shuffle_dataset = False
-            shuffle_file = True
-        elif shuffle == Shuffle.FILES:
-            shuffle_dataset = True
-            shuffle_file = False
-        else:
-            shuffle_dataset = True
-            shuffle_file = True
+        shuffle_dataset, shuffle_file = get_shuffle_flags(shuffle)
         sub_data_loader_args["shuffle"] = shuffle_file
 
         dataset_loaders = []
@@ -173,6 +139,57 @@ class MultiSourceDataLoader:
             shard_id=shard_id,
             **prepare_generator_dataset_args(sub_data_loader_args))
         return dataset
+
+
+def validate_dataset_ratios(dataset_ratios: list[float], sub_data_loader: list, samples_count: Optional[int]) -> None:
+    """Validates the validity of dataset ratio parameters for data distribution."""
+    if any(ratios < 0 for ratios in dataset_ratios):
+        raise ValueError(
+            f"the dataset_ratios should be a list of positive value, but got {dataset_ratios}")
+
+    if abs(sum(dataset_ratios) - 1) > 1e-5:
+        raise ValueError("the sum of ratios is not equals to 1")
+
+    if samples_count is None or samples_count <= 0:
+        raise ValueError(f"the samples_count should be a positive int when dataset_ratios is not None, "
+                        f"but got {samples_count}")
+
+    if not isinstance(dataset_ratios, list) or len(dataset_ratios) != len(sub_data_loader):
+        raise ValueError(
+            "the dataset_ratios should be a list and the length should equal to sub_data_loader")
+
+
+def validate_nums_per_dataset(nums_per_dataset: list[int], sub_data_loader: list) -> None:
+    """Validates the validity of per-dataset sample count parameters."""
+    if not isinstance(nums_per_dataset, list) or len(nums_per_dataset) != len(sub_data_loader):
+        raise ValueError(
+            "the nums_per_dataset should be a list and the length should equal to sub_data_loader")
+
+    if any(num < 0 for num in nums_per_dataset):
+        raise ValueError(
+            f"the nums_per_dataset should be a list of positive value, but got {nums_per_dataset}")
+
+
+def get_shuffle_flags(shuffle):
+    """Resolves shuffle configuration into dataset-level and file-level shuffle flags."""
+    if not isinstance(shuffle, bool) and shuffle.lower() not in ["global", "files", "infile"]:
+        raise ValueError(
+            "shuffle should be a bool or a str and the value must be one of ['global', 'files', 'infile']")
+
+    if isinstance(shuffle, bool):
+        shuffle_dataset = shuffle
+        shuffle_file = shuffle
+    elif shuffle == Shuffle.INFILE:
+        shuffle_dataset = False
+        shuffle_file = True
+    elif shuffle == Shuffle.FILES:
+        shuffle_dataset = True
+        shuffle_file = False
+    else:
+        shuffle_dataset = True
+        shuffle_file = True
+
+    return shuffle_dataset, shuffle_file
 
 
 def prepare_generator_sub_dataloader_args(class_name, full_args):
@@ -350,15 +367,15 @@ class MultiSourceRandomAccessDataset:
             self.data_sample_index = load_dict["data_sample_index"]
         if save_indices_npz_path is not None:
             if is_publicly_accessible_path(save_indices_npz_path):
-                logger.info(f".......... npz file is saved in shared path ..........")
+                logger.info(".......... npz file is saved in shared path ..........")
                 if self.rank_id == 0:
                     logger.info(f".......... save indices to npz file: {save_indices_npz_path} by rank_{self.rank_id} ."
                                 f".........")
                     np.savez_compressed(save_indices_npz_path, dataloader_index=self.dataloader_index,
                                         data_sample_index=self.data_sample_index)
             else:
-                logger.warning(f"If the npz file is being saved to a shared path, please add this path to the "
-                               f"environment variable SHARED_PATHS, otherwise, please ignore this warning.")
+                logger.warning("If the npz file is being saved to a shared path, please add this path to the "
+                               "environment variable SHARED_PATHS, otherwise, please ignore this warning.")
                 if self.rank_id % get_device_num_per_node() == 0:
                     logger.info(f".......... save indices to npz file: {save_indices_npz_path} by rank_{self.rank_id} ."
                                 f".........")

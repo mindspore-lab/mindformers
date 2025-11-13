@@ -19,7 +19,8 @@ from mindspore import load_checkpoint
 
 from mindformers.tools.logger import logger
 from mindformers.tools.resume_ckpt import get_resume_checkpoint_by_meta
-from mindformers.tools.utils import get_real_rank, is_publicly_accessible_path, replace_rank_id_in_ckpt_name
+from mindformers.tools.utils import get_real_rank, replace_rank_id_in_ckpt_name
+from mindformers.utils.file_utils import is_publicly_accessible_path
 from mindformers.trainer.utils import get_last_checkpoint, is_hyper_param_existed_in_sf_dir
 
 

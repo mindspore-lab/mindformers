@@ -34,8 +34,6 @@ from .utils import (
     count_params,
     get_output_root_path,
     get_output_subpath,
-    set_output_path,
-    set_strategy_save_path,
     str2bool,
     calculate_pipeline_stage,
     is_last_pipeline_stage

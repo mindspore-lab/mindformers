@@ -18,7 +18,6 @@ import os
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import (
-    create_file,
     check_in_modelarts,
     check_ckpt_file_name,
     get_real_rank,
@@ -27,12 +26,15 @@ from mindformers.tools.utils import (
     get_rank_id_from_ckpt_name,
     get_remote_save_url,
     replace_rank_id_in_ckpt_name,
-    remake_folder,
-    is_publicly_accessible_path,
     get_output_root_path,
-    barrier_world,
     Validator
 )
+from mindformers.utils.file_utils import (
+    create_file,
+    remake_folder,
+    is_publicly_accessible_path
+)
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.trainer.utils import get_last_checkpoint, is_hyper_param_existed_in_sf_dir
 
 if check_in_modelarts():

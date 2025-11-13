@@ -28,12 +28,8 @@ from mindspore.common.api import _pynative_executor
 from mindspore.communication.comm_func import barrier
 
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import (
-    is_main_rank,
-    get_real_rank,
-    clear_auto_trans_output,
-    barrier_world
-)
+from mindformers.tools.utils import is_main_rank, get_real_rank
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
 from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.checkpoint.utils import compile_model
@@ -402,7 +398,6 @@ def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_paral
         )
         unify_time_end = time.time()
         logger.info("Time spent unifying safetensors: %.2fs", unify_time_end - unify_time_start)
-        clear_auto_trans_output()
     else:
         logger.info("Wait for rank_0 to unify the safetensors, "
                     "please check the log of rank_0 to get the unify progress.")

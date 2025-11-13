@@ -22,7 +22,7 @@ from mindformers.tools.utils import str2bool, parse_value, str2bool_or_str
 from mindformers.core.context import build_context
 from mindformers.trainer import Trainer
 from mindformers.tools.logger import logger
-from mindformers.tools import set_output_path
+from mindformers.utils.file_utils import set_output_path
 
 SUPPORT_MULTI_MODAL_FILETYPES = {
     "video": (".mp4", ".avi", ".mkv"),
