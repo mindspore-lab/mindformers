@@ -25,6 +25,7 @@ class RunMode(Enum):
     TRAIN = 'train'
     PREDICT = 'predict'
     FINETUNE = 'finetune'
+    PREDICT_WITH_TRAIN_MODEL = 'predict_with_train_model'
     EVAL = 'eval'
 
 
@@ -41,7 +42,7 @@ def validate_mf_ctx_run_mode(config):
 def validate_ms_ctx_mode(config):
     """Validate mode in context."""
     mode = config.get_value('context.mode', 0)
-    if mode not in MODE.keys():
+    if mode not in MODE:
         raise ValueError(
             f'Invalid mode. Expected one of {MODE.keys()}, got {mode}'
         )

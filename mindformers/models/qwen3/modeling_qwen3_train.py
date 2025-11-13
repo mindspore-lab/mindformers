@@ -24,7 +24,7 @@ from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
 from .configuration_qwen3 import Qwen3Config
 
 
-class TrainingQwen3ForCausalLM(Qwen3PreTrainedModel, TrainModelMixin):
+class TrainingQwen3ForCausalLM(TrainModelMixin, Qwen3PreTrainedModel):
     """
     Provide qwen2 model infer through network.
 

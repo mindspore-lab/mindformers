@@ -29,7 +29,7 @@ from mindformers.parallel_core.utils.model_mixin import TrainModelMixin
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class TrainingQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, TrainModelMixin):
+class TrainingQwen3MoeForCausalLM(TrainModelMixin, Qwen3MoePreTrainedModel):
     """
     Provide qwen3_moe model infer through network.
 

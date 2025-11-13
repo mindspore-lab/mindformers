@@ -1675,7 +1675,7 @@ class BaseTrainer:
 
             model = Model(network)
 
-            if not config.use_legacy and config.load_checkpoint:
+            if not config.use_legacy and config.load_checkpoint and config.run_mode != "predict_with_train_model":
                 if self.config.load_ckpt_format == 'safetensors':
                     network.load_weights(config.load_checkpoint)
                 else:
