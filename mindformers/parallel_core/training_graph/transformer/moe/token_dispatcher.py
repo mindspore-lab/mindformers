@@ -184,7 +184,8 @@ class MoEAlltoAllZeroRedundancyTokenDispatcher(MoETokenDispatcher):
             self,
             tokens: Tensor,
             probs: Tensor,
-            routing_map: Tensor
+            routing_map: Tensor,
+            ffn_num_tokens_per_expert: Parameter = None
     ):
         x_shape_origin = tokens.shape
         hidden_size = x_shape_origin[2]
@@ -395,7 +396,8 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
             self,
             tokens: Tensor,
             probs: Tensor,
-            routing_map: Tensor
+            routing_map: Tensor,
+            ffn_num_tokens_per_expert: Parameter = None
         ):
         x_orig_shape = tokens.shape
         x = self.squeeze_0(tokens)
