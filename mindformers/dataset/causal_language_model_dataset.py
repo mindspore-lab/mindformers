@@ -60,7 +60,8 @@ def dyn_batch_wrapper(*cols, divisor, remainder, pad_token_id=None):
     outputs = []
     for col_idx, col in enumerate(columns):
         # set dynamic batch max length
-        max_length = max([len(sample) for sample in col])
+        sample_len = [len(sample) for sample in col]
+        max_length = max(sample_len)
         if divisor and remainder:
             max_length = ((max_length - remainder - 1) // divisor + 1) * divisor + remainder
         else:
@@ -385,6 +386,7 @@ class CausalLanguageModelDataset(BaseDataset):
             'num_parallel_workers': dataset_config.get('num_parallel_workers', 1),
             'column_names': dataset_config.input_columns,
             'dataset_dir': dataset_config.data_loader.pop("dataset_dir", None),
+            'batch_size': dataset_config.get('batch_size', 1),
         }
         dataloader = build_dataset_loader(dataset_config.data_loader, default_args=custom_dataloader_args)
         return dataloader
@@ -482,7 +484,7 @@ class TokenCounter:
         filename = os.path.join(self.saved_directory, f"rank_{rank_id}_token_counts.csv")
 
         # Clear existing file content
-        with open(filename, 'w', newline='') as csvfile:
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
             _ = csv.writer(csvfile)
         set_safe_mode_for_file_or_dir(filename)
 
@@ -517,7 +519,7 @@ class TokenCounter:
             rank_id = get_rank()
             filename = os.path.join(self.saved_directory, f"rank_{rank_id}_token_counts.csv")
 
-            with open(filename, mode='a', newline='') as csvfile:
+            with open(filename, mode='a', newline='', encoding='utf-8') as csvfile:
                 csv_writer = csv.writer(csvfile)
 
                 if not self.token_count_pairs_header_written:
