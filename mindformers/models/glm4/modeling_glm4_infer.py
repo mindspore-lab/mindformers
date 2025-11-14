@@ -17,7 +17,6 @@
 from typing import Dict
 
 from mindformers.models.utils import jit
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.glm4.utils import Glm4PreTrainedModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
@@ -26,7 +25,6 @@ from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from mindformers.parallel_core.inference.quantization.utils import get_quant_config
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceGlm4ForCausalLM(Glm4PreTrainedModel, InferModelMixin):
     r"""
     Provide Glm4 model infer through network.

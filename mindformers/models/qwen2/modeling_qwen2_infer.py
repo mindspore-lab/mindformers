@@ -18,7 +18,6 @@ __all__ = ['InferenceQwen2ForCausalLM']
 from typing import Dict
 
 from mindformers.models.utils import jit
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.qwen2.utils import Qwen2PreTrainedModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
@@ -28,7 +27,6 @@ from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from .configuration_qwen2 import Qwen2Config
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel, InferModelMixin):
     r"""
     Provide qwen2 model infer through network.

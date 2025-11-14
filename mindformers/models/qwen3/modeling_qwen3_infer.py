@@ -18,7 +18,6 @@ __all__ = ['InferenceQwen3ForCausalLM']
 from typing import Dict
 
 from mindformers.models.utils import jit
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
@@ -29,7 +28,6 @@ from mindformers.parallel_core.inference.quantization.utils import get_quant_con
 from .configuration_qwen3 import Qwen3Config
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
     r"""
     Provide qwen3 model infer through network.
