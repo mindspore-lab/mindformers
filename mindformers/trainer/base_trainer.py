@@ -68,6 +68,7 @@ from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 from mindformers.checkpoint.checkpoint import load_checkpoint, CommonInfo
 from mindformers.checkpoint.utils import compile_model
+from mindformers.dataset.dataloader.hf_dataloader import _resume_hf_iterable_dataset
 from ..core.config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -1010,7 +1011,11 @@ class BaseTrainer:
                 self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
                 config.train_dataset.data_loader.create_attention_mask = True
 
-            # Must use broadcast opt level > 0 if broadcast is enabled
+            if dataloader_config.streaming and isinstance(config.callbacks, list):
+                for callback in config.callbacks:
+                    if callback.get('type') == 'CheckpointMonitor':
+                        dataloader_config.save_step = int(callback.get('save_checkpoint_steps'))
+
             if dataloader_config.get('use_broadcast_data', True):
                 self._set_dataset_broadcast_opt_level(config)
 
@@ -1197,6 +1202,9 @@ class BaseTrainer:
                     logger.info("dataset skip %d steps.", data_skip_steps)
             else:
                 logger.info("ignore dataset skip.")
+        if config.resume_training:
+            resume_step = config.runner_config.initial_step
+            _resume_hf_iterable_dataset(dataset, resume_step)
 
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)

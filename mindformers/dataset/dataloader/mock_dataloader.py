@@ -78,7 +78,7 @@ class BaseMockDataLoader:
         Returns:
             list: A list of tensors corresponding to each column, in the order of mock_columns.
         """
-        return [getattr(self, col) for col in self.mock_columns]
+        return tuple(getattr(self, col) for col in self.mock_columns)
 
     def __len__(self):
         """
