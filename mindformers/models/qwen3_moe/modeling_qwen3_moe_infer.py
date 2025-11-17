@@ -18,7 +18,6 @@ __all__ = ['InferenceQwen3MoeForCausalLM']
 from typing import Dict
 
 from mindformers.models.utils import jit
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.qwen3_moe.utils import Qwen3MoePreTrainedModel
 from mindformers.parallel_core.inference.utils import update_comm_config
@@ -29,7 +28,6 @@ from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from .configuration_qwen3_moe import Qwen3MoeConfig
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
     r"""
     Provide qwen3_moe model infer through network.

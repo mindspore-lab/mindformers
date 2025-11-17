@@ -18,7 +18,6 @@ __all__ = ['InferenceGlm4MoeForCausalLM']
 from typing import Dict
 
 from mindformers.models.utils import jit
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.glm4_moe.utils import Glm4MoePreTrainedModel
@@ -30,7 +29,6 @@ from mindformers.parallel_core.inference.model_utils import InferModelMixin
 from .configuration_glm4_moe import Glm4MoeConfig
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
     r"""
     Provide Glm4_moe model infer through network.
