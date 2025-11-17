@@ -94,13 +94,20 @@ class SFTDataLoader:
             TypeError: Type error for column_names.
         """
         if max_length <= 0:
-            raise TypeError(f"max_length should be an integer greater than 0.")
+            raise TypeError("max_length should be an integer greater than 0.")
         dataset_dir = os.path.realpath(dataset_dir)
 
         dataset = SFTDataSet(dataset_dir, column_names=column_names, tokenizer=tokenizer, dataset_name=dataset_name,
                              file_format=file_format, max_length=max_length, read_function=read_function,
                              map_function=map_function, map_function_kwargs=map_function_kwargs)
-        return GeneratorDataset(dataset, column_names=column_names, shuffle=shuffle, **kwargs)
+        dataset_args = {
+            'num_samples': kwargs.get('num_samples', None),
+            'num_parallel_workers': kwargs.get('num_parallel_workers', 1),
+            'python_multiprocessing': kwargs.get('python_multiprocessing', True),
+            'num_shards': kwargs.get('num_shards', None),
+            'shard_id': kwargs.get('shard_id', None),
+        }
+        return GeneratorDataset(dataset, column_names=column_names, shuffle=shuffle, **dataset_args)
 
 
 class SFTDataSet:
@@ -171,7 +178,10 @@ class SFTDataSet:
     def __getitem__(self, i):
         example = self.table.take([i]).to_pylist()[0]
         result = self.map_function(example, **self.map_function_kwargs)
-        return tuple([result[col] for col in self.column_names])
+        results = []
+        for col in self.column_names:
+            results.append(result[col])
+        return tuple(results)
 
     def _check_format(self, dataset_dir, file_format):
         """Check and correct the `format`."""
