@@ -24,7 +24,7 @@ from mindformers.dataset.dataloader.hf_dataloader import HFDataLoader
 from .test_hf_dataloader import MockTokenizer
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
-JSON_DATASET_PATH = os.path.join(WORK_DIR, 'alpaca.json')
+JSON_DATASET_PATH = os.path.join(WORK_DIR, 'alpaca_streaming.json')
 
 DATASET_CONFIG = {
     "data_loader": {
