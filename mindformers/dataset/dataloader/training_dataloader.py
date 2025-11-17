@@ -88,7 +88,7 @@ class TrainingDataLoader:
         """
         dataset_dir = os.path.realpath(dataset_dir)
         if max_length <= 0:
-            raise TypeError(f"max_length should be an integer greater than 0.")
+            raise TypeError("max_length should be an integer greater than 0.")
 
         logger.info("dataset_dir: %s, samples_num: %s", dataset_dir, samples_num)
         training_dataset = TrainingDataset(dataset_dir, column_names=column_names, tokenizer=tokenizer,
@@ -97,9 +97,14 @@ class TrainingDataLoader:
                                            shuffle=shuffle, samples_num=samples_num, file_limit=file_limit,
                                            process_num=process_num)
 
-        kwargs["num_shards"] = None
-        kwargs["shard_id"] = None
-        gen_dataset = GeneratorDataset(training_dataset, column_names=column_names, shuffle=shuffle, **kwargs)
+        dataset_args = {
+            'num_samples': kwargs.get('num_samples', None),
+            'num_parallel_workers': kwargs.get('num_parallel_workers', 1),
+            'python_multiprocessing': kwargs.get('python_multiprocessing', True),
+            'num_shards': None,
+            'shard_id': None,
+        }
+        gen_dataset = GeneratorDataset(training_dataset, column_names=column_names, shuffle=shuffle, **dataset_args)
         logger.info("NOTE: The sample of Dataset will skip %s", skip_num)
         gen_dataset = gen_dataset.skip(skip_num)
         return gen_dataset
@@ -107,10 +112,11 @@ class TrainingDataLoader:
 
 def run_cmd(command, pipeline=None):
     """Run the shell command."""
-    ret = subprocess.run(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    ret = subprocess.run(command, shell=False,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", check=True)
     if pipeline is not None:
         ret = subprocess.run(pipeline, input=ret.stdout, shell=False,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", check=True)
     if "No such file" in ret.stderr:
         return False, ret.stderr.strip()
     if "Files exists" in ret.stderr:
@@ -228,7 +234,10 @@ class TrainingDataset:
                                                   max_length=self.max_length, padding='max_length',
                                                   truncation=True, truncate_direction="LEFT",
                                                   return_attention_mask=True)
-        return tuple([result[col] for col in self.column_names])
+        results = []
+        for col in self.column_names:
+            results.append(result[col])
+        return tuple(results)
 
     def __len__(self):
         return self.sample_number
@@ -343,11 +352,8 @@ class TrainingDataset:
             return token_list
 
         logger.info("Start Tokenizer sample")
-        pool = Pool(processes=self.process_num)
-        encoded_sentences = pool.map(self._tokenizer_func, iterable)
-        pool.close()
-        pool.join()
-        del pool
+        with Pool(processes=self.process_num) as pool:
+            encoded_sentences = pool.map(self._tokenizer_func, iterable)
         logger.info("Tokenizer sample completed")
         if not self.is_align:
             return encoded_sentences
