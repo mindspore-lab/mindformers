@@ -15,8 +15,6 @@
 """Qwen3 models' APIs."""
 __all__ = ['InferenceQwen3ForCausalLM']
 
-from typing import Dict
-
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.qwen3.utils import Qwen3PreTrainedModel
@@ -52,10 +50,6 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
         self.compute_dtype = config.compute_dtype
 
         self.is_prefill = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
                                   normalization=config.normalization,

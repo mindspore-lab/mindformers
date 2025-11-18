@@ -15,8 +15,6 @@
 """Glm4Moe models' APIs."""
 __all__ = ['InferenceGlm4MoeForCausalLM']
 
-from typing import Dict
-
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
@@ -53,10 +51,6 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
         self.max_position_embeddings = config.max_position_embeddings
         self.compute_dtype = config.compute_dtype
         self.is_prefill = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_decoder_block_spec(
                                   config=config,

@@ -15,7 +15,6 @@
 """Deepseek-V3 models' APIs."""
 import os
 import json
-from typing import Dict
 
 from mindformers.models.utils import jit
 from mindformers.parallel_core.inference.utils import use_ms_custom_ops
@@ -66,10 +65,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
 
         self.is_prefill = True
         self.is_chunked = False
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
 
         if not self.is_mtp_model():
             transformer_block_layer_spec = get_gpt_decoder_block_spec(
@@ -209,7 +204,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel, InferModelMixin)
         map_files = [file for file in os.listdir(weights_path) if file.endswith("index.json")]
         for file in map_files:
             param_json_path = os.path.join(weights_path, file)
-            with open(param_json_path, "r") as f:
+            with open(param_json_path, "r", encoding="utf-8") as f:
                 param_map = json.load(f)['weight_map']
                 if any(f'layers.{layer_id}.' in layer_name for layer_name in param_map.keys()):
                     break

@@ -14,8 +14,6 @@
 # ============================================================================
 """Glm4 models' APIs."""
 
-from typing import Dict
-
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.models.glm4.utils import Glm4PreTrainedModel
@@ -47,10 +45,6 @@ class InferenceGlm4ForCausalLM(Glm4PreTrainedModel, InferModelMixin):
         self.compute_dtype = config.compute_dtype
 
         self.is_prefill = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
         self.quant_config = get_quant_config(self.config, self.weight_mapping)
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
