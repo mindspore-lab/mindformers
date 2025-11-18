@@ -415,7 +415,6 @@ COMMON_CONFIG_MAPPING = {
     "tie_word_embeddings": "tie_word_embeddings",
     "block_size": "block_size",
     "num_blocks": "num_blocks",
-    "parallel_decoding_params": "parallel_decoding_params",
     "sandwich_norm": "sandwich_norm",
     "attn_reduce_scatter": "attn_reduce_scatter",
     "attn_allgather": "attn_allgather",

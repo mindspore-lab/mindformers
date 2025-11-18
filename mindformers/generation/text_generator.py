@@ -59,7 +59,6 @@ from mindformers.tools.utils import is_pynative
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_world_size
-from mindformers.generation.parallel_decoding_mcore import la_pre_process
 from mindformers.parallel_core.inference.utils import (
     get_tp_world_size,
     divide,
@@ -1453,19 +1452,7 @@ class GenerationMixin:
             res, the result after the forward process.
             current_index, records the current index of the sequence.
         """
-        attention_mask = None
         gather_decode = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            plugin_type = None
-        if plugin_type == "la":
-            slot_mapping, attention_mask = la_pre_process(input_ids,
-                                                          slot_mapping,
-                                                          **model_kwargs)
-            model_kwargs["attention_mask"] = attention_mask
-            # lookahead should not gather decode logits
-            gather_decode = False
         model_inputs, prefill = self.prepare_inputs_for_generation_mcore(
             input_ids=input_ids,
             valid_length_each_example=valid_length_each_example,

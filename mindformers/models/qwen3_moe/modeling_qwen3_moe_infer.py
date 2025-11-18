@@ -15,8 +15,6 @@
 """Qwen3Moe models' APIs."""
 __all__ = ['InferenceQwen3MoeForCausalLM']
 
-from typing import Dict
-
 from mindformers.models.utils import jit
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -54,10 +52,6 @@ class InferenceQwen3MoeForCausalLM(Qwen3MoePreTrainedModel, InferModelMixin):
         self.max_position_embeddings = config.max_position_embeddings
         self.compute_dtype = config.compute_dtype
         self.is_prefill = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
                                   num_experts=config.num_moe_experts,

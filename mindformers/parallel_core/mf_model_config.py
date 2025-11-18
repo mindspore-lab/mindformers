@@ -379,9 +379,6 @@ class MFModelConfig:
     num_blocks: int = 512
     """Size of each memory block used in PagedAttention."""
 
-    parallel_decoding_params: dict = None
-    """Parameters used when hardware decoding."""
-
     pre_process: bool = True
     """When using pipeline parallel, indicate whether it's the first stage."""
 

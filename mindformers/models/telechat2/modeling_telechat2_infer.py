@@ -15,7 +15,7 @@
 """Telechat2 models' APIs."""
 __all__ = ['InferenceTelechat2ForCausalLM']
 
-from typing import Dict, Any, Generator, Tuple, List
+from typing import Any, Generator, Tuple, List
 from safetensors import safe_open
 from tqdm.auto import tqdm
 import numpy as np
@@ -56,10 +56,6 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
         self.quant_config = get_quant_config(self.config, self.weight_mapping)
 
         self.is_prefill = True
-        if isinstance(self.config.parallel_decoding_params, Dict):
-            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
-        else:
-            self.plugin_type = None
         self.model = GPTModel(config=config,
                               transformer_layer_spec=get_gpt_layer_local_spec(
                                   normalization=config.normalization,
@@ -144,7 +140,7 @@ class InferenceTelechat2ForCausalLM(Telechat2PreTrainedModel, InferModelMixin):
     def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
         """Iterate over the weights in the model safetensor files."""
         rank_id = get_tensor_model_parallel_rank()
-        is_main_rank = (rank_id == 0)
+        is_main_rank = rank_id == 0
         for st_file in tqdm(
                 weights_files,
                 desc=f"[Rank {rank_id}] Loading safetensors checkpoint shards",
