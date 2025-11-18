@@ -47,6 +47,8 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.version_control import need_nz
 
+# pylint: disable=import-outside-toplevel
+
 
 class BaseEnum(str, Enum):
     """
@@ -312,7 +314,7 @@ def get_distribute_checkpoint_path(checkpoint_dir, rank_id=None, ckpt_format='ck
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         rank_id = rank_id if rank_id is not None else get_real_rank()
-        distribute_checkpoint_dir = os.path.join(checkpoint_dir, "rank_{}".format(rank_id))
+        distribute_checkpoint_dir = os.path.join(checkpoint_dir, f"rank_{rank_id}")
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir, ckpt_format)
         logger.info("distribute checkpoint dir: %s", distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
@@ -350,7 +352,9 @@ def load_resume_context_from_checkpoint(config, dataset):
         raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
-        if config.use_graceful_exit:
+        # When graceful exit is enabled or auto checkpoint transformation is disabled,
+        # use real rank ID to locate the checkpoint.
+        if config.use_graceful_exit or not config.auto_trans_ckpt:
             rank_id = get_real_rank()
         else:
             rank_id = 0
@@ -568,14 +572,14 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
     if not os.path.exists(adapter_path):
         raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
-    with open(adapter_path, 'r') as file:
+    with open(adapter_path, 'r', encoding='utf-8') as file:
         path_dict = json.load(file)
     adapter_list = []
     config_list = []
     for adapter_name in network.lora_adapter.adapter_names[1:]:
         if adapter_name in path_dict.keys():
             adapter_model = load_checkpoint(os.path.join(path_dict[adapter_name], "adapter_model.ckpt"))
-            with open(os.path.join(path_dict[adapter_name], "adapter_config.json"), 'r') as file:
+            with open(os.path.join(path_dict[adapter_name], "adapter_config.json"), 'r', encoding='utf-8') as file:
                 adapter_config = json.load(file)
         else:
             adapter_model = {}
