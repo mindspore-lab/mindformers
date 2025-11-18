@@ -28,12 +28,12 @@ from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.version_control import skip_barrier_controller
+from mindformers.utils.file_utils import is_publicly_accessible_path
 from mindformers.tools.utils import (
     get_dp_from_dataset_strategy,
     get_real_group_size,
     get_real_rank,
-    get_real_local_rank,
-    is_publicly_accessible_path
+    get_real_local_rank
 )
 
 from .utils import is_dataset_built_on_rank

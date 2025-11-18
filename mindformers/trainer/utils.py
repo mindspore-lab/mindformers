@@ -27,7 +27,9 @@ from mindspore import context, load_checkpoint, load_param_into_net, load_checkp
 from mindspore import set_seed as ms_set_seed
 from mindspore import Parameter
 from mindspore import ops, mint
+from mindspore import save_checkpoint
 from mindspore.communication.comm_func import barrier
+from mindspore.common.file_system import mindio_preload, set_mindio_server_info
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
@@ -126,37 +128,36 @@ def preload_ckpt(config):
     """Preload data into memory using MindIO for faster access."""
     rank_id = get_real_rank() if get_real_rank() else 0
     ckpt_path = config.load_checkpoint
-    try:
-        from mindspore.common.file_system import _init_mindio, mindio_preload, set_mindio_server_info
-    except ImportError:
-        return
     mindio_pool_capacity = config.get("mindio_pool_capacity", 128)
     set_mindio_server_info(mindio_pool_capacity)
-    if hasattr(_init_mindio(), "preload"):
-        logger.info("MindIO is initialized successfully!")
-    else:
-        return
+
     if not os.path.realpath(ckpt_path) or not os.path.exists(ckpt_path):
         raise FileNotFoundError(f"The load_checkpoint must be correct, but get {ckpt_path}")
+
+    preload_ok = False
     if os.path.isfile(ckpt_path):
         # only preload the ckpt file once.
         if is_main_rank() or f"rank_{rank_id}" in ckpt_path:
             logger.info(f"MindIO preloading `{ckpt_path}`...")
-            mindio_preload(ckpt_path)
+            preload_ok = mindio_preload(ckpt_path)
     elif os.path.isdir(ckpt_path) and check_ckpt_file_exist(ckpt_path):
         for ckpt_file in os.listdir(ckpt_path):
             # only preload every ckpt file once in rank_0 process.
             if ckpt_file.endswith('.ckpt') and is_main_rank():
                 checkpoint_path = os.path.join(ckpt_path, ckpt_file)
                 logger.info(f"MindIO preloading `{checkpoint_path}`...")
-                mindio_preload(checkpoint_path)
+                preload_ok = mindio_preload(checkpoint_path)
     elif os.path.isdir(ckpt_path) and check_rank_folders(ckpt_path, rank_id):
         # preload ckpt file of rank in corresponding rank process.
         checkpoint_path = get_distribute_checkpoint_path(ckpt_path)
         logger.info(f"MindIO preloading `{checkpoint_path}`...")
-        mindio_preload(checkpoint_path)
+        preload_ok = mindio_preload(checkpoint_path)
     else:
         raise ValueError(f"{ckpt_path} is not a valid path to load checkpoint when auto_trans_ckpt is False.")
+
+    if preload_ok:
+        logger.info("MindIO preload checkpoint successfully!")
+
     if config.use_parallel:
         barrier()
 
@@ -312,7 +313,7 @@ def get_distribute_checkpoint_path(checkpoint_dir, rank_id=None, ckpt_format='ck
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         rank_id = rank_id if rank_id is not None else get_real_rank()
-        distribute_checkpoint_dir = os.path.join(checkpoint_dir, "rank_{}".format(rank_id))
+        distribute_checkpoint_dir = os.path.join(checkpoint_dir, f"rank_{rank_id}")
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir, ckpt_format)
         logger.info("distribute checkpoint dir: %s", distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
@@ -350,7 +351,9 @@ def load_resume_context_from_checkpoint(config, dataset):
         raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
-        if config.use_graceful_exit:
+        # When graceful exit is enabled or auto checkpoint transformation is disabled,
+        # use real rank ID to locate the checkpoint.
+        if config.use_graceful_exit or not config.auto_trans_ckpt:
             rank_id = get_real_rank()
         else:
             rank_id = 0
@@ -568,14 +571,14 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
     if not os.path.exists(adapter_path):
         raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
-    with open(adapter_path, 'r') as file:
+    with open(adapter_path, 'r', encoding='utf-8') as file:
         path_dict = json.load(file)
     adapter_list = []
     config_list = []
     for adapter_name in network.lora_adapter.adapter_names[1:]:
         if adapter_name in path_dict.keys():
             adapter_model = load_checkpoint(os.path.join(path_dict[adapter_name], "adapter_model.ckpt"))
-            with open(os.path.join(path_dict[adapter_name], "adapter_config.json"), 'r') as file:
+            with open(os.path.join(path_dict[adapter_name], "adapter_config.json"), 'r', encoding='utf-8') as file:
                 adapter_config = json.load(file)
         else:
             adapter_model = {}
@@ -611,7 +614,6 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     dst_checkpoint_dir = pet_config.adapter_path
     if config.auto_trans_ckpt:
         # Save collected lora weights as single ckpt
-        from mindspore import save_checkpoint
         src_checkpoint_dir = os.path.join(config.output_dir, "slora_checkpoint")
         os.makedirs(src_checkpoint_dir, exist_ok=True)
         src_checkpoint_dir = os.path.join(src_checkpoint_dir, "slora.ckpt")

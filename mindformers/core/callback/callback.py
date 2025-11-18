@@ -62,6 +62,7 @@ from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.tools.utils import (
     get_output_subpath,
     get_real_rank,
@@ -69,7 +70,6 @@ from mindformers.tools.utils import (
     get_real_local_rank,
     get_pipeline_rank_ids,
     is_last_pipeline_stage,
-    barrier_world,
     get_ascend_log_path,
     set_safe_mode_for_file_or_dir
 )

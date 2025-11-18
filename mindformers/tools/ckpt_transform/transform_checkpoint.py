@@ -30,13 +30,15 @@ from mindformers.tools.utils import (
     get_output_root_path,
     get_remote_save_url,
     get_device_num_per_node,
+    is_main_rank,
+    format_path
+)
+from mindformers.utils.file_utils import (
     create_file,
     delete_file,
-    remake_folder,
-    is_main_rank,
-    format_path,
-    barrier_world
+    remake_folder
 )
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import mox_adapter
 from mindformers.tools.ckpt_transform.utils import (
@@ -107,36 +109,9 @@ class TransformCkpt:
         self.node_num = self.world_size // self.npu_num_per_node
         if not is_power_of_two(self.npu_num_per_node):
             raise ValueError(
-                f"The `npu_num_per_node` must be a power of 2, but get {npu_num_per_node}")
+                f"The `npu_num_per_node` must be a power of 2, but get {self.npu_num_per_node}")
 
-        # Before obtaining transform_rank_id_list, check 1 ≤ transform_process_num ≤ world_size.
-        if transform_process_num < 1:
-            raise ValueError("transform_process_num should not smaller than 1,"
-                             f"but got {transform_process_num}.")
-        if transform_process_num > self.world_size:
-            logger.warning("transform_process_num: %d should not bigger than world_size: %d. \
-                transform_process_num is set to %d.",
-                           transform_process_num, self.world_size, self.world_size)
-            transform_process_num = self.world_size
-        if self.world_size % transform_process_num != 0:
-            raise ValueError(f"transform_process_num: {transform_process_num} "
-                             f"should be divided by world_size: {self.world_size}.")
-        if check_in_modelarts() and 1 < transform_process_num < self.node_num:
-            logger.warning("transform_process_num: %d should not smaller than \
-                node_num = world_size // npu_num_per_node = %d when training on AICC. \
-                    transform_process_num is set to node num = %d",
-                           transform_process_num, self.node_num, self.node_num)
-            transform_process_num = self.world_size // npu_num_per_node
-        if check_in_modelarts() and transform_process_num == 1:
-            # The 0th NPU of each node is responsible for transform all checkpoints.
-            # For example, if world_size is 16 and npu_num_per_node is 8, then transform_rank_id_list should be [0,8].
-            self.transform_rank_id_list = [i for i in range(0, self.world_size, self.npu_num_per_node)]
-        else:
-            # Obtain transform_rank_id_list. For example,
-            # if world_size is 8 and transform_process_num is 2, then transform_rank_id_list should be [0,4].
-            # which means that the 0th rank and the 4th rank responsible for transform checkpoints.
-            self.transform_rank_id_list = \
-                [i for i in range(0, self.world_size, self.world_size // transform_process_num)]
+        self.transform_rank_id_list = self._get_transform_rank_id_list(transform_process_num)
         self.transform_process_num = len(self.transform_rank_id_list)
 
         if auto_trans_ckpt:
@@ -377,10 +352,10 @@ class TransformCkpt:
                     raise ValueError(f"The checkpoint of rank_{src_rank_id} is not found!")
                 checkpoint_file_list = sorted(checkpoint_file_list, key=os.path.getmtime)
                 checkpoint_file_map[src_rank_id] = checkpoint_file_list[-1]
-            save_checkpoint_dir = os.path.join(dst_checkpoint, "rank_{}".format(current_transform_rank_id))
+            save_checkpoint_dir = os.path.join(dst_checkpoint, f"rank_{current_transform_rank_id}")
             os.makedirs(save_checkpoint_dir, exist_ok=True)
             save_checkpoint_path = os.path.join(save_checkpoint_dir,
-                                                "{}.ckpt".format(prefix + str(current_transform_rank_id)))
+                                                f"{prefix + str(current_transform_rank_id)}.ckpt")
             logger.info("rank_list: %s", src_rank_list)
             logger.info("checkpoint_file_map: %s", checkpoint_file_map)
             logger.info("save_checkpoint_path: %s", save_checkpoint_path)
@@ -452,7 +427,7 @@ class TransformCkpt:
             if rank_id:
                 merge_path = os.path.join(strategy_path, f'merged_ckpt_strategy_by_rank_{rank_id}.ckpt')
             else:
-                merge_path = os.path.join(strategy_path, f'merged_ckpt_strategy.ckpt')
+                merge_path = os.path.join(strategy_path, 'merged_ckpt_strategy.ckpt')
 
             merged_succeed_txt = os.path.join(strategy_path, "merge_succeed.txt")
             if self.is_main_rank:
@@ -515,6 +490,67 @@ class TransformCkpt:
         dst_strategy = merged_strategy_path
 
         return dst_strategy
+
+    def _get_transform_rank_id_list(self, transform_process_num):
+        """
+        Generates a list of distributed rank IDs responsible for checkpoint transformation.
+
+        This internal method calculates and returns the list of rank IDs assigned to handle data/checkpoint
+        transformation in a distributed training environment. It first validates input constraints for
+        `transform_process_num`, applies environment-specific adjustments (for ModelArts/AICC platforms),
+        and then computes the rank IDs based on cluster configuration (world size, per-node NPU count).
+
+        The rank ID assignment follows two core strategies:
+        1. ModelArts/AICC environment with `transform_process_num=1`: Assigns the 0th NPU of each node
+        (e.g., world_size=16, npu_num_per_node=8 → rank IDs [0, 8])
+        2. Other scenarios: Distributes rank IDs evenly across the total world size
+        (e.g., world_size=8, transform_process_num=2 → rank IDs [0, 4])
+
+        Args:
+            transform_process_num (int): Number of processes allocated for transformation tasks.
+                Must be a positive integer that divides `self.world_size` (after potential clamping).
+
+        Returns:
+            list[int]: Sorted list of rank IDs designated for transformation.
+                The length of the list equals the final `transform_process_num` (after adjustments).
+
+        Raises:
+            ValueError: If:
+                - `transform_process_num` is less than 1
+                - `self.world_size` is not divisible by `transform_process_num` (before platform-specific adjustments)
+        """
+        # Before obtaining transform_rank_id_list, check 1 ≤ transform_process_num ≤ world_size.
+        if transform_process_num < 1:
+            raise ValueError("transform_process_num should not smaller than 1,"
+                             f"but got {transform_process_num}.")
+        if transform_process_num > self.world_size:
+            logger.warning(f"transform_process_num: {transform_process_num} should not "
+                           f"bigger than world_size: {self.world_size}. "
+                           f"transform_process_num is set to {self.world_size}.")
+            transform_process_num = self.world_size
+        if self.world_size % transform_process_num != 0:
+            raise ValueError(f"transform_process_num: {transform_process_num} "
+                             f"should be divided by world_size: {self.world_size}.")
+
+        if check_in_modelarts() and 1 < transform_process_num < self.node_num:
+            logger.warning("transform_process_num: %d should not smaller than \
+                node_num = world_size // npu_num_per_node = %d when training on AICC. \
+                    transform_process_num is set to node num = %d",
+                           transform_process_num, self.node_num, self.node_num)
+            transform_process_num = self.world_size // self.npu_num_per_node
+
+        if check_in_modelarts() and transform_process_num == 1:
+            # The 0th NPU of each node is responsible for transform all checkpoints.
+            # For example, if world_size is 16 and npu_num_per_node is 8, then transform_rank_id_list should be [0,8].
+            transform_rank_id_list = list(range(0, self.world_size, self.npu_num_per_node))
+        else:
+            # Obtain transform_rank_id_list. For example,
+            # if world_size is 8 and transform_process_num is 2, then transform_rank_id_list should be [0,4].
+            # which means that the 0th rank and the 4th rank responsible for transform checkpoints.
+            transform_rank_id_list = list(range(0, self.world_size, self.world_size // transform_process_num))
+
+        return transform_rank_id_list
+
 
     @staticmethod
     def check_src_checkpoint_and_strategy(src_checkpoint, src_strategy):
@@ -599,12 +635,12 @@ class TransformCkpt:
             if check_in_modelarts():
                 transformed_ckpt_dir_obs = os.path.join(self.transformed_checkpoint_dir_obs, os.path.basename(ckpt_dir))
                 transform_failed_txts = mox.file.glob(os.path.join(transformed_ckpt_dir_obs,
-                                                                   f'transform_failed_rank_*.txt'))
+                                                                   'transform_failed_rank_*.txt'))
                 transform_succeed_txts = mox.file.glob(os.path.join(transformed_ckpt_dir_obs,
-                                                                    f'transform_succeed_rank_*.txt'))
+                                                                    'transform_succeed_rank_*.txt'))
             else:
-                transform_failed_txts = glob(os.path.join(ckpt_dir, f'transform_failed_rank_*.txt'))
-                transform_succeed_txts = glob(os.path.join(ckpt_dir, f'transform_succeed_rank_*.txt'))
+                transform_failed_txts = glob(os.path.join(ckpt_dir, 'transform_failed_rank_*.txt'))
+                transform_succeed_txts = glob(os.path.join(ckpt_dir, 'transform_succeed_rank_*.txt'))
             if transform_failed_txts:
                 raise ValueError(f"Transform failed, find {transform_failed_txts}.")
             current_count = len(transform_succeed_txts)

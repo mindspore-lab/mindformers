@@ -42,8 +42,6 @@ from mindformers.models import PreTrainedModel, BaseImageProcessor, \
     PreTrainedTokenizerBase, BaseAudioProcessor
 from mindformers.models.utils import WEIGHTS_NAME
 from mindformers.tools.utils import (
-    set_output_path,
-    set_strategy_save_path,
     set_context,
     check_in_modelarts,
     get_real_rank,
@@ -51,9 +49,14 @@ from mindformers.tools.utils import (
     set_remote_save_url,
     get_output_root_path,
     get_device_num_per_node,
+    FILE_PERMISSION,
+)
+from mindformers.utils.file_utils import (
+    set_output_path,
+    set_strategy_save_path,
     is_publicly_accessible_path,
-    clear_auto_trans_output,
-    FILE_PERMISSION, set_checkpoint_save_path
+    set_checkpoint_save_path,
+    clear_auto_trans_output
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -1396,12 +1399,13 @@ class Trainer:
 
     def _validate_auto_trans_ckpt_requirements(self):
         """Ensure auto_trans_ckpt has shared directory requirements met."""
-        if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
+        if self.config.auto_trans_ckpt:
             if not is_publicly_accessible_path(get_output_root_path()):
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True, "
                                  f"the output_dir should be a shared directory that can be accessed by all nodes. "
                                  f"But {os.path.abspath(self.config.output_dir)} is not a shared directory.")
-            clear_auto_trans_output(self.config.load_checkpoint, self.config.src_strategy_path_or_dir)
+            clear_auto_trans_output(
+                self.config.load_checkpoint, self.config.src_strategy_path_or_dir, self.config.load_ckpt_format)
 
     def _using_checkpoint_name_or_path_if_needed(self):
         """Using model_config.checkpoint_name_or_path if possible."""

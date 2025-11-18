@@ -31,17 +31,18 @@ from mindspore.common import dtype as mstype
 from mindspore.nn import Cell
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.communication.management import get_rank, get_group_size
-import mindspore.communication.comm_func as comm_func
+from mindspore.communication import comm_func
 from mindspore import save_checkpoint as ms_save_checkpoint
+from mindspore.parallel.strategy import get_current_strategy_metadata
 
 from mindformers.tools.logger import logger
 from mindformers.checkpoint.reshard import ReshardHandler
+from mindformers.utils.file_utils import is_publicly_accessible_path
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.tools.utils import (
-    barrier_world,
     get_output_subpath,
     get_real_rank,
     set_safe_mode_for_file_or_dir,
-    is_publicly_accessible_path,
 )
 from mindformers.checkpoint.utils import (
     get_checkpoint_iter_dir,
@@ -319,7 +320,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         """Save checkpoint finalize function."""
         tracker_filename = get_checkpoint_tracker_filename(checkpoints_root_path)
         logger.info(f"save checkpoint tracker file to {tracker_filename}")
-        with open(tracker_filename, "w") as f:
+        with open(tracker_filename, "w", encoding='utf-8') as f:
             f.write(str(iteration))
         set_safe_mode_for_file_or_dir(tracker_filename)
         if use_async_save:
@@ -861,8 +862,7 @@ def load_checkpoint(
         )
 
     # Get current strategy metadata from network and optimizer
-    logger.info(f".........Get Current Strategy Metadata.........")
-    from mindspore.parallel.strategy import get_current_strategy_metadata
+    logger.info(".........Get Current Strategy Metadata.........")
     cur_rank_strategy_layout = get_current_strategy_metadata(network=network)[0]
     cur_rank_sharded_tensors: List[ShardedTensor] = []
 

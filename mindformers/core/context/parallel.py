@@ -24,7 +24,7 @@ from mindformers.modules.transformer.transformer import (
     TransformerOpParallelConfig,
 )
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import set_strategy_save_path
+from mindformers.utils.file_utils import set_strategy_save_path
 from mindformers.parallel_core.inference.parallel_state import initialize_model_parallel
 
 

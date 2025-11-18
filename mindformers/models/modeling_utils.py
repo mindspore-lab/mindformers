@@ -28,6 +28,8 @@ import mindspore as ms
 from mindspore import nn
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore import context, Model
+
+import mindformers.models.auto as auto_module
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.hub import (
     PushToHubMixin,
@@ -46,11 +48,10 @@ from mindformers.tools.ckpt_transform import TransformCkpt, make_soft_link
 from mindformers.tools.utils import (
     get_real_rank,
     get_output_root_path,
-    clear_auto_trans_output,
-    remake_folder,
-    barrier_world,
     FILE_PERMISSION
 )
+from mindformers.utils.file_utils import clear_auto_trans_output, remake_folder
+from mindformers.utils.parallel_utils import barrier_world
 from mindformers.models.utils import DEFAULT_CHECKPOINT_SAVE_FOLDER
 from mindformers.parallel_core.utils.model_mixin import ModelMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
@@ -494,7 +495,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             if (
                     filename.startswith(weights_no_suffix)
                     and os.path.isfile(full_filename)
-                    and filename not in shards.keys()
+                    and filename not in shards
                     and is_main_process
                     and reg.fullmatch(filename_no_suffix) is not None
             ):
@@ -570,7 +571,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
 
         meraged_dict = {}
         if os.path.exists(config_path):
-            with open(config_path, 'r') as file_reader:
+            with open(config_path, 'r', encoding='utf-8') as file_reader:
                 check_yaml_depth_before_loading(file_reader)
                 file_reader.seek(0)
                 meraged_dict = yaml.safe_load(file_reader.read())
@@ -669,7 +670,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
 
             config_args = MindFormerConfig(yaml_file)
             kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
-                if "checkpoint_name_or_path" in kwargs.keys() else ckpt_file
+                if "checkpoint_name_or_path" in kwargs else ckpt_file
             config_args.model.model_config.update(**kwargs)
             logger.info("model config: %s and checkpoint_name_or_path: %s are used for "
                         "model building.", yaml_file, config_args.model.model_config.checkpoint_name_or_path)
@@ -712,7 +713,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
             try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
             kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
-                if "checkpoint_name_or_path" in kwargs.keys() else pretrained_model_name_or_dir
+                if "checkpoint_name_or_path" in kwargs else pretrained_model_name_or_dir
             config_args.model.model_config.update(**kwargs)
         return config_args
 
@@ -1414,8 +1415,6 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         """
         if not isinstance(auto_class, str):
             auto_class = auto_class.__name__
-
-        import mindformers.models.auto as auto_module
 
         if not hasattr(auto_module, auto_class):
             raise ValueError(f"{auto_class} is not a valid auto class.")

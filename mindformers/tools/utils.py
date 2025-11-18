@@ -16,7 +16,6 @@
 import json
 import os
 import re
-import shutil
 import stat
 import tempfile
 from multiprocessing import Process
@@ -33,8 +32,8 @@ except ImportError:
 
 import mindspore as ms
 from mindspore import Tensor, context
-from mindspore._checkparam import args_type_check
-from mindspore.communication import get_group_size, get_rank, comm_func, get_local_rank
+from mindspore.communication import get_group_size, get_rank, get_local_rank
+
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -85,7 +84,7 @@ class Validator:
     def check_type(arg_value, arg_type):
         """Check int."""
         if not isinstance(arg_value, arg_type):
-            raise TypeError('{} should be {} type, but get {}'.format(arg_value, arg_type, type(arg_value)))
+            raise TypeError(f'{arg_value} should be {arg_type} type, but get {type(arg_value)}')
 
     @staticmethod
     def is_obs_url(url):
@@ -96,11 +95,11 @@ class Validator:
 def check_obs_url(url):
     """Check obs url."""
     if not isinstance(url, str):
-        raise TypeError('remote_save_url type should be a str, but get {}, '
-                        'please check your remote_save_url config'.format(type(url)))
+        raise TypeError(f'remote_save_url type should be a str, but get {type(url)}, '
+                        'please check your remote_save_url config')
     if not (url.startswith(_PROTOCOL + '://') or url.startswith(_PROTOCOL_S3 + '://')):
         raise TypeError('remote_save_url should be start with obs:// or s3://, '
-                        'but get {}, please check your remote_save_url config'.format(url))
+                        f'but get {url}, please check your remote_save_url config')
 
 
 def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
@@ -116,7 +115,7 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
     """
     for value in list_var:
         if value >= num:
-            raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
+            raise ValueError(f'The index of the {var_name} needs to be less than the number of nodes {num}.')
 
 
 def check_file(file_path, file_type=None):
@@ -154,40 +153,6 @@ def get_output_root_path():
     return os.path.realpath(expanduser_path)
 
 
-@args_type_check(path=str)
-def set_output_path(path):
-    """set output path"""
-    from .logger import logger
-    if path is None:
-        path = './output'
-    expanduser_path = os.path.expanduser(path)
-    os.environ['LOCAL_DEFAULT_PATH'] = os.path.realpath(expanduser_path)
-    logger.info(f"set output path to '{os.path.realpath(expanduser_path)}'")
-
-
-def set_strategy_save_path(config):
-    """set strategy path"""
-    from .logger import logger
-    rank_id = get_real_rank()
-    strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
-    os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
-    set_safe_mode_for_file_or_dir(strategy_ckpt_save_dir)
-
-    strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
-    if not strategy_ckpt_save_file.endswith(f"_rank_{rank_id}.ckpt"):
-        strategy_name = os.path.basename(strategy_ckpt_save_file).replace(".ckpt", f"_rank_{rank_id}.ckpt")
-        config['strategy_ckpt_save_file'] = os.path.join(strategy_ckpt_save_dir, strategy_name)
-        context.set_auto_parallel_context(strategy_ckpt_save_file=config['strategy_ckpt_save_file'])
-        logger.info(f"set strategy path to '{config['strategy_ckpt_save_file']}'")
-
-def set_checkpoint_save_path():
-    """set checkpoint save path"""
-    from .logger import logger
-    checkpoint_save_path = os.path.join(get_output_root_path(), "checkpoint")
-    os.makedirs(checkpoint_save_path, exist_ok=True)
-    set_safe_mode_for_file_or_dir(checkpoint_save_path)
-    logger.info(f"set checkpoint save path to `{checkpoint_save_path}`")
-
 def get_log_path():
     path = os.getenv("LOG_MF_PATH", os.path.join(get_output_root_path(), "log"))
     return os.path.expanduser(path)
@@ -199,7 +164,7 @@ def get_output_subpath(sub_class, rank_id=0, append_rank=True):
     root_path = get_output_root_path()
     directory = os.path.join(root_path, sub_class)
     if append_rank:
-        directory = os.path.join(directory, 'rank_{}'.format(rank_id))
+        directory = os.path.join(directory, f'rank_{rank_id}')
     return format_path(directory)
 
 
@@ -245,12 +210,13 @@ def get_num_nodes_devices(rank_size: int) -> Tuple[int, int]:
        num_nodes (int): number of nodes.
        num_devices (int): number of devices.
     """
-    if rank_size in (2, 4, 8):
+    device_num_per_node = get_device_num_per_node()
+    if rank_size <= device_num_per_node:
         num_nodes = 1
         num_devices = rank_size
     else:
-        num_nodes = rank_size // 8
-        num_devices = 8
+        num_nodes = rank_size // device_num_per_node
+        num_devices = device_num_per_node
 
     return num_nodes, num_devices
 
@@ -260,9 +226,9 @@ class Const:
 
     def __setattr__(self, key, value):
         if key in self.__dict__:
-            raise PermissionError('Can not change const {0}.'.format(key))
+            raise PermissionError(f'Can not change const {key}.')
         if not key.isupper():
-            raise ValueError('Const name {0} is not all uppercase.'.format(key))
+            raise ValueError(f'Const name {key} is not all uppercase.')
         self.__dict__[key] = value
 
 
@@ -337,7 +303,7 @@ def count_params(net):
 def try_sync_file(file_name):
     """If the file is still downloading, we need to wait before the file finished downloading"""
     if fcntl:
-        with open(file_name, 'r') as fp:
+        with open(file_name, 'r', encoding='utf-8') as fp:
             fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
 
 
@@ -389,16 +355,14 @@ def parse_value(value):
             b = int(a)
         except (TypeError, ValueError):
             return False
-        else:
-            return a == b
+        return a == b
 
     def isfloat(x):
         try:
             float(x)
         except (TypeError, ValueError):
             return False
-        else:
-            return True
+        return True
 
     def isbool(x):
         return x in ["True", "False"]
@@ -408,8 +372,7 @@ def parse_value(value):
             json.loads(x)
         except json.decoder.JSONDecodeError:
             return False
-        else:
-            return True
+        return True
 
     if isint(value):
         return int(value)
@@ -478,7 +441,7 @@ def get_dp_from_dataset_strategy():
         first_input_stra = data_strategy[0]
         dp = int(first_input_stra[0])
     else:
-        raise TypeError(f"Dataset_strategy in mindspore auto parallel context is invalid, only support (tuple, list)")
+        raise TypeError("Dataset_strategy in mindspore auto parallel context is invalid, only support (tuple, list)")
     return dp
 
 
@@ -510,116 +473,6 @@ def is_last_pipeline_stage():
     device_num_per_stage = device_num // stage_num
     rank = get_real_rank()
     return (rank // device_num_per_stage + 1) == stage_num
-
-
-def is_publicly_accessible_path(path):
-    """Check a path is accessible by all rank."""
-    from .logger import logger
-    if get_real_group_size() <= get_device_num_per_node():
-        return True
-
-    if check_in_modelarts():
-        return True
-
-    if check_shared_disk(path):
-        return True
-
-    # For example, SHARED_PATHS="/mnt/shared1,/mnt/shared2", which will be split by "/mnt/shared1" and "/mnt/shared2".
-    shared_paths = os.getenv("SHARED_PATHS", "").split(',')
-    path = os.path.realpath(path)
-    for shared_path in shared_paths:
-        if not shared_path:
-            continue
-        shared_path = os.path.realpath(shared_path)
-        if path.startswith(shared_path):
-            return True
-    logger.info("System can not identify if given path is shared disk. "
-                "If it is, Please set env 'SHARED_PATHS' to given path.")
-    return False
-
-
-def create_file(file_path, info=None):
-    """create file."""
-    if Validator.is_obs_url(file_path):
-        if not check_in_modelarts():
-            raise ValueError(f"When create {file_path}, \
-            it is detected that it is not in the ModelArts platform.")
-        import moxing as mox
-        with mox.file.File(file_path, 'w') as f:
-            if info:
-                if isinstance(info, list):
-                    for sub_info in info:
-                        f.write(str(sub_info) + "\n")
-                else:
-                    f.write(info)
-            else:
-                f.write("Hugging ModelArts.")
-    else:
-        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(file_path, flags_, FILE_PERMISSION), 'w') as f:
-            if info:
-                if isinstance(info, list):
-                    for sub_info in info:
-                        f.write(str(sub_info) + "\n")
-                else:
-                    f.write(info)
-
-
-def delete_file(file_path):
-    """delete file"""
-    if Validator.is_obs_url(file_path):
-        if not check_in_modelarts():
-            raise ValueError(f"When create {file_path}, \
-            it is detected that it is not in the ModelArts platform.")
-        import moxing as mox
-        if mox.file.exists(file_path):
-            mox.file.remove(file_path, recursive=False)
-    else:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-
-def remake_folder(folder_path, permissions=None):
-    """make folder"""
-    from .logger import logger
-    rank_id = get_real_rank()
-    logger.info("Remake %s...", folder_path)
-    if Validator.is_obs_url(folder_path):
-        if not check_in_modelarts():
-            raise ValueError(f"When remaking {folder_path}, \
-            it is detected that it is not in the ModelArts platform.")
-        import moxing as mox
-        if not rank_id:
-            if mox.file.exists(folder_path):
-                mox.file.remove(folder_path, recursive=True)
-            mox.file.make_dirs(folder_path)
-            logger.info("OBS: Folder %s is remaked.", folder_path)
-    else:
-        if is_main_rank():
-            if os.path.exists(folder_path):
-                shutil.rmtree(folder_path)
-            os.makedirs(folder_path, exist_ok=True)
-            os.chmod(folder_path, permissions)
-            logger.info("Folder %s is remaked.", folder_path)
-
-
-def remove_folder(folder_path, rank_id=None):
-    """delete folder"""
-    from .logger import logger
-    rank_id = rank_id or get_real_rank()
-    logger.info("Remove %s...", folder_path)
-    if Validator.is_obs_url(folder_path):
-        if not check_in_modelarts():
-            raise ValueError(f"When removing {folder_path}, \
-            it is detected that it is not in the ModelArts platform.")
-        import moxing as mox
-        if mox.file.exists(folder_path) and not rank_id:
-            mox.file.remove(folder_path, recursive=True)
-            logger.info("OBS: Folder %s is removed.", folder_path)
-    else:
-        if os.path.exists(folder_path) and is_main_rank():
-            shutil.rmtree(folder_path)
-            logger.info("Folder %s is removed.", folder_path)
 
 
 def set_safe_mode_for_file_or_dir(path):
@@ -688,22 +541,6 @@ def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     return ckpt_name
 
 
-def clear_auto_trans_output(load_checkpoint=None, src_strategy_path_or_dir=None):
-    """clear transformed_checkpoint and strategy"""
-    folder_list = ["strategy", "transformed_checkpoint"]
-    for folder in folder_list:
-        if check_in_modelarts():
-            folder_path = os.path.join(get_remote_save_url(), folder)
-        else:
-            folder_path = os.path.join(get_output_root_path(), folder)
-        if os.path.realpath(folder_path) in (load_checkpoint, src_strategy_path_or_dir):
-            raise ValueError(
-                "./transformed_checkpoint or ./strategy with given config.output_dir is same as "
-                "load_checkpoint or src_strategy_path_or_dir which is not allowed when auto_trans is True."
-                "Please move it to a different location or specify a different output folder.")
-        remake_folder(folder_path, permissions=0o750)
-
-
 def check_ckpt_file_name(ckpt_file, ckpt_fmt='ckpt'):
     """Check ckpt name in the format of {prefix}-{epoch}_{step}.ckpt"""
     ckpt_name = os.path.split(ckpt_file)[1]
@@ -736,18 +573,6 @@ def is_pynative():
     return enforce_eager.lower() == "true"
 
 
-def barrier_world(action: str = None):
-    """barrier all rank until action is done"""
-    if get_real_group_size() > 1:
-        from .logger import logger
-        if action is not None:
-            logger.info("Wait " + str(action))
-        else:
-            logger.info("Now barriered...")
-
-        comm_func.barrier()
-
-
 def get_pipeline_rank_ids():
     """Calculate rank id of each stage and return a list of first rank id in each stage.
 
@@ -770,7 +595,7 @@ def get_pipeline_rank_ids():
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     if numerator % denominator != 0:
-        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+        raise ValueError(f"{numerator} is not divisible by {denominator}")
 
 
 def divide(numerator, denominator):
