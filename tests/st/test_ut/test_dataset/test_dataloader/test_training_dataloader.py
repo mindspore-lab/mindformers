@@ -14,19 +14,19 @@
 # ============================================================================
 """test training dataloader"""
 import os
-import tempfile
 import unittest
 from unittest.mock import patch
 import pytest
-from mindformers.dataset.dataloader.training_dataloader import TrainingDataset, TrainingDataLoader, run_cmd
-from mindformers import LlamaTokenizer
-from mindformers.dataset.dataloader.datareaders import wikitext_reader
 from tests.st.test_ut.test_dataset.get_test_data import get_wikitext_data, get_json_data
 from tests.st.test_ut.test_tokenizers.get_vocab_model import get_sp_vocab_model
 
+from mindformers.dataset.dataloader.training_dataloader import TrainingDataset, TrainingDataLoader, run_cmd
+from mindformers import LlamaTokenizer
+from mindformers.dataset.dataloader.datareaders import wikitext_reader
 
-temp_dir = tempfile.TemporaryDirectory()
-path = temp_dir.name
+
+WORK_DIR = os.path.dirname(os.path.abspath(__file__))
+path = WORK_DIR
 get_sp_vocab_model("llama", path)
 tokenizer_model_path = os.path.join(path, "llama_tokenizer.model")
 tokenizer = LlamaTokenizer(vocab_file=tokenizer_model_path)
@@ -150,7 +150,7 @@ class TestTrainingDataSet(unittest.TestCase):
         res = dataset._check_format(dataset_dir=dataset.dataset_dir, file_format="")
         assert res == "json"
         with pytest.raises(ValueError):
-            assert dataset._check_format(dataset_dir=self.path, file_format="")
+            assert dataset._check_format(dataset_dir=self.path, file_format="txt")
         res = dataset._tokenizer_func("An increasing sequence: one, two, three。")
         assert res == [48, 87, 85, 157, 65, 135, 67, 135, 80, 167]
         res = dataset._get_all_samples_number()
