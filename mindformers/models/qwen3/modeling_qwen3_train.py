@@ -206,3 +206,62 @@ class TrainingQwen3ForCausalLM(TrainModelMixin, Qwen3PreTrainedModel):
             ms_name_map_dict.update({w_gate_hidden_key: w_gate_hidden_value})
 
         return ms_name_map_dict
+
+    def convert_hf_weight(self, need_concat_dict):
+        """
+        Convert Hugging Face weight to MindSpore Transformers weight.
+
+        For Qwen3 Model, it is necessary to concatenate `q_proj/k_proj/v_proj` weight to `linear_qkv`,
+            and concatenate `gate_proj/up_proj` weight to `linear_fc1`.
+
+        Args:
+            need_concat_dict: The weight dict contains each group weight to concatenate.
+
+        Returns:
+            A dict contains the concatenated weight.
+        """
+        transformer_config = self.get_gpt_transformer_config()
+
+        use_contiguous_weight_layout_attention = transformer_config.use_contiguous_weight_layout_attention
+        use_interleaved_weight_layout_mlp = transformer_config.use_interleaved_weight_layout_mlp
+
+        ms_weight_dict = {}
+
+        head_dim = transformer_config.kv_channels
+        n_kv_heads = transformer_config.num_query_groups
+        num_attention_heads = transformer_config.num_attention_heads
+
+        ffn_hidden_size = transformer_config.ffn_hidden_size
+
+        for name, value in need_concat_dict.items():
+            part = name.split('.')
+            # Get Q/K/V Keys
+            if part[-2] == 'linear_q':
+                k_name = name.replace('linear_q', 'linear_k')
+                v_name = name.replace('linear_q', 'linear_v')
+                k_value = need_concat_dict.get(k_name)
+                v_value = need_concat_dict.get(v_name)
+                if use_contiguous_weight_layout_attention:
+                    ms_weight_dict.update(
+                        self.concat_qkv_contiguous(value, k_value, v_value, name)
+                    )
+                else:
+                    ms_weight_dict.update(
+                        self.concat_qkv_interleaved(
+                            value, k_value, v_value, name, head_dim, n_kv_heads, num_attention_heads
+                        )
+                    )
+            # Get gate/up Keys
+            elif part[-2] == 'gating':
+                up_name = name.replace('gating', 'hidden')
+                up_value = need_concat_dict.get(up_name)
+                if use_interleaved_weight_layout_mlp:
+                    ms_weight_dict.update(
+                        self.concat_linear_fc1_interleaved(value, up_value, name, ffn_hidden_size)
+                    )
+                else:
+                    ms_weight_dict.update(
+                        self.concat_linear_fc1_contiguous(value, up_value, name)
+                    )
+
+        return ms_weight_dict

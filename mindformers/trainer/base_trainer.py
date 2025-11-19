@@ -1222,7 +1222,7 @@ class BaseTrainer:
         for callback in self.config.callbacks:
             if "type" in callback and callback["type"] == "CheckpointMonitor":
                 save_checkpoint_with_legacy_format = callback.get("use_legacy_format", True)
-        if not save_checkpoint_with_legacy_format:
+        if not save_checkpoint_with_legacy_format or not config.ckpt_use_legacy_format:
             try:
                 from mindspore.parallel.strategy import enable_save_strategy_online
                 enable_save_strategy_online()
@@ -1268,7 +1268,8 @@ class BaseTrainer:
             is_mtp_model = network.is_mtp_model()
             transformer_config = network.get_gpt_transformer_config()
 
-        config.load_checkpoint = get_load_path_after_hf_convert(config, network)
+        if config.ckpt_use_legacy_format:
+            config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
         eval_network = None

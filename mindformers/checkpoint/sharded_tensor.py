@@ -18,11 +18,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Union, Callable
 
-from mindformers.tools.logger import logger
-
 import mindspore as ms
 from mindspore.nn import Cell
 from mindspore.parallel.shard import _DistributedTensorInfo
+
+from mindformers.tools.logger import logger
+
 
 ReplicaId = Union[int, Tuple[int, ...]]
 
@@ -38,6 +39,12 @@ class ShardedTensor:
 
     key: str
     """Unique identifier of a global tensor."""
+
+    org_key: str
+    """
+    Record the original weight key name.
+    Mostly used in load Hugging Face weight with online resharding.
+    """
 
     dtype: ms.dtype
     """Tensor dtype."""
@@ -80,8 +87,9 @@ def build_sharded_tensor(
 ) -> ShardedTensor:
     """Creates and returns a ShardedTensor instance with the specified parameters."""
     return ShardedTensor(
-        key=param_name, dtype=param_dtype, local_shape=tuple(local_shape), global_shape=tuple(global_shape),
-        global_offset=tuple(global_offset), axis_fragmentations=tuple(axis_fragmentations), replica_id=replica_id,
+        key=param_name, org_key=param_name, dtype=param_dtype, local_shape=tuple(local_shape),
+        global_shape=tuple(global_shape), global_offset=tuple(global_offset),
+        axis_fragmentations=tuple(axis_fragmentations), replica_id=replica_id,
         allow_shape_mismatch=allow_shape_mismatch, allow_to_save=allow_to_save, layout=layout
     )
 
@@ -342,7 +350,7 @@ def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_
     if not param_infos:
         return None
 
-    cur_rank_sharded_tensor_list = list()
+    cur_rank_sharded_tensor_list = []
 
     cur_param_name_list = get_param_name_from_layout(param_infos)
     cur_value_type_list = get_value_type_from_layout(param_infos)
@@ -399,7 +407,7 @@ def get_sharded_tensor_list_from_cell(
     Returns:
         List of ShardedTensor objects with metadata from network and optimizer parameters
     """
-    logger.info(f".........Get Current Strategy Metadata from Cell.........")
+    logger.info(".........Get Current Strategy Metadata from Cell.........")
     cur_rank_sharded_tensor_list: List[ShardedTensor] = []
 
     def _get_sharded_tensors_from_cell(
@@ -418,7 +426,7 @@ def get_sharded_tensor_list_from_cell(
         Returns:
             List of ShardedTensor objects for the cell's parameters
         """
-        sharded_tensor_list = list()
+        sharded_tensor_list = []
         for param in cell.get_parameters():
             param_name = param.name
 
