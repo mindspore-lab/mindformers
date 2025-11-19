@@ -661,7 +661,7 @@ def _resume_hf_iterable_dataset(dataset, step):
 
     # Traverse into nested dataset wrappers to find the actual HF dataset source
     while not hasattr(inner_dataset, 'source'):
-        if isinstance(inner_dataset, list):
+        if inner_dataset and isinstance(inner_dataset, list):
             inner_dataset = inner_dataset[0]
         elif hasattr(inner_dataset, 'children'):
             inner_dataset = inner_dataset.children
