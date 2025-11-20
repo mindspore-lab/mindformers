@@ -17,11 +17,11 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, mint, nn, ops
 from mindspore.common.initializer import initializer
 
+from research.deepseek3.infer.activation import SiLU
+from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.inference.utils import get_tp_world_size
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group
 from mindformers.tools.utils import divide
-from research.deepseek3.infer.activation import SiLU
-from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
 
 
 class VocabEmbedding(nn.Cell):
@@ -174,7 +174,7 @@ class ParallelMLP(nn.Cell):
                 gate_hidden_out_shape = gate_hidden_out.shape
                 reshape_out = self.reshape(gate_hidden_out,
                                            (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition, 2))
-                gate, hidden = mint.split(reshape_out,
+                gate, hidden = ops.function.array_func.split_ext(reshape_out,
                                           (1, 1), -1)
                 gate = self.reshape(gate, (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition))
                 hidden = self.reshape(hidden, (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition))

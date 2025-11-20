@@ -363,7 +363,7 @@ class MLASelfAttention(MultiLatentAttention):
         Process the weight after loading.
         This can be used for example, to transpose weights for computation.
         """
-        q_absorb, out_absorb = mint.split(self.linear_kv_up_proj.weight,
+        q_absorb, out_absorb = ops.function.array_func.split_ext(self.linear_kv_up_proj.weight,
                                           [self.num_attention_heads_per_partition * self.config.qk_head_dim,
                                            self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
         self.q_absorb = q_absorb.reshape(self.num_attention_heads_per_partition,
@@ -384,7 +384,7 @@ class MLASelfAttention(MultiLatentAttention):
         hidden_states = self.input_layernorm(hidden_states)
         if self.config.q_lora_rank is not None:
             qkv = self.linear_qkv_down_proj(hidden_states)
-            kv_compressed, k_pos_emb, q_compressed = mint.split(qkv,
+            kv_compressed, k_pos_emb, q_compressed = ops.function.array_func.split_ext(qkv,
                                                                 [self.config.kv_lora_rank,
                                                                  self.config.qk_pos_emb_head_dim,
                                                                  self.config.q_lora_rank],
@@ -404,7 +404,7 @@ class MLASelfAttention(MultiLatentAttention):
             if kv_combined.shape[-1] != self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim:
                 # the shape of kv_combined is [s, b, (kv_lora_rank + qk_pos_emb_head_dim)]
                 kv_combined = gather_from_model_parallel_region(q_compressed, self.tp)
-            kv_compressed, k_pos_emb = mint.split(
+            kv_compressed, k_pos_emb = ops.function.array_func.split_ext(
                 kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
             )
             # the shape of q is [num_tokens, n * (qk_head_dim + qk_pos_emb_head_dim)]
@@ -413,7 +413,8 @@ class MLASelfAttention(MultiLatentAttention):
         # the shape of q is [num_tokens, n, q_head_dim]
         q = q.reshape(*q.shape[:-1], self.num_attention_heads_per_partition, self.q_head_dim)
         # the shape of q_no_pe is [num_tokens, n, qk_head_dim], q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]
-        q_no_pe, q_pos_emb = mint.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
+        q_no_pe, q_pos_emb = ops.function.array_func.split_ext(
+            q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
         # the shape of kv_compressed is [num_tokens, kv_lora_rank]
         kv_compressed = self.kv_layernorm(kv_compressed)
 
@@ -443,8 +444,9 @@ class MLASelfAttention(MultiLatentAttention):
 
         # the shape of k_no_pe is [num_tokens, qk_head_dim * self.kv_num_heads_per_partition],
         # the shape of value is [num_tokens, v_head_dim * self.kv_num_heads_per_partition]
-        k_no_pe, value = mint.split(kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
-                                         self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
+        k_no_pe, value = ops.function.array_func.split_ext(
+            kv, [self.config.qk_head_dim * self.kv_num_heads_per_partition,
+                 self.config.v_head_dim * self.kv_num_heads_per_partition], dim=-1)
         k_no_pe = k_no_pe.reshape(-1, self.kv_num_heads_per_partition, self.config.qk_head_dim)
 
         # the shape of value_states is [num_tokens, n, v_head_dim]
@@ -531,7 +533,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.is_modelslim = quant_config.is_modelslim
         self.fa3_quant = quant_config.fa3_quant
         self.fa3_quant_layer = quant_config.fa3_quant_layer
-        self.is_fa3_quant_layer = (layer_number - 1) in self.fa3_quant_layer # layer_number start from 1
+        self.is_fa3_quant_layer = layer_number - 1 in self.fa3_quant_layer # layer_number start from 1
         self.input_layernorm_weight = None
         self.qkv_down_proj_input_scale = None
         self.q_layernorm_weight = None
@@ -542,6 +544,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_proj_input_offset = None
         self.input_format = 1 if self.fa3_quant else 0
         self.use_ringmla = use_ms_custom_ops() and get_tensor_model_parallel_world_size() < 16
+        # pylint: disable=C0415
         import ms_custom_ops
         self.ms_custom_ops = ms_custom_ops
         self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
@@ -793,7 +796,7 @@ class FusedMLASelfAttention(MLASelfAttention):
                     k_cache = self.transpose(key_cache.reshape(-1, self.config.kv_lora_rank // 32, \
                                              self.config.block_size, 32), (0, 2, 1, 3)).reshape( \
                                              -1, self.config.block_size, self.config.kv_lora_rank)
-                    k_cache = (self.cast(k_cache, dtype.bfloat16) / self.quant_ctkv_scale)
+                    k_cache = self.cast(k_cache, dtype.bfloat16) / self.quant_ctkv_scale
                 else:
                     k_cache = self.ms_custom_ops.trans_data(key_cache, transdata_type=0)
                 v_cache = self.ms_custom_ops.trans_data(value_cache, transdata_type=0)
