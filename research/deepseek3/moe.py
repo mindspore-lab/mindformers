@@ -37,6 +37,8 @@ try:
 except ImportError:
     MOE_FUSED_OP_VALID = False
 
+from research.deepseek3.infer.activation import SiLU
+from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.modules.layers import Linear
 from mindformers.parallel_core.inference.parallel_state import (default_pgs, get_moe_expert_parallel_group,
                                                                 get_moe_expert_parallel_world_size,
@@ -45,8 +47,6 @@ from mindformers.parallel_core.inference.parallel_state import (default_pgs, get
 from mindformers.version_control import is_910b
 from mindformers.tools.utils import divide
 
-from research.deepseek3.infer.activation import SiLU
-from research.deepseek3.infer.layers import ColumnParallelLinear, RowParallelLinear
 
 dtype_map = {
     'float16': mstype.float32,
@@ -60,7 +60,7 @@ class TopkRouter(nn.Cell):
         A router implementation which maps each tokens to the topk expert.
     """
     def __init__(self, expert_num):
-        super(TopkRouter, self).__init__()
+        super().__init__()
         self.topk_bias = Parameter(initializer('zeros', (expert_num), mstype.float32),
                                    requires_grad=False, parallel_optimizer=False)
 
@@ -73,7 +73,7 @@ class Router(nn.Cell):
     def __init__(self,
                  hidden_size,
                  moe_config):
-        super(Router, self).__init__()
+        super().__init__()
         self.expert_num = moe_config.expert_num
         self.dense = nn.Dense(in_channels=hidden_size, out_channels=self.expert_num,
                               has_bias=False, dtype=dtype_map.get(moe_config.router_dense_type))
@@ -103,7 +103,7 @@ class ParallelMoE(nn.Cell):
                  hidden_size,
                  moe_config,
                  use_fused_op=True):
-        super(ParallelMoE, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
         self.expert_dim = moe_config.expert_num
@@ -290,7 +290,7 @@ class SharedMLP(nn.Cell):
         """ Construct function of mlp block. """
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-            gate, hidden = mint.split(gate_hidden_out,
+            gate, hidden = ops.function.array_func.split_ext(gate_hidden_out,
                                       (self.ffn_hidden_size, self.ffn_hidden_size), -1)
         else:
             gate = self.w1(x)
@@ -387,7 +387,7 @@ class SharedParallelMLP(nn.Cell):
         """ Construct function of mlp block. """
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-            gate, hidden = mint.split(gate_hidden_out,
+            gate, hidden = ops.function.array_func.split_ext(gate_hidden_out,
                                       (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
         else:
             gate = self.w1(x)
@@ -455,7 +455,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             tp_group=default_pgs,
             **kwargs
     ):
-        super(ColumnParallelGroupLinear, self).__init__(
+        super().__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -541,7 +541,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             tp_group=default_pgs,
             **kwargs
     ):
-        super(RowParallelGroupLinear, self).__init__(
+        super().__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -661,7 +661,7 @@ class RoutedParallelMLP(nn.Cell):
         """Forward process of the FeedForward"""
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-            gate, hidden = mint.split(gate_hidden_out,
+            gate, hidden = ops.function.array_func.split_ext(gate_hidden_out,
                                       (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
         else:
             gate = self.w1(x, group_list=group_list)
@@ -711,7 +711,7 @@ class ParallelMoEV2(nn.Cell):
                  hidden_size,
                  moe_config,
                  is_reduce_moe_output=True):
-        super(ParallelMoEV2, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
         self.is_reduce_moe_output = is_reduce_moe_output
@@ -821,7 +821,7 @@ class ExpertParallelMoE(nn.Cell):
                  moe_config,
                  use_alltoall,
                  compute_dtype):
-        super(ExpertParallelMoE, self).__init__()
+        super().__init__()
         self.compute_dtype = compute_dtype
         self.hidden_size = hidden_size
         self.moe_config = moe_config
@@ -860,7 +860,7 @@ class ExpertParallelMoE(nn.Cell):
         self.group_list_index = Tensor([0,], mstype.int32)
 
         if self.moe_ep_size > 1 and not self.use_alltoall:
-            bias_idx = [idx for idx in range(self.expert_num)]
+            bias_idx = list(range(self.expert_num))
             self.bias_idx = bias_idx[self.in_start_expert_idx:] + bias_idx[:self.in_start_expert_idx]
             self.router.e_score_correction_bias.init_data()
             self.router.e_score_correction_bias = self.router.e_score_correction_bias[self.bias_idx]

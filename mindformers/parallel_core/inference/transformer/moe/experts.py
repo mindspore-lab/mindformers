@@ -18,7 +18,7 @@ __all__ = ["GroupedMLP"]
 
 from typing import Optional
 
-from mindspore import mint, nn
+from mindspore import mint, nn, ops
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
@@ -125,7 +125,7 @@ class GroupedMLP(nn.Cell):
         intermediate_parallel = self.linear_fc1(hidden_states, group_list=group_list)
 
         if self.config.gated_linear_unit:
-            gate, hidden = mint.split(intermediate_parallel,
+            gate, hidden = ops.function.array_func.split_ext(intermediate_parallel,
                                       (self.ffn_hidden_size_per_partition,
                                        self.ffn_hidden_size_per_partition), -1)
             gate = self.activation_func(gate) if self.activation_type else gate
