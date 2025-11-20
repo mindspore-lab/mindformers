@@ -17,9 +17,10 @@ from dataclasses import dataclass
 from typing import Union, List, Optional
 from mindspore import nn, Tensor, dtype as mstype
 from mindformers.models.utils import is_current_pipeline_stage, get_current_rank_stage
+from mindformers.parallel_core.training_graph.transformer.adapter import SharedKVAdapter
 from mindformers.parallel_core.training_graph.transformer.utils import LayerSetting
 from mindformers.parallel_core.training_graph.transformer.norm import FusedNorm
-from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.transformer_config import TransformerConfig, ModelArchitecture
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.training_graph.transformer.transformer_layer import BaseTransformerLayer
 from mindformers.parallel_core.training_graph.device_matrix import layout
@@ -109,7 +110,7 @@ class TransformerBlock(nn.Cell):
             pre_process=False,
             post_process=False,
     ):
-        super(TransformerBlock, self).__init__()
+        super().__init__()
         # pre_process=True is not supported in TransformerBlock.
         # The corresponding Megatron v0.12.0 module's forward pass has this logic disabled by default,
         # so it won't cause significant impact.
@@ -130,7 +131,12 @@ class TransformerBlock(nn.Cell):
         if config.sequence_parallel and cp > 1:
             logger.warning("The context paralley way conflicts with sequence with sequence parallel way."
                            "The sequence parallel way has no effect and ignored.")
-        self.seq_length_in_cfg = config.seq_length
+
+        self.use_sharedkv = config.model_architecture == ModelArchitecture.YOCO.value
+
+        if self.use_sharedkv:
+            self.adapter = SharedKVAdapter(config)
+
 
         # The CPU offloading implementation differs from Megatron v0.12.0's approach,
         # so no related scripts are implemented here.
@@ -174,7 +180,11 @@ class TransformerBlock(nn.Cell):
                   actual_seq_len=None):
         """ Construct function of transformer. """
         extra_loss = self.init_extra_loss
+        sharded_key = None
+        sharded_value = None
         for index in range(self.num_layers):
+            if self.use_sharedkv and index == self.config.num_encoder_layers:
+                sharded_key, sharded_value = self.adapter(hidden_states, rotary_pos_emb)
             layer = self._get_layer(index)
             prefix_kv = prefix_keys_values[index] if prefix_keys_values is not None else None
             # pylint: disable=W0612
@@ -184,7 +194,9 @@ class TransformerBlock(nn.Cell):
                 rotary_pos_emb=rotary_pos_emb,
                 prefix_keys_values=prefix_kv,
                 extra_loss=extra_loss,
-                actual_seq_len=actual_seq_len
+                actual_seq_len=actual_seq_len,
+                sharded_key=sharded_key,
+                sharded_value=sharded_value
                 # context/context_mask/inference_context/packed_seq_params/sequence_len_offset is useless,
                 # In Megatron v0.12.0, this is primarily used for inference-related processing and
                 # has no practical impact on training.
