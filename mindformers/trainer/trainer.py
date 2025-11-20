@@ -1401,9 +1401,21 @@ class Trainer:
         """Ensure auto_trans_ckpt has shared directory requirements met."""
         if self.config.auto_trans_ckpt:
             if not is_publicly_accessible_path(get_output_root_path()):
-                raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True, "
-                                 f"the output_dir should be a shared directory that can be accessed by all nodes. "
-                                 f"But {os.path.abspath(self.config.output_dir)} is not a shared directory.")
+                raise ValueError(
+                    f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True, "
+                    f"the output_dir must be a shared directory accessible by all nodes. "
+                    f"However, {os.path.abspath(self.config.output_dir)} is not recognized as a shared path. "
+                    f"\n\nDetails:"
+                    f"\n1. This error occurs because distributed training with multiple nodes requires "
+                    f"the checkpoint output directory to be accessible across all nodes "
+                    f"(e.g., NFS-mounted directory, distributed file system path, or shared storage)."
+                    f"\n2. If you confirm that {os.path.abspath(self.config.output_dir)} IS a shared directory "
+                    f"accessible by all nodes, explicitly mark it as a shared path by setting the following "
+                    f"environment variable to bypass this check:\n   "
+                    f"export SHARED_PATHS={os.path.abspath(self.config.output_dir)}"
+                    f"\n3. If the path is NOT a shared directory, update config.output_dir to a "
+                    f"valid shared directory path that all nodes can read from and write to."
+                )
             clear_auto_trans_output(
                 self.config.load_checkpoint, self.config.src_strategy_path_or_dir, self.config.load_ckpt_format)
 
