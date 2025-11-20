@@ -122,9 +122,22 @@ class FlashAttention(Cell):
         self.sparse_mode = config.sparse_mode
         self.attention_dropout = config.attention_dropout if attention_dropout is None else attention_dropout
 
+        self.window_size = config.window_size
+        self.is_sliding_layer = self._is_layer_window_attention(
+            config.window_size, config.window_attn_skip_freq, layer_number)
+
         pre_tokens = 2147483647
         next_tokens = 0
+        self.lower_triangle_mask = None
+
+        if self.is_sliding_layer:
+            self.sparse_mode = 4
+            pre_tokens = 2147483647 if self.window_size[0] == -1 else self.window_size[0]
+            next_tokens = 2147483647 if self.window_size[1] == -1 else self.window_size[1]
+            self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
+
         scale_value = 1. / math.sqrt(hidden_size_per_attention_head) if softmax_scale is None else softmax_scale
+
         self.flash_attention = FlashAttentionScore(head_num=self.head_num,
                                                    keep_prob=1 - self.attention_dropout,
                                                    scale_value=scale_value,
@@ -174,6 +187,18 @@ class FlashAttention(Cell):
             self.sharding_propagation(config)
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
+
+    def _is_layer_window_attention(self, window_size, window_attn_skip_freq, layer_number):
+        """help to determine the sliding layer"""
+        if not window_size:
+            return False
+        if window_attn_skip_freq is None:
+            return True
+        if isinstance(window_attn_skip_freq, int):
+            return (layer_number + 1) % window_attn_skip_freq != 0
+        if isinstance(window_attn_skip_freq, list):
+            return bool(window_attn_skip_freq[layer_number])
+        return False
 
     def _generate_flash_attention_strategy(self, dp, tp, cp, cp_ds=1):
         """get FA generate strategies"""
@@ -227,7 +252,7 @@ class FlashAttention(Cell):
         if self.use_attention_mask:
             if self.sparse_mode in [0, 1]:
                 fa_strategies += (layout("dp", "None", "cp", "None"),)
-            elif self.sparse_mode in [2, 3, 8]:
+            elif self.sparse_mode in [2, 3, 4, 8]:
                 fa_strategies += (layout("None", "None"),)
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
@@ -258,6 +283,9 @@ class FlashAttention(Cell):
             raise NotImplementedError("For FlashAttention, 'packed_seq_params' is not supported for now.")
         if attention_mask is not None:
             attention_mask = cast(attention_mask, ms.uint8)
+
+        if self.lower_triangle_mask is not None:
+            attention_mask = self.lower_triangle_mask
 
         if self.input_layout == "TND":
             _, _, _, output = self.flash_attention(query,

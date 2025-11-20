@@ -57,6 +57,17 @@ class CrossAttentionSubmodules:
     linear_proj: Union[ModuleSpec, type] = None
 
 
+@dataclass
+class SharedKVCrossAttentionSubmodules:
+    """
+    Configuration class for specifying the submodules of a shared-key-value-cross-attention.
+    """
+
+    linear_q: Union[ModuleSpec, type] = None
+    core_attention: Union[ModuleSpec, type] = None
+    linear_proj: Union[ModuleSpec, type] = None
+
+
 class Attention(nn.Cell):
     """Attention layer abstract class.
 
@@ -209,6 +220,7 @@ class Attention(nn.Cell):
         self.tile_kv = aclnn_ops.Tile()
         self.cat = aclnn_ops.Concat(2)
         self.shard(self.config)
+        self.apply_pos_embed_to_key = True
 
     def _ulysses_initial(self):
         """Initialize ulysses related operations."""
@@ -231,7 +243,7 @@ class Attention(nn.Cell):
         self.transpose_ulysses_merger.shard(((dp, cp, 1, tp, 1, 1),))
 
     @abstractmethod
-    def get_query_key_value_tensors(self, hidden_states, key_value_states):
+    def get_query_key_value_tensors(self, hidden_states, key_value_states, sharded_key, sharded_value):
         """
         This method needs to be implemented based on whether the derived class
         is "self-attn" or "cross-attn".
@@ -261,14 +273,19 @@ class Attention(nn.Cell):
             key_value_states=None,
             rotary_pos_emb=None,
             prefix_keys_values=None,
-            actual_seq_len=None
+            actual_seq_len=None,
+            sharded_key=None,
+            sharded_value=None
     ):
         """ Construct function of attention block."""
         ori_dtype = hidden_states.dtype
         seq_len, bs, _ = self.shape(hidden_states)
 
         # apply query, key, value projection
-        query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
+        query, key, value = self.get_query_key_value_tensors(hidden_states,
+                                                             key_value_states,
+                                                             sharded_key,
+                                                             sharded_value)
 
         # Training-only implementation (no inference logic included).
 
@@ -277,9 +294,7 @@ class Attention(nn.Cell):
         key = self.reshape(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
 
         # apply rotary position embedding
-        if not self.is_nope_layer and rotary_pos_emb is not None:
-            query = self.apply_rotary_pos_emb(query, rotary_pos_emb)
-            key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
+        self._apply_rotary_pos_emb(query, key, rotary_pos_emb)
 
         # with ulysses context parallel, insert all to all before FA
         if self.cp > 1 and self.cp_ds > 1:
@@ -343,6 +358,16 @@ class Attention(nn.Cell):
         output = self.cast(output, ori_dtype)
 
         return output, bias
+
+    def _apply_rotary_pos_emb(self, query, key, rotary_pos_emb):
+        '''
+        Apply rotary position embedding.
+        '''
+        if not self.is_nope_layer and rotary_pos_emb is not None:
+            query = self.apply_rotary_pos_emb(query, rotary_pos_emb)
+            if self.apply_pos_embed_to_key:
+                key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
+        return query, key
 
     def _cat_prefix(self, key, value, prefix_keys_values):
         '''
@@ -527,7 +552,7 @@ class SelfAttentionContiguous(Attention):
         if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard_self_attention(self.config)
 
-    def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
+    def get_query_key_value_tensors(self, hidden_states, key_value_states=None, sharded_key=None, sharded_value=None):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
@@ -639,7 +664,7 @@ class SelfAttention(Attention):
         if _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard_self_attention(self.config)
 
-    def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
+    def get_query_key_value_tensors(self, hidden_states, key_value_states=None, sharded_key=None, sharded_value=None):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
@@ -744,7 +769,7 @@ class CrossAttention(Attention):
 
         self.split_kv = aclnn_ops.SplitWithSize()
 
-    def get_query_key_value_tensors(self, hidden_states, key_value_states):
+    def get_query_key_value_tensors(self, hidden_states, key_value_states, sharded_key=None, sharded_value=None):
         """
         Derives `query` tensor from `hidden_states`, and `key`/`value` tensors
         from `key_value_states`.
@@ -763,3 +788,71 @@ class CrossAttention(Attention):
         tp = 1 if config is None else config.tensor_model_parallel_size
         cp = 1 if config is None else config.context_parallel_size
         self.split_kv.shard(((dp, cp, tp),))
+
+
+class SharedKVCrossAttention(Attention):
+    """SharedKV-cross-attention layer class
+
+    SharedKV-cross-attention layer takes input with size [s, b, h] and context with size
+    [s, b, h] and returns output of the same size.
+
+    Args:
+        config (TransformerConfig): The config of the transformer model.
+        submodules (CrossAttentionSubmodules): The submodules used to construct the CrossAttention layer,
+            such as ColumnParallelLinear and RowParallelLinear for query and key-value projections.
+        layer_number (int): Number which indicates the index of this transformer layer in the
+            whole transformer block.
+        attn_mask_type (str): attention mask type. Default None.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(
+            self,
+            config: TransformerConfig,
+            submodules: SharedKVCrossAttentionSubmodules,
+            layer_number: int,
+            attn_mask_type: AttnMaskType = None,
+            cp_comm_type: str = None,
+    ):
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            attn_mask_type=attn_mask_type,
+            attention_type="cross",
+            cp_comm_type=cp_comm_type,
+        )
+        if self.use_gqa:
+            raise NotImplementedError("Grouped query attention not implemented for cross-attention.")
+        if self.hidden_size != self.kv_hidden_size:
+            raise ValueError("self.hidden_size and self.kv_hidden_size must be equal in cross_attn!")
+
+        self.linear_q = build_module(
+            submodules.linear_q,
+            self.hidden_size,
+            self.hidden_size,
+            config=self.config,
+            bias=self.config.add_bias_linear,
+            init_method=self.init_method,
+            skip_bias_add=False,
+        )
+
+        self.split_kv = aclnn_ops.SplitWithSize()
+        self.apply_pos_embed_to_key = False
+
+    def get_query_key_value_tensors(self, hidden_states, key_value_states=None, sharded_key=None, sharded_value=None):
+        """
+        Derives `query` tensor from `hidden_states`, and `key`/`value` tensors
+        from `key_value_states`.
+        """
+        query, _ = self.linear_q(hidden_states)
+        query = self.cast(query, self.compute_dtype)
+        key = sharded_key
+        value = sharded_value
+        return query, key, value
+
+    def shard_key_value_attention(self, config: TransformerConfig):
+        """Set sharding strategies."""
+        self.split_qkv.shard((layout("cp", "dp", "tp", "None"),))

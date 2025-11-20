@@ -3,10 +3,11 @@
 # Modified some config parameters to adapt to MindSpore Transformer.
 """Transformer Config"""
 
+import enum
 import os
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import mindspore as ms
 from mindformers.tools.logger import logger
@@ -423,6 +424,34 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     It uses A2A communications in low-level CP groups, and P2P communications in high-level CP groups.
     """
 
+    window_size: Optional[Tuple[int, int]] = None
+    """
+    If not None, then will use sliding window attention. The size of the window is specified by
+    the numbers inside the tuple; -1 is special value meaning "infinite window size".
+    """
+
+    window_attn_skip_freq: Optional[Union[int, List[int]]] = None
+    """
+    Frequency of full attention layers among sliding window attention layers. Accepts either:
+    - An integer N: Represents a (N-1):1 ratio, one full attention layer after (N-1) SWA layers.
+    - A list that defines a custom pattern, e.g.: [1,1,1,1,0,0,0,0], where 1 represents SWA.
+    """
+
+    model_architecture: str = "decoder_only"
+    """The structure of model. Support 'decoder-only', 'yoco'."""
+
+    num_encoder_layers: int = None
+    """
+    The number of encoder layers. The num_encoder_layers or the 
+    num_decoder_layers should be set while use the 'yoco' model structure. 
+    """
+
+    num_decoder_layers: int = None
+    """
+    The number of decoder layers. The num_encoder_layers or the 
+    num_decoder_layers should be set while use the 'yoco' model structure. 
+    """
+
     def __post_init__(self):
         """
         Python dataclass method that is used to modify attributes after initialization.
@@ -728,6 +757,34 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         self._validate_param_init_std_rules()
 
+        if self.window_size is not None:
+            if self.window_size[0] < -1 or self.window_size[1] < -1:
+                raise ValueError("When number in window_size should not lower than -1."
+                                 f"But get {self.window_size[0]} and {self.window_size[1]}")
+
+        if self.model_architecture not in [model_architecture.value for model_architecture in ModelArchitecture]:
+            raise ValueError("You should set the model_architecture in 'decoder_only' "
+                             f"or 'yoco'. But get {self.model_architecture}.")
+
+        if self.model_architecture == ModelArchitecture.DECODER_ONLY:
+            self.num_decoder_layers = self.num_layers
+            self.num_encoder_layers = 0
+        if self.model_architecture == ModelArchitecture.YOCO:
+            if self.num_encoder_layers is None and self.num_decoder_layers is None:
+                raise ValueError("While use the 'yoco' model structure, "
+                                 "You should set the num_encoder_layers or the num_decoder_layers.")
+            self.num_decoder_layers = self.num_decoder_layers \
+                if self.num_decoder_layers else self.num_layers - self.num_encoder_layers
+            self.num_encoder_layers = self.num_encoder_layers \
+                if self.num_encoder_layers else self.num_layers - self.num_decoder_layers
+
+        if (self.num_encoder_layers and self.num_decoder_layers
+                and self.num_encoder_layers + self.num_decoder_layers != self.num_layers):
+            raise ValueError("The combination of  num_encoder_layers and num_decoder_layers "
+                             f"should be equal to num_layers. But get num_encoder_layers: {self.num_encoder_layers}, "
+                             f"num_decoder_layers: {self.num_decoder_layers}, num_layers: {self.num_layers}.")
+
+
     def _validate_param_init_std_rules(self):
         """Validate and compile decoupling initialization rules."""
         rules = self.param_init_std_rules
@@ -764,6 +821,19 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 # Compile the regex pattern and replace the string in-place
                 compiled_pattern = re.compile(target)
                 rule["target"] = compiled_pattern
+
+
+@dataclass
+class ModelArchitecture(enum.Enum):
+    """
+        Enumeration representing different types of model architecture.
+
+        Attributes:
+            DECODER_ONLY: Represents the model architecture only has the decoder layer.
+            YOCO: Represents the model architecture is yoco.
+    """
+    DECODER_ONLY = "decoder_only"
+    YOCO = "yoco"
 
 
 @dataclass
