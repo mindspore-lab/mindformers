@@ -64,7 +64,7 @@ def split_loaded_weight(loaded_weight, shard_dim, start_idx, shard_size):
     elif shard_dim == 2:
         loaded_weight = loaded_weight[:, :, start_idx:end_idx]
     else:
-        raise ValueError("shard_dim:{} is not supported.".format(shard_dim))
+        raise ValueError(f"shard_dim:{shard_dim} is not supported.")
     loaded_weight = loaded_weight.astype(np.float16) \
         if (str(loaded_weight.dtype) == 'bfloat16' and is_310p()) else loaded_weight
     return loaded_weight

@@ -24,14 +24,14 @@ from mindspore.ops.auto_generate import QuantBatchMatmul, DynamicQuantExt, Group
 from mindformers.parallel_core.inference.tensor_parallel.layers import LinearMethodBase
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
+from mindformers.version_control import is_310p
+from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
+from mindformers.models.utils import format_type
 try:
     from ms_custom_ops import grouped_matmul
     GMM_310P = True
 except ImportError:
     GMM_310P = False
-from mindformers.version_control import is_310p
-from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
-from mindformers.models.utils import format_type
 
 
 class A8W8DynamicLinearMethod(LinearMethodBase):

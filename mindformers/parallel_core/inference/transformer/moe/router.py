@@ -44,7 +44,7 @@ class Router(nn.Cell):
         Args:
             config (TransformerConfig): Configuration object for the Transformer model.
         """
-        super(Router, self).__init__()
+        super().__init__()
         self.config = config
         self.num_experts = self.config.num_moe_experts
         self.router_dense_type = self.config.moe_router_dtype
@@ -98,7 +98,7 @@ class Router(nn.Cell):
         """
         loaded_weight = loaded_weight[:]
         if self.ep_group_size > 1 and not self.config.use_alltoall:
-            expert_idx_list = [idx for idx in range(self.num_experts)]
+            expert_idx_list = list(range(self.num_experts))
             start_idx = self.num_experts // self.ep_group_size * self.ep_rank
             expert_idx_list = expert_idx_list[start_idx:] + expert_idx_list[:start_idx]
             loaded_weight = loaded_weight[expert_idx_list]

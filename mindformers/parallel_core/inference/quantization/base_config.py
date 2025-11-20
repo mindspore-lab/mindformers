@@ -81,7 +81,7 @@ class QuantizationConfig(ABC):
     def __init__(self):
         super().__init__()
         # mapping is updated by models as they initialize
-        self.packed_modules_mapping: dict[str, list[str]] = dict()
+        self.packed_modules_mapping: dict[str, list[str]] = {}
 
     @abstractmethod
     def get_name(self) -> QuantizationBackends:

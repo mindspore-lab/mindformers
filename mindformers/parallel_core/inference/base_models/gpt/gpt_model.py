@@ -118,7 +118,7 @@ class GPTModel(nn.Cell):
             model_comm_pgs: Optional[ModelCommProcessGroups] = None,
             quant_config: Optional[QuantizationConfig] = None,
     ):
-        super(GPTModel, self).__init__()
+        super().__init__()
         self.check_support(fp16_lm_cross_entropy, rope_scaling)
         self.config = config
         self.quant_config = quant_config
@@ -319,7 +319,7 @@ class GPTModel(nn.Cell):
         return logits
 
     def get_params_dict(self):
-        params_dict = dict()
+        params_dict = {}
         for _, module in self.modules_dict.items():
             module_params = module.parameters_dict()
             for param_name, param in module_params.items():
@@ -405,16 +405,19 @@ class GPTModel(nn.Cell):
                 num_experts = self.config.num_moe_experts
                 if '.weight1' in name:
                     weight = loaded_weight[:].reshape(num_experts, self.config.hidden_size, -1)
-                if '.weight2' in name:
+                elif '.weight2' in name:
                     weight = loaded_weight[:].reshape(num_experts, self.config.moe_ffn_hidden_size, -1)
+                else:
+                    weight = None
 
-                for expert_id in range(num_experts):
-                    expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
-                    loaded_weight = weight[expert_id]
-                    param = params_dict[name]
-                    weight_loader = param.weight_loader
-                    weight_loader(param, loaded_weight, shard_id=None, expert_id=expert_id)
-                    loaded_params.add(name)
+                if weight is not None:
+                    for expert_id in range(num_experts):
+                        expert_id = self.map_global_expert_id_to_local_expert_id(expert_id)
+                        loaded_weight = weight[expert_id]
+                        param = params_dict[name]
+                        weight_loader = param.weight_loader
+                        weight_loader(param, loaded_weight, shard_id=None, expert_id=expert_id)
+                        loaded_params.add(name)
             else:
                 param = params_dict[name]
                 weight_loader = getattr(param, "weight_loader", default_weight_loader)

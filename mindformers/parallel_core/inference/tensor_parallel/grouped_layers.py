@@ -49,7 +49,7 @@ class GroupedLinearMethodBase(QuantizeMethodBase):
 
     @abstractmethod
     def create_weights(self, layer: nn.Cell, num_local_experts: int,
-                       input_size_per_partition: int, output_size_per_partition: int,
+                       input_size_per_partition: int, output_partition_sizes: list[int],
                        params_dtype, **extra_weight_attrs):
         """Create weights for a grouped linear layer.
            The weights will be set as attributes of the layer.
@@ -58,7 +58,7 @@ class GroupedLinearMethodBase(QuantizeMethodBase):
             layer: The layer that is using the GroupedLinearMethodBase factory.
             num_local_experts: The number of local experts.
             input_size_per_partition: Sizes of the input dim on rank X.
-            output_size_per_partition: Sizes of the output dim on rank X.
+            output_partition_sizes: Sizes of the output dim on rank X.
             params_dtype: Datatype of the parameters.
         """
         raise NotImplementedError
@@ -87,7 +87,7 @@ class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
 
     def create_weights(self, layer: nn.Cell, num_local_experts: int,
                        input_size_per_partition: int, output_partition_sizes: list[int],
-                       params_dtype, **extra_weight_attrs):
+                       params_dtype, **extra_weight_attrs):  # pylint: disable=arguments-renamed
         weight_shape = (num_local_experts, input_size_per_partition, sum(output_partition_sizes))
         weight = Parameter(initializer("zeros", weight_shape, params_dtype), requires_grad=False)
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
@@ -158,6 +158,7 @@ class GroupedLinearBase(nn.Cell):
         raise NotImplementedError
 
     def format_to_nz(self, param, merge_count=1):
+        """Format parameter to nz format."""
         current_count = self.param_load_counts.get(param.name, 0) + 1
         self.param_load_counts[param.name] = current_count
 
@@ -166,7 +167,7 @@ class GroupedLinearBase(nn.Cell):
             cast_weight = param
             if param.dtype == ms.qint4x2:
                 # format_cast don't support qint4x2
-                import ms_custom_ops
+                import ms_custom_ops  # pylint: disable=import-outside-toplevel
                 cast_weight = ms_custom_ops.type_cast(param, ms.int8)
             cast_weight = ops.auto_generate.format_cast(cast_weight, format_type['nz'])
             if param.dtype == ms.qint4x2:
@@ -237,17 +238,17 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(ColumnParallelGroupedLinear, self).__init__(num_local_experts,
-                                                          input_size,
-                                                          output_size,
-                                                          skip_bias_add,
-                                                          config.params_dtype,
-                                                          quant_config=quant_config,
-                                                          prefix=prefix)
+        super().__init__(num_local_experts,
+                         input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
-                "For ColumnParallelGroupedLinear, `stride > 1` is not supported for now, "
-                "but got `stride={}`".format(stride))
+                f"For ColumnParallelGroupedLinear, `stride > 1` is not supported for now, "
+                f"but got `stride={stride}`")
         if skip_bias_add:
             raise NotImplementedError(
                 "For ColumnParallelGroupedLinear, `skip_bias_add=True` is not supported for now."
@@ -298,7 +299,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
-    def construct(self, input_parallel, weight=None, group_list=None):
+    def construct(self, input_parallel, weight=None, group_list=None):  # pylint: disable=arguments-renamed
         """Forward of ColumnParallelGroupedLinear."""
         if weight is None:
             weight = self.weight
@@ -356,11 +357,10 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             # so the splitting dimension needs to be subtracted by 1.
             weight_shape = len(loaded_weight.get_shape())
             weight_need_transpose = not (self.transpose_b and param.name.endswith("weight1"))
-            if weight_shape == 1 or (weight_shape != 1 and loaded_weight.get_shape()[1] == 1) \
-                or not weight_need_transpose:
-                shard_dim = getattr(param, "output_dim", None) - 1
-            else:
-                shard_dim = getattr(param, "input_dim", None) - 1
+            cond = weight_shape == 1 or (weight_shape != 1 and loaded_weight.get_shape()[1] == 1) \
+                or not weight_need_transpose
+            shard_dim_map = {True: "output_dim", False: "input_dim"}
+            shard_dim = getattr(param, shard_dim_map[cond], None) - 1
 
             tp_rank = self.tp_group.rank
             start_idx = tp_rank * shard_size
@@ -415,6 +415,10 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
                     f" but got the shape of param is {param.data[expert_id].shape} and "
                     f"the shape of weight is{loaded_weight.shape}")
             param[expert_id] = ms.from_numpy(loaded_weight)
+        self.post_process(param)
+
+    def post_process(self, param):
+        """post process in weight loader"""
         if is_310p() and param.name.endswith("weight1"):
             self.format_to_nz(param, self.num_local_experts * 2)
 
@@ -480,17 +484,17 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(RowParallelGroupedLinear, self).__init__(num_local_experts,
-                                                       input_size,
-                                                       output_size,
-                                                       skip_bias_add,
-                                                       config.params_dtype,
-                                                       quant_config=quant_config,
-                                                       prefix=prefix)
+        super().__init__(num_local_experts,
+                         input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
-                "For RowParallelGroupedLinear, `stride > 1` is not supported for now, "
-                "but got `stride={}`".format(stride))
+                f"For RowParallelGroupedLinear, `stride > 1` is not supported for now, "
+                f"but got `stride={stride}`")
         if not is_expert:
             raise NotImplementedError(
                 "For RowParallelGroupedLinear, `is_expert=False` is not supported for now.")
@@ -539,7 +543,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
-    def construct(self, input_, weight=None, group_list=None):
+    def construct(self, input_, weight=None, group_list=None):  # pylint: disable=arguments-renamed
         """Forward of RowParallelGroupedLinear."""
         if weight is None:
             weight = self.weight

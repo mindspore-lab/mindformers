@@ -35,7 +35,7 @@ class A8W8LinearMethod(LinearMethodBase):
         self.is_310p = is_310p()
         self.is_ms_custom_ops = False
         try:
-            import ms_custom_ops
+            import ms_custom_ops  # pylint: disable=import-outside-toplevel
             self.is_ms_custom_ops = True and not self.is_310p
             self.ms_custom_ops = ms_custom_ops
         except ModuleNotFoundError:

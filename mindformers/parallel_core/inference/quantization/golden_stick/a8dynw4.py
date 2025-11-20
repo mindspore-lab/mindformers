@@ -47,8 +47,8 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
                        input_size_per_partition: int,
                        output_partition_sizes: list[int],
                        params_dtype,
-                       transpose_b=False,
                        *weight_args,
+                       transpose_b=False,
                        num_local_experts=None, **extra_weight_attrs) -> Union[Parameter, None]:
         output_size_per_partition = sum(output_partition_sizes)
         self.output_size_per_partition = output_size_per_partition
@@ -64,9 +64,9 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
             else:
                 self.matmul = GroupedMatmulV4()
             if not extra_weight_attrs.get('skip_weight_param_allocation', False):
-                weight_shape = (num_local_experts, self.output_size_per_partition, 
+                weight_shape = (num_local_experts, self.output_size_per_partition,
                                 self.input_size_per_partition // 2) \
-                    if transpose_b else (num_local_experts, self.input_size_per_partition, 
+                    if transpose_b else (num_local_experts, self.input_size_per_partition,
                                          self.output_size_per_partition // 2)
                 weight = Parameter(initializer('ones', weight_shape, mindspore.qint4x2), requires_grad=False)
                 input_dim, output_dim = (2, 1) if transpose_b else (1, 2)

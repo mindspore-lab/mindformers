@@ -536,7 +536,7 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.is_modelslim = quant_config.is_modelslim
         self.fa3_quant = quant_config.fa3_quant
         self.fa3_quant_layer = quant_config.fa3_quant_layer
-        self.is_fa3_quant_layer = (layer_number - 1) in self.fa3_quant_layer # layer_number start from 1
+        self.is_fa3_quant_layer = layer_number - 1 in self.fa3_quant_layer  # layer_number start from 1
         self.input_layernorm_weight = None
         self.qkv_down_proj_input_scale = None
         self.q_layernorm_weight = None
@@ -547,10 +547,10 @@ class FusedMLASelfAttention(MLASelfAttention):
         self.q_up_proj_input_offset = None
         self.input_format = 1 if self.fa3_quant else 0
         self.use_ringmla = use_ms_custom_ops() and get_tensor_model_parallel_world_size() < 16
-        import ms_custom_ops
+        import ms_custom_ops  # pylint: disable=import-outside-toplevel
         self.ms_custom_ops = ms_custom_ops
-        self.scale_value = 1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim) \
-                           if self.softmax_scale is None else self.softmax_scale
+        self.scale_value = (1 / math.sqrt(self.config.kv_lora_rank + self.config.qk_head_dim)
+                           if self.softmax_scale is None else self.softmax_scale)
         self.ring_mla_mask = Tensor(np.triu(np.ones((512, 512), dtype=np.float16), 1), dtype.bfloat16)
         self.depend = P.Depend()
         self.quant = QuantV2()
@@ -798,7 +798,7 @@ class FusedMLASelfAttention(MLASelfAttention):
                     k_cache = self.transpose(key_cache.reshape(-1, self.config.kv_lora_rank // 32, \
                                              self.config.block_size, 32), (0, 2, 1, 3)).reshape( \
                                              -1, self.config.block_size, self.config.kv_lora_rank)
-                    k_cache = (self.cast(k_cache, dtype.bfloat16) / self.quant_ctkv_scale)
+                    k_cache = self.cast(k_cache, dtype.bfloat16) / self.quant_ctkv_scale
                 else:
                     k_cache = self.ms_custom_ops.trans_data(key_cache, transdata_type=0)
                 v_cache = self.ms_custom_ops.trans_data(value_cache, transdata_type=0)

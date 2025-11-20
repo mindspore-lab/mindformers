@@ -76,8 +76,8 @@ def get_attn_mask_func(mask_func_type):
     """
     if mask_func_type not in ATTNMASK_FUNC_MAP:
         raise KeyError("Invalid attention mask function. Supported attention "
-                       "mask function are ['attn_mask_fill', 'attn_mask_add'] "
-                       ", but got {}.".format(mask_func_type))
+                       f"mask function are ['attn_mask_fill', 'attn_mask_add'] "
+                       f", but got {mask_func_type}.")
     return ATTNMASK_FUNC_MAP[mask_func_type]
 
 
@@ -158,7 +158,7 @@ def create_empty_parameter(shape, *, dtype=None, device=None, **kwargs):
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     if numerator % denominator != 0:
-        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+        raise ValueError(f"{numerator} is not divisible by {denominator}")
 
 
 def divide(numerator, denominator):
@@ -178,9 +178,9 @@ def save_strategy_file(state_dict, strategy_file_name):
     Supported Platforms:
         ``Ascend``
     """
-    import os
-    import stat
-    from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
+    import os  # pylint: disable=import-outside-toplevel
+    import stat  # pylint: disable=import-outside-toplevel
+    from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy  # pylint: disable=import-outside-toplevel
 
     stra = ckpt_strategy()
 
@@ -367,7 +367,7 @@ def use_ms_custom_ops():
     """
     try:
         # pylint: disable=W0611
-        import ms_custom_ops
+        import ms_custom_ops  # pylint: disable=import-outside-toplevel
     except ModuleNotFoundError:
         # environment need install ms_custom_ops package
         return False
