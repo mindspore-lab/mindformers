@@ -193,7 +193,7 @@ class ParallelMLP(nn.Cell):
                 gate_hidden_out_shape = gate_hidden_out.shape
                 reshape_out = self.reshape(gate_hidden_out,
                                            (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition, 2))
-                gate, hidden = mint.split(reshape_out,
+                gate, hidden = ops.function.array_func.split_ext(reshape_out,
                                           (1, 1), -1)
                 gate = self.reshape(gate, (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition))
                 hidden = self.reshape(hidden, (*gate_hidden_out_shape[:-1], self.ffn_hidden_size_per_partition))
@@ -422,7 +422,7 @@ class ParallelAttention(nn.Cell):
                                            (-1,
                                             self.kv_num_heads_per_partition,
                                             (self.n_rep + 2) * self.head_dim))
-                query, key, value = mint.split(reshape_qkv,
+                query, key, value = ops.function.array_func.split_ext(reshape_qkv,
                                                (self.head_dim * self.n_rep,
                                                 self.head_dim,
                                                 self.head_dim), -1)
@@ -444,7 +444,8 @@ class ParallelAttention(nn.Cell):
             query = self.cast(self.wq(x), self.compute_dtype)
             if self.qkv_concat:
                 kv = self.cast(self.w_kv(encoder_output), self.compute_dtype)
-                key, value = mint.split(kv, (self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition), -1)
+                key, value = ops.function.array_func.split_ext(
+                    kv, (self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition), -1)
             else:
                 key = self.cast(self.wk(encoder_output), self.compute_dtype)
                 value = self.cast(self.wv(encoder_output), self.compute_dtype)
