@@ -16,6 +16,7 @@
 import os
 import json
 import glob
+import numpy as np
 from mindformers.parallel_core.inference.quantization import (get_quantization_config,
                                                               QuantizationConfig)
 from mindformers.models.configuration_utils import PretrainedConfig
@@ -66,3 +67,24 @@ def get_quant_config(model_config: PretrainedConfig, weight_mapping: list) -> Qu
     config["weight_mapping"] = weight_mapping
     config["quantization"] = quantization
     return quant_cls.from_config(config)
+
+def np_unpack_int8_to_int4(packed_data):
+    """unpack int8 to int4 numpy array."""
+    low_nibbles = (packed_data & 0x0F).astype(np.uint8)
+    high_nibbles = ((packed_data >> 4) & 0x0F).astype(np.uint8)
+
+    unpacked = np.empty((*packed_data.shape[:-1], packed_data.shape[-1] * 2),
+                        dtype=np.uint8)
+    unpacked[..., 0::2] = low_nibbles
+    unpacked[..., 1::2] = high_nibbles
+
+    return unpacked
+
+def np_pack_int4_to_int8(np_data):
+    """pack int4 numpy array to int8."""
+    np_data = np_data.astype(np.int8)
+    np_data &= 0x000F
+    np_data[..., 0::2] <<= 0
+    np_data[..., 1::2] <<= 4
+    np_int4_data = np_data[..., 0::2] | np_data[..., 1::2]
+    return np_int4_data

@@ -21,12 +21,17 @@ import mindspore
 from mindspore import nn, Parameter, ops
 from mindspore.common.initializer import initializer
 from mindspore.ops.auto_generate import WeightQuantBatchMatmul, DynamicQuantExt, GroupedMatmulV4
-
+try:
+    from ms_custom_ops import grouped_matmul_w4
+    GMM_310P = True
+except ImportError:
+    GMM_310P = False
+from mindformers.version_control import is_310p
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
 from mindformers.parallel_core.inference.tensor_parallel.layers import LinearMethodBase
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
-
+from mindformers.parallel_core.inference.quantization.utils import np_pack_int4_to_int8, np_unpack_int8_to_int4
 
 class A8W4DynamicLinearMethod(LinearMethodBase):
     """Linear method with A8W4 quantization."""
@@ -35,6 +40,7 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
         self.quant_config = quant_config
         self.quant = DynamicQuantExt()
         self.bias_add = ops.Add()
+        self.is_310p = is_310p() and GMM_310P
 
     def create_weights(self,
                        layer: nn.Cell,
@@ -42,6 +48,7 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
                        output_partition_sizes: list[int],
                        params_dtype,
                        *weight_args,
+                       transpose_b=False,
                        num_local_experts=None, **extra_weight_attrs) -> Union[Parameter, None]:
         output_size_per_partition = sum(output_partition_sizes)
         self.output_size_per_partition = output_size_per_partition
@@ -52,17 +59,24 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
             raise ValueError(f"group_size should >=0 but group_size is : {group_size}")
         if self.is_group_mm:
             weight = None
-            self.matmul = GroupedMatmulV4()
+            if self.is_310p:
+                self.matmul = grouped_matmul_w4
+            else:
+                self.matmul = GroupedMatmulV4()
             if not extra_weight_attrs.get('skip_weight_param_allocation', False):
-                weight_shape = (num_local_experts, self.input_size_per_partition, self.output_size_per_partition // 2)
+                weight_shape = (num_local_experts, self.output_size_per_partition,
+                                self.input_size_per_partition // 2) \
+                    if transpose_b else (num_local_experts, self.input_size_per_partition,
+                                         self.output_size_per_partition // 2)
                 weight = Parameter(initializer('ones', weight_shape, mindspore.qint4x2), requires_grad=False)
-                set_weight_attrs(weight, {"input_dim": 1, "output_dim": 2})
+                input_dim, output_dim = (2, 1) if transpose_b else (1, 2)
+                set_weight_attrs(weight, {"input_dim": input_dim, "output_dim": output_dim})
                 set_weight_attrs(weight, extra_weight_attrs)
                 return weight
 
             w_scale_shape = (num_local_experts, self.input_size_per_partition // group_size,
                              self.output_size_per_partition)
-            w_scale_dtype = mindspore.uint64
+            w_scale_dtype = mindspore.float32 if self.is_310p else mindspore.uint64
             w_scale = Parameter(
                 initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
             set_weight_attrs(w_scale, {"input_dim": 1, "output_dim": 2})
@@ -98,12 +112,27 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
 
         return weight
 
+    def process_weight_before_loading(self, param_name, loaded_weight):
+        """preprocess before loading weight"""
+        if self.is_310p and (param_name.endswith("weight1") or param_name.endswith('weight2')) \
+            and loaded_weight.ndim == 2:
+            # In 310P, transpose_b is True, so the param shape is (out_dim, in_dim//2).
+            # But weights is (out_dim//2, in_dim) after packing int4 to int8.
+            loaded_weight = loaded_weight.astype(np.uint8)
+            loaded_weight = loaded_weight.transpose(1, 0)
+            loaded_weight = np_unpack_int8_to_int4(loaded_weight)
+            loaded_weight = loaded_weight.transpose(1, 0)
+            loaded_weight = np_pack_int4_to_int8(loaded_weight)
+        if self.is_310p and param_name.endswith("w_scale"):
+            loaded_weight = loaded_weight.view(np.float32)
+            loaded_weight = loaded_weight[..., 0::2]
+        return loaded_weight
+
+
     def process_weights_after_loading(self, layer: nn.Cell) -> None:
         """calculate gmm_bias"""
         if isinstance(layer, GroupedMLP):
             return
-
-        # int4 pack to int8
         np_data = layer.weight.asnumpy().astype(np.uint8)
         np_data_low = ((np_data & 0x0F) << 4).astype(np.int8) >> 4
         np_data_high = ((np_data >> 4) << 4).astype(np.int8) >> 4
@@ -113,8 +142,12 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
         np_int4_data[:, :, ::2] = np_data_low
         np_int4_data[:, :, 1::2] = np_data_high
         w_scale = layer.w_scale.asnumpy()
-        w_scale_repeat = np.repeat(w_scale, layer.weight.shape[1] // w_scale.shape[1],
-                                   axis=1).astype(np.uint32).view(np.float32)
+        if self.is_310p:
+            np_int4_data = np_int4_data.transpose(0, 2, 1)
+            w_scale_repeat = np.repeat(w_scale, np_int4_data.shape[1] // w_scale.shape[1], axis=1)
+        else:
+            w_scale_repeat = np.repeat(w_scale, np_int4_data.shape[1] // w_scale.shape[1],
+                                    axis=1).astype(np.uint32).view(np.float32)
         gmm_bias = 8 * np.sum(
             np_int4_data.astype(np.float32) * w_scale_repeat, axis=1)
 
@@ -136,15 +169,24 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
         output_shape = qx.shape[:-1] + (self.output_size_per_partition,)
         qx = qx.reshape(-1, self.input_size_per_partition)
         if self.is_group_mm:
-            out = self.matmul([qx], [weight],
-                              [gmm_bias], [w_scale],
-                              None,
-                              None,
-                              None, [qx_scale],
-                              group_list,
-                              split_item=3,
-                              group_type=0,
-                              group_list_type=1)[0]
+            if self.is_310p:
+                group_list = ops.cast(group_list, dtype=mindspore.int32)
+                out = self.matmul(qx,
+                                  weight,
+                                  group_list,
+                                  gmm_bias,
+                                  qx_scale,
+                                  w_scale)
+            else:
+                out = self.matmul([qx], [weight],
+                                [gmm_bias], [w_scale],
+                                None,
+                                None,
+                                None, [qx_scale],
+                                group_list,
+                                split_item=3,
+                                group_type=0,
+                                group_list_type=1)[0]
         else:
             w_scale = ops.cast(w_scale, mindspore.float16)
             qx = ops.cast(qx, mindspore.float16)

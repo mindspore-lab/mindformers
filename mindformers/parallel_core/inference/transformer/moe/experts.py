@@ -30,6 +30,7 @@ from mindformers.parallel_core.inference.transformer.activation import get_act_f
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
+from mindformers.version_control import is_310p
 
 
 class GroupedMLP(nn.Cell):
@@ -54,6 +55,7 @@ class GroupedMLP(nn.Cell):
         # use model_comm_pgs.moe_tp_group as tensor parallel group in this module.
         self.tp_group = model_comm_pgs.moe_tp
         self.tp_group_size = self.tp_group.size
+        self.transpose_b = is_310p()
 
         ffn_hidden_size = self.config.moe_ffn_hidden_size
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)
@@ -70,6 +72,7 @@ class GroupedMLP(nn.Cell):
             num_local_experts=self.num_local_experts,
             input_size_per_partition=self.input_size,
             output_partition_sizes=[divide(ffn_hidden_size, self.tp_group_size)],
+            transpose_b=self.transpose_b,
             params_dtype=self.config.params_dtype,
         )
         self.weight2 = self.quant_method.create_weights(
@@ -77,6 +80,7 @@ class GroupedMLP(nn.Cell):
             num_local_experts=self.num_local_experts,
             input_size_per_partition=self.ffn_hidden_size_per_partition,
             output_partition_sizes=[self.input_size],
+            transpose_b=self.transpose_b,
             params_dtype=self.config.params_dtype,
         )
 
@@ -92,6 +96,7 @@ class GroupedMLP(nn.Cell):
             weight=self.weight1, # Skip creating weights and use weight1 for gemm linear calculation
             is_expert=True,
             tp_group=self.tp_group,
+            transpose_b=self.transpose_b,
             quant_config=quant_config,
             prefix=f"{prefix}.linear_fc1",
         )
@@ -112,6 +117,7 @@ class GroupedMLP(nn.Cell):
             weight=self.weight2, # Skip creating weights and use weight2 for gemm linear calculation
             is_expert=True,
             tp_group=self.tp_group,
+            transpose_b=self.transpose_b,
             quant_config=quant_config,
             prefix=f"{prefix}.linear_fc2",
         )

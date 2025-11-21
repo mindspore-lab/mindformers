@@ -58,6 +58,14 @@ class QuantizeMethodBase(ABC):
 
         raise RuntimeError
 
+    def process_weight_before_loading(self, param_name, loaded_weight):
+        """
+        Process the weight before loading.
+        This can be used for example, to transpose weights for computation.
+        """
+
+        return loaded_weight
+
     def process_weights_after_loading(self, layer: nn.Cell) -> None:
         """
         Process the weight after loading.
@@ -73,7 +81,7 @@ class QuantizationConfig(ABC):
     def __init__(self):
         super().__init__()
         # mapping is updated by models as they initialize
-        self.packed_modules_mapping: dict[str, list[str]] = dict()
+        self.packed_modules_mapping: dict[str, list[str]] = {}
 
     @abstractmethod
     def get_name(self) -> QuantizationBackends:

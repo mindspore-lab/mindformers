@@ -169,12 +169,13 @@ class LinearBase(ms.nn.Cell):
             if is_310p():
                 cast_weight = ops.auto_generate.format_cast(param, format_type['nz'])
             else:
-                import ms_custom_ops
+                import ms_custom_ops  # pylint: disable=import-outside-toplevel
                 cast_weight = ms_custom_ops.trans_data(param, transdata_type=1)
             if move_to_cpu:
                 cast_weight = cast_weight.move_to("CPU")
             param.set_data(cast_weight)
             del self.param_load_counts[param.name]
+
 
 class ColumnParallelLinear(LinearBase):
     """
@@ -242,7 +243,7 @@ class ColumnParallelLinear(LinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(ColumnParallelLinear, self).__init__(
+        super().__init__(
             input_size,
             output_size,
             skip_bias_add,
@@ -251,8 +252,8 @@ class ColumnParallelLinear(LinearBase):
             prefix=prefix
         )
         if stride > 1:
-            raise NotImplementedError("For ColumnParallelLinear, `stride > 1` is not supported for now, "
-                                      "but got `stride={}`".format(stride))
+            raise NotImplementedError(f"For ColumnParallelLinear, `stride > 1` is not supported for now, "
+                                      f"but got `stride={stride}`")
         if keep_master_weight_for_test:
             raise NotImplementedError(
                 "For ColumnParallelLinear, `keep_master_weight_for_test` is not supported for now")
@@ -395,7 +396,7 @@ class ColumnParallelLinear(LinearBase):
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
         param.init_data()
-        param.set_data(ms.from_numpy(loaded_weight))
+        param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
 
@@ -480,6 +481,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 array_id = 0
             elif loaded_shard_id == 'hidden':
                 array_id = 1
+            else:
+                raise ValueError(f"Unknown loaded_shard_id: {loaded_shard_id}")
             shard_offset = sum(self.output_sizes[:array_id]) // tp_size
             shard_size = self.output_sizes[array_id] // tp_size
 
@@ -634,6 +637,8 @@ class QKVParallelLinear(ColumnParallelLinear):
                 shard_offset = (self.num_heads +
                                 self.num_kv_heads) * self.head_size
                 shard_size = self.num_kv_heads * self.head_size
+            else:
+                raise ValueError(f"Unknown loaded_shard_id: {loaded_shard_id}")
 
             if loaded_shard_id == "q":
                 shard_id = tp_rank
@@ -739,15 +744,15 @@ class RowParallelLinear(LinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(RowParallelLinear, self).__init__(input_size,
-                                                output_size,
-                                                skip_bias_add,
-                                                config.params_dtype,
-                                                quant_config=quant_config,
-                                                prefix=prefix)
+        super().__init__(input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
-            raise NotImplementedError("For RowParallelLinear, `stride > 1` is not supported for now, "
-                                      "but got `stride={}`".format(stride))
+            raise NotImplementedError(f"For RowParallelLinear, `stride > 1` is not supported for now, "
+                                      f"but got `stride={stride}`")
         if skip_bias_add:
             raise NotImplementedError("For RowParallelLinear, `skip_bias_add=True` is not supported for now")
         if keep_master_weight_for_test:
@@ -878,7 +883,7 @@ class RowParallelLinear(LinearBase):
             raise ValueError(
                 f"'{param.name}.shape' should be equal to 'loaded_weight.shape',"
                 f" but got the shape of param is {param.shape} and the shape of weight is{loaded_weight.shape}")
-        param.set_data(ms.from_numpy(loaded_weight))
+        param.set_data(ms.from_numpy(loaded_weight)) # TODO param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
         if is_310p() and param.name.endswith("weight"):
             self.format_to_nz(param)
 
@@ -932,8 +937,8 @@ class ReplicatedLinear(LinearBase):
                          quant_config=quant_config,
                          prefix=prefix)
         if stride > 1:
-            raise NotImplementedError("For ReplicatedLinear, `stride > 1` is not supported for now, "
-                                      "but got `stride={}`".format(stride))
+            raise NotImplementedError(f"For ReplicatedLinear, `stride > 1` is not supported for now, "
+                                      f"but got `stride={stride}`")
         if skip_bias_add:
             raise NotImplementedError("For ReplicatedLinear, `skip_bias_add=True` is not supported for now")
         if keep_master_weight_for_test:
@@ -1061,7 +1066,9 @@ class ReplicatedLinear(LinearBase):
                     f" but got the shape of param is {param.shape} "
                     f"and the shape of weight is{loaded_weight.shape}")
             param.init_data()
-            param.set_data(ms.from_numpy(loaded_weight))
+            param.set_data(ms.Tensor(loaded_weight, dtype=param.dtype))
+        if is_310p() and param.name.endswith("weight"):
+            self.format_to_nz(param, 2)
 
 
 class VocabParallelEmbedding(nn.Cell):

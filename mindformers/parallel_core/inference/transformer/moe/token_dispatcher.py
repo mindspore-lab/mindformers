@@ -27,7 +27,7 @@ from mindspore.ops.auto_generate import (MoeInitRoutingV2,
 
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.process_group_config import ModelCommProcessGroups, default_model_comm_pgs
-from mindformers.version_control import is_910b
+from mindformers.version_control import is_910b, is_310p
 
 
 class MoETokenDispatcher:
@@ -109,6 +109,7 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
         self.cast = ops.Cast()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.moe_token_unpermute = MoeTokenUnpermute()
+        self.is_310p = is_310p()
 
     def dispatch_preprocess(self, expert_weight, routing_map):
         """Preprocess expert weight by masking out invalid experts."""
@@ -129,8 +130,8 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
                 expert_capacity=0,
                 expert_num=self.num_experts,
                 drop_pad_mode=0,
-                expert_tokens_count_or_cumsum_flag=2,
-                expert_tokens_before_capacity_flag=True
+                expert_tokens_count_or_cumsum_flag=1 if self.is_310p else 2,
+                expert_tokens_before_capacity_flag=not self.is_310p
             )
 
         # Avoid the problem of poor performance of the split(int32) operator
@@ -143,7 +144,8 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
     def token_combine(self, hidden_states, expert_weight, *args):
         """Combines expert outputs."""
         (tokens_per_expert,) = args
-        hidden_states = mint.nan_to_num(hidden_states, 0, 0, 0)
+        if not self.is_310p:
+            hidden_states = mint.nan_to_num(hidden_states, 0, 0, 0)
         expert_weight = expert_weight.astype(hidden_states.dtype)
         hidden_states = self.moe_token_unpermute(
             permuted_tokens=hidden_states,
