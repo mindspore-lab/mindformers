@@ -470,7 +470,7 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
         # if enable_tft is False or remove_redundancy is True, can use record last_ckpt to json
-        if self.config.ckpt_use_legacy_format and self.config.resume_training and \
+        if self.config.use_legacy_format and self.config.resume_training and \
             (not check_tft_valid() or self.config.remove_redundancy):
             if os.path.isfile(self.config.load_checkpoint) and \
                     isinstance(self.config.resume_training, str):
@@ -491,7 +491,7 @@ class Trainer:
                     health_ckpts_record_dir=self.config.output_dir
                 )
 
-        if not self.config.ckpt_use_legacy_format:
+        if not self.config.use_legacy_format:
             self.config.load_checkpoint = get_checkpoint_path(self.config.load_checkpoint)
         else:
             self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -614,7 +614,7 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
 
-        if self.config.ckpt_use_legacy_format and self.config.resume_training:
+        if self.config.use_legacy_format and self.config.resume_training:
             if os.path.isfile(self.config.load_checkpoint) and \
                     isinstance(self.config.resume_training, str):
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
@@ -633,7 +633,7 @@ class Trainer:
                     health_ckpts_record_dir=self.config.output_dir
                 )
 
-        if not self.config.ckpt_use_legacy_format:
+        if not self.config.use_legacy_format:
             self.config.load_checkpoint = get_checkpoint_path(self.config.load_checkpoint)
         else:
             self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -1430,7 +1430,7 @@ class Trainer:
         logger.warning("The functionality of setting `resume_training` to a weight filename "
                        "will be deprecated in future versions.")
 
-        if not self.config.ckpt_use_legacy_format and not isinstance(self.config.resume_training, bool):
+        if not self.config.use_legacy_format and not isinstance(self.config.resume_training, bool):
             raise ValueError("The resume_training must be a boolean value.")
 
         if isinstance(self.config.resume_training, str) and \

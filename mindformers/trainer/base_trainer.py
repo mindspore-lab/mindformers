@@ -1128,7 +1128,7 @@ class BaseTrainer:
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
-        if not config.ckpt_use_legacy_format:
+        if not config.use_legacy_format:
             if config.resume_training and config.load_checkpoint and not check_is_reboot_node():
                 logger.info(".............Start load resume context from common.json..................")
                 common_file = os.path.join(config.load_checkpoint, 'common.json')
@@ -1217,17 +1217,13 @@ class BaseTrainer:
         check_rules(config, mode='train', network=network, dataset=dataset)
 
         # It is necessary to enable save strategy online before the model compilation phase,
-        # if save checkpoint with megatron format.
-        save_checkpoint_with_legacy_format = True
-        for callback in self.config.callbacks:
-            if "type" in callback and callback["type"] == "CheckpointMonitor":
-                save_checkpoint_with_legacy_format = callback.get("use_legacy_format", True)
-        if not save_checkpoint_with_legacy_format or not config.ckpt_use_legacy_format:
+        # if load or save checkpoint with megatron format.
+        if not config.get('use_legacy_format', True):
             try:
                 from mindspore.parallel.strategy import enable_save_strategy_online
                 enable_save_strategy_online()
             except ImportError:
-                logger.warning("If you want to save checkpoint with new format,"
+                logger.warning("If you want to save or load checkpoint with new format,"
                                "please ensure your version of mindspore > 2.7.1, "
                                "to support 'enable_save_strategy_online'.")
 
@@ -1373,7 +1369,8 @@ class BaseTrainer:
                                 "embedding_size": embedding_size,
                                 "embedding_local_norm_threshold": embedding_local_norm_threshold,
                                 "use_checkpoint_health_monitor": use_checkpoint_health_monitor,
-                                "health_ckpts_record_dir": config.output_dir
+                                "health_ckpts_record_dir": config.output_dir,
+                                "use_legacy_format": config.get('use_legacy_format', True)
                                 }
                 if not config.get("use_legacy", True) and default_args.get("checkpoint_format") == "ckpt":
                     logger.warning(
@@ -1461,7 +1458,7 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
 
         # resume checkpoint
-        if not config.ckpt_use_legacy_format and config.load_checkpoint:
+        if not config.use_legacy_format and config.load_checkpoint:
             if config.use_parallel:
                 compile_model(model, dataset, mode=config.context.mode, sink_mode=config.runner_config.sink_mode,
                               epoch=config.runner_config.epochs, sink_size=config.runner_config.sink_size)
@@ -1477,11 +1474,18 @@ class BaseTrainer:
                         f"(batch size changed from {common_info.global_batch_size} to {self.global_batch_size})"
                     )
                 load_checkpoint(
-                    checkpoint=config.load_checkpoint, network=network, optimizer=optimizer, global_step=global_step,
+                    checkpoint=config.load_checkpoint,
+                    network=model.train_network,
+                    optimizer=optimizer,
+                    global_step=global_step,
                     balanced_load=config.balanced_load
                 )
             else:
-                load_checkpoint(checkpoint=config.load_checkpoint, network=network, balanced_load=config.balanced_load)
+                load_checkpoint(
+                    checkpoint=config.load_checkpoint,
+                    network=model.train_network,
+                    balanced_load=config.balanced_load
+                )
         elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")

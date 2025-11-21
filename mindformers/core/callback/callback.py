@@ -58,6 +58,7 @@ from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 from mindspore.utils import stress_detect
 
+from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
 from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
@@ -195,26 +196,26 @@ def _get_max_eigenvalue(input_tensor, num_iter):
     Calculate max eigenvalue
     https://www.cnblogs.com/zxn-share/p/17392450.html
     """
-    input_tensor = input_tensor.astype(ms.float32) # (m,n) or (b,m,n)
-    in_features = input_tensor.shape[-1] # (n)
+    input_tensor = input_tensor.astype(ms.float32)  # (m,n) or (b,m,n)
+    in_features = input_tensor.shape[-1]  # (n)
     u_tensor = None
     for _ in range(5):
-        u_tensor = ms.ops.randn(in_features) # (n)
+        u_tensor = ms.ops.randn(in_features)  # (n)
         u_norm = u_tensor.norm()
         if u_norm.asnumpy() > 0:
             break
     else:
         logger.warning("Calculate max eigenvalue: the norm of a randomly generated vector is 0")
         return 0.0
-    u_tensor = u_tensor / u_tensor.norm() # (n)
+    u_tensor = u_tensor / u_tensor.norm()  # (n)
     input_seq = ms.ops.matmul(input_tensor.transpose(-2, -1), input_tensor)  # (n.n) or (b,n,n)
     if input_tensor.ndim == 2:
         input_seq = ms.ops.unsqueeze(input_seq, 0)  # (1,n,n)
-    u_tensor = ms.ops.unsqueeze(u_tensor, 1) # (n,1)
+    u_tensor = ms.ops.unsqueeze(u_tensor, 1)  # (n,1)
     for _ in range(num_iter):
-        v_tensor = ms.ops.matmul(input_seq, u_tensor) # (b,n,n) * (n,1) = (b,n,1)
+        v_tensor = ms.ops.matmul(input_seq, u_tensor)  # (b,n,n) * (n,1) = (b,n,1)
         eigenvalue = ms.ops.matmul(v_tensor.transpose(-2, -1), u_tensor).squeeze()  # (b,1,n) * (b,n,1) = b
-        v_norm = v_tensor.norm(dim=1, keepdim=True) # (b,1,1)
+        v_norm = v_tensor.norm(dim=1, keepdim=True)  # (b,1,1)
         if (v_norm != 0).all():
             u_tensor = v_tensor / v_norm
         else:
@@ -753,6 +754,7 @@ class TrainingStateMonitor(Callback):
         use_local_norm (bool, optional): Whether to turn on the local norm. Default: ``False``.
             Default: ``False``.
     """
+
     @args_type_check(embedding_size=int, use_skip_data_by_global_norm=bool)
     def __init__(self,
                  origin_epochs: int,
@@ -1298,7 +1300,7 @@ class TrainingStateMonitor(Callback):
             if 'tensorboard' in self.max_attention_logit_format:
                 tp_id = get_rank() // self.tensor_model_parallel_size
                 head_start = tp_id * len(v)
-                data = {f"head_{head_start+i}": max_attention_logit for i, max_attention_logit in enumerate(v)}
+                data = {f"head_{head_start + i}": max_attention_logit for i, max_attention_logit in enumerate(v)}
                 self._output(tag, data, step, ['tensorboard'])
 
             vals.extend(v)
@@ -1566,7 +1568,7 @@ class CheckpointMonitor(ModelCheckpoint):
         self.health_ckpts_record_dir = health_ckpts_record_dir
         self.use_legacy_format = use_legacy_format
         # Ensure that 'save_optimizer' only use in the sense of 'use_legacy_format == False'
-        self.save_optimizer = save_optimizer if not use_legacy_format else None
+        self.save_optimizer = save_optimizer if not use_legacy_format else False
         self.origin_prefix = prefix
         self.save_checkpoint_path = save_checkpoint_path
         self.need_remove_redundancy = remove_redundancy
@@ -1678,7 +1680,7 @@ class CheckpointMonitor(ModelCheckpoint):
             for record_step in keys:
                 self.print_savetime(record_step, cb_params.batch_num)
                 if not any(self.save_info_list[record_step][key]['ckpt_file_path']
-                            for key in ['ckpt', 'network', 'trainable_params']):
+                           for key in ['ckpt', 'network', 'trainable_params']):
                     self.save_info_list.pop(record_step)
 
         if self._config.async_save and not ms.async_ckpt_thread_status() and \
@@ -1840,6 +1842,7 @@ class CheckpointMonitor(ModelCheckpoint):
 
     def _tft_save_ckpt(self, param_layout_set, save_param_names, cur_file, append_dict, network):
         """save checkpoint with remove redundancy for TFT training."""
+
         def choice_func(x):
             return (x not in param_layout_set or (save_param_names is not None and x in save_param_names)) \
                 and self._filter_ckpt_not_save(x, self.filter_list)
@@ -2023,9 +2026,12 @@ class CheckpointMonitor(ModelCheckpoint):
             self.common_info.loss_scale = float(cb_params.net_outputs[2])
         self.common_info.global_batch_size = self.global_batch_size
 
-        from mindspore.parallel.strategy import get_strategy_metadata
-        # Get all strategy info of this network to save 'metadata.json'
-        global_strategy_info = get_strategy_metadata(network=cb_params.network)
+        # Get all sharded tensor info of this network to save 'metadata.json'
+        sharded_tensor_metas = get_all_sharded_tensor(
+            network=cb_params.network,
+            filter_func=(lambda x: x in list(
+                cb_params.network.network.parameters_dict().keys())) if not self.save_optimizer else None
+        )
 
         save_checkpoint(
             iteration=iteration,
@@ -2036,7 +2042,7 @@ class CheckpointMonitor(ModelCheckpoint):
             keep_max_num=self._config.keep_checkpoint_max,
             user_prefix=self.origin_prefix,
             save_checkpoint_path=self.save_checkpoint_path,
-            global_strategy_info=global_strategy_info,
+            sharded_tensor_metas=sharded_tensor_metas,
             remove_redundancy=self.need_remove_redundancy
         )
 
@@ -2671,7 +2677,6 @@ class StressDetectCallBack(Callback):
             logger.warning(f"detection_interval = {self.detection_interval} is bigger than "
                            f"steps_per_epoch = {self.steps_per_epoch}")
 
-
     def on_train_step_end(self, run_context):
         """
         Stress detect at the end of step.
@@ -2692,7 +2697,6 @@ class StressDetectCallBack(Callback):
 
             self.log_stress_detect_result(detect_ret_list)
 
-
     @staticmethod
     def log_stress_detect_result(detect_ret_list):
         """print output information."""
@@ -2712,10 +2716,6 @@ class MaxLogitsMonitor(Callback):
     
     This callback resets the maximum attention logit values at the end of each training step.
     """
-
-    def __init__(self,):
-        pass
-
     def _reset_max_attention_logit(self, network):
         """Reset max attention logit in the network.
         
@@ -2760,6 +2760,7 @@ class TopkBiasBalanceCallback(Callback):
         micro_batch_num (int, optional): Micro batch number in pipeline parallel. Default to 1.
         gradient_accumulation_steps (int, optional): Gradient accumulation steps for training. Default to 1.
     """
+
     def __init__(self,
                  balance_via_topk_bias: bool = False,
                  topk_bias_update_rate: float = 0.0,
@@ -2862,6 +2863,7 @@ class MoEDropRateCallback(Callback):
         >>> stop_step = MoEDropRateCallback(expert_num=8, capacity_factor=1.5, num_layers=4, mtp_depth=1)
         <class 'mindformers.core.callback.callback.MoEDropRateCallback'>
     """
+
     def __init__(self,
                  expert_num: int,
                  capacity_factor: float,
@@ -2932,6 +2934,7 @@ class StressTestModelMonitor(Callback):
         stress_test_log_dir (str optional): The directory where the stress test training log is stored.
         check_stresslog_interval_time (int, optional): Time interval where the stress test log is checked.
     """
+
     def __init__(self,
                  interval_steps=10,
                  stress_model_dir=None,
@@ -2959,7 +2962,7 @@ class StressTestModelMonitor(Callback):
             self.stress_master_port = 8338
         if self.stress_master_port == self.main_master_port:
             logger.warning("For StressTestMonitor, stress_master_port must be different from the main task "
-                           f"but both got {self.stress_master_port}. Setting to {self.stress_master_port+1}")
+                           f"but both got {self.stress_master_port}. Setting to {self.stress_master_port + 1}")
             self.stress_master_port += 1
             logger.warning(f"Make sure that the new port {self.stress_master_port} is unoccupied.")
         self.worker_num = ms.communication.get_local_rank_size()
@@ -3003,8 +3006,8 @@ class StressTestModelMonitor(Callback):
 
         rank_id = get_rank()
         if rank_id % self.worker_num == 0:
-            node_num = rank_id//self.worker_num
-            saved_dir = os.path.join(self.stress_test_log_dir, "node"+str(node_num))
+            node_num = rank_id // self.worker_num
+            saved_dir = os.path.join(self.stress_test_log_dir, "node" + str(node_num))
             command = f"""taskset -c {cpu_cores} bash scripts/msrun_launcher.sh "run_mindformer.py \
                         --config {self.model_dir} \
                         --use_parallel True\
@@ -3072,8 +3075,8 @@ class StressTestModelMonitor(Callback):
                 last_step_results = self.extract_last_step_result(log_file_path)
         barrier()
 
-        gathered_results, _ = all_gather_into_tensor(last_step_results) # <class 'mindspore.common.tensor.Tensor'>
-        gathered_results = gathered_results.asnumpy()   # <class 'numpy.ndarray'>
+        gathered_results, _ = all_gather_into_tensor(last_step_results)  # <class 'mindspore.common.tensor.Tensor'>
+        gathered_results = gathered_results.asnumpy()  # <class 'numpy.ndarray'>
         logger.debug("Collected last step results are gathered_results.")
         logger.info("Last step results are collected from each rank, now starting to compare last step results")
 
@@ -3128,7 +3131,7 @@ class StressTestModelMonitor(Callback):
                     global_step_number = (epoch_number - 1) * steps_per_epoch + step_number
 
                     # Consider logging only if it matches the interval
-                    if global_step_number >= (self.compare_interval_steps+last_recorded_step):
+                    if global_step_number >= (self.compare_interval_steps + last_recorded_step):
                         loss_value = self.get_value_from_line(line, r"loss: (\d+\.\d+)")
                         global_norm_value = self.get_value_from_line(line, r"global_norm: \[(\d+\.\d+)\]")
                         results.append(Tensor([[epoch_number, step_number, loss_value, global_norm_value]], ms.float32))
@@ -3227,6 +3230,7 @@ class SDCMonitor(Callback):
         checksum_cooldown_time (int, optional): The cooldown time (minutes) of CheckSum after it stops.
             Default: ``180``.
     """
+
     def __init__(self,
                  initial_step: int = 0,
                  step_interval: int = 10,
@@ -3245,12 +3249,12 @@ class SDCMonitor(Callback):
 
         self.initial_step = initial_step
         self.step_interval = step_interval
-        self.step_times = {datetime.now(): initial_step} # {timestamp: step}
-        self.silent_check_error_times = {} # {timestamp: step}
+        self.step_times = {datetime.now(): initial_step}  # {timestamp: step}
+        self.silent_check_error_times = {}  # {timestamp: step}
         self.strike_window_time = timedelta(minutes=strike_window_time)
         self.strike_num = strike_num
         self.checksum_enable = False
-        self.prev_checksum_time = datetime.min # start/stop time
+        self.prev_checksum_time = datetime.min  # start/stop time
         self.checksum_time = timedelta(minutes=checksum_time)
         self.checksum_cooldown_time = timedelta(minutes=checksum_cooldown_time)
 
@@ -3264,7 +3268,7 @@ class SDCMonitor(Callback):
         self.log_time_pattern = re.compile(r'(\d{4}-\d{2}-\d{2}-\d{2}:\d{2}:\d{2}\.\d{3}\.\d{3})')
         logger.info(f"Device log path: {self.device_log_path}, pid: {pid}")
 
-        self.all_reduce_net = AllReduceNet(GlobalComm.WORLD_COMM_GROUP) # AllReduce status and result of CheckSum
+        self.all_reduce_net = AllReduceNet(GlobalComm.WORLD_COMM_GROUP)  # AllReduce status and result of CheckSum
 
     def _get_log_files_to_check(self):
         """Get device log filenames after last check and sort them by timestamp."""
@@ -3300,7 +3304,7 @@ class SDCMonitor(Callback):
         if not error_log_times:
             return {}
         # process from latest to earliest, stop early if error num reaches strike num
-        error_times = {} # {timestamp: step}
+        error_times = {}  # {timestamp: step}
         step_time_list = list(self.step_times.keys())
         index = len(step_time_list) - 1
         for log_time in reversed(error_log_times):
@@ -3315,7 +3319,7 @@ class SDCMonitor(Callback):
                 logger.warning(f"SilentCheck detect SDC at step: {step}")
                 error_times[log_time] = step
                 index -= 1
-        return dict(reversed(list(error_times.items()))) # order from earliest to latest
+        return dict(reversed(list(error_times.items())))  # order from earliest to latest
 
     def _update_silent_check_error_times(self, new_silent_check_error_times, now):
         """Add new SilentCheck error times and remove expired ones."""
