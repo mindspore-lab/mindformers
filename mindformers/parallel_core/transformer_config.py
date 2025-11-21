@@ -76,12 +76,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     layernorm_epsilon: float = 1e-5
     """Epsilon value for any LayerNorm operations."""
 
-    layernorm_zero_centered_gamma: bool = False
-    """
-    If set to True, the LayerNorm is adjusted to center the gamma values around 0.
-    This improves numerical stability.
-    """
-
     add_qkv_bias: bool = False
     """Add a bias term only for QKV projections."""
 
@@ -152,12 +146,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     param_init_std_rules: List[dict[str, Union[str, float]]] = None
     """Configuration for decoupled weight initialization."""
 
-    init_model_with_meta_device: bool = False
-    """
-    If True, initializes the model with the meta device. This is helpful for
-    training of very large models. This feature is only works when custom fsdp is turned on.
-    """
-
     ####################
     # Mixed-Precision
     ####################
@@ -177,31 +165,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     softmax_compute_dtype: str = 'float32'
     """Data type for computing softmax during attention computation."""
 
-    disable_bf16_reduced_precision_matmul: bool = False
-    """If True, prevent matmul from using reduced precision accumulation when using BF16."""
-
     ####################
     # Fusion
     ####################
-
-    bias_activation_fusion: bool = False
-    """If True, fuses bias addition and the activation function when possible."""
-
-    masked_softmax_fusion: bool = False
-    """If True, uses softmax fusion."""
-
-    persist_layer_norm: bool = False
-    """
-    If True, uses the persistent fused layer norm kernel.
-    This kernel only supports a fixed set of hidden sizes.
-    """
-
-    memory_efficient_layer_norm: bool = False
-    """
-    If True, and using local layers (not from TransformerEngine),
-    tells Apex to use the memory efficient fused LayerNorm kernel.
-    Ignored if not using LayerNorm.
-    """
 
     bias_dropout_fusion: bool = False
     """If True, uses bias dropout fusion."""
@@ -342,9 +308,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
     """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
 
-    moe_input_jitter_eps: Optional[float] = None
-    """Add noise to the input tensor by applying jitter with a specified epsilon value."""
-
     group_wise_a2a: bool = False
     """
     Whether to enable group-wise alltoall communication,
@@ -357,23 +320,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     """The type of token dispatcher to use. The default is 'alltoall'.
     Options are 'alltoall', 'alltoall_deredundency' and 'alltoall_zero_redundancy'."""
 
-    moe_enable_deepep: bool = False
-    """[Experimental] Enable DeepEP for efficient token dispatching and combine in MoE models."""
-
-    moe_per_layer_logging: bool = False
-    """Enable per-layer logging for MoE, currently supports auxiliary loss and z loss."""
-
     moe_expert_capacity_factor: Optional[float] = None
     """
     The capacity factor for each expert, None means no token will be dropped.
     The default is None.
-    """
-
-    moe_pad_expert_input_to_capacity: bool = False
-    """
-    If True, pads the input for each expert to match the expert capacity length,
-    effective only after the moe_expert_capacity_factor is set.
-    The default setting is False.
     """
 
     moe_token_drop_policy: str = 'probs'
@@ -385,9 +335,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
     moe_permute_fusion: bool = False
     """Fuse token rearrangement ops during token dispatching."""
-
-    moe_apply_probs_on_input: bool = False
-    """Apply probs on input of experts instead of applying after activation and glu."""
 
     # MindFormers New
     shared_expert_num: int = 0
@@ -574,12 +521,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise ValueError(
                     'moe_expert_capacity_factor only works with supported load balancing types: '
                     'sub_seq_aux_loss, seq_aux_loss, gbs_aux_loss'
-                )
-
-        if self.moe_pad_expert_input_to_capacity:
-            if self.moe_expert_capacity_factor is None:
-                raise ValueError(
-                    'moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity'
                 )
 
         if self.apply_query_key_layer_scaling:
