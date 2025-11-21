@@ -63,6 +63,8 @@ from .build_trainer import build_trainer
 from .training_args import TrainingArguments
 from .utils import config2dict, get_last_checkpoint
 
+# pylint: disable=import-outside-toplevel
+
 __all__ = ['Trainer']
 
 PREFIX_CHECKPOINT_DIR = "checkpoint"
@@ -217,7 +219,7 @@ class Trainer:
         # check_task_and_model
         if self.task not in SUPPORT_TASKS.keys():
             raise ValueError(
-                "The value of task must be in {}, but get {}".format(SUPPORT_TASKS.keys(), self.task))
+                f"The value of task must be in {SUPPORT_TASKS.keys()}, but get {self.task}")
 
         if isinstance(self.model, (Cell, PreTrainedModel)):
             logger.info("The model instance has been entered, "
@@ -230,7 +232,7 @@ class Trainer:
         else:
             self.is_model_instance = False
             if isinstance(self.model, str):
-                self.model = self.model + '_{}'.format(self.pet_method) if self.pet_method else self.model
+                self.model = f"{self.model}_{self.pet_method}" if self.pet_method else self.model
                 if self.model not in SUPPORT_MODEL_NAMES:
                     raise ValueError(f"model must be in {SUPPORT_MODEL_NAMES} "
                                      f"when model's type is string, but got {self.model}.")
@@ -295,7 +297,7 @@ class Trainer:
         if (self.config.auto_trans_ckpt or self.config.resume_training) and \
                 check_in_modelarts() and self.config.remote_save_url:
             set_remote_save_url(self.config.remote_save_url)
-            logger.info(f"Set remote_save_url: %s, the output file will be uploaded to here.",
+            logger.info("Set remote_save_url: %s, the output file will be uploaded to here.",
                         self.config.remote_save_url)
 
         # build trainer
@@ -1010,7 +1012,7 @@ class Trainer:
                 logger.warning("The `use_past` is set to False and reinit the incoming model.")
             model_config.parallel_config = self.config.parallel_config
             model_config.moe_config = self.config.moe_config
-            self.model.__init__(model_config)
+            self.model.__init__(model_config) # pylint: disable=unnecessary-dunder-call
             self.reset_model = False
 
     @staticmethod
@@ -1038,7 +1040,7 @@ class Trainer:
         """get last checkpoint for resuming or finetune."""
         output_folder = self.config.output_dir
         checkpoint_dir = os.path.join(
-            output_folder, DEFAULT_CHECKPOINT_DIR, 'rank_{}'.format(self.rank_id))
+            output_folder, DEFAULT_CHECKPOINT_DIR, f'rank_{self.rank_id}')
         return get_last_checkpoint(checkpoint_dir, self.config.load_ckpt_format)
 
     @staticmethod
@@ -1268,10 +1270,10 @@ class Trainer:
         config_dict = _reset_config_for_save(config)
         if config_dir is None:
             config_dir = os.path.join(
-                self.configs_directory, model_name.lower() + '_new')
+                self.configs_directory, f"{model_name.lower()}_new")
         if not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
-        run_yaml_path = os.path.join(config_dir, 'run_{}.yaml'.format(model_name.lower()))
+        run_yaml_path = os.path.join(config_dir, f"run_{model_name.lower()}.yaml")
 
         _save_config_to_yaml(run_yaml_path, config_dict)
 
@@ -1337,12 +1339,13 @@ class Trainer:
                             f'does not contain any safetensors file and load_checkpoint is empty.'
                             f'It will not load any weights.')
 
-        if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
+        if self.config.auto_trans_ckpt:
             if not is_publicly_accessible_path(get_output_root_path()):
-                raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
-                                 "the output_dir should be a shared directory that can be accessed by all nodes."
-                                 f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")
-            clear_auto_trans_output(self.config.load_checkpoint, self.config.src_strategy_path_or_dir)
+                raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True, "
+                                 f"the output_dir should be a shared directory that can be accessed by all nodes. "
+                                 f"But {os.path.abspath(self.config.output_dir)} is not a shared directory.")
+            clear_auto_trans_output(
+                self.config.load_checkpoint, self.config.src_strategy_path_or_dir, self.config.load_ckpt_format)
 
         if (self.config.auto_trans_ckpt or self.config.resume_training) and not self.config.load_checkpoint:
             if self.config.model and self.config.model.model_config.checkpoint_name_or_path:
@@ -1367,10 +1370,14 @@ class Trainer:
 
     def _error_if_checkpoint_prefix_contains_rank_info(self):
         """Error if checkpoint prefix contains rank info"""
-        for callback in self.config.callbacks:
-            if "type" in callback and callback["type"] == "CheckpointMonitor":
-                if "rank" in callback.get("prefix", "mindformers"):
-                    raise ValueError("The prefix for saving checkpoint is not allowed to contain 'rank'.")
+        if hasattr(self.config, "callbacks") and self.config.callbacks:
+            if not isinstance(self.config.callbacks, list):
+                raise ValueError("Expected 'callbacks' in config to be a list, "
+                                 f"but get {type(self.config.callbacks)}.")
+            for callback in self.config.callbacks:
+                if "type" in callback and callback["type"] == "CheckpointMonitor":
+                    if "rank" in callback.get("prefix", "mindformers"):
+                        raise ValueError("The prefix for saving checkpoint is not allowed to contain 'rank'.")
 
     def _check_args_task_and_model(self):
         """Check args, task and model."""

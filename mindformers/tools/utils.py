@@ -36,6 +36,8 @@ from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
 from mindspore.communication import get_group_size, get_rank, comm_func, get_local_rank
 
+# pylint: disable=import-outside-toplevel
+
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
                  'AUTO_PARALLEL': context.ParallelMode.AUTO_PARALLEL,
@@ -85,7 +87,7 @@ class Validator:
     def check_type(arg_value, arg_type):
         """Check int."""
         if not isinstance(arg_value, arg_type):
-            raise TypeError('{} should be {} type, but get {}'.format(arg_value, arg_type, type(arg_value)))
+            raise TypeError(f'{arg_value} should be {arg_type} type, but get {type(arg_value)}')
 
     @staticmethod
     def is_obs_url(url):
@@ -96,11 +98,11 @@ class Validator:
 def check_obs_url(url):
     """Check obs url."""
     if not isinstance(url, str):
-        raise TypeError('remote_save_url type should be a str, but get {}, '
-                        'please check your remote_save_url config'.format(type(url)))
+        raise TypeError(f'remote_save_url type should be a str, but get {type(url)}, '
+                        'please check your remote_save_url config')
     if not (url.startswith(_PROTOCOL + '://') or url.startswith(_PROTOCOL_S3 + '://')):
         raise TypeError('remote_save_url should be start with obs:// or s3://, '
-                        'but get {}, please check your remote_save_url config'.format(url))
+                        f'but get {url}, please check your remote_save_url config')
 
 
 def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
@@ -116,7 +118,7 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
     """
     for value in list_var:
         if value >= num:
-            raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
+            raise ValueError(f'The index of the {var_name} needs to be less than the number of nodes {num}.')
 
 
 def check_file(file_path, file_type=None):
@@ -192,7 +194,7 @@ def get_output_subpath(sub_class, rank_id=0, append_rank=True):
     root_path = get_output_root_path()
     directory = os.path.join(root_path, sub_class)
     if append_rank:
-        directory = os.path.join(directory, 'rank_{}'.format(rank_id))
+        directory = os.path.join(directory, f'rank_{rank_id}')
     return format_path(directory)
 
 
@@ -253,9 +255,9 @@ class Const:
 
     def __setattr__(self, key, value):
         if key in self.__dict__:
-            raise PermissionError('Can not change const {0}.'.format(key))
+            raise PermissionError(f'Can not change const {key}.')
         if not key.isupper():
-            raise ValueError('Const name {0} is not all uppercase.'.format(key))
+            raise ValueError(f'Const name {key} is not all uppercase.')
         self.__dict__[key] = value
 
 
@@ -330,7 +332,7 @@ def count_params(net):
 def try_sync_file(file_name):
     """If the file is still downloading, we need to wait before the file finished downloading"""
     if fcntl:
-        with open(file_name, 'r') as fp:
+        with open(file_name, 'r', encoding='utf-8') as fp:
             fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
 
 
@@ -382,16 +384,14 @@ def parse_value(value):
             b = int(a)
         except (TypeError, ValueError):
             return False
-        else:
-            return a == b
+        return a == b
 
     def isfloat(x):
         try:
             float(x)
         except (TypeError, ValueError):
             return False
-        else:
-            return True
+        return True
 
     def isbool(x):
         return x in ["True", "False"]
@@ -401,8 +401,7 @@ def parse_value(value):
             json.loads(x)
         except json.decoder.JSONDecodeError:
             return False
-        else:
-            return True
+        return True
 
     if isint(value):
         return int(value)
@@ -471,7 +470,7 @@ def get_dp_from_dataset_strategy():
         first_input_stra = data_strategy[0]
         dp = int(first_input_stra[0])
     else:
-        raise TypeError(f"Dataset_strategy in mindspore auto parallel context is invalid, only support (tuple, list)")
+        raise TypeError("Dataset_strategy in mindspore auto parallel context is invalid, only support (tuple, list)")
     return dp
 
 
@@ -681,9 +680,32 @@ def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     return ckpt_name
 
 
-def clear_auto_trans_output(load_checkpoint=None, src_strategy_path_or_dir=None):
-    """clear transformed_checkpoint and strategy"""
-    folder_list = ["strategy", "transformed_checkpoint"]
+def check_ckpt_format(load_ckpt_format='ckpt'):
+    """Check ckpt format"""
+    if load_ckpt_format not in ('ckpt', 'safetensors'):
+        raise ValueError(f"Invalid checkpoint format '{load_ckpt_format}'. "
+                         "Only 'ckpt' and 'safetensors' formats are supported.")
+
+
+def clear_auto_trans_output(load_checkpoint=None, src_strategy_path_or_dir=None, load_ckpt_format='ckpt'):
+    """
+    Clear transformed_checkpoint and strategy folders based on the specified checkpoint format.
+
+    Args:
+        load_checkpoint (str, optional): Path to the checkpoint file/directory to load.
+            If the target folder path matches this value, a ValueError is raised. Defaults to None.
+        src_strategy_path_or_dir (str, optional): Path to the source strategy file/directory.
+            If the target folder path matches this value, a ValueError is raised. Defaults to None.
+        load_ckpt_format (str, optional): Format of the checkpoint file. Supports 'ckpt' and 'safetensors'.
+            Determines which transformed checkpoint folder to clear. Defaults to 'ckpt'.
+
+    Raises:
+        ValueError: If the resolved folder path (strategy or transformed/unified checkpoint) is the same as
+            `load_checkpoint` or `src_strategy_path_or_dir`. This prevents overwriting critical input data.
+    """
+    check_ckpt_format(load_ckpt_format)
+    folder_list = ["strategy", "transformed_checkpoint"] if load_ckpt_format == 'ckpt' \
+        else ["strategy", "unified_checkpoint"]
     for folder in folder_list:
         if check_in_modelarts():
             folder_path = os.path.join(get_remote_save_url(), folder)
@@ -765,7 +787,7 @@ def get_pipeline_rank_ids():
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     if numerator % denominator != 0:
-        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+        raise ValueError(f"{numerator} is not divisible by {denominator}")
 
 
 def divide(numerator, denominator):
