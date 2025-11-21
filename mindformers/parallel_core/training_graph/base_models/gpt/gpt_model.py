@@ -849,7 +849,7 @@ class GPTModel(nn.Cell):
                 tp_dims.append(0)
         return tuple(tp_dims)
 
-    def get_op_groups_info(self, params, op, tp_group, op_group):
+    def get_op_groups_info(self, params, op, op_group, op_in_tp_group):
         """Return optimizer parallel group information for each parameter.
         
         Args:
@@ -901,7 +901,7 @@ class GPTModel(nn.Cell):
                 op_list.append(op)
 
                 if name_filter(param.name, use_tp_group_list):
-                    op_groups.append(tp_group)
+                    op_groups.append(op_in_tp_group)
                 else:
                     op_groups.append(op_group)
 

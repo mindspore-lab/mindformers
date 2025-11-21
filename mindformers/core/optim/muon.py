@@ -406,65 +406,94 @@ class Muon(Optimizer):
             self.op = 1
         else:
             self.op = get_auto_parallel_context('optimizer_weight_shard_size')
-        if self.op == -1:
-            raise ValueError("Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon")
+            if self.op == -1:
+                raise ValueError(
+                    "Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon")
         logger.info(f"Muon op group size is: {self.op}")
+
+        # Validate MoE expert counts divisibility constraint:
+        # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
+        if model.is_moe_model():
+            config = model.get_gpt_transformer_config()
+            num_moe_experts = config.num_moe_experts
+            expert_model_parallel_size = config.expert_model_parallel_size
+            if self.op * expert_model_parallel_size <= 0:
+                raise ValueError("Invalid optimizer_shard * expert_model_parallel_size (<=0).")
+            if num_moe_experts % (self.op * expert_model_parallel_size) != 0:
+                raise ValueError(
+                    f"Invalid configuration: 'num_moe_experts' ({num_moe_experts}) must be divisible by "
+                    f"'optimizer_weight_shard_size * expert_model_parallel_size' ({self.op} * "
+                    f"{expert_model_parallel_size} = {self.op * expert_model_parallel_size})."
+                )
 
     def _initialize_communication_groups(self):
         """Initialize communication groups for parallel training."""
-        self.tp_group = self._get_tp_group_name()
-        self.op_group = self._get_op_group_name()
+        self.tp_group = self._get_tp_group_name(self.rank_id, self.tp)
+        self.op_group, self.op_in_tp_group = self._get_op_group_name(self.rank_id, self.tp, self.op, self.tp_group)
         self.tp_groups = tuple(self.tp_group for _ in self._parameters)
 
     def _initialize_op_groups(self, model):
         """Initialize optimizer parallel groups for parameters."""
         self.ops, self.op_groups = model.get_op_groups_info(
-            self._parameters, self.op, self.tp_group, self.op_group
+            self._parameters, self.op, self.op_group, self.op_in_tp_group
         )
 
-    def _create_communication_group(self, rank_list, group_type):
+    def _create_communication_group(self, rank_list):
         """
         Create a communication group with a hashed name.
         
         Args:
             rank_list: List of ranks in the communication group
-            group_type: Type of group for logging (e.g., "op", "tp")
         
         Returns:
             str: The created group name
         """
         rank_list_str = "-".join([str(i) for i in rank_list])
-        logger.info(f"Muon {group_type} group list is: {rank_list_str}")
         hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
         group_name = str(hashed)
         create_group(group_name, rank_list)
         return group_name
 
-    def _get_op_group_name(self):
+    def _get_op_group_name(self, rank_id, tp, op, tp_group):
         """
         Generates a unique group name for optimizer parallel communication group.
         
         Returns:
-            str: The optimizer parallel group name
+            tuple: The optimizer group name and optimizer-in-tensor-parallel group name
         """
-        dp_range = self.tp
-        op_range = self.tp * self.op
-        rank_start = self.rank_id % dp_range + self.rank_id // op_range * op_range
-        rand_end = rank_start + op_range
-        rank_list = list(range(rank_start, rand_end, dp_range))
-        return self._create_communication_group(rank_list, "op")
+        dp_range = tp
+        op_range = tp * op
+        rank_start = rank_id % dp_range + rank_id // op_range * op_range
+        rank_end = rank_start + op_range
+        rank_list = list(range(rank_start, rank_end, dp_range))
+        logger.info(f"Muon op group list is: {rank_list}")
+        op_group_name = self._create_communication_group(rank_list)
 
-    def _get_tp_group_name(self):
+        if tp == op:
+            logger.info(
+                f"op_in_tp group will reuse tp group" \
+                f", since tensor_parallel_size({tp}) == optimizer_parallel_size({op})."
+                )
+            op_in_tp_group_name = tp_group
+        else:
+            logger.info(f"Muon op_in_tp group list is: {rank_list}")
+            op_in_tp_group_name = self._get_tp_group_name(rank_id, op)
+
+        return op_group_name, op_in_tp_group_name
+
+    def _get_tp_group_name(self, rank_id, tp):
         """
         Generates a unique group name for tensor parallel communication group.
         
         Returns:
             str: The tensor parallel group name
         """
-        rank_start = self.rank_id // self.tp * self.tp
-        rand_end = self.rank_id // self.tp * self.tp + self.tp
-        rank_list = list(range(rank_start, rand_end))
-        return self._create_communication_group(rank_list, "tp")
+        rank_start = rank_id // tp * tp
+        rank_end = rank_id // tp * tp + tp
+        rank_list = list(range(rank_start, rank_end))
+        logger.info(f"Muon tp group list is: {rank_list}")
+        tp_group_name = self._create_communication_group(rank_list)
+        return tp_group_name
 
     @jit(backend="ms_backend")
     def construct(self, gradients):
