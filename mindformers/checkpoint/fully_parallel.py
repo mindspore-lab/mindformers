@@ -403,4 +403,4 @@ def apply_balance_shard_strategy(network: Cell, filter_func):
     for shard_id, rank_id in shard_to_saving_rank.items():
         if rank_id == local_rank:
             dst_sharded_tensor_metas[_reverse_sharded_tensor_shard_id(shard_id)[0]] = shard_id_to_tensor[shard_id]
-    return shard_id_to_ranks, shard_id_to_tensor, dst_sharded_tensor_metas
+    return shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas
