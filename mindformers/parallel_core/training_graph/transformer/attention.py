@@ -294,7 +294,7 @@ class Attention(nn.Cell):
         key = self.reshape(key, (seq_len, bs, self.kv_num_heads, self.head_dim))
 
         # apply rotary position embedding
-        self._apply_rotary_pos_emb(query, key, rotary_pos_emb)
+        query, key = self._apply_rotary_pos_emb(query, key, rotary_pos_emb)
 
         # with ulysses context parallel, insert all to all before FA
         if self.cp > 1 and self.cp_ds > 1:
