@@ -857,10 +857,6 @@ def params_key_mapping(
 
     # Get the core network and check the convert method is illegal
     core_network = get_core_network(network)
-    if not hasattr(core_network, 'weight_mapping'):
-        raise NotImplementedError("The `weight_mapping` of network is not implemented.")
-    if not hasattr(core_network, 'convert_hf_weight'):
-        raise NotImplementedError("The `convert_hf_weight` method of network is not implemented.")
 
     # The key of `mapped_sharded_tensor_metas` is in the network,
     # such as { qkv: [ShardedTensor, ShardedTensor, ShardedTensor], ... }
@@ -1008,6 +1004,9 @@ def load_checkpoint(
 
 def concat_params(checkpoint_dir: str, core_network, key_mapping: dict, need_concat_params, state_dict: dict):
     """Concat the need_concat_params dict in checkpoint."""
+    if need_concat_params and not hasattr(core_network, 'convert_hf_weight'):
+        raise NotImplementedError("The `convert_hf_weight` method of network is not implemented.")
+
     for param_name, concat_info in need_concat_params.items():
         sharded_tensor_list, reshard_info = concat_info
         org_weight_dict = {}
