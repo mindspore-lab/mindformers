@@ -280,6 +280,7 @@ COMMON_CONFIG_MAPPING = {
     "post_process": "post_process",
     "add_mlp_fc1_bias_linear": "add_mlp_fc1_bias_linear",
     "add_mlp_fc2_bias_linear": "add_mlp_fc2_bias_linear",
+    "fp32_residual_connection": "fp32_residual_connection",
     "window_size": "window_size",
     "window_attn_skip_freq": "window_attn_skip_freq",
     "model_architecture": "model_architecture",
