@@ -1283,7 +1283,6 @@ class TrainingStateMonitor(Callback):
             return
         step = cb_params.cur_step_num
         vals = []
-        tags = []
         for param in params:
             name = getattr(param, "name", "")
             if "max_logits_val" not in name:
@@ -1302,18 +1301,13 @@ class TrainingStateMonitor(Callback):
                 data = {f"head_{head_start+i}": max_attention_logit for i, max_attention_logit in enumerate(v)}
                 self._output(tag, data, step, ['tensorboard'])
 
-            vals.append(v)
-            tags.append(tag)
+            vals.extend(v)
 
         if vals:
             mean_v = float(np.mean(vals))
             max_v = float(np.max(vals))
-            if 'tensorboard' in self.max_attention_logit_format:
-                self._output('max_attention_logit/mean', mean_v, step, ['tensorboard'])
-                self._output('max_attention_logit/max', max_v, step, ['tensorboard'])
-            if 'log' in self.max_attention_logit_format:
-                self._output('max_attention_logit/mean', mean_v, step, ['log'])
-                self._output('max_attention_logit/max', max_v, step, ['log'])
+            self._output('max_attention_logit/mean', mean_v, step, self.max_attention_logit_format)
+            self._output('max_attention_logit/max', max_v, step, self.max_attention_logit_format)
 
     def _dump_optimizer_state(self, cb_params):
         """write the optimizer state to tensorboard"""
@@ -1370,17 +1364,10 @@ class TrainingStateMonitor(Callback):
         """Write data to log file"""
         cur_epoch_num = (global_step + self.initial_step - 1) // self.steps_per_epoch + 1
         cur_step_num = (global_step + self.initial_step - 1) % self.steps_per_epoch + 1
-        if isinstance(data, list):
-            logger.info(
-                "Epoch:[%3d/%3d], step:[%5d/%5d] %s: %s",
-                cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag,
-                [round(x, 4) if isinstance(x, (float, int)) else x for x in data]
-            )
-        else:
-            logger.info(
-                "Epoch:[%3d/%3d], step:[%5d/%5d] %s: %.4f",
-                cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag, data
-            )
+        logger.info(
+            "Epoch:[%3d/%3d], step:[%5d/%5d] %s: %s",
+            cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag, data
+        )
 
     def _output(self, tag, data, global_step, formats):
         """Write data in specified formats"""
