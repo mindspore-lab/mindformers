@@ -193,12 +193,6 @@ class MFModelConfig:
     use_flash_attention: bool = True
     """If true, use flash attention for the attention layer."""
 
-    attention_pre_tokens: int = None
-    """Pre-tokens for flash attention."""
-
-    attention_next_tokens: int = None
-    """Next tokens for flash attention."""
-
     rotary_seq_len_interpolation_factor: float = None
     """
     RoPE scaling used for linear interpolation of longer sequences.
@@ -307,9 +301,6 @@ class MFModelConfig:
 
     callback_moe_droprate: bool = False
     """Whether to print each expert's load information through callback."""
-
-    moe_init_method_std: float = 0.01
-    """Standard deviation of the zero mean normal for the MoE initialization method."""
 
     first_k_dense_replace: int = None
     r"""

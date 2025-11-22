@@ -149,8 +149,8 @@ class Attention(nn.Cell):
         self.layer_number = max(1, layer_number)
         self.norm_factor = math.sqrt(self.head_dim)
         self.seq_length = config.seq_length
-        self.pre_tokens = 2147483647 if self.config.attention_pre_tokens is None else self.config.attention_pre_tokens
-        self.next_tokens = 0 if self.config.attention_next_tokens is None else self.config.attention_next_tokens
+        self.pre_tokens = 2147483647
+        self.next_tokens = 0
         self.keep_prob = 1.0 if self.config.attention_dropout is None else 1 - self.config.attention_dropout
         self.use_attention_mask = True if self.config.use_attention_mask is None else self.config.use_attention_mask
         self.is_nope_layer = (

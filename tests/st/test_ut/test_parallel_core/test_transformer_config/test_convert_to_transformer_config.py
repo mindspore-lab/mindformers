@@ -16,9 +16,13 @@
 
 import pytest
 
-# pylint: disable=import-outside-toplevel
+import numpy as np
+from mindspore import dtype as mstype
+
+from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
 from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.parallel_core.transformer_config import TransformerConfig, MLATransformerConfig
+
 
 class DummyConfig(dict):
     """A dummy config that behaves like a dict and supports attribute access."""
@@ -110,10 +114,10 @@ def test_is_mla_model_case():
 def test_passed_in_none_model_config_case():
     """
     Feature: Test none model config case.
-    Description: Input None config to raise ValueError.
-    Expectation: Capture the raised ValueError.
+    Description: Input None config to raise TypeError.
+    Expectation: Capture the raised TypeError.
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         convert_to_transformer_config(None)
 
 
@@ -156,7 +160,7 @@ def test_not_exist_key_in_mapping_case():
     """
     Feature: Test not exist keys in mapping case.
     Description: Input config has key that do not need to be converted.
-    Expectation: Capture the raised ValueError.
+    Expectation: Capture the raised RuntimeError.
     """
     config = DummyConfig({
         'num_layers': 2,
@@ -167,7 +171,7 @@ def test_not_exist_key_in_mapping_case():
         'context_parallel': 1,
         'not_exist_key': 999
     })
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError):
         convert_to_transformer_config(config)
 
 
@@ -180,7 +184,6 @@ def test_empty_str_to_convert_str_to_mstype_case():
     Description: Input str is empty.
     Expectation: Capture the raised ValueError.
     """
-    from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
     with pytest.raises(ValueError):
         convert_str_to_mstype('')
 
@@ -192,16 +195,20 @@ def test_passed_in_dtype_case():
     """
     Feature: Test dtype passed in convert_str_to_mstype.
     Description: Input a string of dtype, mindspore dtype, and a numpy dtype.
-    Expectation: No interception for the string of dtype, but for mindspore dtype and numpy dtype.
+    Expectation: No interception for the expected string of dtype,
+        but for pass in an unexpected string, mindspore dtype, numpy dtype, or an integer.
     """
-    from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
-    from mindspore import dtype as mstype
     result = convert_str_to_mstype('bf16')
     assert result == mstype.bfloat16
 
     with pytest.raises(TypeError):
         convert_str_to_mstype(mstype.float16)
 
-    import numpy as np
     with pytest.raises(TypeError):
         convert_str_to_mstype(np.float32)
+
+    with pytest.raises(TypeError):
+        convert_str_to_mstype(32)
+
+    with pytest.raises(ValueError):
+        convert_str_to_mstype('fp8')

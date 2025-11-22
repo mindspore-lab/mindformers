@@ -192,6 +192,8 @@ DEFAULT_WHITE_KEY.update({
     'scaling_factor', 'input_sliced_sig', 'return_extra_loss', 'moe_config'
 })
 
+ERROR_LOG = {}
+
 COMMON_CONFIG_MAPPING = {
     #####################################################################################
     # Maps the configuration keys on the left to the TransformerConfig keys on the right.
@@ -220,11 +222,6 @@ COMMON_CONFIG_MAPPING = {
     # Training
     ("param_init_type", "params_dtype"): "params_dtype",
     # not changes
-    "finalize_model_grads_func": "finalize_model_grads_func",
-    "grad_scale_func": "grad_scale_func",
-    "grad_sync_func": "grad_sync_func",
-    "param_sync_func": "param_sync_func",
-    "num_microbatches_with_partial_activation_checkpoints": "num_microbatches_with_partial_activation_checkpoints",
     "print_separate_loss": "print_separate_loss",
     "disable_lazy_inline": "disable_lazy_inline",
     "batch_size": "batch_size",
@@ -248,7 +245,6 @@ COMMON_CONFIG_MAPPING = {
     ("qkv_has_bias", "attention_bias", "add_qkv_bias"): "add_qkv_bias",
     ("expert_num", "n_routed_experts", "num_experts", "num_moe_experts"): "num_moe_experts",
     ("num_layers", "num_hidden_layers", "n_layer"): "num_layers",
-    ("rope_interleave", "rotary_interleaved"): "rotary_interleaved",
     ("use_qk_norm", "qk_layernorm"): "qk_layernorm",
     # not changes
     "hidden_size": "hidden_size",
@@ -256,7 +252,6 @@ COMMON_CONFIG_MAPPING = {
     "hidden_dropout": "hidden_dropout",
     "attention_dropout": "attention_dropout",
     "apply_residual_connection_post_layernorm": "apply_residual_connection_post_layernorm",
-    "layernorm_zero_centered_gamma": "layernorm_zero_centered_gamma",
     "add_bias_linear": "add_bias_linear",
     "gated_linear_unit": "gated_linear_unit",
     "activation_func": "activation_func",
@@ -280,6 +275,7 @@ COMMON_CONFIG_MAPPING = {
     "post_process": "post_process",
     "add_mlp_fc1_bias_linear": "add_mlp_fc1_bias_linear",
     "add_mlp_fc2_bias_linear": "add_mlp_fc2_bias_linear",
+    "rotary_interleaved": "rotary_interleaved",
     "fp32_residual_connection": "fp32_residual_connection",
     "window_size": "window_size",
     "window_attn_skip_freq": "window_attn_skip_freq",
@@ -290,8 +286,6 @@ COMMON_CONFIG_MAPPING = {
     # Flash Attention
     # not changes
     "use_flash_attention": "use_flash_attention",
-    "attention_pre_tokens": "attention_pre_tokens",
-    "attention_next_tokens": "attention_next_tokens",
     "rotary_seq_len_interpolation_factor": "rotary_seq_len_interpolation_factor",
     "use_rope_scaling": "use_rope_scaling",
     "rope_scaling": "rope_scaling",
@@ -316,7 +310,6 @@ COMMON_CONFIG_MAPPING = {
     # not changes
     "init_method": "init_method",
     "output_layer_init_method": "output_layer_init_method",
-    "init_model_with_meta_device": "init_model_with_meta_device",
 
     # Mixed-Precision
     ("softmax_compute_dtype", "attention_softmax_in_fp32"): (
@@ -324,17 +317,12 @@ COMMON_CONFIG_MAPPING = {
     ),
     # not changes
     "apply_query_key_layer_scaling": "apply_query_key_layer_scaling",
-    "disable_bf16_reduced_precision_matmul": "disable_bf16_reduced_precision_matmul",
 
     # Fusion
     ("use_fused_rope", "apply_rope_fusion"): "apply_rope_fusion",
     ("use_fused_swiglu", "bias_swiglu_fusion"): "bias_swiglu_fusion",
     ("use_fused_ops_permute", "moe_permute_fusion"): "moe_permute_fusion",
     # not changes
-    "bias_activation_fusion": "bias_activation_fusion",
-    "masked_softmax_fusion": "masked_softmax_fusion",
-    "persist_layer_norm": "persist_layer_norm",
-    "memory_efficient_layer_norm": "memory_efficient_layer_norm",
     "bias_dropout_fusion": "bias_dropout_fusion",
 
     # not changes
@@ -373,13 +361,8 @@ COMMON_CONFIG_MAPPING = {
     "first_k_dense_replace": "first_k_dense_replace",
     "moe_shared_expert_overlap": "moe_shared_expert_overlap",
     "moe_router_pre_softmax": "moe_router_pre_softmax",
-    "moe_input_jitter_eps": "moe_input_jitter_eps",
     "moe_token_dispatcher_type": "moe_token_dispatcher_type",
     "group_wise_a2a": "group_wise_a2a",
-    "moe_enable_deepep": "moe_enable_deepep",
-    "moe_per_layer_logging": "moe_per_layer_logging",
-    "moe_pad_expert_input_to_capacity": "moe_pad_expert_input_to_capacity",
-    "moe_apply_probs_on_input": "moe_apply_probs_on_input",
     "comp_comm_parallel": "comp_comm_parallel",
     "comp_comm_parallel_degree": "comp_comm_parallel_degree",
     "norm_topk_prob": "norm_topk_prob",
@@ -388,7 +371,6 @@ COMMON_CONFIG_MAPPING = {
     "topk_method": "topk_method",
     "npu_nums_per_device": "npu_nums_per_device",
     "callback_moe_droprate": "callback_moe_droprate",
-    "moe_init_method_std": "moe_init_method_std",
     "moe_router_force_expert_balance": "moe_router_force_expert_balance",
     "moe_router_fusion": "moe_router_fusion",
     "print_expert_load": "print_expert_load",
@@ -458,8 +440,8 @@ def convert_to_transformer_config(
     """
     # Check whether the type of `model_config` is legal
     if model_config is None or not isinstance(model_config, (dict, PretrainedConfig)):
-        raise ValueError(f"The ModelConfig should be an instance of 'PretrainedConfig' or 'dict', "
-                         f"but got '{type(model_config)}'.")
+        raise TypeError(f"The ModelConfig should be an instance of 'PretrainedConfig' or 'dict', "
+                        f"but got '{type(model_config)}'.")
 
     if isinstance(model_config, PretrainedConfig):
         model_config = model_config.to_dict()
@@ -474,23 +456,31 @@ def convert_to_transformer_config(
     if not_convert_whitelist is None:
         not_convert_whitelist = set()
     not_convert_whitelist.update(DEFAULT_WHITE_KEY)
-    logger.info(f"These Keys of this model will do not need to be mapped: {not_convert_whitelist}")
 
     # Record the new Config after conversion
     update_dict = {}
-    # Record the keys of `model_config` outside the mapping rules in conversion
-    not_convert_keys_list = []
 
     def mapping_config(key, value):
         """Map the model_config's key and add it to 'update_dict'."""
         mapping_key = convert_map[key]
         if not isinstance(mapping_key, str):
             (mapping_key, trans_func) = mapping_key
-            value = trans_func(value)
+            try:
+                value = trans_func(value)
+            except Exception as e:
+                ERROR_LOG.setdefault('Function Convert Error', []).append(
+                    f"The key `{key}` converted to `{mapping_key}` failed. "
+                    f"Please check the function `{trans_func.__name__}`. "
+                    f"And the Error info is: {e}"
+                )
         if mapping_key in update_dict:
-            raise KeyError(f"Multiple configurations provided for the same setting. "
-                           f"Please check these conflicting configs: {list(reversed_mapping[mapping_key])}")
-        update_dict[mapping_key] = value
+            ERROR_LOG.setdefault('Multiple Config', []).append(
+                f"The key `{mapping_key}`({value}) is already converted into TransformerConfig. "
+                f"And the value is: {update_dict[mapping_key]}. "
+                f"Please check these conflicting configs: `{list(reversed_mapping[mapping_key])}`."
+            )
+        else:
+            update_dict[mapping_key] = value
 
     # Start converting parameters
     if 'parallel_config' in model_config:
@@ -509,12 +499,19 @@ def convert_to_transformer_config(
         if model_config_key in convert_map:
             mapping_config(model_config_key, model_config_value)
         else:
-            not_convert_keys_list.append(model_config_key)
+            ERROR_LOG.setdefault('Unexpected Keys', []).append(
+                f"`{model_config_key}` is unexpected in TransformerConfig, therefore they will not be converted. "
+                f"Please check your config parameters."
+            )
 
-    # If there are any unconverted key values, print them out to inform the user to check the configuration
-    if not_convert_keys_list:
-        raise ValueError(f"Keys: {not_convert_keys_list} dose not be converted! "
-                         f"Please check your config parameters.")
+    # If there are any failed log, print them formatted.
+    if ERROR_LOG:
+        error_str = "There are errors occurred during the mapping process: \n"
+        for title_idx, (key, value) in enumerate(ERROR_LOG.items()):
+            error_str = error_str + f"    ({title_idx + 1}) {key}:\n"
+            for idx, err in enumerate(value):
+                error_str = error_str + f"        {idx + 1}. " + err + "\n"
+        raise RuntimeError(f"Configuration conversion failed. Please check the error log:\n{error_str}")
 
     # If it is an MLA model, use MLATransformerConfig for initialization
     if is_mla_model:
