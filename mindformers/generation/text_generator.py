@@ -22,23 +22,12 @@ import time
 from typing import Optional, List, Union, Dict
 
 import numpy as np
-
-try:
-    import ms_custom_ops
-except ImportError:
-    ms_custom_ops = None
-
 import mindspore as ms
 from mindspore import mint, mutable, ops
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-
-try:
-    from mindspore.common.api import _pynative_executor
-except ImportError:
-    _pynative_executor = None
 
 from mindformers.generation.beam_search import BeamSearchScorer
 from mindformers.generation.generation_config import GenerationConfig
@@ -184,6 +173,8 @@ class GenerationMixin:
             kv_cache_shape = (num_blocks, block_size, merge_dim)
         for num_layer in range(tansformer_config.num_layers):
             if fa3_quant:
+                # pylint: disable=C0415
+                import ms_custom_ops
                 k_cache_dtype = mstype.int8 if num_layer in fa3_quant_layer else compute_dtype
                 k_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.kv_lora_rank,), dtype=k_cache_dtype)
                 v_cache = mint.zeros(kv_cache_shape[:-2] + (tansformer_config.qk_pos_emb_head_dim,),
@@ -1662,6 +1653,8 @@ class GenerationMixin:
             is_finished, whether the sequence has completed its generation task.
         """
         if not self.is_pynative:
+            # pylint: disable=C0415
+            from mindspore.common.api import _pynative_executor
             _pynative_executor.set_async_for_graph(True)
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
@@ -1755,6 +1748,8 @@ class GenerationMixin:
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
         if not self.is_pynative:
+            # pylint: disable=C0415
+            from mindspore.common.api import _pynative_executor
             _pynative_executor.sync()
             _pynative_executor.set_async_for_graph(False)
         return target_list, next_probs_cache, next_logits_cache, is_finished
