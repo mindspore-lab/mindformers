@@ -14,7 +14,6 @@
 # ============================================================================
 """test text_transforms"""
 import os
-import tempfile
 import numpy as np
 import mindspore as ms
 import pytest
@@ -34,8 +33,8 @@ from mindformers.dataset.transforms.vision_transforms import (
 
 np.random.seed(0)
 data = np.random.randint(0, 255, size=(2, 100, 100, 3)).astype(np.float16)
-tmp_dir = tempfile.TemporaryDirectory()
-path = tmp_dir.name
+WORK_DIR = os.path.dirname(os.path.abspath(__file__))
+path = WORK_DIR
 jpg_path = os.path.join(path, "test.jpg")
 img = Image.new("RGB", (300, 300), (255, 255, 255))
 img.save(jpg_path)
@@ -89,7 +88,8 @@ def test_batch_resize():
     res = batch_resize([data[0]])
     assert res[0].shape == (224, 224, 3)
     assert res[0][0][0].tolist() == [821.0, 2044.0, -344.0]
-    res = batch_resize(img)
+    batch_resize = BatchResize(image_resolution=224, interpolation='bicubic')
+    res = np.array(batch_resize(img))
     assert res.shape == (224, 224, 3)
 
 
