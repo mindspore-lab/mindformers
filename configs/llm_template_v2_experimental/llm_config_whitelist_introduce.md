@@ -77,8 +77,8 @@ trainer:
 # 权重相关配置
 checkpoint_config:
   # 指定模型权重文件的路径，空字符串表示不加载，pretrained_model_dir有效则会使用pretrained_model_dir下的权重
-  # 当且仅当load_checkpoint == “not_load”时, 不会加载任何权重，包括pretrained_model_dir下的
-  # “not_load”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件，如预训练场景或者需要不加载任何权重的场景
+  # 当且仅当load_checkpoint == “not_load_any_ckpt”时, 不会加载任何权重，包括pretrained_model_dir下的
+  # “not_load_any_ckpt”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件，如预训练场景或者需要不加载任何权重的场景
   load_checkpoint: ''
 
   # 权重保存配置，设置保存检查点的各项参数
@@ -1243,8 +1243,8 @@ pretrained_model_dir: '/path/hf_dir'
 
 # load_checkpoint: 加载检查点路径
 # 指定模型权重文件的路径，空字符串表示不加载，pretrained_model_dir有效则会优先使用pretrained_model_dir下的权重
-# 当仅当load_checkpoint == “not_load”时, 不会加载任何权重，包括pretrained_model_dir下的
-# “not_load”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件
+# 当仅当load_checkpoint == “not_load_any_ckpt”时, 不会加载任何权重，包括pretrained_model_dir下的
+# “not_load_any_ckpt”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件
 load_checkpoint: ''
 
 # infer_seed: 推理时的种子数

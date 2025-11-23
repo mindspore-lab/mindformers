@@ -149,6 +149,30 @@ class ModelMixin:
         """
         logger.info(f"{cls.__name__} does not support qkv concat check, skipping...")
 
+    def get_gpt_embedding_size(self):
+        """
+        Get the GPT embedding size.
+
+        Calculates the total embedding size by multiplying hidden_size and vocab_size
+        from the transformer configuration. This is used for checkpoint health monitoring.
+
+        Returns:
+            int: The total embedding size (hidden_size * vocab_size).
+
+        Raises:
+            ValueError: If hidden_size or vocab_size is not set in the model configuration.
+        """
+        transformer_config = self.get_gpt_transformer_config()
+        hidden_size = transformer_config.hidden_size
+        vocab_size = transformer_config.vocab_size
+        if hidden_size is None:
+            raise ValueError(
+                "You should set the model.model_config.hidden_size while use the checkpoint health monitor function.")
+        if vocab_size is None:
+            raise ValueError(
+                "You should set the model_config.vocab_size while use the checkpoint health monitor function.")
+        return hidden_size * vocab_size
+
 
 class TrainModelMixin:
     """General interfaces for train models."""

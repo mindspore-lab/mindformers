@@ -38,13 +38,17 @@ def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance,
                          model_cls_or_instance.convert_weight_dict,
                          model_config)
     # convert json
-    _convert_index_json(src_dir, dst_dir, model_cls_or_instance.convert_map_dict, model_config.qkv_concat)
+    _convert_index_json(src_dir, dst_dir,
+                        model_cls_or_instance.convert_map_dict,
+                        is_qkv_concat=adapt_mcore_qkv_concat_config(model_config))
     logger.info(".........Safetensors Convert Complete.........")
 
 
 def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     """check whether the input arguments are valid"""
+    # pylint: disable=C0415
     from mindformers.core.context.build_context import is_legacy_model
+    from mindformers.models.modeling_utils import PreTrainedModel
     use_legacy = is_legacy_model()
 
     if use_legacy:
@@ -55,7 +59,7 @@ def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
         n_kv_heads = model_config.num_key_value_heads
 
     hidden_size = model_config.hidden_size
-    qkv_concat = model_config.qkv_concat
+    qkv_concat = adapt_mcore_qkv_concat_config(model_config)
 
     if not isinstance(src_dir, str) or isinstance(src_dir, os.PathLike):
         raise ValueError(f"src_dir must be a str or an instance of os.PathLike, "
@@ -63,13 +67,12 @@ def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     if not isinstance(dst_dir, str):
         raise ValueError(f"src_dir must be a str or an instance of os.PathLike, "
                          f"but got {dst_dir} as type {type(dst_dir)}.")
-    from mindformers.models.modeling_utils import PreTrainedModel
     if not (isinstance(model_cls_or_instance, PreTrainedModel) or
             isinstance(model_cls_or_instance, type) and issubclass(model_cls_or_instance, PreTrainedModel)):
         raise ValueError(f"model_cls_or_instance must be a subclass or an instance of PreTrainedModel,"
                          f"but got {model_cls_or_instance}.")
     if not is_hf_safetensors_dir(src_dir, model_cls_or_instance):
-        raise ValueError(f"src_dir is not a valid HuggingFace safetensors directory.")
+        raise ValueError("src_dir is not a valid HuggingFace safetensors directory.")
     if not isinstance(num_heads, int):
         raise ValueError(f"num_attention_heads must be an int value, but got {num_heads}.")
     if n_kv_heads and not isinstance(n_kv_heads, int):
@@ -90,7 +93,7 @@ def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict, mo
     weight_handling_dict = None
     condition = None
 
-    if model_config.qkv_concat:
+    if adapt_mcore_qkv_concat_config(model_config):
         manager = Manager()
         weight_handling_dict = manager.dict()
         condition = Condition()
@@ -121,16 +124,17 @@ def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict, is_qkv
     """convert mapping file if exists"""
     index_path = os.path.join(load_checkpoint, 'model.safetensors.index.json')
     if not os.path.exists(index_path):
-        logger.warning(f"The given path contains no 'model.safetensors.index.json' file.")
+        logger.warning("The given path contains no 'model.safetensors.index.json' file.")
         return
-    with open(index_path, 'r') as f:
+    with open(index_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     weight_map = data.get("weight_map")
     new_weight_map = convert_map_dict(weight_map, qkv_concat=is_qkv_concat)
     flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    with os.fdopen(os.open(os.path.join(converted_dir, 'param_name_map.json'), flags_, FILE_PERMISSION), 'w') as f:
+    with os.fdopen(os.open(os.path.join(converted_dir, 'param_name_map.json'),
+                           flags_, FILE_PERMISSION), 'w', encoding='utf-8') as f:
         json.dump(new_weight_map, f, indent=2)
-        logger.info(f"Converted file param_name_map.json")
+        logger.info("Converted file param_name_map.json")
 
 
 def _convert_process(src_dir, dst_dir, convert_weight_dict, model_config, qkv_dict=None, condition=None):
@@ -139,3 +143,26 @@ def _convert_process(src_dir, dst_dir, convert_weight_dict, model_config, qkv_di
     target_dict = convert_weight_dict(source_dict, model_config=model_config, qkv_dict=qkv_dict, condition=condition)
     save_file(tensor_dict=target_dict, filename=dst_dir)
     logger.info(f"Converted file {os.path.basename(dst_dir)}.")
+
+
+def adapt_mcore_qkv_concat_config(model_config):
+    """
+    Adapt qkv_concat configuration for mcore model architecture
+
+    For mcore model architecture, there is no `qkv_concat` configuration,
+    defaulting to `qkv_concat=True` model implementation.
+    For legacy model architecture, use the `qkv_concat` value specified in the configuration file.
+
+    Args:
+        model_config: Model configuration object, should contain `qkv_concat` attribute
+
+    Returns:
+        bool: If it's a legacy model, return the `qkv_concat` value from configuration; otherwise return `True`
+    """
+    # pylint: disable=C0415
+    from mindformers.core.context.build_context import is_legacy_model
+    if is_legacy_model():
+        qkv_concat = model_config.qkv_concat
+    else:
+        qkv_concat = True
+    return qkv_concat
