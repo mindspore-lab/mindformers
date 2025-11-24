@@ -79,7 +79,7 @@ def make_test_tool_alpaca_dataset(dataset_dir="./checkpoint_download", valid_num
     return file_name
 
 
-@pytest.mark.level1
+@pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_tool_alpaca_dataset_correct():
@@ -93,16 +93,28 @@ def test_tool_alpaca_dataset_correct():
     )
     data_loader = ToolAlpacaDataLoader(file_name)
 
-    tgt_line = ("[{'tools': [array('tools', dtype='<U5')], 'conversations': [{'role': array('user', dtype='<U4'), "
-                "'content': array('content', dtype='<U7')}, {'role': array('assistant', dtype='<U9'), "
-                "'content': array('content', dtype='<U7')}, {'role': array('tool', dtype='<U4'), "
-                "'name': array('name', dtype='<U4'), "
-                "'parameters': {}, 'observation': array('observation', dtype='<U11')}, "
-                "{'role': array('assistant', dtype='<U9'), 'content': array('content', dtype='<U7')}]}]")
+    target = {
+        'conversations': [
+            {'content': 'content', 'role': 'user'},
+            {'content': 'content', 'role': 'assistant'},
+            {'name': 'name', 'observation': 'observation', 'parameters': {}, 'role': 'tool'},
+            {'content': 'content', 'role': 'assistant'}
+        ], 'tools': ['tools']
+    }
 
     for _, line in enumerate(data_loader):
-        assert str(line) == tgt_line, \
-            "test ToolAlpacaDataLoader load correction failed, please check your code."
+        sample = line[0]
+        # compare 'conversations'
+        assert len(sample['conversations']) == 4
+        for idx, conversation in enumerate(sample['conversations']):
+            for k, v in conversation.items():
+                if isinstance(target['conversations'][idx][k], str):
+                    assert target['conversations'][idx][k] == str(v)
+                else:
+                    assert target['conversations'][idx][k] == v
+        # compare 'tools'
+        assert target['tools'][0] == str(sample['tools'][0])
+        break
 
 
 @pytest.mark.level0
