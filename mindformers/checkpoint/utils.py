@@ -117,7 +117,7 @@ def get_checkpoint_iter_dir(checkpoints_path: str, iteration: int) -> str:
     if not isinstance(iteration, int):
         raise ValueError(f"'iteration' must be an integer! But got '{type(iteration)}'.")
 
-    directory = PER_ITERATION_CKPT_DIR_PREFIX + '{:08d}'.format(iteration)
+    directory = f'{PER_ITERATION_CKPT_DIR_PREFIX}{iteration:08d}'
     iter_dir = os.path.join(checkpoints_path, directory)
 
     return iter_dir
@@ -166,7 +166,7 @@ def get_metadata_filename(checkpoints_path: str, iteration: int) -> str:
     return os.path.join(metadata_path, 'metadata.json')
 
 
-def get_latest_iteration_from_tracker(checkpoints_path: str) -> bool:
+def get_latest_iteration_from_tracker(checkpoints_path: str) -> int:
     """
     Get the iteration tracker file content. Used in resume scene.
 
@@ -186,7 +186,7 @@ def get_latest_iteration_from_tracker(checkpoints_path: str) -> bool:
         raise FileNotFoundError(f"No tracker file found in load directory: '{tracker_filename}'.")
 
     # Get the latest iteration number from the tracker file.
-    with open(tracker_filename, 'r') as f:
+    with open(tracker_filename, 'r', encoding="utf-8") as f:
         iter_string = f.read().strip()
         try:
             iteration = int(iter_string)
@@ -204,14 +204,14 @@ def get_latest_iteration_from_tracker(checkpoints_path: str) -> bool:
     return iteration
 
 
-def get_checkpoint_name(cur_iter_checkpoint_dir: str, user_prefix: str, file_idx: int, total_file_num: int,
-                        file_type: FileType) -> str:
+def get_checkpoint_name(cur_iter_checkpoint_dir: Optional[str], user_prefix: Optional[str], file_idx: int,
+                        total_file_num: int, file_type: FileType) -> str:
     """
     Generate a checkpoint name for model parameters or optimizer parameters.
 
     Args:
-        cur_iter_checkpoint_dir (str): Currently iteration checkpoint path.
-        user_prefix (str): The prefix to use for the checkpoint file name.
+        cur_iter_checkpoint_dir (Optional[str]): Currently iteration checkpoint path.
+        user_prefix (Optional[str]): The prefix to use for the checkpoint file name.
         file_idx (int): The index of the current file.
         total_file_num (int): The total number of files.
         file_type (str): The type of the file (e.g., model parameters, optimizer parameters).
@@ -245,7 +245,7 @@ def get_sharded_tensor_shard_id(param_name, global_offset):
     return str(tuple((param_name, tuple(global_offset))))
 
 
-def _sharded_tensor_shard_id(param_name, global_offset):
+def sharded_tensor_shard_id(param_name, global_offset):
     """
     Generate a unique identifier for a sharded tensor based on its parameter name and global offset.
 
@@ -321,7 +321,7 @@ def verify_ckpt_valid(checkpoint_dir: str) -> Optional[str]:
         checkpoint_dir: Path to the checkpoint directory to validate.
 
     Returns:
-        Optional[str]: `None` if validation passes..
+        Optional[str]: `None` if validation passes.
 
     Raises:
         NotADirectoryError: If `checkpoint_dir` does not exist or is not a directory.

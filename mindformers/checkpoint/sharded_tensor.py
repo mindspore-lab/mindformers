@@ -13,16 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """Sharded Tensor"""
-
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Union, Callable
 
-from mindformers.tools.logger import logger
-
 import mindspore as ms
+from mindspore.communication import get_group_size
 from mindspore.nn import Cell
 from mindspore.parallel.shard import _DistributedTensorInfo
+from mindspore.parallel.strategy import get_current_strategy_metadata, get_strategy_metadata
+
+from mindformers.tools.utils import get_real_rank
+from mindformers.tools.logger import logger
+
 
 ReplicaId = Union[int, Tuple[int, ...]]
 
@@ -38,6 +41,12 @@ class ShardedTensor:
 
     key: str
     """Unique identifier of a global tensor."""
+
+    org_key: str
+    """
+    Record the original weight key name.
+    Mostly used in load Hugging Face weight with online resharding.
+    """
 
     dtype: ms.dtype
     """Tensor dtype."""
@@ -80,8 +89,9 @@ def build_sharded_tensor(
 ) -> ShardedTensor:
     """Creates and returns a ShardedTensor instance with the specified parameters."""
     return ShardedTensor(
-        key=param_name, dtype=param_dtype, local_shape=tuple(local_shape), global_shape=tuple(global_shape),
-        global_offset=tuple(global_offset), axis_fragmentations=tuple(axis_fragmentations), replica_id=replica_id,
+        key=param_name, org_key=param_name, dtype=param_dtype, local_shape=tuple(local_shape),
+        global_shape=tuple(global_shape), global_offset=tuple(global_offset),
+        axis_fragmentations=tuple(axis_fragmentations), replica_id=replica_id,
         allow_shape_mismatch=allow_shape_mismatch, allow_to_save=allow_to_save, layout=layout
     )
 
@@ -194,7 +204,7 @@ def _tensor_map_with_rank_id(cur_dev_matrix, flat_tensor_map, cur_alias_name, de
     return alias_rank_stride
 
 
-def _rank_id_with_slice_id(alias_rank_stride) -> List:
+def _rank_id_with_slice_id(alias_rank_stride):
     """Rank_id vs Slice_id, rank_id ranges from 0 to dev_num."""
     cur_global_offset: Tuple[int, ...] = ()
     rank_num = len(alias_rank_stride[0][0])
@@ -342,7 +352,7 @@ def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_
     if not param_infos:
         return None
 
-    cur_rank_sharded_tensor_list = list()
+    cur_rank_sharded_tensor_list = []
 
     cur_param_name_list = get_param_name_from_layout(param_infos)
     cur_value_type_list = get_value_type_from_layout(param_infos)
@@ -399,7 +409,7 @@ def get_sharded_tensor_list_from_cell(
     Returns:
         List of ShardedTensor objects with metadata from network and optimizer parameters
     """
-    logger.info(f".........Get Current Strategy Metadata from Cell.........")
+    logger.info(".........Get Current Strategy Metadata from Cell.........")
     cur_rank_sharded_tensor_list: List[ShardedTensor] = []
 
     def _get_sharded_tensors_from_cell(
@@ -418,7 +428,7 @@ def get_sharded_tensor_list_from_cell(
         Returns:
             List of ShardedTensor objects for the cell's parameters
         """
-        sharded_tensor_list = list()
+        sharded_tensor_list = []
         for param in cell.get_parameters():
             param_name = param.name
 
@@ -430,7 +440,7 @@ def get_sharded_tensor_list_from_cell(
             param_dtype = param.data.dtype
             param_shape = param.data.shape
             global_offset = (0,)
-            axis_fragmentations = [1] * len(param_shape)
+            axis_fragmentations = (1,) * len(param_shape)
 
             # Create and add sharded tensor metadata
             sharded_tensor = build_sharded_tensor(
@@ -483,3 +493,45 @@ def convert_sharded_tensor_list_to_dict(
         sharded_tensor_dict[param_name] = sharded_tensor
 
     return sharded_tensor_dict
+
+
+def get_all_sharded_tensor(network, filter_func) -> list:
+    """Get all rank sharded tensors."""
+    logger.info(".........Get All Ranks' Strategy Metadata.........")
+    global_strategy_info = get_strategy_metadata(network)
+    if not global_strategy_info:
+        raise RuntimeError('`get_strategy_metadata` returns `None`, which indicates there is no strategy info. '
+                           'Please check whether this is a distributed job.')
+
+    npu_nums = get_group_size()
+    sharded_tensor_metas = []
+
+    for cur_npu_rank in range(0, npu_nums):
+        org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
+        cur_rank_strategy_layout = [
+            dict([item])
+            for item in org_cur_rank_strategy_layout.items()
+        ]
+
+        # Get Sharded tensors from strategy metadata of current rank.
+        cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
+            param_infos=cur_rank_strategy_layout,
+            cur_npu_rank=cur_npu_rank,
+            filter_func=filter_func
+        )
+
+        sharded_tensor_metas.append(cur_rank_sharded_tensors)
+    return sharded_tensor_metas
+
+
+def get_cur_sharded_tensor(network, filter_func):
+    """Get current rank sharded tensors."""
+    logger.info(".........Get Current Strategy Metadata.........")
+    strategy_info = get_current_strategy_metadata(network)
+    # Convert strategy layout to required format
+    strategy_info = [dict([item]) for item in strategy_info[0].items()]
+    # Get sharded tensors from strategy metadata
+    cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
+        param_infos=strategy_info, cur_npu_rank=get_real_rank(), filter_func=filter_func
+    )
+    return cur_rank_sharded_tensors

@@ -112,6 +112,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             layer_number=layer_number,
             **attention_optional_kwargs,
         )
+        self.has_self_attention = not isinstance(self.self_attention, IdentityOp)
         # self_attn_bda(BiasDropoutFusion) is not supported.
         # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
         # computational throughput changes (precision remains unaffected).
@@ -131,6 +132,7 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             layer_number=layer_number,
             **attention_optional_kwargs,
         )
+        self.has_cross_attention = not isinstance(self.cross_attention, IdentityOp)
 
         # cross_attn_bda(BiasDropoutFusion) is not supported.
         # NOTE: JIT-Graph fusion optimizes performance at the cost of potential
@@ -172,7 +174,9 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             rotary_pos_emb=None,
             prefix_keys_values=None,
             extra_loss=0.,
-            actual_seq_len=None
+            actual_seq_len=None,
+            sharded_key=None,
+            sharded_value=None
     ):
         """
         Perform a forward pass through the transformer layer.
@@ -223,15 +227,56 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         if self_attention_bias is not None:
             attention_output = self.add_bias(attention_output, self_attention_bias)
 
-        # Cross attention is Identity(X) in GPTModel, future expansions will be implemented.
-
         # Dropout
-        dropout_output = self.hidden_states_dropout(attention_output)
+        if self.has_self_attention:
+            dropout_output = self.hidden_states_dropout(attention_output)
 
-        if self.fp32_residual_connection:
-            residual = self.cast(residual, ms.float32)
-            dropout_output = self.cast(dropout_output, ms.float32)
-        norm_input = self.add(residual, dropout_output)
+            if self.fp32_residual_connection:
+                residual = self.cast(residual, ms.float32)
+                dropout_output = self.cast(dropout_output, ms.float32)
+            norm_input = self.add(residual, dropout_output)
+        else:
+            norm_input = attention_output
+
+        # Optional Layer norm after self-attention
+        pre_cross_attn_layernorm_output = self.pre_cross_attn_layernorm(norm_input)
+
+        # Residual connection
+        if self.apply_residual_connection_post_norm:
+            residual = pre_cross_attn_layernorm_output
+        else:
+            residual = norm_input
+
+        # Cross attention is Identity(X) in GPTModel.
+        attention_output_with_bias = self.cross_attention(
+            pre_cross_attn_layernorm_output,
+            attention_mask=attention_mask,
+            rotary_pos_emb=rotary_pos_emb,
+            prefix_keys_values=prefix_keys_values,
+            actual_seq_len=actual_seq_len,
+            sharded_key=sharded_key,
+            sharded_value=sharded_value
+        )
+
+        if isinstance(attention_output_with_bias, tuple):
+            attention_output, self_attention_bias = attention_output_with_bias
+        else:
+            attention_output = attention_output_with_bias
+            self_attention_bias = None
+
+        if self_attention_bias is not None:
+            attention_output = self.add_bias(attention_output, self_attention_bias)
+
+        if self.has_cross_attention:
+            # Dropout
+            dropout_output = self.hidden_states_dropout(attention_output)
+
+            if self.fp32_residual_connection:
+                residual = self.cast(residual, ms.float32)
+                dropout_output = self.cast(dropout_output, ms.float32)
+            norm_input = self.add(residual, dropout_output)
+        else:
+            norm_input = attention_output
 
         # Layer norm post the self attention
         pre_mlp_layernorm_output = self.pre_mlp_layernorm(norm_input)

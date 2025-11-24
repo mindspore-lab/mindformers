@@ -13,24 +13,26 @@
 # limitations under the License.
 # ============================================================================
 """save / load parallelization strategy."""
-
 import os
 from collections import defaultdict
 
-from mindspore.communication import get_rank
 from mindspore import save_checkpoint
+from mindspore.communication import get_rank
+from mindspore.nn import Cell
 
+from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
 from mindformers.tools.logger import logger
-from mindformers.checkpoint.metadata import save_metadata, load_metadata, get_total_shard_metadata
+from mindformers.checkpoint.metadata import save_metadata, load_metadata
 from mindformers.checkpoint.utils import (
-    _sharded_tensor_shard_id,
-    _get_shard_size,
     _reverse_sharded_tensor_shard_id,
     get_checkpoint_iter_dir,
     get_metadata_filename,
     get_checkpoint_name,
-    FileType
+    FileType,
+    _get_shard_size,
+    sharded_tensor_shard_id
 )
+from mindformers.tools.utils import get_real_local_rank
 
 
 class BalancedSaveStrategy():
@@ -61,7 +63,7 @@ class BalancedSaveStrategy():
         """
         Initialize the BalancedSaveStrategy object.
         """
-        super(BalancedSaveStrategy, self).__init__()
+        super().__init__()
         self.user_prefix = user_prefix
         self.do_cache_distribution = do_cache_distribution
         self.total_files_num = None
@@ -85,8 +87,8 @@ class BalancedSaveStrategy():
             The total number of checkpoint files.
         """
         if self.total_files_num is None:
-            shared_distribution, shard_to_name = self.apply_saving_parallelization()
-            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, shard_to_name)
+            shared_distribution, id_to_tensor = self.apply_saving_parallelization()
+            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
             self.total_files_num = self._get_total_files_num(rank_params_mappings)
 
         return self.total_files_num
@@ -102,8 +104,8 @@ class BalancedSaveStrategy():
             The identifier for the current rank's checkpoint file.
         """
         if self.cur_rank_file_id is None:
-            shared_distribution, shard_to_name = self.apply_saving_parallelization()
-            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, shard_to_name)
+            shared_distribution, id_to_tensor = self.apply_saving_parallelization()
+            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
             self.cur_rank_file_id = self._get_cur_rank_file_id(rank_params_mappings)
 
         return self.cur_rank_file_id
@@ -117,8 +119,8 @@ class BalancedSaveStrategy():
             and saves the selected parameters in the specified format.
         It also saves metadata about the checkpoint files if the current rank is 0.
         """
-        shared_distribution, shard_to_name = self.apply_saving_parallelization()
-        rank_params_mappings = self._get_rank_params_mappings(shared_distribution, shard_to_name)
+        shared_distribution, id_to_tensor = self.apply_saving_parallelization()
+        rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
 
         if self.total_files_num is None:
             self.total_files_num = self._get_total_files_num(rank_params_mappings)
@@ -162,7 +164,8 @@ class BalancedSaveStrategy():
         if self.do_cache_distribution and self.cached_distribution is not None:
             shared_distribution = self.cached_distribution
         else:
-            shared_distribution = get_shared_distribution(self.network, self.filter_func)
+            shard_id_to_ranks, shard_id_to_tensor, _ = apply_balance_shard_strategy(self.network, self.filter_func)
+            shared_distribution = (shard_id_to_ranks, shard_id_to_tensor)
 
         if self.do_cache_distribution:
             self.cached_distribution = shared_distribution
@@ -236,9 +239,7 @@ class BalancedSaveStrategy():
                             (save_file_name + ".safetensors", rank_id, _reverse_sharded_tensor_shard_id(param_id)))
                     cur_rank_id += 1
 
-            from mindspore.parallel.strategy import get_strategy_metadata
-            strategy_info = get_strategy_metadata(self.network)
-            shard_to_metadata = get_total_shard_metadata(strategy_info, self.filter_func)
+            shard_to_metadata = get_all_sharded_tensor(self.network, self.filter_func)
             origin_metadata_file = get_metadata_filename(self.checkpoint_path, iteration)
 
             if os.path.exists(origin_metadata_file):
@@ -247,9 +248,11 @@ class BalancedSaveStrategy():
                 shard_to_metadata.extend(list(origin_shard_metadata.values()))
                 for param_id, storage in origin_param_file_mapping.items():
                     for storage_item in storage:
-                        param_file_mapping.append(
-                            (storage_item["file_name"], storage_item["storage_rank"],
-                             _reverse_sharded_tensor_shard_id(param_id)))
+                        param_file_mapping.append((
+                            storage_item["file_name"],
+                            storage_item["storage_rank"],
+                            _reverse_sharded_tensor_shard_id(param_id)
+                        ))
 
             metadata_file_path = get_metadata_filename(self.checkpoint_path, iteration)
             save_metadata(shard_to_metadata, param_file_mapping, metadata_file_path)
@@ -258,7 +261,7 @@ class BalancedSaveStrategy():
                     f"The 'metadata.json' of non-redundancy weight saved successfully at '{metadata_file_path}'."
                 )
 
-    def _get_rank_params_mappings(self, shared_distribution, shard_to_name):
+    def _get_rank_params_mappings(self, shared_distribution, id_to_tensor):
         """
         Create a mapping from rank IDs to lists of parameter names based on the shared distribution and
         shard-to-name mapping.
@@ -266,7 +269,7 @@ class BalancedSaveStrategy():
         Args:
             shared_distribution (dict): A dictionary where keys are parameter IDs and values are rank IDs indicating
                 which rank is responsible for a particular parameter.
-            shard_to_name (dict): A dictionary that maps parameter IDs to their corresponding parameter names.
+            id_to_tensor (dict): A dictionary that maps parameter IDs to their corresponding ShardTensor.
 
         Returns:
             A dictionary where keys are rank IDs and values are lists of parameter names assigned to that rank.
@@ -274,9 +277,9 @@ class BalancedSaveStrategy():
         rank_params_mappings = {}
         for param_id, rank_id in shared_distribution.items():
             if rank_id not in rank_params_mappings:
-                rank_params_mappings[rank_id] = [shard_to_name[param_id]]
+                rank_params_mappings[rank_id] = [id_to_tensor[param_id].key]
             else:
-                rank_params_mappings[rank_id].append(shard_to_name[param_id])
+                rank_params_mappings[rank_id].append(id_to_tensor[param_id].key)
         sorted_rank_params_mappings = {
             k: rank_params_mappings.get(k, None)
             for k in sorted(rank_params_mappings)
@@ -307,54 +310,6 @@ class BalancedSaveStrategy():
         }
 
         return sorted_rank_params_mappings
-
-
-def get_shared_distribution(network, filter_func=None):
-    """
-    Get the shared distribution of shards among ranks and the mapping from shard IDs to parameter names.
-
-    This function analyzes the total shard metadata to determine which ranks are responsible for each shard
-    and assigns shards to ranks using a greedy algorithm. It processes the network's sharded tensor metadata
-    to create mappings between shard IDs, ranks, and parameter names, focusing only on shards within the
-    current parallelization group (replica_id == 0).
-
-    Args:
-        network (cell): The neural network model whose shard distribution needs to be analyzed.
-        filter_func (func): Filter function that filters out parameters that do not need to be saved.
-
-    Returns:
-        A tuple containing a dictionary mapping shard IDs to the rank that will save the shard
-            and a dictionary mapping shard IDs to parameter names.
-    """
-    from mindspore.parallel.strategy import get_strategy_metadata
-    strategy_info = get_strategy_metadata(network)
-
-    total_shard_metadata = get_total_shard_metadata(strategy_info, filter_func)
-    shard_to_ranks = defaultdict(list)
-    shard_to_size = {}
-    shards_in_this_parallelization_group = set()
-    shard_to_name = {}
-
-    for rank, sharded_tensor_metas in enumerate(total_shard_metadata):
-        for tensor_meta in sharded_tensor_metas:
-            shard_id = _sharded_tensor_shard_id(tensor_meta.key, tensor_meta.global_offset)
-            shard_to_ranks[shard_id].append(rank)
-
-            if shard_id not in shard_to_size:
-                shard_to_size[shard_id] = _get_shard_size(tensor_meta.local_shape, tensor_meta.dtype)
-                shard_to_name[shard_id] = tensor_meta.key
-            shards_in_this_parallelization_group.add(shard_id)
-
-    shard_to_ranks = {
-        k: v
-        for k, v in shard_to_ranks.items()
-        if k in shards_in_this_parallelization_group
-    }
-
-    shard_to_saving_rank = distribute_shards(
-        shard_to_ranks, shard_to_size, len(total_shard_metadata)
-    )
-    return shard_to_saving_rank, shard_to_name
 
 
 def distribute_shards(shard_coverage, shard_sizes, total_ranks):
@@ -392,3 +347,60 @@ def distribute_shards(shard_coverage, shard_sizes, total_ranks):
         rank_loads[selected_rank] += shard_sizes[shard_id]
 
     return shard_assignment
+
+
+def apply_balance_shard_strategy(network: Cell, filter_func):
+    """
+    Process and balance sharded tensor metadata across all ranks.
+
+    This function retrieves strategy metadata from the network (and optimizer if provided),
+    processes sharding information, and distributes shards across ranks to generate balanced
+    sharded tensor metadata. If no strategy metadata exists, it falls back to directly extracting
+    sharded tensors from the network and optimizer.
+
+    Args:
+        network (Cell): The MindSpore network cell containing parameters and sharding strategies.
+        optimizer (Optional[Optimizer]): Optional optimizer instance (if provided, filters out
+            accumulator gradient parameters from sharding metadata).
+
+    Returns:
+        list: Balanced sharded tensor metadata for the current rank, either derived from
+            strategy metadata distribution or directly extracted from the network/optimizer.
+
+    Notes:
+        - Relies on MindSpore's `get_strategy_metadata` for strategy-based sharding info.
+        - Filters out "accu_grads" parameters when an optimizer is provided to avoid redundant sharding.
+        - Falls back to direct tensor extraction if no strategy metadata is available.
+    """
+    total_shard_metadata = get_all_sharded_tensor(network, filter_func)
+    shard_id_to_ranks = defaultdict(list)
+    shard_to_size = {}
+    shards_in_this_parallelization_group = set()
+    shard_id_to_tensor = {}
+
+    for rank, sharded_tensor_metas in enumerate(total_shard_metadata):
+        for tensor_meta in sharded_tensor_metas:
+            shard_id = sharded_tensor_shard_id(tensor_meta.key, tensor_meta.global_offset)
+            shard_id_to_ranks[shard_id].append(rank)
+
+            if shard_id not in shard_to_size:
+                shard_to_size[shard_id] = _get_shard_size(tensor_meta.local_shape, tensor_meta.dtype)
+                shard_id_to_tensor[shard_id] = tensor_meta
+            shards_in_this_parallelization_group.add(shard_id)
+
+    shard_id_to_ranks = {
+        k: v
+        for k, v in shard_id_to_ranks.items()
+        if k in shards_in_this_parallelization_group
+    }
+
+    shard_to_saving_rank = distribute_shards(
+        shard_id_to_ranks, shard_to_size, len(total_shard_metadata)
+    )
+
+    dst_sharded_tensor_metas = {}  # {shard_name: ShardTensor}
+    local_rank = get_real_local_rank()
+    for shard_id, rank_id in shard_to_saving_rank.items():
+        if rank_id == local_rank:
+            dst_sharded_tensor_metas[_reverse_sharded_tensor_shard_id(shard_id)[0]] = shard_id_to_tensor[shard_id]
+    return shard_id_to_ranks, shard_id_to_tensor, dst_sharded_tensor_metas

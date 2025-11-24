@@ -3,10 +3,11 @@
 # Modified some config parameters to adapt to MindSpore Transformer.
 """Transformer Config"""
 
+import enum
 import os
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import mindspore as ms
 from mindformers.tools.logger import logger
@@ -74,12 +75,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
     layernorm_epsilon: float = 1e-5
     """Epsilon value for any LayerNorm operations."""
-
-    layernorm_zero_centered_gamma: bool = False
-    """
-    If set to True, the LayerNorm is adjusted to center the gamma values around 0.
-    This improves numerical stability.
-    """
 
     add_qkv_bias: bool = False
     """Add a bias term only for QKV projections."""
@@ -151,12 +146,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     param_init_std_rules: List[dict[str, Union[str, float]]] = None
     """Configuration for decoupled weight initialization."""
 
-    init_model_with_meta_device: bool = False
-    """
-    If True, initializes the model with the meta device. This is helpful for
-    training of very large models. This feature is only works when custom fsdp is turned on.
-    """
-
     ####################
     # Mixed-Precision
     ####################
@@ -176,31 +165,9 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     softmax_compute_dtype: str = 'float32'
     """Data type for computing softmax during attention computation."""
 
-    disable_bf16_reduced_precision_matmul: bool = False
-    """If True, prevent matmul from using reduced precision accumulation when using BF16."""
-
     ####################
     # Fusion
     ####################
-
-    bias_activation_fusion: bool = False
-    """If True, fuses bias addition and the activation function when possible."""
-
-    masked_softmax_fusion: bool = False
-    """If True, uses softmax fusion."""
-
-    persist_layer_norm: bool = False
-    """
-    If True, uses the persistent fused layer norm kernel.
-    This kernel only supports a fixed set of hidden sizes.
-    """
-
-    memory_efficient_layer_norm: bool = False
-    """
-    If True, and using local layers (not from TransformerEngine),
-    tells Apex to use the memory efficient fused LayerNorm kernel.
-    Ignored if not using LayerNorm.
-    """
 
     bias_dropout_fusion: bool = False
     """If True, uses bias dropout fusion."""
@@ -341,9 +308,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     moe_z_loss_coeff: Optional[float] = None  # 1e-3 would be a good start value for z-loss
     """Scaling coefficient for the z-loss. A starting value of 1e-3 is recommended."""
 
-    moe_input_jitter_eps: Optional[float] = None
-    """Add noise to the input tensor by applying jitter with a specified epsilon value."""
-
     group_wise_a2a: bool = False
     """
     Whether to enable group-wise alltoall communication,
@@ -356,23 +320,10 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     """The type of token dispatcher to use. The default is 'alltoall'.
     Options are 'alltoall', 'alltoall_deredundency' and 'alltoall_zero_redundancy'."""
 
-    moe_enable_deepep: bool = False
-    """[Experimental] Enable DeepEP for efficient token dispatching and combine in MoE models."""
-
-    moe_per_layer_logging: bool = False
-    """Enable per-layer logging for MoE, currently supports auxiliary loss and z loss."""
-
     moe_expert_capacity_factor: Optional[float] = None
     """
     The capacity factor for each expert, None means no token will be dropped.
     The default is None.
-    """
-
-    moe_pad_expert_input_to_capacity: bool = False
-    """
-    If True, pads the input for each expert to match the expert capacity length,
-    effective only after the moe_expert_capacity_factor is set.
-    The default setting is False.
     """
 
     moe_token_drop_policy: str = 'probs'
@@ -384,9 +335,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
     moe_permute_fusion: bool = False
     """Fuse token rearrangement ops during token dispatching."""
-
-    moe_apply_probs_on_input: bool = False
-    """Apply probs on input of experts instead of applying after activation and glu."""
 
     # MindFormers New
     shared_expert_num: int = 0
@@ -421,6 +369,34 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     - "a2a+p2p": A hierarchical implementation of context parallelism to attention.
 
     It uses A2A communications in low-level CP groups, and P2P communications in high-level CP groups.
+    """
+
+    window_size: Optional[Tuple[int, int]] = None
+    """
+    If not None, then will use sliding window attention. The size of the window is specified by
+    the numbers inside the tuple; -1 is special value meaning "infinite window size".
+    """
+
+    window_attn_skip_freq: Optional[Union[int, List[int]]] = None
+    """
+    Frequency of full attention layers among sliding window attention layers. Accepts either:
+    - An integer N: Represents a (N-1):1 ratio, one full attention layer after (N-1) SWA layers.
+    - A list that defines a custom pattern, e.g.: [1,1,1,1,0,0,0,0], where 1 represents SWA.
+    """
+
+    model_architecture: str = "decoder_only"
+    """The structure of model. Support 'decoder-only', 'yoco'."""
+
+    num_encoder_layers: int = None
+    """
+    The number of encoder layers. The num_encoder_layers or the 
+    num_decoder_layers should be set while use the 'yoco' model structure. 
+    """
+
+    num_decoder_layers: int = None
+    """
+    The number of decoder layers. The num_encoder_layers or the 
+    num_decoder_layers should be set while use the 'yoco' model structure. 
     """
 
     def __post_init__(self):
@@ -545,12 +521,6 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise ValueError(
                     'moe_expert_capacity_factor only works with supported load balancing types: '
                     'sub_seq_aux_loss, seq_aux_loss, gbs_aux_loss'
-                )
-
-        if self.moe_pad_expert_input_to_capacity:
-            if self.moe_expert_capacity_factor is None:
-                raise ValueError(
-                    'moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity'
                 )
 
         if self.apply_query_key_layer_scaling:
@@ -728,6 +698,34 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         self._validate_param_init_std_rules()
 
+        if self.window_size is not None:
+            if self.window_size[0] < -1 or self.window_size[1] < -1:
+                raise ValueError("When number in window_size should not lower than -1."
+                                 f"But get {self.window_size[0]} and {self.window_size[1]}")
+
+        if self.model_architecture not in [model_architecture.value for model_architecture in ModelArchitecture]:
+            raise ValueError("You should set the model_architecture in 'decoder_only' "
+                             f"or 'yoco'. But get {self.model_architecture}.")
+
+        if self.model_architecture == ModelArchitecture.DECODER_ONLY:
+            self.num_decoder_layers = self.num_layers
+            self.num_encoder_layers = 0
+        if self.model_architecture == ModelArchitecture.YOCO:
+            if self.num_encoder_layers is None and self.num_decoder_layers is None:
+                raise ValueError("While use the 'yoco' model structure, "
+                                 "You should set the num_encoder_layers or the num_decoder_layers.")
+            self.num_decoder_layers = self.num_decoder_layers \
+                if self.num_decoder_layers else self.num_layers - self.num_encoder_layers
+            self.num_encoder_layers = self.num_encoder_layers \
+                if self.num_encoder_layers else self.num_layers - self.num_decoder_layers
+
+        if (self.num_encoder_layers and self.num_decoder_layers
+                and self.num_encoder_layers + self.num_decoder_layers != self.num_layers):
+            raise ValueError("The combination of  num_encoder_layers and num_decoder_layers "
+                             f"should be equal to num_layers. But get num_encoder_layers: {self.num_encoder_layers}, "
+                             f"num_decoder_layers: {self.num_decoder_layers}, num_layers: {self.num_layers}.")
+
+
     def _validate_param_init_std_rules(self):
         """Validate and compile decoupling initialization rules."""
         rules = self.param_init_std_rules
@@ -764,6 +762,19 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 # Compile the regex pattern and replace the string in-place
                 compiled_pattern = re.compile(target)
                 rule["target"] = compiled_pattern
+
+
+@dataclass
+class ModelArchitecture(enum.Enum):
+    """
+        Enumeration representing different types of model architecture.
+
+        Attributes:
+            DECODER_ONLY: Represents the model architecture only has the decoder layer.
+            YOCO: Represents the model architecture is yoco.
+    """
+    DECODER_ONLY = "decoder_only"
+    YOCO = "yoco"
 
 
 @dataclass

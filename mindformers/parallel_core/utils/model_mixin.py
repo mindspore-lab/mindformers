@@ -28,8 +28,34 @@ class ModelMixin:
     A few utilities for `mindspore.nn.Cell`, to be used as a mixin.
     """
 
+    concat_mapping = [
+        ('.linear_q.', '.linear_qkv.'),
+        ('.linear_k.', '.linear_qkv.'),
+        ('.linear_v.', '.linear_qkv.'),
+        ('.mlp.gating.', '.mlp.linear_fc1.'),
+        ('.mlp.hidden.', '.mlp.linear_fc1.'),
+    ]
+
     def __init__(self):
         self.transformer_config = None
+
+    def convert_concat_name(self, weight_name):
+        r"""
+        convert HuggingFace weight name to MindFormers weight name.
+
+        Args:
+            weight_name: huggingface weight names.
+
+        Returns:
+            weight_name: converted weight names.
+
+        """
+        if is_legacy_model():
+            raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
+        for split_name, concat_name in self.concat_mapping:
+            if split_name in weight_name:
+                weight_name = weight_name.replace(split_name, concat_name)
+        return weight_name
 
     def convert_name(self, weight_name):
         r"""
@@ -128,6 +154,73 @@ class TrainModelMixin:
     """General interfaces for train models."""
 
     is_train_model = True
+
+    def concat_qkv_contiguous(self, q_value, k_value, v_value, q_name):
+        """
+        Concat the Q/K/V weight in contiguous format:
+            [Q_weights, K_weights, V_weights].
+        """
+        qkv_name = q_name.replace('linear_q', 'linear_qkv')
+        qkv_value = np.concatenate((q_value, k_value, v_value), 0)
+
+        # return converted qkv weight
+        return {qkv_name: qkv_value}
+
+    def concat_qkv_interleaved(self, q_value, k_value, v_value, q_name,
+                               head_dim, n_kv_heads, num_attention_heads):
+        """
+        Concat the Q/K/V weight in interleaved format:
+            [Q_head0, K_head0, V_head0, Q_head1, ...].
+        """
+        n_rep = num_attention_heads // n_kv_heads
+
+        # Start to concat qkv weight
+        qkv_name = q_name.replace('linear_q', 'linear_qkv')
+
+        # Reshape the q/k/v weight to 3d
+        q_reshape = q_value.reshape(n_kv_heads, n_rep * head_dim, -1)
+        k_reshape = k_value.reshape(n_kv_heads, head_dim, -1)
+        v_reshape = v_value.reshape(n_kv_heads, head_dim, -1)
+
+        # Then concat them with column (axis 1)
+        concat_qkv_weight = np.concatenate((q_reshape, k_reshape, v_reshape), axis=1)
+
+        # Reshape the concated qkv weight to 2d
+        qkv_value = concat_qkv_weight.reshape((n_rep + 2) * head_dim * n_kv_heads, -1)
+
+        # return converted qkv weight
+        return {qkv_name: qkv_value}
+
+    def concat_linear_fc1_contiguous(self, gate_value, up_value, gate_name):
+        """
+        Concat the gate/up weight in contiguous format:
+            [Gate_weights, Hidden_weights].
+        """
+        linear_fc1_key = gate_name.replace('gating', 'linear_fc1')
+        linear_fc1_value = np.concatenate((gate_value, up_value), 0)
+
+        # return converted ffn weight
+        return {linear_fc1_key: linear_fc1_value}
+
+    def concat_linear_fc1_interleaved(self, gate_value, up_value, gate_name, ffn_hidden_size):
+        """
+        Concat the gate/up weight in interleaved format:
+            [Gate_weights[0], Hidden_weights[0], Gate_weights[1], Hidden_weights[1], ...].
+        """
+        linear_fc1_key = gate_name.replace('gating', 'linear_fc1')
+
+        # Reshape gate/up to 3d
+        gate_reshape = gate_value.reshape(ffn_hidden_size, 1, -1)
+        hidden_reshape = up_value.reshape(ffn_hidden_size, 1, -1)
+
+        # Concat gate and up
+        linear_fc1_value = np.concatenate((gate_reshape, hidden_reshape), axis=1)
+
+        # Reshape the concated linear_fc1 weight to 2d
+        linear_fc1_value = linear_fc1_value.reshape(ffn_hidden_size * 2, -1)
+
+        # return converted ffn weight
+        return {linear_fc1_key: linear_fc1_value}
 
     def concat_qkv_weight_megatron(self, wq_keys, wk_keys, wv_keys, qkv_weight_dict, condition, ms_weight_dict,
                                    head_dim, n_kv_heads, num_attention_heads):

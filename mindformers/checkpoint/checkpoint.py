@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """load/save checkpoint apis."""
-
 import os
 import json
 import tempfile
@@ -33,7 +32,6 @@ from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.communication.management import get_rank, get_group_size
 from mindspore.communication import comm_func
 from mindspore import save_checkpoint as ms_save_checkpoint
-from mindspore.parallel.strategy import get_current_strategy_metadata
 
 from mindformers.tools.logger import logger
 from mindformers.checkpoint.reshard import ReshardHandler
@@ -43,6 +41,7 @@ from mindformers.tools.utils import (
     get_output_subpath,
     get_real_rank,
     set_safe_mode_for_file_or_dir,
+    get_real_group_size
 )
 from mindformers.checkpoint.utils import (
     get_checkpoint_iter_dir,
@@ -55,20 +54,17 @@ from mindformers.checkpoint.utils import (
     verify_ckpt_valid,
     FileType
 )
-from mindformers.checkpoint.fully_parallel import BalancedSaveStrategy
+from mindformers.checkpoint.fully_parallel import BalancedSaveStrategy, apply_balance_shard_strategy
 from mindformers.checkpoint.metadata import (
     save_metadata,
     load_metadata,
     generate_default_metadata_from_checkpoint,
-    get_total_shard_metadata,
-    get_total_params_file_mapping_info
+    get_total_params_file_mapping_info,
 )
 from mindformers.checkpoint.sharded_tensor import (
-    get_sharded_tensor_list_from_strategy_metadata,
-    get_sharded_tensor_list_from_cell,
     convert_sharded_tensor_list_to_dict,
     get_strategy_info_from_sharded_tensor,
-    ShardedTensor
+    ShardedTensor, get_sharded_tensor_list_from_cell, get_cur_sharded_tensor
 )
 
 
@@ -237,7 +233,7 @@ class AsyncSaveManager:
 
         # Async thread
         for thread in threading.enumerate():
-            if thread.getName() == "asyn_save_ckpt":
+            if thread.name == "asyn_save_ckpt":
                 if wait_finish:
                     thread.join()
                     return False
@@ -267,7 +263,7 @@ class AsyncSaveManager:
 def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
                     async_save_manager: AsyncSaveManager = None, common_info: CommonInfo = None,
                     keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None,
-                    global_strategy_info: List[Dict] = None, remove_redundancy: bool = False):
+                    sharded_tensor_metas: list = None, remove_redundancy: bool = False):
     """
     Saves the current state of the training process,
         including the model, optimizer, and learning rate scheduler, to a checkpoint file.
@@ -283,7 +279,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         save_checkpoint_path (str): The user can specify the path to save the weights.
             If None, the default path is 'output_dir/checkpoint'.
             And 'output_dir' is configured in yaml and defaults to './output' in the execution script path.
-        global_strategy_info (List[Dict]): The strategy info of this network.
+        sharded_tensor_metas (List): The ShardedTensor metas of this network.
         remove_redundancy (bool): Whether to remove redundancy of saving checkpoint.
     """
     logger.info('....... Start to save checkpoint as new format .......')
@@ -351,7 +347,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
     model_keys = network.parameters_dict().keys()
     start_save_ckpt_time = time()
 
-    if remove_redundancy and global_strategy_info is not None:
+    if remove_redundancy and sharded_tensor_metas is not None:
         remove_model_redundancy = BalancedSaveStrategy(
             network,
             user_prefix=user_prefix,
@@ -374,7 +370,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
 
     # Save optimizer weight.
     if optimizer is not None:
-        if remove_redundancy and global_strategy_info is not None:
+        if remove_redundancy and sharded_tensor_metas is not None:
             # Optimizer weight remove redundancy.
             remove_optimizer_redundancy = BalancedSaveStrategy(
                 optimizer,
@@ -415,7 +411,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
     # Save 'metadata.json'.
     if not remove_redundancy:
         metadata_file_path = get_metadata_filename(checkpoints_root_path, iteration)
-        save_metadata_json(global_strategy_info, model_keys, user_prefix, metadata_file_path, optimizer is not None)
+        save_metadata_json(sharded_tensor_metas, model_keys, user_prefix, metadata_file_path)
 
     # Save tracker file in sync save process.
     if not use_async_save:
@@ -426,16 +422,11 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         logger.info(f"Save checkpoint cost time: {time() - start_save_ckpt_time:.3f}s.")
 
 
-def save_metadata_json(global_strategy_info, model_keys, user_prefix, metadata_file_path, save_optimizer):
+def save_metadata_json(sharded_tensor_metas, model_keys, user_prefix, metadata_file_path):
     """Saving metadata.json used `get_strategy_metadata` API."""
-    if global_strategy_info is not None:
+    if sharded_tensor_metas is not None:
         logger.info("...... Start saving metadata ......")
-
         if get_rank() == 0:
-            sharded_tensor_metas = get_total_shard_metadata(
-                global_strategy_info=global_strategy_info,
-                filter_func=(lambda x: x in list(model_keys)) if not save_optimizer else None
-            )
             param_file_mappings = get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_keys)
             save_metadata(sharded_tensor_metas, param_file_mappings, metadata_file_path)
 
@@ -567,6 +558,7 @@ def load_tensor_by_offset(
         checkpoint_dir: str,
         src_sharded_tensor_metas: Dict[str, List[ShardedTensor]],
         param_file_mappings: Dict[str, List[Dict[str, Any]]],
+        key_mapping: Dict[str, str],
 ) -> Dict[int, Parameter]:
     """
     Loads specific tensor slices from checkpoint files based on offset information.
@@ -581,16 +573,18 @@ def load_tensor_by_offset(
         checkpoint_dir: Directory containing the checkpoint files
         src_sharded_tensor_metas: Metadata for source sharded tensors
         param_file_mappings: Mapping of parameters to their storage files
+        key_mapping: Mapping of `original key` in checkpoint to `param key` in network.
 
     Returns:
         Dictionary mapping ranks to their corresponding loaded Parameter objects
     """
+
     def _get_storage_info_of_sharded_tensor(
             sharded_tensor: ShardedTensor,
             param_file_mappings: Dict[str, List[Dict[str, Any]]]
     ) -> List[Dict[str, Any]]:
         """Retrieves storage information for a specific sharded tensor."""
-        param_key = str((sharded_tensor.key, sharded_tensor.global_offset))
+        param_key = str((sharded_tensor.org_key, sharded_tensor.global_offset))
         return param_file_mappings[param_key]
 
     def _get_storage_rank_dict_of_param(
@@ -600,14 +594,14 @@ def load_tensor_by_offset(
     ) -> Dict[int, Tuple[str, Any]]:
         """Creates a dictionary mapping storage ranks to their file and dtype information."""
         storage_rank_dict: Dict[int, Tuple[str, Any]] = {}
+        if param_name not in sharded_tensor_metas:
+            param_name = key_mapping[param_name]
 
         for sharded_tensor in sharded_tensor_metas[param_name]:
             storage_info_list = _get_storage_info_of_sharded_tensor(sharded_tensor, param_file_mappings)
-
             for storage_info in storage_info_list:
                 storage_rank = storage_info["storage_rank"]
                 storage_rank_dict[storage_rank] = (storage_info["file_name"], sharded_tensor.dtype)
-
         return storage_rank_dict
 
     # Get storage rank information for the parameter
@@ -663,10 +657,10 @@ def load_tensor_by_offset(
 
 
 def categorize_params(
-        dst_sharded_tensor_metas: Dict[str, List[ShardedTensor]],
+        dst_sharded_tensor_metas: Dict[str, ShardedTensor],
         src_sharded_tensor_metas: Dict[str, List[ShardedTensor]],
         param_file_mappings: Dict[str, List[Dict[str, Any]]]
-) -> Tuple[List[str], Dict[str, Dict[str, List[Any]]], Dict[str, List[Any]]]:
+) -> Tuple[List[str], Dict[str, Dict[str, List[Any]]], Dict[str, Dict[str, List[Any]]], Dict[str, List[Any]]]:
     """
     Categorizes parameters based on comparison of source and destination sharding strategies.
 
@@ -692,7 +686,8 @@ def categorize_params(
         RuntimeError: If sharding strategies match but no corresponding parameter offset is found
     """
     # Initialize categorization collections
-    special_params: List[str] = []
+    not_mapping_params: List[str] = []
+    need_concat_params: Dict[str, Dict[str, List[Any]]] = {}
     no_shard_params: Dict[str, Dict[str, List[Any]]] = {}
     no_shard_params_list: List[str] = []
     online_shard_params: Dict[str, List[Any]] = {}
@@ -703,8 +698,13 @@ def categorize_params(
     for param_name in dst_sharded_tensor_metas:
         # Handle parameters missing from source metadata
         if param_name not in src_sharded_tensor_metas:
-            special_params.append(param_name)
+            not_mapping_params.append(param_name)
             continue
+
+        # Get destination tensor strategy information
+        dst_sharded_tensor = dst_sharded_tensor_metas[param_name]
+        dst_global_shape, dst_axis_fragmentations, dst_global_offset = get_strategy_info_from_sharded_tensor(
+            dst_sharded_tensor)
 
         src_sharded_tensor_list = src_sharded_tensor_metas[param_name]
         if not src_sharded_tensor_list:
@@ -713,10 +713,25 @@ def categorize_params(
                 "Valid source metadata requires at least one ShardedTensor entry."
             )
 
-        # Get destination tensor strategy information
-        dst_sharded_tensor = dst_sharded_tensor_metas[param_name]
-        dst_global_shape, dst_axis_fragmentations, dst_global_offset = \
-            get_strategy_info_from_sharded_tensor(dst_sharded_tensor)
+        # Get parameters info which need to concat
+        if param_name != src_sharded_tensor_list[0].key:
+            concat_infos = []
+            reshard_infos = []
+            for src_sharded_tensor in src_sharded_tensor_list:
+                param_key = str((src_sharded_tensor.org_key, src_sharded_tensor.global_offset))
+                concat_infos.append(
+                    {
+                        'sub_name': src_sharded_tensor.org_key,
+                        'file_name': param_file_mappings[param_key][0]["file_name"],
+                        'param_dtype': src_sharded_tensor.dtype,
+                    }
+                )
+
+            if dst_axis_fragmentations != src_sharded_tensor_list[0].axis_fragmentations:
+                # `reshard_infos` contains `full_shape, from_layout, to_layout, to_rank_id`
+                reshard_infos = [dst_global_shape, None, dst_sharded_tensor.layout, rank_id]
+            need_concat_params[param_name] = (concat_infos, reshard_infos)
+            continue
 
         param_key: Optional[str] = None
         strategy_is_same = False
@@ -738,7 +753,7 @@ def categorize_params(
 
             # Check if offsets match for direct mapping
             if src_global_offset == dst_global_offset:
-                param_key = str((param_name, src_global_offset))
+                param_key = str((src_sharded_tensor.org_key, src_global_offset))
                 break  # Found matching parameter
 
         # Validate strategy consistency
@@ -755,26 +770,27 @@ def categorize_params(
             # Initialize entry if new file
             if file_name not in no_shard_params:
                 no_shard_params[file_name] = {
-                    "param_name_list": [param_name],
+                    "param_name_list": [src_sharded_tensor.org_key],
                     "param_dtype_list": [src_sharded_tensor.dtype],
                 }
             else:
                 # Add to existing file entry
-                no_shard_params[file_name]["param_name_list"].append(param_name)
+                no_shard_params[file_name]["param_name_list"].append(src_sharded_tensor.org_key)
                 no_shard_params[file_name]["param_dtype_list"].append(src_sharded_tensor.dtype)
 
-            no_shard_params_list.append(param_name)
+            no_shard_params_list.append(src_sharded_tensor.org_key)
         else:
             # Parameters that need online resharding
-            online_shard_params[param_name] = [
+            online_shard_params[src_sharded_tensor.org_key] = [
                 dst_global_shape, src_sharded_tensor.layout, dst_sharded_tensor.layout, rank_id
             ]
-
-    logger.debug(f"Params needing transformation: {special_params}")
+    # Parameters to be processed for categorized logging
+    logger.debug(f"Params not mapping: {not_mapping_params}")
+    logger.debug(f"Params needing transformation: {need_concat_params}")
     logger.debug(f"Params no need reshard: {no_shard_params_list}")
     logger.debug(f"Params need reshard: {list(online_shard_params.keys())}")
 
-    return special_params, no_shard_params, online_shard_params
+    return not_mapping_params, need_concat_params, no_shard_params, online_shard_params
 
 
 def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
@@ -787,7 +803,8 @@ def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
     by parsing the checkpoint files directly using load_metadata_from_checkpoint().
 
     Args:
-        checkpoint_dir: Path to the directory containing the checkpoint files
+        checkpoint_dir: Path to the directory containing the checkpoint files.
+        network: The target core network (Cell) which has method `convert_name` to convert Hugging Face weight.
 
     Returns:
         A tuple containing two dictionaries:
@@ -812,12 +829,65 @@ def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
     return sharded_tensor_metas, param_file_mappings
 
 
+def params_key_mapping(
+        sharded_tensor_metas: Dict[str, List[ShardedTensor]],
+        network: Cell
+) -> tuple[dict, dict, Cell]:
+    """
+    Mapping Hugging Face checkpoint keys to MindSpore Transformers.
+
+    Args:
+        sharded_tensor_metas: Metadata about sharded tensors.
+        network: The target core network (Cell) which has method `convert_name` to convert Hugging Face weight.
+
+    Returns:
+        A dictionary after mapping about sharded tensor metas.
+    """
+
+    # pylint: disable=W0212
+    def get_core_network(network):
+        """Get the core network that has `convert_name` method."""
+        if hasattr(network, 'convert_name'):
+            return network
+        if hasattr(network, '_backbone'):
+            return get_core_network(network._backbone)
+        if hasattr(network, 'network'):
+            return get_core_network(network.network)
+        raise NotImplementedError("Network has no function `convert_name`.")
+
+    # Get the core network and check the convert method is illegal
+    core_network = get_core_network(network)
+
+    # The key of `mapped_sharded_tensor_metas` is in the network,
+    # such as { qkv: [ShardedTensor, ShardedTensor, ShardedTensor], ... }
+    mapped_sharded_tensor_metas = {}
+    # The key of `key_mapping` is {'weight_key': 'mapping_key'},
+    # and the `mapping_key` may not have the same name as the parameter in the network,
+    # it could be an intermediate form,
+    # such as { 'q_proj': 'linear_q', 'k_proj': 'linear_k', 'v_proj': 'linear_v', ... }
+    key_mapping = {}
+
+    for param_name in sharded_tensor_metas:
+        param_name_converted = core_network.convert_name(param_name)
+        sharded_tensor_list = sharded_tensor_metas.get(param_name)
+
+        for sharded_tensor in sharded_tensor_list:
+            sharded_tensor.key = param_name_converted
+            sharded_tensor.org_key = param_name
+
+        key_mapping[param_name] = param_name_converted
+        param_name_converted_concat = core_network.convert_concat_name(param_name_converted)
+        mapped_sharded_tensor_metas.setdefault(param_name_converted_concat, []).extend(sharded_tensor_list)
+
+    return mapped_sharded_tensor_metas, key_mapping, core_network
+
+
 def load_checkpoint(
         checkpoint: str,
         network: Cell,
         optimizer: Optional[Optimizer] = None,
         global_step: Optional[int] = None,
-        balanced_load: bool = False,
+        balanced_load: bool = False
 ) -> None:
     """
     Loads a checkpoint into a network and optional optimizer.
@@ -837,15 +907,7 @@ def load_checkpoint(
         (Other exceptions may be raised by dependent functions for checkpoint validation/loading)
     """
     # Validate mandatory network parameter
-    if network is None:
-        raise ValueError("The 'network' cannot be None - a target network is required for loading.")
-
-    if balanced_load:
-        raise ValueError("The balanced loading strategy is not supported yet. "
-                         "`balanced_load` is a preset switch, please set `balanced_load` to False.")
-
-    if not os.path.exists(checkpoint):
-        raise ValueError(f"Checkpoint does not exist: {checkpoint}")
+    check_the_param_for_load_ckpt(checkpoint, network)
 
     # Determine checkpoint directory path
     checkpoint_dir = get_checkpoint_path(checkpoint)
@@ -854,60 +916,75 @@ def load_checkpoint(
 
     # Retrieve metadata from checkpoint files
     src_sharded_tensor_metas, param_file_mappings = get_metadata_of_checkpoint(checkpoint_dir)
+    # Mapping the weight keys, which is used to determine whether to load the Hugging Face weights.
+
+    try:
+        src_sharded_tensor_metas, key_mapping, core_network = params_key_mapping(src_sharded_tensor_metas, network)
+        # Validate the returned values
+        if not isinstance(src_sharded_tensor_metas, dict) or not isinstance(key_mapping, dict) or core_network is None:
+            raise ValueError("Mapping the params sharded metas failed.")
+    except NotImplementedError as e:
+        raise NotImplementedError(
+            f"Network '{type(network).__name__}' does not have the method to convert Hugging Face weights. "
+            "Please ensure the network or its backbone implements this method.") from e
 
     if not src_sharded_tensor_metas or not param_file_mappings:
         raise RuntimeError(
-            f"Failed to load valid metadata from checkpoint directory: {checkpoint_dir}. "
+            f"Failed to load valid metadata from checkpoint directory: `{checkpoint_dir}`. "
             "Metadata must include both sharded tensor information and parameter-file mappings."
         )
 
-    # Get current strategy metadata from network and optimizer
-    logger.info(".........Get Current Strategy Metadata.........")
-    cur_rank_strategy_layout = get_current_strategy_metadata(network=network)[0]
-    cur_rank_sharded_tensors: List[ShardedTensor] = []
+    # Define parameter filtering function
+    def filter_func(param_name: str) -> bool:
+        if optimizer:
+            return "accu_grads" not in param_name
+        return param_name in list(network.parameters_dict().keys())
 
-    if cur_rank_strategy_layout:
-        # Convert strategy layout to required format
-        cur_rank_strategy_layout = [dict([item]) for item in cur_rank_strategy_layout.items()]
-
-        # Define parameter filtering function
-        def filter_fun(param_name: str) -> bool:
-            if optimizer:
-                return "accu_grads" not in param_name
-            return param_name in list(network.parameters_dict().keys())
-
-        # Get sharded tensors from strategy metadata
-        cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
-            param_infos=cur_rank_strategy_layout, cur_npu_rank=get_real_rank(), filter_func=filter_fun
-        )
+    if balanced_load:
+        dst_sharded_tensor_metas = apply_balance_shard_strategy(network, filter_func)[-1]
     else:
-        # Fallback: Get sharded tensors directly from network and optimizer
-        cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(network, optimizer)
+        if get_real_group_size() > 1:
+            cur_rank_sharded_tensors = get_cur_sharded_tensor(network, filter_func)
+        else:
+            # Fallback: Get sharded tensors directly from network and optimizer
+            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(network, optimizer)
 
-    # Convert list of sharded tensors to dictionary for lookup
-    dst_sharded_tensor_metas = convert_sharded_tensor_list_to_dict(cur_rank_sharded_tensors)
+        # Convert list of sharded tensors to dictionary for lookup
+        dst_sharded_tensor_metas = convert_sharded_tensor_list_to_dict(cur_rank_sharded_tensors)
 
     # Categorize parameters based on sharding strategies
-    _, no_shard_params, online_shard_params = categorize_params(
-        dst_sharded_tensor_metas, src_sharded_tensor_metas, param_file_mappings)
+    _, need_concat_params, no_shard_params, online_shard_params = categorize_params(
+        dst_sharded_tensor_metas, src_sharded_tensor_metas, param_file_mappings
+    )
+
+    # Process Weight
+    state_dict: Dict[str, Parameter] = {}
+
+    # Concat parameters
+    concat_params(checkpoint_dir, core_network, key_mapping, need_concat_params, state_dict)
 
     # Load parameters that don't require resharding
-    state_dict: Dict[str, Parameter] = {}
     for file_name, param_info in no_shard_params.items():
         param_name_list = param_info["param_name_list"]
         param_dtype_list = param_info["param_dtype_list"]
-        state_dict.update(
-            load_safetensor(os.path.join(checkpoint_dir, file_name), param_name_list, dtype=param_dtype_list)
+        no_reshard_state_dict = load_safetensor(
+            os.path.join(checkpoint_dir, file_name), param_name_list, dtype=param_dtype_list
         )
+
+        state_dict.update({
+            key_mapping[param_name]: value
+            for param_name, value in no_reshard_state_dict.items()
+        })
 
     # Load and reshard parameters that require online resharding
     for param_name, (full_shape, from_layout, to_layout, to_rank_id) in online_shard_params.items():
         reshard_handler = ReshardHandler(param_name, full_shape, from_layout, to_layout, to_rank_id)
         all_offset = reshard_handler.infer_all_tensor_offset()
         from_tensor_map = load_tensor_by_offset(
-            all_offset, param_name, checkpoint_dir, src_sharded_tensor_metas, param_file_mappings
+            all_offset, param_name, checkpoint_dir, src_sharded_tensor_metas, param_file_mappings, key_mapping
         )
         target_weight = reshard_handler.get_real_tensor(from_tensor_map)
+        param_name = key_mapping[param_name]
         state_dict[param_name] = Parameter(target_weight, name=param_name, requires_grad=False)
 
     # Handle global_step for optimizer if needed
@@ -915,15 +992,62 @@ def load_checkpoint(
         # Initialize global_step with default or from common.json
         if not global_step:
             common_file = os.path.join(checkpoint_dir, 'common.json')
-            global_step = 0 if not os.path.exists(common_file) else \
-                CommonInfo.load_common(common_file).global_step
+            global_step = 0 if not os.path.exists(common_file) else CommonInfo.load_common(common_file).global_step
 
         state_dict["global_step"] = Parameter(
             Tensor([global_step], mstype.int32), name="global_step", requires_grad=False
         )
 
     # Load state dictionary into network and optimizer
-    load_parameters(network, state_dict, optimizer)
+    load_parameters(network, state_dict, optimizer, balanced_load=balanced_load)
+
+
+def concat_params(checkpoint_dir: str, core_network, key_mapping: dict, need_concat_params, state_dict: dict):
+    """Concat the need_concat_params dict in checkpoint."""
+    if need_concat_params and not hasattr(core_network, 'convert_hf_weight'):
+        raise NotImplementedError("The `convert_hf_weight` method of network is not implemented.")
+
+    for param_name, concat_info in need_concat_params.items():
+        sharded_tensor_list, reshard_info = concat_info
+        org_weight_dict = {}
+        # Get all the params need to concat into `org_weight_dict`.
+        for sharded_tensor in sharded_tensor_list:
+            org_weight_dict.update(
+                load_safetensor(
+                    checkpoint_path=os.path.join(checkpoint_dir, sharded_tensor['file_name']),
+                    param_name=sharded_tensor['sub_name'],
+                    dtype=sharded_tensor['param_dtype']
+                )
+            )
+        # Mapping the weight key to MCore key into `concat_dict`.
+        concat_dict = {
+            key_mapping[k]: v
+            for k, v in org_weight_dict.items()
+        }
+        # Concat the weight.
+        concated_weight = core_network.convert_hf_weight(concat_dict)
+
+        if reshard_info:
+            # Get the offset of the Tensor to reshard.
+            full_shape, from_layout, to_layout, to_rank_id = reshard_info
+            reshard_handler = ReshardHandler(param_name, full_shape, from_layout, to_layout, to_rank_id)
+            all_offset = reshard_handler.infer_all_tensor_offset()
+            # Get the slice to reshard the Tensor.
+            slices = tuple(slice(start, end) for start, end in all_offset[0])
+            target_weight = concated_weight[param_name][slices]
+            # Update to `state_dict` to load into the network.
+            state_dict[param_name] = Parameter(target_weight, name=param_name, requires_grad=False)
+        else:
+            state_dict[param_name] = Parameter(concated_weight[param_name], name=param_name, requires_grad=False)
+
+
+def check_the_param_for_load_ckpt(checkpoint: str, network: Cell):
+    """Check the params passing in `load_checkpoint` method is legal."""
+    if network is None:
+        raise ValueError("The 'network' cannot be None - a target network is required for loading.")
+
+    if not os.path.exists(checkpoint):
+        raise ValueError(f"Checkpoint does not exist: {checkpoint}")
 
 
 def load_parameters(
@@ -931,7 +1055,8 @@ def load_parameters(
         state_dict: Dict[str, Parameter],
         optimizer: Optional[Cell] = None,
         state_dict_opt: Optional[Dict[str, Parameter]] = None,
-) -> Tuple[List[str], List[str], Optional[List[str]], Optional[List[str]]]:
+        balanced_load: Optional[bool] = False
+):
     """
     Loads parameters into network and optimizer.
 
@@ -956,13 +1081,13 @@ def load_parameters(
     optimizer_param_names = set(optimizer.parameters_dict().keys()) if optimizer else set()
     for param_name in list(state_dict.keys()):
         if param_name not in network_param_names and param_name in optimizer_param_names \
-            and param_name not in state_dict_opt:
+                and param_name not in state_dict_opt:
             state_dict_opt[param_name] = state_dict.pop(param_name)
 
     # Load parameters into network
     param_not_load, ckpt_not_load = [], []
     logger.debug(f"Network state_dict keys: {list(state_dict.keys())}")
-    param_not_load, ckpt_not_load = load_param_into_net(network, state_dict)
+    param_not_load, ckpt_not_load = load_param_into_net(network, state_dict, remove_redundancy=balanced_load)
     logger.info(f"Network parameters not loaded: {list(param_not_load)}")
     logger.info(f"Checkpoint weights not loaded: {list(ckpt_not_load)}")
 
@@ -976,7 +1101,11 @@ def load_parameters(
             if param_name in optimizer_param_names and param_name not in state_dict_opt:
                 state_dict_opt[param_name] = state_dict.pop(param_name)
         logger.debug(f"Optimizer state_dict keys: {list(state_dict_opt.keys())}")
-        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(optimizer, state_dict_opt)
+        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(
+            optimizer,
+            state_dict_opt,
+            remove_redundancy=balanced_load
+        )
         logger.info(f"Optimizer parameters not loaded: {list(param_not_load_opt)}")
         logger.info(f"Optimizer weights not loaded: {list(ckpt_not_load_opt)}")
 
@@ -1006,6 +1135,27 @@ def get_checkpoint_path(checkpoint: str) -> str:
 
     if not os.path.isdir(checkpoint):
         raise ValueError(f"Checkpoint path is not a directory: {checkpoint}")
+
+    # Check all need checkpoint files if load Hugging Face checkpoint
+    hf_index_json = os.path.join(checkpoint, "model.safetensors.index.json")
+    if os.path.exists(hf_index_json):
+        with open(hf_index_json, 'r', encoding='utf-8') as f:
+            index_json = json.load(f)
+        if isinstance(index_json, dict):
+            weight_map = index_json['weight_map'] if 'weight_map' in index_json else index_json
+        else:
+            raise ValueError(f"Format of '{hf_index_json}' is illegal!")
+
+        sf_file_list = set(weight_map.values())
+        not_exist_file = [
+            f
+            for f in sf_file_list
+            if not os.path.isfile(os.path.join(checkpoint, f))
+        ]
+        not_exist_file.sort()
+        if not_exist_file:
+            raise ValueError(f"The files '{not_exist_file}' do not exist in `{checkpoint}`.")
+        return checkpoint
 
     tracker_filename = get_checkpoint_tracker_filename(checkpoint)
     if os.path.exists(tracker_filename):

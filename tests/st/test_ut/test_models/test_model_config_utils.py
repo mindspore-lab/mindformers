@@ -98,7 +98,7 @@ class HuggingFaceModelConfigExample3(PretrainedConfig):
     @register_mf_model_parameter(
         mf_model_kwargs=MFModelConfig(
             compute_dtype="bfloat16",
-            attention_pre_tokens=2025
+            batch_size=32
         )
     )
     def __init__(
@@ -182,4 +182,4 @@ class TestModelConfigUtils:
         assert ignore_n_shared_experts == "useless"
         assert config.compute_dtype == "float32"
         assert config.layernorm_compute_dtype == "bf16"
-        assert config.attention_pre_tokens == 2025
+        assert config.batch_size == 32

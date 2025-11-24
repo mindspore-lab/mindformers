@@ -4,7 +4,7 @@
 """Model Parallel Config"""
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 from mindformers.parallel_core.mf_model_config import convert_str_to_mstype
 
@@ -103,47 +103,8 @@ class ModelParallelConfig:
     # Training
     ###################
 
-    fp16: bool = False
-    """If true, train with fp16 mixed precision training."""
-
-    bf16: bool = False
-    """If true, train with bf16 mixed precision training."""
-
     params_dtype: str = "float32"
     """dtype used when initializing the weights."""
-
-    finalize_model_grads_func: Optional[Callable] = None
-    """
-    Function that finalizes gradients on all workers.
-    Could include ensuring that grads are all-reduced across data parallelism, pipeline parallelism,
-    and sequence parallelism dimensions.
-    """
-
-    grad_scale_func: Optional[Callable] = None
-    """
-    If using loss scaling, this function should take the loss and return the scaled loss.
-    If None, no function is called on the loss.
-    """
-
-    grad_sync_func: Optional[Callable] = None
-    """
-    Function that launches asynchronous gradient reductions (e.g. distributed optimizer gradient reduce-scatters).
-    The function should take one argument: an iterable of parameters whose gradients are to be synchronized.
-    """
-
-    param_sync_func: Optional[Callable] = None
-    """
-    Function that launches asynchronous parameter synchronizations (e.g. distributed optimizer parameter all-gathers).
-    The function should take one argument: an iterable of parameters to be synchronized.
-    """
-
-    num_microbatches_with_partial_activation_checkpoints: Optional[int] = None
-    """
-    If int, set the number of microbatches where not all of the layers will be checkpointed and recomputed.
-    The rest of the microbatches within the window of maximum outstanding
-    microbatches will recompute all layers (either full recompute or selective recompute).
-    If None, the checkpoint and recompute will be left up to the forward_step function.
-    """
 
     ###################
     # CPU Offloading

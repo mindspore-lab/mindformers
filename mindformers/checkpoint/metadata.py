@@ -25,7 +25,7 @@ from mindspore.parallel import Layout
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_safe_mode_for_file_or_dir
-from mindformers.checkpoint.sharded_tensor import build_sharded_tensor, get_sharded_tensor_list_from_strategy_metadata
+from mindformers.checkpoint.sharded_tensor import build_sharded_tensor
 from mindformers.checkpoint.utils import (
     get_checkpoint_name,
     get_sharded_tensor_shard_id,
@@ -274,7 +274,7 @@ def generate_default_metadata_from_checkpoint(checkpoint_dir: str) -> tuple[dict
         raise NotADirectoryError(
             f"Checkpoint directory '{checkpoint_dir}' does not exist or is not a directory.")
 
-    logger.info(f"..........Load Metadata from Checkpoint Files..........")
+    logger.info("..........Load Metadata from Checkpoint Files..........")
 
     # Find all safetensor files in the checkpoint directory
     safetensor_pattern = os.path.join(checkpoint_dir, "*.safetensors")
@@ -309,9 +309,9 @@ def generate_default_metadata_from_checkpoint(checkpoint_dir: str) -> tuple[dict
 
                 # Extract tensor properties
                 tensor_shape = tensor.shape
-                ms_dtype = tensor_to_ms_type.get(tensor.dtype.__str__())
+                ms_dtype = tensor_to_ms_type.get(str(tensor.dtype))
                 global_offset = (0,)
-                axis_fragmentations = [1] * len(tensor_shape)
+                axis_fragmentations = (1,) * len(tensor_shape)
 
                 # Create sharded tensor metadata object
                 sharded_tensor = build_sharded_tensor(
@@ -337,37 +337,13 @@ def generate_default_metadata_from_checkpoint(checkpoint_dir: str) -> tuple[dict
     return sharded_tensor_metas, param_file_mappings
 
 
-def get_total_shard_metadata(global_strategy_info, filter_func):
-    """Get all shard metadata."""
-    npu_nums = get_group_size()
-    sharded_tensor_metas = list()
-
-    for cur_npu_rank in range(0, npu_nums):
-        org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
-        cur_rank_strategy_layout = [
-            dict([item])
-            for item in org_cur_rank_strategy_layout.items()
-        ]
-
-        # Get Sharded tensors from strategy metadata of current rank.
-        cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
-            param_infos=cur_rank_strategy_layout,
-            cur_npu_rank=cur_npu_rank,
-            filter_func=filter_func
-        )
-
-        sharded_tensor_metas.append(cur_rank_sharded_tensors)
-
-    return sharded_tensor_metas
-
-
 def get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_keys):
     """Get all shard metadata file mappings list."""
     if sharded_tensor_metas is None:
         return None
 
     npu_nums = get_group_size()
-    param_file_mappings = list()
+    param_file_mappings = []
     for cur_npu_rank, cur_rank_sharded_tensor_list in enumerate(sharded_tensor_metas):
         # Get mappings of parameter file of current rank.
         for sharded_tensor in cur_rank_sharded_tensor_list:

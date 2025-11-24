@@ -48,7 +48,7 @@ _CHECK_TEXT_MAPPING = {
     'eval_epoch_interval', 'eval_dataset', 'eval_dataset_task', 'lr_schedule', 'metric', 'model', 'moe_config',
     'optimizer', 'parallel_config', 'parallel', 'recompute_config', 'remove_redundancy', 'runner_config',
     'runner_wrapper', 'monitor_config', 'tensorboard', 'train_dataset_task', 'train_dataset', 'trainer',
-    'swap_config', 'use_legacy', 'pretrained_model_dir', 'print_separate_loss', 'ckpt_use_legacy_format',
+    'swap_config', 'use_legacy', 'pretrained_model_dir', 'print_separate_loss', 'use_legacy_format',
     'balanced_load'
 }
 
@@ -59,8 +59,7 @@ def generator_train():
     batch_size = 1
     vocab_size = 32000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
-    for idx, _ in enumerate(input_ids):
-        yield input_ids[idx]
+    yield from input_ids
 
 class TestTensorBoard:
     """A test class for testing pipeline."""

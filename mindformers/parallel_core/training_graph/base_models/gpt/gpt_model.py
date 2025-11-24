@@ -616,11 +616,11 @@ class GPTModel(nn.Cell):
             return []
 
         def _update_expert_load(router, gradient_accumulation_steps):
-            expert_load_data = router.expert_load.copy()
+            expert_load_data = router.expert_load.value()
             if expert_load_data.sum() > 0:
                 err = F.sub(self.step_over_expert_num * gradient_accumulation_steps, expert_load_data)
                 expert_bias_new = F.add(
-                    router.expert_bias.copy(),
+                    router.expert_bias.value(),
                     F.mul(F.sign(err), self.moe_router_bias_update_rate)
                 )
                 self.assign(router.expert_bias, expert_bias_new)
@@ -849,7 +849,7 @@ class GPTModel(nn.Cell):
                 tp_dims.append(0)
         return tuple(tp_dims)
 
-    def get_op_groups_info(self, params, op, tp_group, op_group):
+    def get_op_groups_info(self, params, op, op_group, op_in_tp_group):
         """Return optimizer parallel group information for each parameter.
         
         Args:
@@ -901,7 +901,7 @@ class GPTModel(nn.Cell):
                 op_list.append(op)
 
                 if name_filter(param.name, use_tp_group_list):
-                    op_groups.append(tp_group)
+                    op_groups.append(op_in_tp_group)
                 else:
                     op_groups.append(op_group)
 
