@@ -1264,7 +1264,7 @@ class BaseTrainer:
             is_mtp_model = network.is_mtp_model()
             transformer_config = network.get_gpt_transformer_config()
 
-        if config.ckpt_use_legacy_format:
+        if config.get('use_legacy_format', True):
             config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
