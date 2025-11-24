@@ -1,0 +1,77 @@
+# Test configuration for pretrain dataset
+train_dataset:
+  # data_loader: 数据加载器配置，指定数据加载的方式和数据集信息
+  data_loader:
+    # type: 数据加载器类型，BlendedMegatronDatasetDataLoader用于混合多个Megatron格式数据集
+    type: BlendedMegatronDatasetDataLoader
+
+    # sizes: 数据集样本数量配置，格式为[train_size, test_size, eval_size]
+    sizes:
+      - 1000 # 训练集数据样本数，指定训练集包含的样本总数
+      - 0    # 测试集数据样本数，当前配置为0表示不使用测试集
+      - 0    # 评测集数据样本数，当前配置为0表示不使用评测集
+
+    # config: GPTDataset配置项，定义数据集的具体参数
+    config:
+      # seq_length: 数据集返回数据的序列长度，指定每个样本的token序列长度
+      seq_length: 8192
+
+      # eod_mask_loss: 是否在计算loss时屏蔽EOD(End of Document)位置的损失
+      # 设置为True时，EOD位置的token不会参与损失计算，避免影响模型学习效果
+      eod_mask_loss: True
+
+      # reset_position_ids: 是否重置position_ids
+      # 设置为True时，会在每个新文档开始时重置位置编码，确保位置信息正确
+      reset_position_ids: True
+
+      # create_attention_mask: 是否创建attention_mask
+      # 设置为True时会生成注意力掩码，用于控制模型在自注意力计算中哪些位置可以被关注
+      create_attention_mask: True
+
+      # reset_attention_mask: 是否重置attention_mask
+      # 设置为True时会在特定条件下(如遇到EOD)重置注意力掩码，确保模型正确处理序列边界
+      reset_attention_mask: True
+
+      # create_compressed_eod_mask: 是否返回压缩后的attention_mask，用于节省内存
+      create_compressed_eod_mask: False
+
+      # eod_pad_length: 设置压缩后attention_mask的长度，当create_compressed_eod_mask为True时生效
+      eod_pad_length: 128
+
+      # eod: 数据集中eod(End of Document)的token id，用于标识文档结束，需要和训练模型中Tokenizer的eod id一致
+      eod: 0
+
+      # pad: 数据集中pad(填充)的token id，用于序列长度对齐，需要和训练模型中Tokenizer的pad id一致
+      pad: 1
+
+      # data_path: Megatron数据集采样比例以及路径，定义多个数据集的混合配置
+      data_path:
+        - '0.3'                          # 数据集1的占比，占总数据的30%
+        - "/path/megatron_data1"         # 数据集1的bin文件路径（去除.bin后缀的完整文件名）
+        - '0.7'                          # 数据集2的占比，占总数据的70%
+        - "/path/megatron_data2"         # 数据集2的bin文件路径（去除.bin后缀的完整文件名）
+
+  # input_columns: 输入列名，指定数据集中包含的字段名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义DataLoader并手动指定，则会优先使用用户自定义的
+  input_columns: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
+
+  # construct_args_key: 构造参数键名，指定传给模型构造函数的参数名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义网络入参，则会优先使用用户自定义的
+  construct_args_key: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
+
+  # drop_remainder: 是否丢弃最后一个不完整的batch，设置为True时会丢弃不足batch大小的数据
+  drop_remainder: True
+
+  # num_parallel_workers: 并行数据处理工作线程数，控制数据预处理的并行度
+  num_parallel_workers: 8
+
+  # python_multiprocessing: 是否启用Python多进程，设置为True时使用多进程处理数据
+  python_multiprocessing: False
+
+  # numa_enable: 是否启用NUMA优化，用于提升多核CPU环境下的数据处理性能
+  numa_enable: False
+
+  # prefetch_size: 数据预取大小，控制预加载到内存中的数据batch数量
+  # 设置较大的值可以提高数据加载效率，减少训练等待时间，但会增加内存占用
+  # 通常建议设置为1-4之间，根据可用内存和数据集大小进行调整
+  prefetch_size: 1
