@@ -354,6 +354,10 @@ class HFDataLoader:
         """Wrap source dataset with Mindspore Dataset."""
         if getattr(config, 'streaming', False):
             hf_dataset = HFIterableDataset(config, dataset, num_shards, shard_id)
+            if num_parallel_workers > 1:
+                num_parallel_workers = 1
+                logger.warning(
+                    "Streaming mode only supports 'num_parallel_workers=1'. Automatically resetting the value.")
         else:
             hf_dataset = HFDataset(config, dataset)
         dataset = GeneratorDataset(
