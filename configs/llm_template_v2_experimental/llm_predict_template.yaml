@@ -1,0 +1,33 @@
+# 配置说明和更多配置功能请查阅: llm_config_whitelist_introduce.md
+output_dir: './output'  # 推理输出目录，用于保存MindFormers Logger日志等推理文件
+run_mode: 'predict'  # 运行模式，'predict'表示推理预测模式
+use_parallel: True  # 是否启用并行推理功能，True启用分布式并行推理，False使用单卡推理模式
+infer_seed: 42  # 推理时的随机种子，用于确保推理过程的可复现性
+infer_precision_sync: False  # 推理确定性计算开关，True启用确定性计算保证结果一致，False使用非确定性计算
+predict_batch_size: 1  # 推理批次大小，指定每次推理处理的样本数量
+load_checkpoint: ''  # 加载检查点路径，指定模型权重文件的路径，空字符串表示不加载，优先使用pretrained_model_dir
+
+pretrained_model_dir: '/path/hf_dir'  # HuggingFace模型文件目录，用于读取HF的模型配置、词表、权重等
+model_config:
+  compute_dtype: "bfloat16"  # 计算数据类型，用于推理计算，bfloat16可提升推理速度并节省显存
+  layernorm_compute_dtype: "float32"  # LayerNorm层的计算数据类型，通常使用float32保证精度
+  softmax_compute_dtype: "float32"  # Softmax层的计算数据类型，通常使用float32保证数值稳定性
+  rotary_dtype: "bfloat16"  # RoPE旋转位置编码的计算数据类型
+  params_dtype: "bfloat16"  # 模型参数数据类型，用于存储模型权重，bfloat16可减少显存占用
+
+distribute_parallel_config:
+  data_parallel_size: null  # 数据并行大小，null表示自动根据TP的设置和总设备数计算得到
+  tensor_model_parallel_size: 1  # 张量模型并行大小，将模型的权重分割到多个设备上，1表示不使用张量并行
+  expert_model_parallel_size: 1  # 专家并行大小，用于MoE（Mixture of Experts）模型，1表示不使用专家并行
+
+context:
+  mode: 0  # 运行模式，0表示图模式(Graph Mode)，1表示动态图模式(Pynative Mode)，推理推荐使用0
+  max_device_memory: "59GB"  # 设备最大内存限制，单设备64GB通常设置为<=59GB，需预留内存给系统使用
+
+parallel:
+  parallel_mode: "MANUAL_PARALLEL"  # 并行模式，"MANUAL_PARALLEL"表示手动并行模式，LLM推理默认走手切模式
+  enable_alltoall: False  # 是否启用AllToAll通信，False表示不启用，通常配合MOE模型专家并行使用
+
+trainer:
+  type: LLMTrainer  # 训练器类型，LLMTrainer是专门为大语言模型设计的Trainer，提供简化的推理逻辑
+  task_name: 'llm_model'  # 任务名称，用户可自定义，建议使用模型名称便于识别和管理

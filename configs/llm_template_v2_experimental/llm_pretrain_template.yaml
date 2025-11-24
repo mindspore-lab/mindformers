@@ -1,0 +1,96 @@
+# 配置说明和更多配置功能请查阅: llm_config_whitelist_introduce.md
+output_dir: './output'  # 训练输出目录，用于保存模型检查点、日志等训练产出文件
+run_mode: 'train'  # 运行模式：'train'(训练) | 'finetune'(微调) | 'predict'(推理)
+use_parallel: False  # 是否启用并行功能，True启用分布式并行，False使用单卡模式
+train_precision_sync: False  # 训练确定性计算开关，True启用确定性计算保证可复现，False使用非确定性计算提升速度
+pretrained_model_dir: '/path/hf_dir'  # HuggingFace模型文件目录，用于读取HF的模型配置、词表、权重等
+
+checkpoint_config:
+  load_checkpoint: ''  # 权重加载路径，空字符串表示不加载预训练权重，从头开始训练
+  prefix: "llm_model"  # 保存权重文件的前缀名，建议使用模型名称如qwen3/glm4等
+  save_checkpoint_steps: 100  # 按训练步数间隔保存检查点，每训练指定步数保存一次模型权重
+  keep_checkpoint_max: 1  # 最多保留的检查点文件数量，超过该值会自动删除最旧的检查点
+
+training_args:
+  epochs: 1  # 训练轮数，指定整个数据集需要训练的轮次数量
+  micro_batch_size: 1  # 微批次大小，每个设备上单次前向/反向传播处理的样本数量
+  global_batch_size: 128  # 全局批次大小，所有数据并行设备上的有效批次大小
+  training_seed: 42  # 训练过程中的随机种子，用于确保训练过程的可复现性
+  dataset_seed: 1234  # 数据集采样的随机种子，null时使用training_seed
+  stop_step: null  # 自定义训练停止步数，null表示不设置提前停止，注意需要同步调整学习率调度
+  resume_training: False  # 是否启用断点续训功能，True时从权重或数据集恢复训练
+
+optimizer:
+  type: AdamW  # 优化器类型，AdamW是常用的自适应优化器
+  betas: [0.9, 0.95]  # AdamW优化器的beta参数，控制一阶和二阶动量的衰减率
+  eps: 1.e-8  # epsilon参数，用于数值稳定性的小常数，防止除零错误
+  weight_decay: 0.0  # 权重衰减系数，用于L2正则化，0.0表示不使用权重衰减
+
+lr_schedule:
+  type: ConstantWarmUpLR  # 学习率调度器类型，ConstantWarmUpLR带WarmUp的恒定学习率调度器
+  learning_rate: 1.e-6  # 基础学习率值，训练过程中使用的学习率
+  warmup_ratio: 0  # warmup比例，控制预热阶段占总训练步数的比例，0表示不使用预热
+  total_steps: -1  # 总训练步数，-1表示使用默认的数据集大小计算出的总步数
+
+train_dataset:
+  data_loader:
+    type: BlendedMegatronDatasetDataLoader  # 数据加载器类型，用于混合多个Megatron格式数据集
+    sizes:
+      - 1000  # 训练集数据样本数，指定训练集包含的样本总数
+      - 0  # 测试集数据样本数，当前配置为0表示不使用测试集
+      - 0  # 评测集数据样本数，当前配置为0表示不使用评测集
+    config:
+      seq_length: 8192  # 数据集返回数据的序列长度，指定每个样本的token序列长度
+      create_compressed_eod_mask: False  # 是否返回压缩后的attention_mask，用于节省内存
+      compressed_eod_mask_length: 128  # 设置压缩后attention_mask的长度，当create_compressed_eod_mask为True时生效
+      eod: 0  # 数据集中eod(End of Document)的token id，用于标识文档结束，需和Tokenizer的eod id一致
+      pad: 1  # 数据集中pad(填充)的token id，用于序列长度对齐，需和Tokenizer的pad id一致
+      data_path:
+        - '0.3'  # 数据集1的占比，占总数据的30%
+        - "/path/megatron_data1"  # 数据集1的bin文件路径（去除.bin后缀的完整文件名）
+        - '0.7'  # 数据集2的占比，占总数据的70%
+        - "/path/megatron_data2"  # 数据集2的bin文件路径（去除.bin后缀的完整文件名）
+  drop_remainder: True  # 是否丢弃最后一个不完整的batch，True时会丢弃不足batch大小的数据
+
+model_config:
+  params_dtype: "float32"  # 模型参数数据类型，用于存储模型权重
+  compute_dtype: "bfloat16"  # 计算数据类型，用于前向和反向传播计算，bfloat16可提升训练速度
+  layernorm_compute_dtype: "float32"  # LayerNorm层的计算数据类型，通常使用float32保证精度
+  softmax_compute_dtype: "float32"  # Softmax层的计算数据类型，通常使用float32保证数值稳定性
+  rotary_dtype: "float32"  # RoPE旋转位置编码的计算数据类型
+
+distribute_parallel_config:
+  tensor_model_parallel_size: 1  # 张量模型并行大小，将模型的权重分割到多个设备上，1表示不使用
+  pipeline_model_parallel_size: 1  # 流水线模型并行大小，将模型的不同层分配到不同设备上，1表示不使用
+  context_parallel_size: 1  # 上下文并行大小，用于处理长序列的并行计算，1表示不使用
+  cp_comm_type: all_gather  # 上下文并行通信类型，支持all_to_all或all_gather两种通信方式
+  sequence_parallel: False  # 是否启用序列并行，False表示不启用
+  pipeline_parallel_config:
+    pipeline_interleave: False  # 是否启用流水线交错，False表示不启用
+    pipeline_scheduler: "1f1b"  # 流水线调度器类型，支持gpipe/1f1b/zero_bubble_v等策略
+    virtual_pipeline_model_parallel_size: 1  # 虚拟流水线模型并行大小，只有1f1b模式生效
+    pipeline_stage_offset: 0  # 流水线阶段偏移量，控制不同stage的内存负载
+  optimizer_parallel_config:
+    enable_parallel_optimizer: False  # 是否启用并行优化器，False表示不启用优化器并行
+    optimizer_level: level1  # 优化器并行级别，level1表示优化器并行的级别
+  micro_batch_interleave_num: 1  # 微批次交错数量，当模型并行>1时，设置为2可能加速训练过程
+
+recompute_config:
+  recompute: True  # 是否启用重计算以节省内存，True时启用重计算可显著减少显存占用但会增加计算时间
+
+parallel:
+  parallel_mode: 1  # 并行模式，0数据并行，1半自动并行，2自动并行，推荐使用1
+  enable_alltoall: True  # 是否启用AllToAll通信操作，True时在并行通信中启用AllToAll通信算子
+
+context:
+  max_device_memory: "58GB"  # 设备最大内存限制，单设备64GB通常设置为<=59GB，需预留内存给系统使用
+  mempool_block_size: "58GB"  # 内存池块大小，控制内存分配的块大小，较大的块可减少内存碎片
+  memory_optimize_level: "O0"  # 内存优化级别，O0基础优化，O1进行内存整理优化减少碎片
+  jit_config:
+    jit_level: "O0"  # 编译优化级别，O0关闭大部分优化，O1使能常用优化和自动算子融合优化
+  ascend_config:
+    parallel_speed_up_json_path: "./configs/model_path/parallel_speed_up.json"  # 并行加速JSON文件路径
+
+trainer:
+  type: LLMTrainer  # 训练器类型，LLMTrainer是专门为大语言模型设计的训练器，提供简化的训练流程
+  task_name: 'llm_pretrain'  # 任务名称，用户可自定义，建议使用模型名称便于识别和管理
