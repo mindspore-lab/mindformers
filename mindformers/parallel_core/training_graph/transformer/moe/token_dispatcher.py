@@ -14,21 +14,23 @@
 # ============================================================================
 """MoETokenDispatcher for MoE."""
 
-import hashlib
 from abc import abstractmethod
 from typing import Any
 import numpy as np
-import mindspore as ms
-from mindspore import nn, ParallelMode, ops, mint, Parameter
-from mindspore.common.tensor import Tensor
-from mindspore.communication import create_group, get_rank
-from mindspore.parallel._utils import _get_parallel_mode
-from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
-from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.version_control import get_all2allvc
 
-_OEP_GROUP_NAME = {}
-_IEP_GROUP_NAME = {}
+import mindspore as ms
+from mindspore import nn, ops, mint, Parameter
+from mindspore.common.tensor import Tensor
+from mindspore.communication import get_rank
+from mindspore.ops.auto_generate import CumsumExt, FmodScalar, SortExt, IndexSelect, OneHotExt, Cast, Reshape, Zeros, Transpose, ReduceSum, MaskedSelect
+
+from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.transformer.moe.utils import (
+    get_ep_group_name,
+    get_iep_group_name,
+    get_oep_group_name
+)
+from mindformers.version_control import get_all2allvc
 
 
 class AlltoAll(nn.Cell):
@@ -80,28 +82,11 @@ class MoETokenDispatcher:
         self.cp = config.context_parallel_size
 
         self.num_out_tokens = None
-        self.ep_group = self._ep_group()
+        self.ep_group = get_ep_group_name(get_rank(), self.ep)
 
         self.d2h = ops.MoveTo().add_prim_attr("recompute", False)
         if self.config.print_expert_load:
             self.assign_add = ops.AssignAdd()
-
-    def _ep_group(self):
-        """Get expert model parallel group."""
-        if _get_parallel_mode() == ParallelMode.STAND_ALONE:
-            return None
-        rank_id = get_rank()
-        ep = self.config.expert_model_parallel_size
-
-        rank_start = rank_id // ep * ep
-        rand_end = rank_id // ep * ep + ep
-        rank_list = list(range(rank_start, rand_end))
-
-        rank_list_str = "-".join([str(i) for i in range(rank_start, rand_end)])
-        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
-        ep_group_name = str(hashed)
-        create_group(ep_group_name, rank_list)
-        return ep_group_name
 
     @property
     def tp_group(self):
@@ -306,8 +291,8 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         self.b = self.a + node_expert_num
 
         # communication group
-        self.oep_group = self._get_oep_group_name()
-        self.iep_group = self._get_iep_group_name()
+        self.oep_group = get_oep_group_name(self.rank_id, self.ep, self.iep)
+        self.iep_group = get_iep_group_name(self.rank_id, self.iep)
 
         self.mul = ops.Mul().recompute(True)
         self.nonzero = ops.NonZero().recompute(False)
@@ -315,51 +300,6 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         self.oep_allgather = ops.AllGather(group=self.oep_group).recompute(False)
         self.onehot = ops.OneHot().recompute(False)
         self.iep_alltoallv = ops.AlltoAllV(group=self.iep_group, block_size=1).recompute(False)
-
-    def _get_oep_group_name(self):
-        """
-        Generates a unique group name for a set of ranks involved in outer expert partitioning (oep)
-        and creates a communication group with this name.
-        This method calculates a range of ranks based on the current rank id
-        and the expert partition size, hashes this range to create a unique
-        identifier, and then establishes a new communication group using this identifier.
-        """
-        rank_start = self.rank_id // self.ep * self.ep
-        rank_start = rank_start + self.rank_id % self.iep
-        rand_end = rank_start + self.ep
-        rank_list = list(range(rank_start, rand_end, self.iep))
-
-        rank_list_str = "-".join([str(i) for i in rank_list])
-        if rank_list_str in _OEP_GROUP_NAME:
-            return _OEP_GROUP_NAME[rank_list_str]
-
-        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
-        oep_group_name = str(hashed)
-        create_group(oep_group_name, rank_list)
-        _OEP_GROUP_NAME[rank_list_str] = oep_group_name
-        return oep_group_name
-
-    def _get_iep_group_name(self):
-        """
-        Generates a unique group name for a set of ranks involved in inner expert partitioning (iep)
-        and creates a communication group with this name.
-        This method calculates a range of ranks based on the current rank id
-        and the expert partition size, hashes this range to create a unique
-        identifier, and then establishes a new communication group using this identifier.
-        """
-        rank_start = self.rank_id // self.iep * self.iep
-        rand_end = rank_start + self.iep
-        rank_list = list(range(rank_start, rand_end))
-
-        rank_list_str = "-".join([str(i) for i in rank_list])
-        if rank_list_str in _IEP_GROUP_NAME:
-            return _IEP_GROUP_NAME[rank_list_str]
-
-        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
-        iep_group_name = str(hashed)
-        create_group(iep_group_name, rank_list)
-        _IEP_GROUP_NAME[rank_list_str] = iep_group_name
-        return iep_group_name
 
     def get_exdispatch_idx(self, x, expert_ids, router_coeff):
         """
