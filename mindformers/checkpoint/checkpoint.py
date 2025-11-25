@@ -831,33 +831,18 @@ def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
 
 def params_key_mapping(
         sharded_tensor_metas: Dict[str, List[ShardedTensor]],
-        network: Cell
-) -> tuple[dict, dict, Cell]:
+        core_network: Cell
+) -> tuple[dict, dict]:
     """
     Mapping Hugging Face checkpoint keys to MindSpore Transformers.
 
     Args:
         sharded_tensor_metas: Metadata about sharded tensors.
-        network: The target core network (Cell) which has method `convert_name` to convert Hugging Face weight.
+        core_network: The core network (Cell) which has method `convert_name` to convert Hugging Face weight.
 
     Returns:
         A dictionary after mapping about sharded tensor metas.
     """
-
-    # pylint: disable=W0212
-    def get_core_network(network):
-        """Get the core network that has `convert_name` method."""
-        if hasattr(network, 'convert_name'):
-            return network
-        if hasattr(network, '_backbone'):
-            return get_core_network(network._backbone)
-        if hasattr(network, 'network'):
-            return get_core_network(network.network)
-        raise NotImplementedError("Network has no function `convert_name`.")
-
-    # Get the core network and check the convert method is illegal
-    core_network = get_core_network(network)
-
     # The key of `mapped_sharded_tensor_metas` is in the network,
     # such as { qkv: [ShardedTensor, ShardedTensor, ShardedTensor], ... }
     mapped_sharded_tensor_metas = {}
@@ -879,7 +864,17 @@ def params_key_mapping(
         param_name_converted_concat = core_network.convert_concat_name(param_name_converted)
         mapped_sharded_tensor_metas.setdefault(param_name_converted_concat, []).extend(sharded_tensor_list)
 
-    return mapped_sharded_tensor_metas, key_mapping, core_network
+    return mapped_sharded_tensor_metas, key_mapping
+
+
+# pylint: disable=W0212
+def get_core_network(network):
+    """Get the core network that has `convert_name` method."""
+    if hasattr(network, '_backbone'):
+        return get_core_network(network._backbone)
+    if hasattr(network, 'network'):
+        return get_core_network(network.network)
+    return network
 
 
 def load_checkpoint(
@@ -916,17 +911,11 @@ def load_checkpoint(
 
     # Retrieve metadata from checkpoint files
     src_sharded_tensor_metas, param_file_mappings = get_metadata_of_checkpoint(checkpoint_dir)
-    # Mapping the weight keys, which is used to determine whether to load the Hugging Face weights.
 
-    try:
-        src_sharded_tensor_metas, key_mapping, core_network = params_key_mapping(src_sharded_tensor_metas, network)
-        # Validate the returned values
-        if not isinstance(src_sharded_tensor_metas, dict) or not isinstance(key_mapping, dict) or core_network is None:
-            raise ValueError("Mapping the params sharded metas failed.")
-    except NotImplementedError as e:
-        raise NotImplementedError(
-            f"Network '{type(network).__name__}' does not have the method to convert Hugging Face weights. "
-            "Please ensure the network or its backbone implements this method.") from e
+    # Get the core network and check the convert method is illegal
+    core_network = get_core_network(network)
+    # Mapping the weight keys, which is used to determine whether to load the Hugging Face weights.
+    src_sharded_tensor_metas, key_mapping = params_key_mapping(src_sharded_tensor_metas, core_network)
 
     if not src_sharded_tensor_metas or not param_file_mappings:
         raise RuntimeError(
@@ -938,7 +927,7 @@ def load_checkpoint(
     def filter_func(param_name: str) -> bool:
         if optimizer:
             return "accu_grads" not in param_name
-        return param_name in list(network.parameters_dict().keys())
+        return param_name in list(core_network.parameters_dict().keys())
 
     if balanced_load:
         dst_sharded_tensor_metas = apply_balance_shard_strategy(network, filter_func)[-1]
@@ -947,7 +936,7 @@ def load_checkpoint(
             cur_rank_sharded_tensors = get_cur_sharded_tensor(network, filter_func)
         else:
             # Fallback: Get sharded tensors directly from network and optimizer
-            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(network, optimizer)
+            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(core_network, optimizer)
 
         # Convert list of sharded tensors to dictionary for lookup
         dst_sharded_tensor_metas = convert_sharded_tensor_list_to_dict(cur_rank_sharded_tensors)
@@ -999,7 +988,12 @@ def load_checkpoint(
         )
 
     # Load state dictionary into network and optimizer
-    load_parameters(network, state_dict, optimizer, balanced_load=balanced_load)
+    load_parameters(
+        network if balanced_load else core_network,
+        state_dict,
+        optimizer,
+        balanced_load=balanced_load
+    )
 
 
 def concat_params(checkpoint_dir: str, core_network, key_mapping: dict, need_concat_params, state_dict: dict):
@@ -1079,35 +1073,50 @@ def load_parameters(
     # Separate network and optimizer parameters
     network_param_names = set(network.parameters_dict().keys())
     optimizer_param_names = set(optimizer.parameters_dict().keys()) if optimizer else set()
-    for param_name in list(state_dict.keys()):
-        if param_name not in network_param_names and param_name in optimizer_param_names \
-                and param_name not in state_dict_opt:
-            state_dict_opt[param_name] = state_dict.pop(param_name)
+
+    if balanced_load:
+        merge_optimizer_weights(state_dict, state_dict_opt)
+    else:
+        for param_name in list(state_dict.keys()):
+            if param_name not in network_param_names and param_name in optimizer_param_names \
+                    and param_name not in state_dict_opt:
+                state_dict_opt[param_name] = state_dict.pop(param_name)
 
     # Load parameters into network
-    param_not_load, ckpt_not_load = [], []
-    logger.debug(f"Network state_dict keys: {list(state_dict.keys())}")
+    logger.debug(f"{'' if balanced_load else 'Network'} state_dict keys: {list(state_dict.keys())}")
     param_not_load, ckpt_not_load = load_param_into_net(network, state_dict, remove_redundancy=balanced_load)
-    logger.info(f"Network parameters not loaded: {list(param_not_load)}")
-    logger.info(f"Checkpoint weights not loaded: {list(ckpt_not_load)}")
 
-    # Filter out cache parameters from unloaded list
+    def print_not_load_info(param_list: List, param_info: str):
+        logger.info(f"{param_info} not loaded:")
+        for p in param_list:
+            logger.info(f"  - {p}")
+
+    # Filter out cache and optimizer parameters from unloaded list
     param_not_load = [p for p in param_not_load if "key_cache" not in p and "value_cache" not in p]
 
+    print_not_load_info(param_not_load, f"{'Parameters' if balanced_load else 'Network parameters'}")
+    print_not_load_info(ckpt_not_load, "Checkpoint weights")
+
     # Load parameters into optimizer if available
-    param_not_load_opt, ckpt_not_load_opt = [], []
-    if optimizer and state_dict_opt:
+    if not balanced_load and optimizer and state_dict_opt:
         for param_name in list(state_dict.keys()):
             if param_name in optimizer_param_names and param_name not in state_dict_opt:
                 state_dict_opt[param_name] = state_dict.pop(param_name)
         logger.debug(f"Optimizer state_dict keys: {list(state_dict_opt.keys())}")
-        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(
-            optimizer,
-            state_dict_opt,
-            remove_redundancy=balanced_load
-        )
-        logger.info(f"Optimizer parameters not loaded: {list(param_not_load_opt)}")
-        logger.info(f"Optimizer weights not loaded: {list(ckpt_not_load_opt)}")
+        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(optimizer, state_dict_opt)
+        param_not_load_opt = [p for p in param_not_load_opt if p not in network_param_names]
+        print_not_load_info(param_not_load_opt, "Optimizer parameters")
+        print_not_load_info(ckpt_not_load_opt, "Optimizer weights")
+
+
+def merge_optimizer_weights(state_dict: dict[str, Parameter], state_dict_opt: dict[str, Parameter]):
+    """Merge optimizer-only keys into state_dict."""
+    for param_name in list(state_dict_opt.keys()):
+        if param_name not in state_dict:
+            state_dict[param_name] = state_dict_opt.pop(param_name)
+    if state_dict_opt:
+        logger.warning(f'{list(state_dict_opt.keys())} are discarded because they already exist in state_dict.')
+        state_dict_opt.clear()
 
 
 def get_checkpoint_path(checkpoint: str) -> str:
