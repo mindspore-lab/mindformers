@@ -301,7 +301,7 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
         """check pipeline_stage and num_layers"""
         config = self.config
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        pp = config.parallel_config.pipeline_stage
+        pp = getattr(config, 'pipeline_model_parallel_size', 1)
         if parallel_mode in ["semi_auto_parallel"] and pp > 1:
             num_layers = getattr(config, "num_layers", getattr(config, "num_hidden_layers", None))
             if num_layers is None:
@@ -315,12 +315,12 @@ class PreTrainedModel(nn.Cell, ModelMixin, GenerationMixin, PushToHubMixin):
                     f"but get num_layers ({num_layers}) < pp({pp})"
                 )
             pipeline_interleave_enabled = ms.get_auto_parallel_context("pipeline_interleave")
-            pp_interleave_num = getattr(config, 'pp_interleave_num', 0) or 0
+            pp_interleave_num = getattr(config, 'virtual_pipeline_model_parallel_size', 0) or 0
             if pipeline_interleave_enabled and pp_interleave_num * pp > num_layers:
                 raise ValueError(
-                    f"num_layers should be greater than `pp * pp_interleave_num`, "
+                    f"num_layers should be greater than `pp * virtual_pipeline_model_parallel_size`, "
                     f"but got num_layers : {num_layers} "
-                    f"and pp * pp_interleave_num = {pp * pp_interleave_num}."
+                    f"and pp * virtual_pipeline_model_parallel_size = {pp * pp_interleave_num}."
                 )
 
     @classmethod

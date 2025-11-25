@@ -378,6 +378,7 @@ COMMON_CONFIG_MAPPING = {
     # Context Parallel
     # not changes
     "context_parallel_algo": ("cp_comm_type", get_cp_comm_type),
+    "cp_comm_type": "cp_comm_type",
     "ulysses_degree_in_cp": "hierarchical_context_parallel_sizes",
 
     # MLATransformerConfig

@@ -338,6 +338,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
         grads = self.hyper_map(F.partial(_grad_scale, scaling_sens * grad_scale_factor), grads)
 
+        local_norm = None
+        size = None
         if self.local_norm:
             local_norm, size = self.localnorm(grads)
             local_norm = self.concat(local_norm)
@@ -985,6 +987,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         else:
             loss, grads, grad_scale_factor = self.grads_for_mcore(scaling_sens, *inputs)
 
+        local_norm = None
+        size = None
         if self.local_norm:
             local_norm, size = self.localnorm(grads)
             local_norm = self.concat(local_norm)

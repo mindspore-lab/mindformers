@@ -19,5 +19,6 @@ from .wrapper import (
     MFTrainOneStepCell
 )
 from .adaptive_loss_scale import AdaptiveLossScaleUpdateCell
+from .virtual_dataset_wrapper import _VirtualDatasetCell
 
 __all__ = ["MFPipelineWithLossScaleCell", "MFTrainOneStepCell"]
