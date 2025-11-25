@@ -69,17 +69,23 @@ def validate_sink_size(config):
 
 
 def validate_precision_sync(config):
-    """Validate train_percision_sync and infer_percision_sync."""
+    """
+    Validate train_precision_sync and infer_precision_sync configuration values.
+    Args:
+        config (MindFormerConfig): Configuration object containing precision sync settings
+    Raises:
+        ValueError: If train_precision_sync or infer_precision_sync are not boolean values
+    """
     train_precision_sync = config.get_value('train_precision_sync')
-    infer_percision_sync = config.get_value('train_precision_sync')
+    infer_precision_sync = config.get_value('infer_precision_sync')
     if train_precision_sync is not None and not isinstance(
             train_precision_sync, bool):
         raise ValueError(
-            f'train_percision_sync should be bool, got {train_precision_sync}')
-    if infer_percision_sync is not None and not isinstance(
-            infer_percision_sync, bool):
+            f'train_precision_sync should be bool, got {train_precision_sync}')
+    if infer_precision_sync is not None and not isinstance(
+            infer_precision_sync, bool):
         raise ValueError(
-            f'train_percision_sync should be bool, got {infer_percision_sync}')
+            f'infer_precision_sync should be bool, got {infer_precision_sync}')
 
 
 def validate_invalid_predict_mode(config):
