@@ -48,7 +48,8 @@ python convert_weight.py \
   --num_query_groups 8 \
   --kv_channels 128 \
   --ffn_hidden_size 3072 \
-  --dtype 'bf16'
+  --dtype 'bf16' \
+  --max_worker 16
 ```
 
 所有指令参数介绍如下：
@@ -67,3 +68,4 @@ python convert_weight.py \
 | kv_channels         | int    | 可选   | 128    | 多头注意力中的投影权重维度，对应训练 yaml 文件中的 `model.mocel_config.kv_channels`（别名可能为`model.mocel_config.head_dim`）。                |
 | ffn_hidden_size     | int    | 可选   | 3072   | 模型前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.ffn_hidden_size`。（别名可能为`model.mocel_config.intermediate_size`）。   |
 | dtype               | string | 可选   | 'bf16' | 目标转换的 Hugging Face 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。                                      |
+| max_worker          | int    | 可选   | 16     | 使用多少个子进程进行权重处理。请合理控制此项，避免开启过多子进程造成资源竞争，这有可能会导致内存溢出（OOM），默认值为 `16` 。                                               |
