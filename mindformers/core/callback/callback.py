@@ -2306,6 +2306,7 @@ class ProfileMonitor(Callback):
         step_num = cb_params.cur_step_num
         if self.profiler and not self.is_profiler_start:
             self.profiler.start()
+            self.profiler.step()    # avoid the first step to align with train steps
             self.is_profiler_start = True
 
         if self.mstx_enabled:
