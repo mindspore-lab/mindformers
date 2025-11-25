@@ -13,21 +13,21 @@
 # limitations under the License.
 # ============================================================================
 """Transformer MoE Layer."""
-import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Union
 import numpy as np
+
 import mindspore as ms
 from mindspore import nn, ops, Tensor, Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops.operations import Morph
-from mindspore.communication.management import get_rank, get_group_size, create_group
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.training_graph.device_matrix import layout, layout_moe
 from mindformers.parallel_core.training_graph.transformer.moe.router import TopKRouter
+from mindformers.parallel_core.training_graph.transformer.moe.utils import get_dp_mod_ep_group_name
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
@@ -112,7 +112,7 @@ class MoELayer(BaseMoELayer):
             self.ep = config.expert_model_parallel_size
             self.expert_num = config.num_moe_experts
             self.num_local_experts = self.expert_num // self.ep
-            self.dp_modulo_ep_group = self._dp_modulo_ep_group()
+            self.dp_modulo_ep_group = get_dp_mod_ep_group_name(self.dp, self.ep)
 
         # ops
         self.add = AddExt()
@@ -160,27 +160,6 @@ class MoELayer(BaseMoELayer):
             self.sharding_propagation(config)
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
-
-    def _dp_modulo_ep_group(self):
-        """Create MoE data parallel group across DP."""
-        rank_id = get_rank()
-        world_size = get_group_size()
-        dp_group_id = rank_id // self.dp
-
-        start_rank = dp_group_id * self.dp
-        end_rank = min(start_rank + self.dp, world_size)
-
-        rank_list = []
-        ep_group_id_in_dp = (rank_id % self.dp) % self.ep
-        for r in range(start_rank, end_rank):
-            if r % self.ep == ep_group_id_in_dp:
-                rank_list.append(r)
-
-        rank_list_str = "-".join([str(i) for i in rank_list])
-        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
-        dp_group_name = str(hashed)
-        create_group(dp_group_name, rank_list)
-        return dp_group_name
 
     def permute_reshape_infer_shape(self, *args):
         origin_shape = args[0]
