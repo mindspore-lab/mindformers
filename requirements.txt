@@ -10,7 +10,7 @@ nltk==3.9.1
 mindpet==1.0.4
 opencv-python-headless
 pyarrow==19.0.0
-tokenizers==0.21.0
+tokenizers
 astunparse>=1.6.3
 numpy<2.0.0
 tiktoken
@@ -20,5 +20,5 @@ safetensors
 tensorboardX
 deprecated>=1.2.0
 pybind11 # for megatron dataset
-transformers==4.51.3
+transformers==4.57.1
 datasets>=4.0.0
