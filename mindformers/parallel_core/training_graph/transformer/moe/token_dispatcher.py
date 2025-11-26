@@ -298,7 +298,7 @@ class MoEAlltoAllDeredundencyTokenDispatcher(MoETokenDispatcher):
         self.nonzero = ops.NonZero().recompute(False)
         self.squeeze_0 = ops.Squeeze(0).recompute(False)
         self.oep_allgather = ops.AllGather(group=self.oep_group).recompute(False)
-        self.onehot = ops.OneHot().recompute(False)
+        self.onehot = ops.OneHot()
         self.iep_alltoallv = ops.AlltoAllV(group=self.iep_group, block_size=1).recompute(False)
 
     def get_exdispatch_idx(self, x, expert_ids, router_coeff):
