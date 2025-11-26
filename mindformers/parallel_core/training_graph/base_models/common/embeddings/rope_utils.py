@@ -189,24 +189,24 @@ class ApplyRotaryPosEmb(nn.Cell):
             self.split.shard((layout("cp", "dp", "tp", "None"),))
             self.neg.shard((layout("cp", "dp", "tp", "None"),))
             self.add.shard((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")))
-            self.mul.shard(in_strategy=(layout("None", "dp", "tp", "None"), layout("None", "None", "None", "None")))
-            self.slice.shard(in_strategy=(layout("None", "dp", "tp", "None"),),
-                             out_strategy=(layout("None", "dp", "tp", "None"),))
-            self.strideslice.shard(in_strategy=(layout("None", "dp", "tp", "None"),),
-                                   out_strategy=(layout("None", "dp", "tp", "None"),))
-            self.cat.shard(in_strategy=((layout("None", "dp", "tp", "None"), layout("None", "dp", "tp", "None")),),
-                           out_strategy=(layout("None", "dp", "tp", "None"),))
+            self.mul.shard(in_strategy=(layout("cp", "dp", "tp", "None"), layout("cp", "None", "None", "None")))
+            self.slice.shard(in_strategy=(layout("cp", "dp", "tp", "None"),),
+                             out_strategy=(layout("cp", "dp", "tp", "None"),))
+            self.strideslice.shard(in_strategy=(layout("cp", "dp", "tp", "None"),),
+                                   out_strategy=(layout("cp", "dp", "tp", "None"),))
+            self.cat.shard(in_strategy=((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")),),
+                           out_strategy=(layout("cp", "dp", "tp", "None"),))
         else:
             self.split.shard((layout("cp", "dp", "None", "None"),))
             self.neg.shard((layout("cp", "dp", "None", "None"),))
             self.add.shard((layout("cp", "dp", "None", "None"), layout("cp", "dp", "None", "None")))
-            self.mul.shard(in_strategy=(layout("None", "dp", "None", "None"), layout("None", "None", "None", "None")))
-            self.slice.shard(in_strategy=(layout("None", "dp", "None", "None"),),
-                             out_strategy=(layout("None", "dp", "None", "None"),))
-            self.strideslice.shard(in_strategy=(layout("None", "dp", "None", "None"),),
-                                   out_strategy=(layout("None", "dp", "None", "None"),))
-            self.cat.shard(in_strategy=((layout("None", "dp", "None", "None"), layout("None", "dp", "None", "None")),),
-                           out_strategy=(layout("None", "dp", "None", "None"),))
+            self.mul.shard(in_strategy=(layout("cp", "dp", "None", "None"), layout("cp", "None", "None", "None")))
+            self.slice.shard(in_strategy=(layout("cp", "dp", "None", "None"),),
+                             out_strategy=(layout("cp", "dp", "None", "None"),))
+            self.strideslice.shard(in_strategy=(layout("cp", "dp", "None", "None"),),
+                                   out_strategy=(layout("cp", "dp", "None", "None"),))
+            self.cat.shard(in_strategy=((layout("cp", "dp", "None", "None"), layout("cp", "dp", "None", "None")),),
+                           out_strategy=(layout("cp", "dp", "None", "None"),))
 
         if self.apply_rope_fusion:
             self.rope.shard(in_strategy=(layout("cp", "dp", "tp", "None"),
