@@ -21,6 +21,8 @@ import argparse
 from glob import glob
 from time import time
 from collections import defaultdict
+from functools import partial
+from multiprocessing import Pool
 
 from safetensors.torch import load_file
 import torch
@@ -45,6 +47,7 @@ DEFAULT_CONFIG = {
     'ffn_hidden_size': 18432,
     'moe_ffn_hidden_size': 2048,
     'dtype': ms.bfloat16,
+    'max_worker': 16,
 }
 
 DEFAULT_DTYPE = torch.bfloat16
@@ -134,11 +137,17 @@ def weight_dequant(weight: torch.Tensor, scale: torch.Tensor, block_size: int = 
 def dequant_layer_weights(layer_id, hf_layer_weights):
     """Dequanting weights in a layer"""
     dequanted_weights = {}
-    for weight_name, weight in tqdm(hf_layer_weights.items(),
-                                    desc=f"Dequant weights of layer-{layer_id}", unit="value", position=3, leave=True):
+    for weight_name, weight in tqdm(
+            hf_layer_weights.items(),
+            desc=f"Dequant weights of layer-{layer_id}",
+            unit="value",
+            position=3,
+            leave=True
+    ):
         if weight_name.endswith("_scale_inv"):
             continue
-        elif weight.element_size() == 1 and (f"model.layers.{layer_id}." in weight_name):  # FP8 weight
+
+        if weight.element_size() == 1 and (f"model.layers.{layer_id}." in weight_name):  # FP8 weight
             scale_inv_name = f"{weight_name}_scale_inv"
             try:
                 # Get scale_inv from the correct file
@@ -150,6 +159,7 @@ def dequant_layer_weights(layer_id, hf_layer_weights):
                 dequanted_weights[weight_name] = weight
         else:
             dequanted_weights[weight_name] = weight
+
     return dequanted_weights
 
 
@@ -163,7 +173,7 @@ def get_hf_layers_model_file_map(file_path):
     hf_param_name_map = defaultdict(set)
     weight_map_file = os.path.join(file_path, "model.safetensors.index.json")
     if os.path.exists(weight_map_file):
-        with open(weight_map_file) as f:
+        with open(weight_map_file, encoding='utf-8') as f:
             weights_map = json.load(f)
         weights_map = weights_map["weight_map"]
     else:
@@ -408,7 +418,7 @@ def _mtp_preprocess_hf_to_ms(hf_layer_weights, layer_id, mtp_layer_id):
     ms_enorm_key = f"mtp.layers.{mtp_layer_id}.enorm.weight"
     ms_hnorm_key = f"mtp.layers.{mtp_layer_id}.hnorm.weight"
     ms_eh_proj_key = f"mtp.layers.{mtp_layer_id}.eh_proj.weight"
-    ms_emb_key = f"embedding.word_embeddings.weight"
+    ms_emb_key = "embedding.word_embeddings.weight"
 
     preprocess_mtp_dict = defaultdict()
     preprocess_mtp_dict[ms_enorm_key] = hf_enorm_weight.clone()
@@ -496,99 +506,132 @@ def _model_postprocess_hf_to_ms(hf_layer_weights, has_mtp_layers=False):
     return postprocess_weight_dict
 
 
+def _process_single_layer(layer_id, *, total_num_layers, num_layers, num_nextn_predict_layers,
+                          hf_param_name_map, config, dtype, output_path):
+    """
+    Handles HuggingFace to MindSpore Transformers weight transformation tasks for a single layer.
+    All configuration parameters are pre-bound via functools.partial;
+        only the `layer_id` needs to be passed in.
+    """
+    is_first = layer_id == 0
+    is_last = layer_id == total_num_layers - 1
+
+    # Read the HF weights of the current layer.
+    hf_layer_weights = read_matched_hf_file(
+        hf_param_name_map=hf_param_name_map,
+        layer_list=[layer_id],
+        is_first=is_first,
+        is_last=is_last
+    )
+
+    # Dequant weights firstly
+    hf_layer_weights = dequant_layer_weights(layer_id, hf_layer_weights)
+
+    ms_layer_weights = {}
+
+    # Special processing of the first and last layers of the model.
+    if is_first:
+        ms_layer_weights.update(_model_preprocess_hf_to_ms(hf_layer_weights))
+    if is_last:
+        has_mtp_layers = num_nextn_predict_layers == 0
+        ms_layer_weights.update(_model_postprocess_hf_to_ms(hf_layer_weights, has_mtp_layers))
+
+    # MTP layer
+    if layer_id >= num_layers:
+        ms_layer_weights.update(_mtp_hf_to_ms(layer_id, hf_layer_weights, config))
+    else:
+        # Standard Transformer layer: LayerNorm + Attention + MLP
+        ms_layer_weights.update(_trans_model_layer_norm_hf_to_ms(hf_layer_weights, layer_id))
+        ms_layer_weights.update(_trans_model_layer_attn_hf_to_ms(hf_layer_weights, layer_id))
+        ms_layer_weights.update(_trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id))
+
+    # Get the safetensors file name.
+    saving_file = f"ms-model-{layer_id + 1:05d}-of-{total_num_layers:05d}.safetensors"
+    file_path = os.path.join(output_path, saving_file)
+
+    # Get converted checkpoint.
+    to_save_ckpt = []
+    for name in list(ms_layer_weights.keys()):
+        value = ms_layer_weights.pop(name)
+        # Convert to float32 first to avoid precision issues.
+        value = value.to(torch.float32).numpy()
+
+        # Special dtype handling (`expert_bias` being forced to float32).
+        tmp_dtype = dtype
+        if "expert_bias" in name:
+            tmp_dtype = ms.float32
+
+        to_save_ckpt.append({
+            'name': name,
+            'data': ms.Tensor(value, dtype=tmp_dtype)
+        })
+
+    # Save safetensors this layer.
+    ms.save_checkpoint(to_save_ckpt, file_path, format='safetensors')
+    set_safe_mode_for_file_or_dir(file_path)
+
+    # Return the layer mapping info.
+    weight_map_entries = {
+        item['name']: saving_file
+        for item in to_save_ckpt
+    }
+    return layer_id, weight_map_entries, saving_file
+
+
 def ms_safetensors_convertor(input_path, output_path, config):
-    """Convert to safetensors format checkpoint"""
+    """
+    Convert to safetensors format checkpoint.
+
+    Args:
+        input_path (str): Hugging Face weight directory path.
+        output_path (str): Mindspore Transformers weight directory path.
+        config (dict): Conversion configuration.
+    """
+    # Get file mapping
     hf_param_name_map = get_hf_layers_model_file_map(input_path)
 
     dtype = config["dtype"]
+    max_worker = config["max_worker"]
     num_layers = config["num_layers"]
     num_nextn_predict_layers = config["num_nextn_predict_layers"]
-
-    has_mtp_layers = num_nextn_predict_layers == 0
     total_num_layers = num_layers + num_nextn_predict_layers
 
-    converted_param_name_map = defaultdict()
-    for layer_id in tqdm(range(total_num_layers),
-                         desc="Converting layers", unit="layers", position=1, leave=True):
-        # Get a layer weight of huggingface weight
-        if layer_id == 0:
-            hf_layer_weights = read_matched_hf_file(
-                hf_param_name_map=hf_param_name_map, layer_list=[layer_id], is_first=True, is_last=False
-            )
-        elif layer_id == total_num_layers - 1:
-            hf_layer_weights = read_matched_hf_file(
-                hf_param_name_map=hf_param_name_map, layer_list=[layer_id], is_first=False, is_last=True
-            )
-        else:
-            hf_layer_weights = read_matched_hf_file(
-                hf_param_name_map=hf_param_name_map, layer_list=[layer_id], is_first=False, is_last=False
-            )
+    # Build the working function.
+    worker = partial(
+        _process_single_layer,
+        total_num_layers=total_num_layers,
+        num_layers=num_layers,
+        num_nextn_predict_layers=num_nextn_predict_layers,
+        hf_param_name_map=hf_param_name_map,
+        config=config,
+        dtype=dtype,
+        output_path=output_path
+    )
 
-        # Dequant weights firstly
-        hf_layer_weights = dequant_layer_weights(layer_id, hf_layer_weights)
+    converted_param_name_map = {}
 
-        # Get the replaced weight name and corresponding value in ms
-        ms_layer_weights = defaultdict()
+    # Use multiprocess to accelerate the conversion process.
+    with Pool(processes=min(max_worker, total_num_layers)) as pool:
+        results_iter = pool.imap_unordered(worker, range(total_num_layers))
+        for layer_id, weight_map_entries, saving_file in tqdm(
+                results_iter,
+                desc="Converting layers",
+                total=total_num_layers,
+                unit="layers",
+                position=1,
+                leave=True
+        ):
+            converted_param_name_map.update(weight_map_entries)
+            tqdm.write(f"Saved weights in layer-{layer_id} to file '{saving_file}' successfully!")
 
-        # pre/post-process of the DeepSeekV3 model weight
-        if layer_id == 0:
-            ms_layer_weights.update(
-                _model_preprocess_hf_to_ms(hf_layer_weights)
-            )
-        if layer_id == total_num_layers - 1:
-            ms_layer_weights.update(
-                _model_postprocess_hf_to_ms(hf_layer_weights, has_mtp_layers)
-            )
-        # MTP Layers process
-        if layer_id > num_layers - 1:
-            ms_layer_weights.update(
-                _mtp_hf_to_ms(layer_id, hf_layer_weights, config)
-            )
-        # no MTP layers process
-        else:
-            # MLA Layers process
-            ms_layer_weights.update(
-                _trans_model_layer_norm_hf_to_ms(hf_layer_weights, layer_id)
-            )
-            ms_layer_weights.update(
-                _trans_model_layer_attn_hf_to_ms(hf_layer_weights, layer_id)
-            )
-            # MLP Layers process
-            ms_layer_weights.update(
-                _trans_model_layer_mlp_hf_to_ms(hf_layer_weights, config, layer_id)
-            )
-
-        # Process this layer weights' saving information
-        to_save_ckpt = []
-        saving_file = f"ms-model-{layer_id + 1:05d}-of-{total_num_layers:05d}.safetensors"
-        for name in tqdm(list(ms_layer_weights.keys()),
-                         desc=f"Saving weights in layer-{layer_id}.", unit="value", position=4, leave=True):
-            value = ms_layer_weights.pop(name)
-            value = value.to(torch.float32).numpy()
-
-            tmp_dtype = dtype
-            if "expert_bias" in name:
-                tmp_dtype = ms.float32
-            to_save_ckpt.append(
-                {
-                    'name': name,
-                    'data': ms.Tensor(value, dtype=tmp_dtype)
-                }
-            )
-
-            # Write the converted weight key and corresponding file to the param_name_map
-            converted_param_name_map[name] = saving_file
-
-        ms.save_checkpoint(to_save_ckpt, os.path.join(output_path, saving_file), format='safetensors')
-        tqdm.write(f"Saved weights in layer-{layer_id} to file '{saving_file}' successfully!")
-
-    # Writing the param_name_map.json
-    converted_model_index_file = os.path.join(output_path, f"param_name_map.json")
-    with open(converted_model_index_file, "w") as f:
+    # Write the `param_name_map.json`.
+    converted_model_index_file = os.path.join(output_path, "param_name_map.json")
+    with open(converted_model_index_file, "w", encoding='utf-8') as f:
         json_string = json.dumps(converted_param_name_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
     set_safe_mode_for_file_or_dir(converted_model_index_file)
-    tqdm.write(f"Param name map is saved into file '{converted_model_index_file}' successfully!")
+
+    tqdm.write(f"Param name map saved to '{converted_model_index_file}' successfully!")
 
 
 def convert_hf_to_ms(input_path, output_path, config=None):
@@ -617,7 +660,7 @@ def convert_weight(para):
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
         if key in ['num_routed_experts', 'num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace',
-                   'hidden_size', 'ffn_hidden_size', 'moe_ffn_hidden_size']:
+                   'hidden_size', 'ffn_hidden_size', 'moe_ffn_hidden_size', 'max_worker']:
             DEFAULT_CONFIG[key] = int(DEFAULT_CONFIG[key])
 
     DEFAULT_CONFIG['dtype'] = (
@@ -659,6 +702,12 @@ if __name__ == "__main__":
 
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'],
                         help="The dtype of converted weight, choices in ['fp16', 'bf16', 'fp32']")
+
+    parser.add_argument("--max_worker", default=16, type=int,
+                        help="Maximum number of child processes to be allocated. "
+                             "Please manage child processes appropriately "
+                             "to avoid resource contention caused by too many child processes, "
+                             "as this may lead to OutOfMemoryError (OOM).")
 
     args = parser.parse_args()
 
