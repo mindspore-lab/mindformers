@@ -33,12 +33,15 @@ from mindspore.parallel.strategy import enable_save_strategy_online
 from transformers import AutoTokenizer
 
 from mindformers.checkpoint.checkpoint import load_checkpoint, get_checkpoint_path, CommonInfo
+from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.checkpoint.utils import compile_model
 from mindformers.core import build_lr, build_optim
 from mindformers.core.callback.callback import (
     MFLossMonitor,
     CheckpointMonitor,
+    TopkBiasBalanceCallback,
     TrainCallBack,
+    MaxLogitsMonitor,
 )
 from mindformers.dataset.llm_dataset import LLMDataset
 from mindformers.models import build_network
@@ -62,7 +65,6 @@ from mindformers.wrapper.wrapper import (GradAccumulationCellWithMultiOutputs,
                                          PipelineCellWithMultiOutputs,
                                          DataOrderWrapperCell)
 
-# 相对导入
 from .global_config import MFGlobalConfig
 
 CALLBACK_HAS_SORT = [
@@ -121,6 +123,7 @@ class LLMTrainer:
             raise TypeError(f"Configuration must be of type MindFormerConfig, but received {type(config)}.")
 
         self.config = config
+        self._set_model_config_adapter_old_format()
 
         if is_train:
             self._set_runner_seed(seed=self.config.training_args.training_seed, is_train=True)
@@ -135,6 +138,7 @@ class LLMTrainer:
             dataset_batch_size, train_global_batch_size = self._compute_train_batch_size_accord_gbs()
             self._set_train_global_batch_size(train_global_batch_size)
             self._set_train_dataset_batch_size(dataset_batch_size)
+            self._set_model_config_for_muon_optimizer()
             if self.config.use_parallel:
                 self._check_auto_parallel_mode_valid_for_training()
             logger.info("Training configuration setup completed successfully.")
@@ -143,8 +147,6 @@ class LLMTrainer:
             self._check_parallel_mode_valid_for_predict()
             self._set_data_parallel_size()
             logger.info("Inference configuration setup completed successfully.")
-
-        self._set_model_config_adapter_old_format()
 
         # set output directory
         set_output_path(self.config.output_dir)
@@ -203,14 +205,12 @@ class LLMTrainer:
             if enable_parallel_optimizer:
                 optimizer_level = optimizer_parallel_config.get("optimizer_level", "level1")
                 optimizer_weight_shard_size = optimizer_parallel_config.get("optimizer_weight_shard_size", -1)
-                gradient_accumulation_shard = optimizer_parallel_config.get("gradient_accumulation_shard", False)
                 parallel_optimizer_threshold = optimizer_parallel_config.get("parallel_optimizer_threshold", 64)
                 ms.set_auto_parallel_context(
                     enable_parallel_optimizer=enable_parallel_optimizer,
                     parallel_optimizer_config={
                         "optimizer_level": optimizer_level,
                         "optimizer_weight_shard_size": optimizer_weight_shard_size,
-                        "gradient_accumulation_shard": gradient_accumulation_shard,
                         "parallel_optimizer_threshold": parallel_optimizer_threshold})
                 logger.info(f"Optimizer parallel context configured: optimizer_level={optimizer_level}, "
                             f"optimizer_weight_shard_size={optimizer_weight_shard_size}")
@@ -633,6 +633,14 @@ class LLMTrainer:
             logger.info("The config of train_dataset.construct_args_key has been set to %s.",
                         self.config.train_dataset.construct_args_key)
 
+    def _set_model_config_for_muon_optimizer(self) -> None:
+        # Enable max attention logits for Muon optimizer
+        if self.config.optimizer.type == "Muon":
+            self.config.model.model_config.monitor_max_attention_logit = True
+            logger.info(
+                "Currently identified Muon optimizer usage,"
+                "the monitor_max_attention_logit of TransformerConfig has been set to True.")
+
     def _set_and_get_load_checkpoint_config(self) -> Optional[str]:
         """Set and get the load checkpoint configuration path.
 
@@ -1017,16 +1025,16 @@ class LLMTrainer:
             shard_id=shard_id,
             num_shards=num_shards
         )
-
+        micro_batch_num = self.config.distribute_parallel_config.get("micro_batch_num",1) \
+            if self._get_pipeline_stages() > 1 \
+            else self.config.training_args.get("gradient_accumulation_steps", 1)
         train_dataset = llm_dataset.create_dataset(
             data_loader=data_loader,
             data_batch_size=self.config.training_args.dataset_batch_size,
             drop_remainder=self.config.train_dataset.get("drop_remainder", True),
             input_columns=input_columns,
             output_columns=self.config.train_dataset.get("output_columns", input_columns),
-            micro_batch_num=self.config.distribute_parallel_config.get("micro_batch_num",
-                                                                       1) if self._get_pipeline_stages() > 1
-            else self.config.training_args.get("gradient_accumulation_steps", 1),
+            micro_batch_num=micro_batch_num,
             eod_reset=self.config.train_dataset.get("eod_reset", False),
             eod_token_id=self.config.train_dataset.get("eod_token_id", None),
             dynamic_batch=False,
@@ -1162,9 +1170,11 @@ class LLMTrainer:
         # Build learning rate schedule
         lr_schedule = self.create_lr_scheduler(dataset)
 
+        optimizer_type = self.config.optimizer.type
+
         # Handle special parameter grouping for PmaAdamW optimizer
         model_params = set()
-        if self.config.optimizer.type == "PmaAdamW":
+        if optimizer_type in ("PmaAdamW", "FusedPmaAdamW", "Muon"):
             if hasattr(self.llm_model, "get_model_parameters"):
                 model_params.update(self.llm_model.get_model_parameters())
             else:
@@ -1173,7 +1183,8 @@ class LLMTrainer:
 
         # Group parameters with weight decay
         weight_decay = self.config.optimizer.weight_decay if self.config.optimizer.weight_decay else 0.
-        group_params = get_optimizer_grouped_parameters(network, weight_decay, model_params=model_params)
+        group_params = get_optimizer_grouped_parameters(
+            network, weight_decay, optimizer_type=optimizer_type, model_params=model_params)
 
         def create_optimizer() -> nn.Optimizer:
             """Internal function to create optimizer instance.
@@ -1184,17 +1195,18 @@ class LLMTrainer:
             Raises:
                 ValueError: If learning_rate is not set in optimizer config.
             """
+            optimizer_kwargs = {"params": group_params}
             if lr_schedule is not None:
-                optimizer = build_optim(
-                    self.config.optimizer,
-                    default_args={"params": group_params,
-                                  "learning_rate": lr_schedule})
+                optimizer_kwargs["learning_rate"] = lr_schedule
             else:
                 if self.config.optimizer.learning_rate is None:
-                    raise ValueError("Please set learning_rate in optimizer config.")
-                optimizer = build_optim(
-                    self.config.optimizer,
-                    default_args={"params": group_params})
+                    raise ValueError("lr_schedule is None, please set learning_rate in optimizer config.")
+
+            if optimizer_type == "Muon":
+                optimizer_kwargs.update(**self._get_muon_optimizer_kwargs())
+
+            optimizer = build_optim(self.config.optimizer, default_args=optimizer_kwargs)
+
             return optimizer
 
         # Check if optimizer parameters should be delay initialized
@@ -1381,6 +1393,22 @@ class LLMTrainer:
         # Create and add checkpoint saving callback
         save_ckpt_callback = self._create_save_checkpoint_callback()
         self.callbacks.append(save_ckpt_callback)
+
+        if self.config.optimizer.type == "Muon":
+            self.callbacks.append(MaxLogitsMonitor())
+            logger.info("Created max logits callback for Muon optimizer.")
+
+        transformer_config = self._get_llm_transformer_config()
+        if transformer_config.moe_router_enable_expert_bias:
+            self.callbacks.append(
+                TopkBiasBalanceCallback(
+                    balance_via_topk_bias=transformer_config.moe_router_enable_expert_bias,
+                    topk_bias_update_rate=transformer_config.moe_router_bias_update_rate,
+                    expert_num=transformer_config.num_moe_experts,
+                    micro_batch_num=self.config.distribute_parallel_config.get("micro_batch_num", 1),
+                    gradient_accumulation_steps=self.config.training_args.get("gradient_accumulation_steps", 1))
+            )
+            logger.info("moe_router_enable_expert_bias is True, created top-k bias balance callback for MoE models.")
 
         # Add stop monitor callback for training termination
         if isinstance(self.config.training_args.stop_step, int) and self.config.training_args.stop_step > 0:
@@ -1636,6 +1664,16 @@ class LLMTrainer:
             return converted_sf_path
         return load_checkpoint_path_or_dir
 
+    def _get_muon_optimizer_kwargs(self) -> dict:
+        micro_batch_num = self.config.distribute_parallel_config.get("micro_batch_num", 1) \
+            if self._get_pipeline_stages() > 1 \
+            else self.config.training_args.get("gradient_accumulation_steps", 1)
+        optimizer_kwargs = {
+            "model": self.llm_model,
+            "micro_batch_num": micro_batch_num
+        }
+        return optimizer_kwargs
+
     def _get_device_num(self) -> int:
         """Get the number of devices used for training or inference.
 
@@ -1668,6 +1706,17 @@ class LLMTrainer:
             int: The embedding size of the GPT model.
         """
         return self.llm_model.get_gpt_embedding_size()
+
+    def _get_llm_transformer_config(self) -> TransformerConfig:
+        """Get the GPT model's Transformer configuration information.
+
+        This method retrieves the GPT Transformer configuration information from the LLM model instance.
+        It is primarily used to obtain specific configuration parameters of the model, such as embedding dimension size.
+
+        Returns:
+            int: The GPT Transformer configuration information.
+        """
+        return self.llm_model.get_gpt_transformer_config()
 
     def _record_config_to_global_envs(self) -> None:
         """Record validated configuration to global environment.

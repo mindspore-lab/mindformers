@@ -6,7 +6,19 @@
         - [权重配置](#权重配置)
         - [训练运行配置](#训练运行配置)
         - [学习策略配置](#学习策略配置)
+            - [ConstantWarmUpLR](#constantwarmuplr)
+            - [LinearWithWarmUpLR](#linearwithwarmuplr)
+            - [CosineWithWarmUpLR](#cosinewithwarmuplr)
+            - [CosineWithRestartsAndWarmUpLR](#cosinewithrestartsandwarmuplr)
+            - [PolynomialWithWarmUpLR](#polynomialwithwarmuplr)
+            - [CosineAnnealingLR](#cosineannealinglr)
+            - [CosineAnnealingWarmRestarts](#cosineannealingwarmrestarts)
+            - [WarmUpStableDecayLR](#warmupstabledecaylr)
+            - [ConstantWithCoolDownLR](#constantwithcooldownlr)
         - [优化器配置](#优化器配置)
+            - [AdamW优化器](#adamw优化器)
+            - [PmaAdamW优化器](#pmaadamw优化器)
+            - [Muon优化器](#muon优化器)
         - [数据集](#数据集)
             - [预训练数据集](#预训练数据集)
             - [微调数据集](#微调数据集)
@@ -77,8 +89,8 @@ trainer:
 # 权重相关配置
 checkpoint_config:
   # 指定模型权重文件的路径，空字符串表示不加载，pretrained_model_dir有效则会使用pretrained_model_dir下的权重
-  # 当且仅当load_checkpoint == “not_load_any_ckpt”时, 不会加载任何权重，包括pretrained_model_dir下的
-  # “not_load_any_ckpt”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件，如预训练场景或者需要不加载任何权重的场景
+  # 当且仅当load_checkpoint == "not_load_any_ckpt"时, 不会加载任何权重，包括pretrained_model_dir下的
+  # "not_load_any_ckpt"字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件，如预训练场景或者需要不加载任何权重的场景
   load_checkpoint: ''
 
   # 权重保存配置，设置保存检查点的各项参数
@@ -222,10 +234,12 @@ training_args:
 
 ### 学习策略配置
 
+#### ConstantWarmUpLR
+
 ```yaml
 # Learning rate scheduler configuration
 # 学习率调度器配置，用于控制训练过程中学习率的变化策略
-lr_schedule: # 学习策略1 - 带WarmUp的恒定学习率调度器
+lr_schedule: # 带WarmUp的恒定学习率调度器
   # type: 学习率调度器类型，ConstantWarmUpLR恒定学习率调度器
   type: ConstantWarmUpLR
 
@@ -250,8 +264,10 @@ lr_schedule: # 学习策略1 - 带WarmUp的恒定学习率调度器
   total_steps: -1
 ```
 
+#### LinearWithWarmUpLR
+
 ```yaml
-lr_schedule: # 学习策略2 - 线性衰减学习率调度器配置
+lr_schedule: # 线性衰减学习率调度器配置
   # type: 学习率调度器类型，LinearWithWarmUpLR线性衰减学习率调度器
   # 该调度器在预热阶段线性增长学习率，然后在训练过程中线性衰减学习率
   type: LinearWithWarmUpLR
@@ -277,11 +293,13 @@ lr_schedule: # 学习策略2 - 线性衰减学习率调度器配置
   total_steps: -1
 ```
 
+#### CosineWithWarmUpLR
+
 ```yaml
-lr_schedule: # 学习策略3 - 余弦退火重启学习率调度器配置
-  # type: 学习率调度器类型，CosineWithRestartsAndWarmUpLR余弦退火重启学习率调度器
+lr_schedule: # 余弦退火学习率调度器配置
+  # type: 学习率调度器类型，CosineWithWarmUpLR余弦退火学习率调度器
   # 该调度器在预热阶段线性增长学习率，然后在训练过程中按照余弦函数衰减学习率
-  type: CosineWithRestartsAndWarmUpLR
+  type: CosineWithWarmUpLR
 
   # learning_rate: 基础学习率值，预热阶段结束后的初始学习率
   # 余弦退火会以此为起点，逐渐衰减到接近0的学习率
@@ -322,8 +340,10 @@ lr_schedule: # 学习策略3 - 余弦退火重启学习率调度器配置
   decay_ratio: 0.
 ```
 
+#### CosineWithRestartsAndWarmUpLR
+
 ```yaml
-lr_schedule: # 学习策略4 - 带重启的余弦退火学习率调度器配置
+lr_schedule: # 带重启的余弦退火学习率调度器配置
   # type: 学习率调度器类型，CosineWithRestartsAndWarmUpLR带重启的余弦退火学习率调度器
   # 该调度器在预热阶段线性增长学习率，然后在训练过程中按照余弦函数衰减学习率，并支持学习率重启机制
   type: CosineWithRestartsAndWarmUpLR
@@ -363,8 +383,10 @@ lr_schedule: # 学习策略4 - 带重启的余弦退火学习率调度器配置
   decay_steps: null
 ```
 
+#### PolynomialWithWarmUpLR
+
 ```yaml
-lr_schedule: # 学习策略5 - 多项式衰减学习率调度器配置
+lr_schedule: # 多项式衰减学习率调度器配置
   # type: 学习率调度器类型，PolynomialWithWarmUpLR多项式衰减学习率调度器
   # 该调度器在预热阶段线性增长学习率，然后在训练过程中按照多项式函数衰减学习率
   type: PolynomialWithWarmUpLR
@@ -403,8 +425,34 @@ lr_schedule: # 学习策略5 - 多项式衰减学习率调度器配置
   decay_steps: null
 ```
 
+#### CosineAnnealingLR
+
 ```yaml
-lr_schedule: # 学习策略6 - 余弦退火重启学习率调度器配置
+lr_schedule: # 余弦退火学习率调度器配置
+  # type: 学习率调度器类型，CosineAnnealingLR余弦退火学习率调度器
+  # 该调度器按照余弦函数周期性地衰减学习率，在每个周期内从base_lr衰减到eta_min
+  # 当训练步数达到t_max的倍数时，学习率会重启到base_lr，开始新的周期
+  type: CosineAnnealingLR
+
+  # base_lr: 基础学习率值，每个重启周期的初始学习率
+  # 余弦退火会以此为起点，逐渐衰减到eta_min
+  base_lr: 1.e-6
+
+  # t_max: 余弦退火周期的步数，控制学习率衰减周期的长度
+  # 当训练步数达到t_max的倍数时，学习率会重启到base_lr，开始新的余弦退火周期
+  # 需要根据算法需求和训练总步数进行设置，通常设置为训练总步数的整数分之一
+  t_max: 10
+
+  # eta_min: 最小学习率值，余弦退火衰减的最终学习率
+  # 学习率会在每个周期内从base_lr衰减到该值
+  # null表示使用默认值0，也可以设置为一个很小的正数
+  eta_min: null
+```
+
+#### CosineAnnealingWarmRestarts
+
+```yaml
+lr_schedule: # 余弦退火重启学习率调度器配置
   # type: 学习率调度器类型，CosineAnnealingWarmRestarts余弦退火重启学习率调度器
   # 该调度器按照余弦函数周期性地衰减学习率，并在每个周期结束时重启学习率
   type: CosineAnnealingWarmRestarts
@@ -415,19 +463,21 @@ lr_schedule: # 学习策略6 - 余弦退火重启学习率调度器配置
 
   # t_0: 第一个重启周期的步数，控制第一个学习率周期的长度
   # 当训练步数达到t_0的倍数时，学习率会重启到base_lr，需要根据算法需求人工进行设置
-  t_0 : 10
+  t_0: 10
 
   # t_mult: 周期倍数因子，控制后续重启周期长度的倍数
   # 当t_mult=1时，所有周期长度相同；当t_mult>1时，后续周期会逐渐变长
-  t_mult : 1.
+  t_mult: 1.
 
   # eta_min: 最小学习率值，余弦退火衰减的最终学习率
   # 学习率会在每个周期内从base_lr衰减到该值
-  eta_min : null
+  eta_min: null
 ```
 
+#### WarmUpStableDecayLR
+
 ```yaml
-lr_schedule: # 学习策略7 - 预热稳定衰减学习率调度器配置
+lr_schedule: # 预热稳定衰减学习率调度器配置
   # type: 学习率调度器类型，WarmUpStableDecayLR预热稳定衰减学习率调度器
   # 该调度器在预热阶段线性增长学习率，然后在稳定阶段保持学习率不变，最后按照多项式函数衰减学习率
   type: WarmUpStableDecayLR
@@ -466,8 +516,10 @@ lr_schedule: # 学习策略7 - 预热稳定衰减学习率调度器配置
   decay_start_ratio: null
 ```
 
+#### ConstantWithCoolDownLR
+
 ```yaml
-lr_schedule: # 学习策略8 - 恒定学习率带冷却调度器配置
+lr_schedule: # 恒定学习率带冷却调度器配置
   # type: 学习率调度器类型，ConstantWithCoolDownLR恒定学习率带冷却调度器
   # 该调度器在预热阶段线性增长学习率，然后在训练过程中保持恒定学习率，最后进入冷却阶段逐渐降低学习率
   type: ConstantWithCoolDownLR
@@ -525,6 +577,8 @@ lr_schedule: # 学习策略8 - 恒定学习率带冷却调度器配置
 
 ### 优化器配置
 
+#### AdamW优化器
+
 ```yaml
 # Optimizer configuration
 # 优化器配置，用于指定训练过程中使用的优化器类型及其相关参数
@@ -561,6 +615,8 @@ optimizer: # 优化器1
   # 设置为True时启用优化器状态的内存交换机制，用于节省显存，适用于大规模模型训练
   swap: False
 ```
+
+#### PmaAdamW优化器
 
 ```yaml
 optimizer: # 优化器2
@@ -611,6 +667,64 @@ optimizer: # 优化器2
   # ema_alpha: EMA算法的alpha参数，控制指数移动平均的衰减率， fused_algo='ema'时生效
   # 值越小，历史信息的权重越大；值越大，新信息的权重越大
   ema_alpha: 0.2
+```
+
+#### Muon优化器
+
+Muon是一种专为大语言模型训练设计的优化器，它结合了两种优化策略：对于特定参数（如注意力权重矩阵）使用Muon优化方法，该方法基于牛顿-舒尔茨迭代来计算矩阵的逆平方根，对于其他参数使用改进的AdamW优化器
+Muon优化器具有以下特点：
+
+1. 支持模型并行和优化器并行
+2. 集成了QK-clip机制以提高训练稳定性
+3. 专门针对具有多潜在注意力（Multi-Latent Attention）的模型进行了优化
+4. 通过Nesterov动量和Newton-Schulz迭代提供更好的收敛性能
+
+使用Muon优化器需要注意：
+
+1. 必须配合启用了MLA结构的模型使用
+2. 需要正确配置并行策略，特别是optimizer_weight_shard_size <= data_parallel_size * tensor_model_parallel_size
+3. 在MoE模型中，专家数量必须能被(optimizer_weight_shard_size * expert_model_parallel_size)整除
+
+```yaml
+optimizer: # 优化器3 - Muon优化器配置
+  # type: 优化器类型，指定使用Muon优化器
+  type: Muon
+
+  # learning_rate: 基础学习率值，训练过程中使用的学习率
+  # Muon优化器的基础学习率，通常设置为较小的值如2e-2
+  learning_rate: 2.e-2
+
+  # weight_decay: 权重衰减系数，用于L2正则化
+  # 控制模型复杂度，防止过拟合，推荐值为0.1
+  weight_decay: 0.1
+
+  # matched_adamw_rms: RMS匹配参数，用于AdamW优化部分
+  # 控制AdamW部分的RMS匹配，推荐值为0.2
+  matched_adamw_rms: 0.2
+
+  # momentum: 动量因子，用于Muon优化部分
+  # 控制Muon优化中的动量，推荐值为0.95
+  momentum: 0.95
+
+  # nesterov: 是否使用Nesterov动量
+  # 设置为True时启用Nesterov动量，通常能提供更好的收敛性
+  nesterov: True
+
+  # ns_steps: Newton-Schulz迭代步数
+  # 控制Newton-Schulz迭代的次数，推荐值为5
+  ns_steps: 5
+
+  # adamw_betas: AdamW优化器的beta参数
+  # 控制AdamW优化器的一阶和二阶动量衰减率，推荐值为[0.95, 0.95]
+  adamw_betas: [0.95, 0.95]
+
+  # adamw_eps: AdamW优化器的epsilon参数
+  # 用于数值稳定性的小常数，防止除零错误，推荐值为1e-8
+  adamw_eps: 1.e-8
+
+  # qk_clip_threshold: QK裁剪阈值
+  # 用于QK-clip操作的阈值，推荐值为4
+  qk_clip_threshold: 4
 ```
 
 ### 数据集
@@ -765,10 +879,12 @@ train_dataset:
         # pack_strategy: 打包策略，'pack'表示使用打包算法将多个短序列组合成长序列
         pack_strategy: 'pack'
 
-  # input_columns: 输入列名，指定数据集中包含的字段名称，输入列名，指定数据集中包含的字段名称, 套件内部会根据不同的场景自动生成，如果用户自定义DataLoader并手动指定，则会优先使用用户自定义的
+  # input_columns: 输入列名，指定数据集中包含的字段名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义DataLoader并手动指定，则会优先使用用户自定义的
   input_columns: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
 
-  # construct_args_key: 构造参数键名，指定传给模型构造函数的参数名称，输入列名，指定数据集中包含的字段名称, 套件内部会根据不同的场景自动生成，如果用户自定义网络入参，则会优先使用用户自定义的
+  # construct_args_key: 构造参数键名，指定传给模型构造函数的参数名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义网络入参，则会优先使用用户自定义的
   construct_args_key: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
 
   # drop_remainder: 是否丢弃最后一个不完整的batch，设置为True时会丢弃不足batch大小的数据
@@ -846,10 +962,12 @@ train_dataset:
         # pack_strategy: 打包策略，'pack'表示使用打包算法将多个短序列组合成长序列
         pack_strategy: 'pack'
 
-  # input_columns: 输入列名，指定数据集中包含的字段名称，输入列名，指定数据集中包含的字段名称, 套件内部会根据不同的场景自动生成，如果用户自定义DataLoader并手动指定，则会优先使用用户自定义的
+  # input_columns: 输入列名，指定数据集中包含的字段名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义DataLoader并手动指定，则会优先使用用户自定义的
   input_columns: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
 
-  # construct_args_key: 构造参数键名，指定传给模型构造函数的参数名称，输入列名，指定数据集中包含的字段名称, 套件内部会根据不同的场景自动生成，如果用户自定义网络入参，则会优先使用用户自定义的
+  # construct_args_key: 构造参数键名，指定传给模型构造函数的参数名称
+  # 套件内部会根据不同的场景自动生成，如果用户自定义网络入参，则会优先使用用户自定义的
   construct_args_key: [ "input_ids", "labels", "loss_mask", "position_ids", "attention_mask" ]
 
   # drop_remainder: 是否丢弃最后一个不完整的batch，设置为True时会丢弃不足batch大小的数据
@@ -1243,8 +1361,8 @@ pretrained_model_dir: '/path/hf_dir'
 
 # load_checkpoint: 加载检查点路径
 # 指定模型权重文件的路径，空字符串表示不加载，pretrained_model_dir有效则会优先使用pretrained_model_dir下的权重
-# 当仅当load_checkpoint == “not_load_any_ckpt”时, 不会加载任何权重，包括pretrained_model_dir下的
-# “not_load_any_ckpt”字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件
+# 当仅当load_checkpoint == "not_load_any_ckpt"时, 不会加载任何权重，包括pretrained_model_dir下的
+# "not_load_any_ckpt"字段场景通常用于pretrained_model_dir有效的情况下，复用其下除权重之外的文件
 load_checkpoint: ''
 
 # infer_seed: 推理时的种子数
@@ -1312,4 +1430,3 @@ distribute_parallel_config:
 ```
 
 ### 模型配置
-
