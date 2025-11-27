@@ -1580,8 +1580,9 @@ def _reset_config_for_save(config: dict = None):
     """
     if config is None:
         config = {}
-    config = copy.deepcopy(config)
-    reset_parallel_config(config)
+    else:
+        config = copy.deepcopy(config)
+        reset_parallel_config(config)
 
     config_dict = OrderedDict()
 
