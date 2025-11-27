@@ -55,11 +55,6 @@ def set_strategy_save_path(config):
     rank_id = get_real_rank()
     strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
     os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
-
-    # Fix cache coherency issues with shared storage.
-    # Force refresh the disk cache of the current node to ensure that the path can be accessed correctly.
-    os.listdir(strategy_ckpt_save_dir)
-
     set_safe_mode_for_file_or_dir(strategy_ckpt_save_dir)
 
     strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
