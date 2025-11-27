@@ -666,6 +666,17 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 setattr(self, k, v)
             del self.rope_scaling
 
+        if self.position_embedding_type == "none":
+            self.nope_layer_interval = None
+
+        if self.nope_layer_interval is None:
+            pass
+        elif not isinstance(self.nope_layer_interval, int):
+            raise TypeError("nope_layer_interval must be a int, "
+                            f"but got {type(self.nope_layer_interval)}.")
+        elif self.nope_layer_interval <= 0:
+            raise ValueError("nope_layer_interval must be larger than 0.")
+
         if self.bias_swiglu_fusion and self.hidden_act != 'swiglu':
             raise ValueError(
                 "When using bias_swiglu_fusion, hidden_act must be swiglu."
