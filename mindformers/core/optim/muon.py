@@ -473,7 +473,7 @@ class Muon(Optimizer):
             logger.info(
                 f"op_in_tp group will reuse tp group" \
                 f", since tensor_parallel_size({tp}) == optimizer_parallel_size({op})."
-                )
+            )
             op_in_tp_group_name = tp_group
         else:
             logger.info(f"Muon op_in_tp group list is: {rank_list}")
@@ -495,32 +495,11 @@ class Muon(Optimizer):
         tp_group_name = self._create_communication_group(rank_list)
         return tp_group_name
 
-    @jit(backend="ms_backend")
-    def construct(self, gradients):
-        """Construct method for optimizer.
-
-        Args:
-            gradients: Gradients for optimization.
-
-            Returns:
-            Updated gradients after optimization.
+    def _hyper_map_func(self, lr, weight_decay, gradients):
         """
-        gradients = self.flatten_gradients(gradients)
-        weight_decay = self.get_weight_decay()
-        lr = self.get_lr()
-        self.assignadd(self.global_step, self.global_step_increase_tensor)
-        optim_result = self.hyper_map(
-            F.partial(
-                _muon_opt,
-                self.muon_momentum,
-                self.matched_adamw_rms,
-                self.beta1,
-                self.beta2,
-                self.global_step,
-                self.eps,
-                lr,
-            ),
-            weight_decay,
+        Apply Muon optimizer update using hyper_map across parameter structures.
+        """
+        hyper_map_args = [
             self.rank_ids,
             self._parameters,
             self.moments1,
@@ -537,7 +516,52 @@ class Muon(Optimizer):
             self.tp_groups,
             self.param_name_tuple,
             self.muon_split_fns,
-            self.muon_merge_fns,
+            self.muon_merge_fns
+        ]
+
+        if self.is_group:
+            # If parameters are divided into groups (group-wise hyperparams)
+            if self.is_group_lr:
+                # Case 1: Both learning rate and weight decay are grouped
+                partial_func = F.partial(
+                    _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                    self.beta1, self.beta2, self.global_step, self.eps
+                )
+                hyper_map_args = [lr, weight_decay] + hyper_map_args
+            else:
+                # Case 2: Only weight decay is grouped, lr is global
+                partial_func = F.partial(
+                    _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                    self.beta1, self.beta2, self.global_step, self.eps, lr
+                )
+                hyper_map_args = [weight_decay] + hyper_map_args
+        else:
+            # No parameter groups: lr and weight decay are global hyperparameters
+            partial_func = F.partial(
+                _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                self.beta1, self.beta2, self.global_step, self.eps, lr, weight_decay
+            )
+
+        return self.hyper_map(partial_func, *hyper_map_args)
+
+    @jit(backend="ms_backend")
+    def construct(self, gradients):
+        """Construct method for optimizer.
+
+        Args:
+            gradients: Gradients for optimization.
+
+            Returns:
+            Updated gradients after optimization.
+        """
+        gradients = self.flatten_gradients(gradients)
+        weight_decay = self.get_weight_decay()
+        lr = self.get_lr()
+        self.assignadd(self.global_step, self.global_step_increase_tensor)
+        optim_result = self._hyper_map_func(
+            lr,
+            weight_decay,
+            gradients,
         )
 
         updates = self.model.apply_qk_clip_scaling(
