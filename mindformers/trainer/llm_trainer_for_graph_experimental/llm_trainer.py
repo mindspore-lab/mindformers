@@ -19,6 +19,7 @@ from pprint import pprint
 from typing import Optional, Union, List
 
 import numpy as np
+
 import mindspore as ms
 from mindspore import ParallelMode, nn
 from mindspore.common import set_seed
@@ -28,6 +29,7 @@ from mindspore.mint.distributed import barrier
 from mindspore.nn import MicroBatchInterleaved
 from mindspore.nn.utils import no_init_parameters
 from mindspore.parallel.strategy import enable_save_strategy_online
+
 from transformers import AutoTokenizer
 
 from mindformers.checkpoint.checkpoint import load_checkpoint, get_checkpoint_path, CommonInfo
@@ -42,12 +44,12 @@ from mindformers.dataset.llm_dataset import LLMDataset
 from mindformers.models import build_network
 from mindformers.pipeline import TextGenerationPipeline
 from mindformers.tools.logger import logger
-from mindformers.tools.register import (MindFormerConfig, MindFormerModuleType,
+from mindformers.tools.register import (MindFormerConfig,
+                                        MindFormerModuleType,
                                         MindFormerRegister)
 from mindformers.tools.register.llm_template_v2 import TrainingParallelConfig
-from mindformers.tools.utils import count_params, FILE_PERMISSION
-from mindformers.trainer.optimizer_grouped_parameters import \
-    get_optimizer_grouped_parameters
+from mindformers.tools.utils import FILE_PERMISSION
+from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from mindformers.utils import is_hf_safetensors_dir
 from mindformers.utils.file_utils import set_output_path
 from mindformers.utils.load_checkpoint_utils import process_hf_checkpoint
@@ -60,6 +62,7 @@ from mindformers.wrapper.wrapper import (GradAccumulationCellWithMultiOutputs,
                                          PipelineCellWithMultiOutputs,
                                          DataOrderWrapperCell)
 
+# 相对导入
 from .global_config import MFGlobalConfig
 
 CALLBACK_HAS_SORT = [
@@ -1063,11 +1066,11 @@ class LLMTrainer:
         - Uses no_init_parameters context when delay initialization is enabled
         """
 
-        def create_network(model_kwargs: dict = None) -> nn.Cell:
+        def create_network(network_kwargs: dict = None) -> nn.Cell:
             """Internal function to create network from configuration.
 
             Args:
-                model_kwargs (dict, optional): Additional keyword arguments for model construction.
+                network_kwargs (dict, optional): Additional keyword arguments for model construction.
 
             Returns:
                 nn.Cell: Built network model.
@@ -1080,7 +1083,7 @@ class LLMTrainer:
             if self.config.get("generation_config", None):
                 self.config.model.generation_config = self.config.generation_config
 
-            network = build_network(self.config.model, default_args=model_kwargs)
+            network = build_network(self.config.model, default_args=network_kwargs)
 
             if hasattr(network, "check_pipeline_stage") and callable(network.check_pipeline_stage):
                 network.check_pipeline_stage()  # Check pipeline stage configuration
@@ -1121,10 +1124,10 @@ class LLMTrainer:
         # Create model with or without parameter initialization
         if self.network_delay_inited:
             with no_init_parameters():
-                model = create_network(model_kwargs=model_kwargs)
+                model = create_network(network_kwargs=model_kwargs)
             logger.info("Model created with delay parameter initialization")
         else:
-            model = create_network(model_kwargs=model_kwargs)
+            model = create_network(network_kwargs=model_kwargs)
             logger.info("Model created with immediate parameter initialization")
 
         return model
@@ -1476,7 +1479,7 @@ class LLMTrainer:
             network = DataOrderWrapperCell(construct_args_key, network)
 
         # Log model parameter count
-        self._count_parameters(network)
+        self._count_parameters(network, run_mode=self.config.run_mode)
 
         # Create optimizer and learning rate scheduler
         optimizer = self.create_optimizer_scheduler(network, train_dataset)
@@ -1544,16 +1547,20 @@ class LLMTrainer:
         # Setup prediction configuration and parallel context
         self._setup_config(config, is_train=False)
 
+        # Handle checkpoint loading configuration
+        load_checkpoint_path_or_file = self._set_and_get_load_checkpoint_config()
+
         # Record configuration to global environment
         self._record_config_to_global_envs()
 
         # Create and initialize the neural network model
         network = self.create_model()
-        self._count_parameters(network)
+        self._count_parameters(network, run_mode=self.config.run_mode)
 
         # Convert and load checkpoint weights
         load_checkpoint_path_or_file = self._get_load_path_after_hf_convert(
-            self._set_and_get_load_checkpoint_config(), network)
+            load_checkpoint_path_or_file, network) \
+            if self.config.run_mode == "predict_with_train_model" else load_checkpoint_path_or_file
         network.load_weights(load_checkpoint_path_or_file)
 
         # Initialize model parameters
@@ -1727,7 +1734,7 @@ class LLMTrainer:
         logger.info(f"Host information - Name: {host_name}, IP: {host_ip}")
 
     @staticmethod
-    def _count_parameters(network: nn.Cell) -> None:
+    def _count_parameters(network: nn.Cell, run_mode: str = 'train', units: str = 'M') -> None:
         """Count and log the number of network parameters.
 
         This static method calculates and logs the total number of parameters
@@ -1737,12 +1744,38 @@ class LLMTrainer:
         Args:
             network (nn.Cell): The neural network model whose parameters
                                are to be counted.
+            run_mode (str): The running mode, options are 'train', 'finetune' and 'predict'.
+                           Default is 'train'.
+            units (str): The unit for returning the parameter count, options are 'M' and 'B'.
+                         Default is 'M'.
 
         The method performs the following operations:
-        - Counts total parameters using count_params utility
-        - Logs parameter count in millions format
+        - Counts total parameters and trainable parameters
+        - Converts parameter count to specified units (M for millions, B for billions)
+        - Logs parameter count with appropriate formatting based on run_mode
+        - For train/finetune modes, logs both total and trainable parameters
+        - For predict mode, logs only total parameters
         """
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
+        trainable_params = [np.prod(param.shape) for param in network.trainable_params()]
+        total_params = [np.prod(param.shape) for param in network.get_parameters()]
+        if units == 'M':
+            count_params_m = sum(total_params) / 1e6
+            trainable_params_m = sum(trainable_params) / 1e6
+            if run_mode in  ['train', 'finetune']:
+                logger.info(f"Network Parameters: {count_params_m:.0f} M.")
+                logger.info(f"Network Trainable Parameters: {trainable_params_m:.0f} M.")
+            else:
+                logger.info(f"Network Parameters: {count_params_m:.0f} M.")
+        elif units == 'B':
+            count_params_m = sum(total_params) / 1e9
+            trainable_params_m = sum(trainable_params) / 1e9
+            if run_mode in  ['train', 'finetune']:
+                logger.info(f"Network Parameters: {count_params_m:.1f} B.")
+                logger.info(f"Network Trainable Parameters: {trainable_params_m:.1f} B.")
+            else:
+                logger.info(f"Network Parameters: {count_params_m:.1f} B.")
+        else:
+            raise ValueError("Invalid units. Please use 'M' or 'B'.")
 
     @staticmethod
     def _get_pipeline_stages() -> int:

@@ -1,0 +1,115 @@
+# 配置说明和更多配置功能请查阅: llm_config_whitelist_introduce.md
+run_mode: finetune
+output_dir: ./output
+train_precision_sync: false
+
+pretrained_model_dir: /path/to/Qwen3-XXB
+
+checkpoint_config:
+  load_checkpoint: ''
+  prefix: qwen3
+  save_checkpoint_steps: 5000
+  keep_checkpoint_max: 1
+
+training_args:
+  epochs: 1
+  micro_batch_size: 1
+  training_seed: 42
+  dataset_seed: 42
+  resume_training: false
+  use_clip_grad: true
+  max_grad_norm: 1.0
+  global_batch_size: 4
+  stop_step: null
+
+optimizer:
+  type: AdamW
+  betas:
+  - 0.9
+  - 0.95
+  eps: 1.0e-08
+  weight_decay: 0.0
+
+lr_schedule:
+  type: ConstantWarmUpLR
+  learning_rate: 1.0e-06
+  warmup_ratio: 0
+  total_steps: -1
+
+use_parallel: true
+distribute_parallel_config:
+  tensor_model_parallel_size: 4
+  pipeline_model_parallel_size: 4
+  context_parallel_size: 1
+  cp_comm_type: all_gather
+  sequence_parallel: true
+  micro_batch_interleave_num: 1
+  pipeline_parallel_config:
+    pipeline_interleave: false
+    pipeline_scheduler: 1f1b
+    virtual_pipeline_model_parallel_size: 1
+    pipeline_stage_offset: 0
+  optimizer_parallel_config:
+    enable_parallel_optimizer: false
+    optimizer_level: level1
+
+recompute_config:
+  recompute: true
+
+model_config:
+  qkv_concat: true
+  hidden_dropout: 0.0
+  untie_embeddings_and_output_weights: true
+  position_embedding_type: rope
+  use_contiguous_weight_layout_attention: false
+  params_dtype: float32
+  compute_dtype: bfloat16
+  layernorm_compute_dtype: float32
+  softmax_compute_dtype: float32
+  rotary_dtype: float32
+  fp32_residual_connection: true
+
+train_dataset:
+  data_loader:
+    type: HFDataLoader
+    load_func: load_dataset
+    path: llm-wizard/alpaca-gpt4-data-zh
+    split: train
+    create_attention_mask: true
+    create_compressed_eod_mask: false
+    compressed_eod_mask_length: 128
+    use_broadcast_data: true
+    shuffle: false
+    handler:
+    - type: take
+      n: 2000
+    - type: AlpacaInstructDataHandler
+      seq_length: 4096
+      padding: false
+      tokenizer:
+        trust_remote_code: true
+        padding_side: right
+    - type: PackingHandler
+      seq_length: 4096
+      pack_strategy: pack
+  num_parallel_workers: 8
+  python_multiprocessing: false
+  drop_remainder: true
+
+parallel:
+  parallel_mode: 1
+  enable_alltoall: true
+
+context:
+  max_device_memory: 58GB
+  memory_optimize_level: O0
+  jit_config:
+    jit_level: O0
+  ascend_config:
+    precision_mode: must_keep_origin_dtype
+    parallel_speed_up_json_path: ./configs/qwen3/parallel_speed_up.json
+  mempool_block_size: 1GB
+
+trainer:
+  type: LLMTrainer
+  task_name: Qwen3

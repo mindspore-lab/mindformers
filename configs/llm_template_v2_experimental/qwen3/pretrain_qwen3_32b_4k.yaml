@@ -1,0 +1,137 @@
+# 配置说明和更多配置功能请查阅: llm_config_whitelist_introduce.md
+run_mode: train
+output_dir: ./output
+train_precision_sync: false
+
+pretrained_model_dir: ''
+
+checkpoint_config:
+  load_checkpoint: ''
+  prefix: qwen3
+  save_checkpoint_steps: 5000
+  keep_checkpoint_max: 1
+
+training_args:
+  epochs: 2
+  micro_batch_size: 1
+  training_seed: 42
+  dataset_seed: 1234
+  resume_training: false
+  global_batch_size: 4
+  stop_step: null
+
+optimizer:
+  type: AdamW
+  betas:
+  - 0.9
+  - 0.95
+  eps: 1.0e-08
+  weight_decay: 0.0
+
+lr_schedule:
+  type: ConstantWarmUpLR
+  learning_rate: 1.0e-06
+  warmup_ratio: 0
+  total_steps: -1
+
+use_parallel: true
+distribute_parallel_config:
+  tensor_model_parallel_size: 4
+  pipeline_model_parallel_size: 4
+  context_parallel_size: 1
+  cp_comm_type: all_gather
+  sequence_parallel: false
+  micro_batch_interleave_num: 1
+  pipeline_parallel_config:
+    pipeline_interleave: false
+    pipeline_scheduler: 1f1b
+    virtual_pipeline_model_parallel_size: 1
+    pipeline_stage_offset: [-1, -1, 1, 1]
+  optimizer_parallel_config:
+    enable_parallel_optimizer: false
+    optimizer_level: level1
+
+recompute_config:
+  recompute: true
+
+train_dataset:
+  data_loader:
+    type: BlendedMegatronDatasetDataLoader
+    datasets_type: GPTDataset
+    sizes:
+    - 8000
+    - 0
+    - 0
+    config:
+      split: 1, 0, 0
+      seq_length: 4096
+      eod_mask_loss: false
+      reset_position_ids: false
+      create_attention_mask: true
+      reset_attention_mask: false
+      create_compressed_eod_mask: false
+      eod_pad_length: 128
+      eod: 1
+      pad: -1
+      data_path:
+      - '1'
+      - /path/to/wiki103-megatron_text_document
+  num_parallel_workers: 8
+  python_multiprocessing: false
+  drop_remainder: true
+
+model_config:
+  vocab_size: 151936
+  hidden_size: 5120
+  intermediate_size: 25600
+  num_hidden_layers: 64
+  num_attention_heads: 64
+  num_key_value_heads: 8
+  head_dim: 128
+  hidden_act: swiglu
+  max_position_embeddings: 4096
+  seq_length: 4096
+  initializer_range: 0.02
+  rms_norm_eps: 1.0e-06
+  tie_word_embeddings: false
+  rope_theta: 1000000.0
+  attention_bias: false
+  use_flash_attention: true
+  add_bias_linear: false
+  eos_token_id: 151645
+  pad_token_id: 151643
+  bos_token_id: 151643
+  attention_dropout: 0.0
+  hidden_dropout: 0.0
+  untie_embeddings_and_output_weights: true
+  position_embedding_type: rope
+  qk_layernorm: true
+  use_contiguous_weight_layout_attention: false
+  qkv_concat: true
+  params_dtype: float32
+  compute_dtype: bfloat16
+  layernorm_compute_dtype: float32
+  softmax_compute_dtype: float32
+  rotary_dtype: float32
+  fp32_residual_connection: true
+  model_type: qwen3
+  architectures:
+  - Qwen3ForCausalLM
+
+parallel:
+  parallel_mode: 1
+  enable_alltoall: true
+
+context:
+  max_device_memory: 58GB
+  memory_optimize_level: O0
+  jit_config:
+    jit_level: O0
+  ascend_config:
+    precision_mode: must_keep_origin_dtype
+    parallel_speed_up_json_path: ./configs/qwen3/parallel_speed_up.json
+  mempool_block_size: 1GB
+
+trainer:
+  type: LLMTrainer
+  task_name: Qwen3

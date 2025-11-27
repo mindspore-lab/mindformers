@@ -1,0 +1,33 @@
+# 配置说明和更多配置功能请查阅: llm_config_whitelist_introduce.md
+run_mode: predict
+output_dir: ./output
+infer_seed: 0
+
+predict_batch_size: 1
+load_checkpoint: ''
+infer_precision_sync: false
+
+use_parallel: false
+distribute_parallel_config:
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+
+pretrained_model_dir: /path/hf_dir
+model_config:
+  compute_dtype: bfloat16
+  layernorm_compute_dtype: float32
+  softmax_compute_dtype: float32
+  rotary_dtype: bfloat16
+  params_dtype: bfloat16
+
+parallel:
+  parallel_mode: MANUAL_PARALLEL
+  enable_alltoall: false
+
+context:
+  mode: 0
+  max_device_memory: 59GB
+
+trainer:
+  type: LLMTrainer
+  task_name: qwen3
