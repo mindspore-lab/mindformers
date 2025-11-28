@@ -679,58 +679,59 @@ class TrainingStateMonitor(Callback):
 
             - local_norm_format: Determine where to display the local norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Only params specified will be monitored.
+              or a `list` containing them, or ``None``. Only params specified will be monitored.
               may cause a large amount of print info if 'log' is selected.
               Set to ``None`` to ignore this metric. Default: ``None``.
 
             - device_local_norm_format: Determine where to display the device local norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric. Default: ``None``.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric. Default: ``None``.
 
             - local_loss_format: Determine where to display the local loss.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
             - device_local_loss_format: Determine where to display the device local loss.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
             - optimizer_state_format: Determine where to display the optimizer state.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Only the optimizer state of params specified
+              or a `list` containing them, or ``None``. Only the optimizer state of params specified
               will be monitored, may cause a large amount of print info if 'log' is selected.
               Set to ``None`` to ignore this metric. Default: ``None``.
 
             - weight_state_format: Determine where to display the weight L2-norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
-            - stable_rank_config
-                - format: Determine where to display the weight stable_rank and max eigenvalue.
+            - stable_rank_config (dict, optional): The config specified how to monitor metricstable_rank.
+
+              - format: Determine where to display the weight stable_rank and max eigenvalue.
                 Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-                or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+                or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
                 Default: ``None``.
 
-                - step_interval (int, optional): Specify the frequency of monitoring stable rank.
-                Must be natural number. Default: ``1``.
+              - step_interval (int, optional): Specify the frequency of monitoring stable rank.
+                Must be positive integer. Default: ``100``.
 
-                - target (list[str], optional): Specify the name or regular expression of params to calculate
-                stable rank. e.g. ["layers.[01]", "attention"]. Default: ``['*']``.
+              - target (list[str], optional): Specify the name or regular expression of params to calculate
+                stable rank. e.g. ["layers.[01]", "attention"]. Default: ``['.*']``.
 
-                - do_aggregation (bool, optional): Whether to aggregate weight parameter when when it has been
-                sliced to calculate stable_rank and eigenvalue.. Default: ``False``.
+              - do_aggregation (bool, optional): Whether to aggregate weight parameter when it has been
+                sliced to calculate stable_rank and eigenvalue. Default: ``False``.
 
-                - moe_show_mode (Literal['full', 'statistics', 'all'], optional): Only works when calculating
-                weight_stable_rank and weight_eigenvalue for MOE model (3D param). Set to `full` to list all
-                experts data. Set to `statistics` to show min, max, mean of all experts. Set to `all` to show
+              - moe_show_mode (Literal['full', 'statistics', 'all'], optional): Only works when calculating
+                weight_stable_rank and weight_eigenvalue for MoE model (3D param). Set to `full` to list all
+                experts' data. Set to `statistics` to show min, max, mean of all experts. Set to `all` to show
                 both original data and statistic data. Default: ``'all'``.
 
-                - power_iteration_num (int, optional): The power iteration method is used to approximate the max
-                eigenvalue.The more iterations performed, the closer the computed result is to the true value,
-                but the computational cost increases accordingly. Must be natural number. Default: ``5``.
+              - power_iteration_num (int, optional): The iteration of power iteration method to approximate the max
+                eigenvalue. The more iterations performed, the closer the computed result is to the true value,
+                but the computational cost increases accordingly. Must be positive integer. Default: ``5``.
 
             - throughput_baseline: The model throughput baseline to calculate linearity. Must be a positive number.
               Will be displayed both to tensorboard and log. Set to ``None`` to ignore this metric. Default: ``None``.
@@ -752,7 +753,6 @@ class TrainingStateMonitor(Callback):
         embedding_size (int, optional): The size of embedding norm which is get
             by hidden_size * vocab_size. Default: ``4096``.
         use_local_norm (bool, optional): Whether to turn on the local norm. Default: ``False``.
-            Default: ``False``.
     """
 
     @args_type_check(embedding_size=int, use_skip_data_by_global_norm=bool)
@@ -2353,7 +2353,7 @@ class ProfileMonitor(Callback):
                 'world_size': parallel.get('device_num', None)
             }))
         except AttributeError as e:
-            logger.warning("Profiler failed to record distributed args,  %s", e)
+            logger.warning("Profiler failed to record distributed args, %s", e)
 
     def _is_profile_required(self, rank_id):
         """
