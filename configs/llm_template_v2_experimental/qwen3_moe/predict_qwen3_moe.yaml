@@ -28,7 +28,3 @@ parallel:
 context:
   mode: 0
   max_device_memory: 59GB
-
-trainer:
-  type: LLMTrainer
-  task_name: qwen3_moe

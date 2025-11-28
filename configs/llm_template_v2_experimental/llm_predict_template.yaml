@@ -27,7 +27,3 @@ context:
 parallel:
   parallel_mode: "MANUAL_PARALLEL"  # 并行模式，"MANUAL_PARALLEL"表示手动并行模式，LLM推理默认走手切模式
   enable_alltoall: False  # 是否启用AllToAll通信，False表示不启用，通常配合MOE模型专家并行使用
-
-trainer:
-  type: LLMTrainer  # 训练器类型，LLMTrainer是专门为大语言模型设计的Trainer，提供简化的推理逻辑
-  task_name: 'llm_model'  # 任务名称，用户可自定义，建议使用模型名称便于识别和管理
