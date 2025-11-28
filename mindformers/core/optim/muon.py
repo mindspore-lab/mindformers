@@ -275,8 +275,11 @@ class Muon(Optimizer):
         micro_batch_num=1,
         qk_clip_threshold=4,
         model=None,
+        **kwargs,
     ):
         super().__init__(learning_rate, params, weight_decay)
+        if kwargs.get('swap', False):
+            raise ValueError("Muon does not support swap.")
 
         self._verify_model(model)
 
@@ -400,15 +403,20 @@ class Muon(Optimizer):
         """Initialize parallel configuration."""
         self.tp = model.get_gpt_transformer_config().tensor_model_parallel_size
         self.tps = tuple(self.tp for _ in self._parameters)
+        self.dp = model.get_gpt_transformer_config().data_parallel_size
         logger.info(f"Muon tp group size is: {self.tp}")
 
         if not get_auto_parallel_context('enable_parallel_optimizer'):
             self.op = 1
         else:
             self.op = get_auto_parallel_context('optimizer_weight_shard_size')
-            if self.op == -1:
+            if self.op < 1:
                 raise ValueError(
-                    "Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon")
+                    "Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size > 1 "
+                    "when enable_parallel_optimizer is True.")
+            if self.dp < self.op:
+                raise ValueError('Must set parallel_config.data_parallel >= '
+                                 'parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon.')
         logger.info(f"Muon op group size is: {self.op}")
 
         # Validate MoE expert counts divisibility constraint:
