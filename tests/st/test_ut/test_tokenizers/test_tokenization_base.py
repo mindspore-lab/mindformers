@@ -1398,6 +1398,11 @@ class TestFromExperimentalPretrained(unittest.TestCase):
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f)
 
+        # Copy tokenizer model
+        tokenizer_dest = os.path.join(self.path, "tokenizer.model")
+        if not os.path.exists(tokenizer_dest):
+            shutil.copy(self.tokenizer_model_path, tokenizer_dest)
+
         tokenizer = LlamaTokenizer.from_pretrained(self.path)
         assert tokenizer is not None
 
