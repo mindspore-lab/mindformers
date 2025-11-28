@@ -326,14 +326,16 @@ def test_build_parallel_context():
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
-@patch('mindformers.core.context.build_context.get_real_local_rank')
-@patch('mindformers.core.context.build_context.ms.runtime.set_cpu_affinity')
-def test_set_ms_affinity_with_affinity_config(mock_set_affinity, mock_rank):
+@patch('mindformers.tools.utils.get_real_group_size')
+@patch('mindformers.tools.utils.get_real_local_rank')
+@patch('mindspore.runtime.set_cpu_affinity')
+def test_set_ms_affinity_with_affinity_config(mock_set_affinity, mock_rank, mock_group_size):
     """
     Feature: Test set_ms_affinity with affinity_config.
     Description: Verify affinity_config overrides affinity_cpu_list and passes module config.
     Expectation: MindSpore set_cpu_affinity called with config values.
     """
+    mock_group_size.return_value = 8
     mock_rank.return_value = 1
     affinity_config = {
         'device_1': {
@@ -351,14 +353,16 @@ def test_set_ms_affinity_with_affinity_config(mock_set_affinity, mock_rank):
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
-@patch('mindformers.core.context.build_context.get_real_local_rank')
-@patch('mindformers.core.context.build_context.ms.runtime.set_cpu_affinity')
-def test_set_ms_affinity_without_device_entry(mock_set_affinity, mock_rank):
+@patch('mindformers.tools.utils.get_real_group_size')
+@patch('mindformers.tools.utils.get_real_local_rank')
+@patch('mindspore.runtime.set_cpu_affinity')
+def test_set_ms_affinity_without_device_entry(mock_set_affinity, mock_rank, mock_group_size):
     """
     Feature: Test set_ms_affinity when device entry missing.
     Description: Verify defaults are used when affinity_config lacks device info.
     Expectation: MindSpore set_cpu_affinity called with None values.
     """
+    mock_group_size.return_value = 8
     mock_rank.return_value = 0
     affinity_config = {
         'device_1': {
@@ -376,43 +380,47 @@ def test_set_ms_affinity_without_device_entry(mock_set_affinity, mock_rank):
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
-@patch('mindformers.core.context.build_context.get_cann_workqueue_cores', return_value=[0, 1])
-@patch('mindformers.core.context.build_context.psutil.Process')
-@patch('mindformers.core.context.build_context.psutil.cpu_count', return_value=8)
-@patch('mindformers.core.context.build_context.ds.config.set_numa_enable')
-def test_set_cpu_affinity_bind_available_cpus(mock_set_numa, mock_cpu_count,
-                                              mock_process_cls, mock_get_cores,
-                                              monkeypatch):
+@patch('mindformers.tools.utils.get_real_group_size')
+@patch('mindformers.tools.utils.get_real_local_rank')
+def test_set_ms_affinity_with_invalid_device_id(mock_rank, mock_group_size):
     """
-    Feature: Test set_cpu_affinity binding behavior.
-    Description: Verify CPU affinity excludes CANN workqueue cores when available.
-    Expectation: Process cpu_affinity receives filtered CPU list.
+    Feature: Test set_ms_affinity when device entry missing.
+    Description: Verify defaults are used when affinity_config lacks device info.
+    Expectation: MindSpore set_cpu_affinity called with None values.
     """
-    monkeypatch.setenv('CPU_AFFINITY', 'True')
-    process_mock = mock_process_cls.return_value
-
-    set_cpu_affinity(rank_id=0, rank_size=2)
-
-    mock_set_numa.assert_called_once_with(True)
-    mock_cpu_count.assert_called_once()
-    mock_get_cores.assert_called_once_with(0)
-    process_mock.cpu_affinity.assert_called_once_with([2, 3])
+    mock_group_size.return_value = 1
+    mock_rank.return_value = 0
+    affinity_config = {
+        'device_1': {
+            'affinity_cpu_list': [4, 5],
+            'module_to_cpu_dict': {'module_a': [6, 7]}
+        }
+    }
+    with pytest.raises(ValueError) as exc_info:
+        set_ms_affinity(affinity_config, None)
+    assert 'Invalid device id' in str(exc_info.value)
 
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
-@patch('mindformers.core.context.build_context.get_cann_workqueue_cores', return_value=[0, 1, 2, 3])
-@patch('mindformers.core.context.build_context.psutil.Process')
-@patch('mindformers.core.context.build_context.psutil.cpu_count', return_value=8)
-@patch('mindformers.core.context.build_context.ds.config.set_numa_enable')
-def test_set_cpu_affinity_fallback_when_all_cores_taken(mock_set_numa, mock_cpu_count,
-                                                        mock_process_cls, mock_get_cores,
-                                                        monkeypatch):
+@pytest.mark.parametrize('cann_workqueue_cores, cpu_affinity', [
+    ([0, 1], [2, 3]),
+    ([0, 1, 2, 3], [0, 1, 2, 3])
+])
+@patch('mindformers.utils.get_cann_workqueue_cores')
+@patch('psutil.Process')
+@patch('psutil.cpu_count', return_value=8)
+@patch('mindspore.dataset.config.set_numa_enable')
+def test_set_cpu_affinity(
+    mock_set_numa, mock_cpu_count, mock_process_cls, mock_get_cores,
+    monkeypatch, cann_workqueue_cores, cpu_affinity):
     """
     Feature: Test set_cpu_affinity fallback behavior.
-    Description: Verify original CPU list is used when CANN occupies all candidate cores.
+    Description: Verify that the original CPU list is used when CANN occupies all candidate cores,
+    and CPU affinity excludes CANN workqueue cores when available.
     Expectation: Process cpu_affinity receives unfiltered CPU list.
     """
+    mock_get_cores.return_value = cann_workqueue_cores
     monkeypatch.setenv('CPU_AFFINITY', 'True')
     process_mock = mock_process_cls.return_value
 
@@ -421,4 +429,4 @@ def test_set_cpu_affinity_fallback_when_all_cores_taken(mock_set_numa, mock_cpu_
     mock_set_numa.assert_called_once_with(True)
     mock_cpu_count.assert_called_once()
     mock_get_cores.assert_called_once_with(0)
-    process_mock.cpu_affinity.assert_called_once_with([0, 1, 2, 3])
+    process_mock.cpu_affinity.assert_called_once_with(cpu_affinity)
