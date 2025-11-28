@@ -90,8 +90,8 @@ class MLP(nn.Cell):
         self.tp_group = tp_group
         self.tp_group_size = tp_group.size if tp_group is not None else 1
 
-        if is_expert and self.config.moe_ffn_hidden_size is not None:
-            ffn_hidden_size = self.config.moe_ffn_hidden_size
+        if is_expert and self.config.moe_shared_expert_intermediate_size is not None:
+            ffn_hidden_size = self.config.moe_shared_expert_intermediate_size
         else:
             ffn_hidden_size = self.config.ffn_hidden_size
         self.ffn_hidden_size_per_partition = divide(ffn_hidden_size, self.tp_group_size)

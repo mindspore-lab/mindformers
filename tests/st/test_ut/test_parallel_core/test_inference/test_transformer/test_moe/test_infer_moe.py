@@ -18,12 +18,12 @@ import subprocess
 import pytest
 import numpy as np
 
-from mindformers.tools.logger import logger
-
 from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.data_gen_utils import (
     get_init_params,
     GOLDEN_DATA
 )
+
+from mindformers.tools.logger import logger
 
 
 SINGLE_CARD_TEST_PARAM = "model_args, data_keys, expect_error"
@@ -54,6 +54,20 @@ SINGLE_CARD_TEST_CASES = [
          "n_shared_experts": 0, "routed_scaling_factor": 2.5, "num_experts_per_tok": 2,
          "n_group": 2, "topk_group": 2},
         {"output": "tp1_no_shared"},
+        False,
+    ),
+    (
+        # 并行策略: 单卡
+        # 配置：seq_len: 4, batch_size: 4, hidden_size: 32, num_experts: 8,
+        # moe_intermediate_size: 8, moe_shared_expert_intermediate_size: 8,
+        # n_shared_experts: 2, routed_scaling_factor: 2.5, num_experts_per_tok: 2,
+        # n_group: 2, topk_group: 2
+        # expected result: 功能跑通, 精度对齐。
+        {"seq_len": 4, "batch_size": 4, "hidden_size": 32,
+         "moe_intermediate_size": 8, "num_experts": 8, "moe_shared_expert_intermediate_size": 16,
+         "n_shared_experts": 2, "routed_scaling_factor": 2.5, "num_experts_per_tok": 2,
+         "n_group": 2, "topk_group": 2},
+        {"output": "tp1_2_shared"},
         False,
     ),
 ]
@@ -118,7 +132,7 @@ class TestInferMoE:
             output_data = output_ms_dict.get(key)
             input_data = get_init_params(
                 model_args["seq_len"], model_args["batch_size"], model_args["hidden_size"],
-                model_args["num_experts"], model_args["moe_intermediate_size"])["input"]
+                model_args["num_experts"], model_args["moe_intermediate_size"], model_args["n_shared_experts"])["input"]
 
             assert output_data.shape == input_data.shape, \
                 (f"The shapes of output data and input data are different, "
