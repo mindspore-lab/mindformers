@@ -1,0 +1,183 @@
+seed: 0
+run_mode: 'train'
+output_dir: './output'
+load_checkpoint: ''
+src_strategy_path_or_dir: ''
+auto_trans_ckpt: False
+only_save_strategy: False
+resume_training: False
+
+# context
+context:
+  mode: 0
+  device_target: "Ascend"
+  max_call_depth: 10000
+  save_graphs: False
+  device_id: 0
+
+# runner
+runner_config:
+  epochs: 1
+  batch_size: 2
+  sink_mode: False
+  sink_size: 1
+
+runner_wrapper:
+  type: MFTrainOneStepCell
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 4096
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
+
+# parallel
+use_parallel: False
+parallel:
+  parallel_mode: 0
+  gradients_mean: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: False
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  pipeline_stage: 1
+  use_seq_parallel: False
+  micro_batch_num: 1
+  gradient_aggregation_group: 4
+
+micro_batch_interleave_num: 1
+
+# moe
+moe_config:
+  expert_num: 1
+  capacity_factor: 1.05
+  aux_loss_factor: 0.05
+  num_experts_chosen: 1
+
+# recompute
+recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+# autotune
+auto_tune: False
+filepath_prefix: './autotune'
+autotune_per_step: 10
+
+# profile
+profile: False
+profile_start_step: 1
+profile_stop_step: 10
+init_start_profile: False
+profile_communication: False
+profile_memory: False
+profile_output: './profile'
+profiler_level: 0
+with_stack: False
+data_simplification: True
+mstx: False
+profile_rank_ids: [0]
+profile_pipeline: False
+
+# Trainer
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'common'
+
+# dataset
+train_dataset:
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  tokenizer:
+    type: PreTrainedTokenizerBase
+
+train_dataset_task:
+  type: CausalLanguageModelDataset
+
+eval_dataset:
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: False
+  tokenizer:
+    type: PreTrainedTokenizerBase
+
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+
+# model
+model:
+  model_config:
+    type: PretrainedConfig
+    checkpoint_name_or_path: ""
+    max_decode_length: 1024
+    batch_size: 2
+  arch:
+    type: PreTrainedModel
+
+# lr schedule
+lr_schedule:
+  type: polynomial
+  learning_rate: 0.0001
+  lr_end: 0.00001
+  warmup_steps: 0
+  total_steps: -1
+
+layer_scale: False
+layer_decay: 0.65
+
+# optimizer
+optimizer:
+  type: AdamW
+  betas: [0.9, 0.95]
+  eps: 0.00000001
+  weight_decay: 0.05
+
+lr_scale: False
+lr_scale_factor: 256
+
+# callbacks
+callbacks:
+  - type: MFLossMonitor
+  - type: CheckpointMonitor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+
+# metric
+metric:
+  type: PerplexityMetric
+
+# processor
+processor:
+  return_tensors: ms
+  tokenizer:
+    type: PreTrainedTokenizerBase
+  image_processor:
+    type: BaseImageProcessor
+  audio_processor:
+    type: BaseAudioProcessor
+
+# check for nan in loss and grad
+check_for_nan_in_loss_and_grad: False
+
+# push to hub
+push_to_hub: False
+hub_model_id: null
+hub_token: null
+hub_private_repo: False
+
+# other configs
+do_eval: False
+use_legacy_format: True
+load_ckpt_format: 'safetensors'
+resume_by_last_timestamp_ckpt: False
+use_checkpoint_health_monitor: False
