@@ -714,31 +714,6 @@ class TrainingStateMonitor(Callback):
               or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
-            - stable_rank_config (dict, optional): The config specified how to monitor metricstable_rank.
-
-              - format: Determine where to display the weight stable_rank and max eigenvalue.
-                Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-                or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
-                Default: ``None``.
-
-              - step_interval (int, optional): Specify the frequency of monitoring stable rank.
-                Must be positive integer. Default: ``100``.
-
-              - target (list[str], optional): Specify the name or regular expression of params to calculate
-                stable rank. e.g. ["layers.[01]", "attention"]. Default: ``['.*']``.
-
-              - do_aggregation (bool, optional): Whether to aggregate weight parameter when it has been
-                sliced to calculate stable_rank and eigenvalue. Default: ``False``.
-
-              - moe_show_mode (Literal['full', 'statistics', 'all'], optional): Only works when calculating
-                weight_stable_rank and weight_eigenvalue for MoE model (3D param). Set to `full` to list all
-                experts' data. Set to `statistics` to show min, max, mean of all experts. Set to `all` to show
-                both original data and statistic data. Default: ``'all'``.
-
-              - power_iteration_num (int, optional): The iteration of power iteration method to approximate the max
-                eigenvalue. The more iterations performed, the closer the computed result is to the true value,
-                but the computational cost increases accordingly. Must be positive integer. Default: ``5``.
-
             - throughput_baseline: The model throughput baseline to calculate linearity. Must be a positive number.
               Will be displayed both to tensorboard and log. Set to ``None`` to ignore this metric. Default: ``None``.
 
