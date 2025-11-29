@@ -68,8 +68,8 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
         """check pipeline_stage and num_layers"""
         config = self.config
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        pp = config.parallel_config.pipeline_stage
-        if parallel_mode in ["semi_auto_parallel"]:
+        pp = getattr(config, 'pipeline_model_parallel_size', 1)
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             num_hidden_layers = config.num_hidden_layers
             num_nextn_predict_layers = config.num_nextn_predict_layers
             if num_hidden_layers and num_hidden_layers + num_nextn_predict_layers < pp:
@@ -79,13 +79,15 @@ class DeepseekV3PreTrainedModel(PreTrainedModel, ModelMixin):
                     f" + num_nextn_predict_layers ({num_nextn_predict_layers}) < pp ({pp})"
                 )
             pipeline_interleave_enabled = ms.get_auto_parallel_context("pipeline_interleave")
-            pp_interleave_num = getattr(config, 'pp_interleave_num', 0) or 0
+            pp_interleave_num = getattr(config, 'virtual_pipeline_model_parallel_size', 0) or 0
             if pipeline_interleave_enabled and pp_interleave_num * pp > num_hidden_layers + num_nextn_predict_layers:
                 raise ValueError(
                     f"num_hidden_layers + num_nextn_predict_layers of model should be greater than "
-                    f"`pp * pp_interleave_num`, but got num_hidden_layers + num_nextn_predict_layers : "
+                    f"`pipeline_model_parallel_size * virtual_pipeline_model_parallel_size`, "
+                    f"but got num_hidden_layers + num_nextn_predict_layers : "
                     f"{num_hidden_layers} + {num_nextn_predict_layers} "
-                    f"and pp * pp_interleave_num = {pp * pp_interleave_num}."
+                    f"and pipeline_model_parallel_size * virtual_pipeline_model_parallel_size = "
+                    f"{pp * pp_interleave_num}."
                 )
 
     def get_model_parameters(self):

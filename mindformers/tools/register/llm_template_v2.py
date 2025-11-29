@@ -582,7 +582,7 @@ class TrainingParallelConfig(Config):
             "range": lambda x: (
                 isinstance(x.get("enable_parallel_optimizer"), bool)
                 and x.get("optimizer_level") in ["level1", ]
-                and isinstance(x.get("optimizer_weight_shard_size"), int)),
+                and isinstance(x.get("optimizer_weight_shard_size"), int) and not x.get("gradient_accumulation_shard")),
             "description": ("Optimizer parallel configurations for memory-efficient "
                           "optimizer state management")
         },
