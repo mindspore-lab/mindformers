@@ -22,7 +22,8 @@ python convert_weight.py \
   --num_routed_experts 256 \
   --num_nextn_predict_layers 1 \
   --first_k_dense_replace 3 \
-  --dtype 'bf16'
+  --dtype 'bf16' \
+  --max_worker 16
 ```
 
 所有指令参数介绍如下：
@@ -40,6 +41,7 @@ python convert_weight.py \
 | num_nextn_predict_layers | int    | 可选   | 1      | MTP 层数，配置在 Hugging Face 仓库上的 `config.json` 中的 `num_nextn_predict_layers` 。             |
 | first_k_dense_replace    | int    | 可选   | 3      | 指定模型的前几层为 Dense 层，配置在 Hugging Face 仓库上的 `config.json` 中的 `first_k_dense_replace` 。     |
 | dtype                    | string | 可选   | 'bf16' | 目标转换的 MindSpore Transformers 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。 |
+| max_worker               | int    | 可选   | 16     | 使用多少个子进程进行权重处理。请合理控制此项，避免开启过多子进程造成资源竞争，这有可能会导致内存溢出（OOM），默认值为 `16` 。                    |
 
 如果转换时不需要 MTP 层（如进行 MindSpore Transformer 推理场景），可以将上述指令的 `--num_nextn_predict_layers` 参数设置为 `0`，例如：
 
@@ -114,7 +116,8 @@ python convert_weight.py \
   --num_routed_experts 256 \
   --num_nextn_predict_layers 1 \
   --first_k_dense_replace 3 \
-  --dtype 'bf16'
+  --dtype 'bf16' \
+  --max_worker 16
 ```
 
 所有指令参数介绍如下：
@@ -133,6 +136,7 @@ python convert_weight.py \
 | num_nextn_predict_layers | int    | 可选   | 1      | MTP 层数，对应训练 yaml 文件中的 `model.mocel_config.mtp_num_layers`（别名可能为`model.mocel_config.num_nextn_predict_layers`）。               |
 | first_k_dense_replace    | int    | 可选   | 3      | 指定模型的前几层为 Dense 层，对应训练 yaml 文件中的 `model.mocel_config.first_k_dense_replace`。                                                 |
 | dtype                    | string | 可选   | 'bf16' | 目标转换的 Hugging Face 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。                                                 |
+| max_worker               | int    | 可选   | 16     | 使用多少个子进程进行权重处理。请合理控制此项，避免开启过多子进程造成资源竞争，这有可能会导致内存溢出（OOM），默认值为 `16` 。                                                          |
 
 如果转换时不需要 MTP 层（如权重反转后用于 vLLM 推理场景），可以将上述指令的 `--num_nextn_predict_layers` 参数设置为 `0`，例如：
 
