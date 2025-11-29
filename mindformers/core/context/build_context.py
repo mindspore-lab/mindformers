@@ -36,7 +36,8 @@ from mindformers.tools.utils import (
     MODE,
     get_output_subpath,
     check_in_dynamic_cluster,
-    get_real_local_rank
+    get_real_local_rank,
+    get_real_group_size
 )
 from mindformers.utils import get_cann_workqueue_cores
 from mindformers.version_control import (
@@ -386,6 +387,17 @@ def set_ms_affinity(affinity_config, affinity_cpu_list):
         affinity_cpu_list = None
 
     if affinity_config:
+        # Check if any device_X in affinity_config has X >= device_num
+        max_device_id = get_real_group_size() - 1
+        for key in affinity_config:
+            try:
+                x = int(key.split('_')[1])
+            except Exception as exc:
+                raise ValueError(f"Invalid device config key {key} in affinity_config. "
+                                 f"The pattern should be `device_X`, where X refers to device id.") from exc
+            if x > max_device_id:
+                raise ValueError(f"Invalid device id {x} in affinity_config. "
+                                 f"Maximum allowed device id is {max_device_id}.")
         device_id = get_real_local_rank()
         device_config = affinity_config.get(f'device_{device_id}', None)
         if device_config:
