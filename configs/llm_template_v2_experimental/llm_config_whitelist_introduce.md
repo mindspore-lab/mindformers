@@ -59,16 +59,6 @@ train_precision_sync: False
 # 指定预训练模型的本地路径，支持从HuggingFace格式的模型文件加载权重和配置
 # 路径应包含config.json、tokenizer.json、model.safetensors等标准HF模型文件
 pretrained_model_dir: '/path/hf_dir'
-
-# Trainer配置，用于指定训练器类型和任务相关信息
-trainer:
-  # type: 训练器类型，使用新的LLMTrainer简化训练流程
-  # LLMTrainer是专门为大语言模型设计的训练器，提供简化的训练逻辑和优化流程
-  type: LLMTrainer
-
-  # task_name: 任务名称，用户可自定义，如qwen3、glm4等
-  # 用于标识当前训练任务的名称，字符内容没有限制，建议使用模型名称便于识别和管理
-  task_name: 'llm_model'  # qwen3 glm4等，用户可自己定义，字符内容没有限制
 ```
 
 ### 权重配置
@@ -1278,16 +1268,6 @@ parallel:
   # enable_alltoall: 是否启用AllToAll通信
   # False表示不启用AllToAll通信操作，通常配合MOE模型专家并行使用
   enable_alltoall: False
-
-# Trainer配置，用于指定训练器类型和任务相关信息
-trainer:
-  # type: 训练器类型，使用新的LLMTrainer简化推理流程
-  # LLMTrainer是专门为大语言模型设计的Trainer，提供简化的推理逻辑和优化
-  type: LLMTrainer # 新配置格式 新Trainer流程 简化逻辑
-
-  # task_name: 任务名称，用户可自定义，如qwen3、glm4等
-  # 用于标识当前训练任务的名称，字符内容没有限制，建议使用模型名称便于识别和管理
-  task_name: 'llm_model'  # qwen3 glm4等，用户可自己定义，字符内容没有限制
 ```
 
 ### 并行配置

@@ -1296,8 +1296,10 @@ class TrainingDatasetConfig(Config):
 
 class TrainerConfig(Config):
     """Trainer configuration"""
-    _raise_error_for_unexpected_key: bool = False
 
+    type: str = "LLMTrainer"
+
+    _raise_error_for_unexpected_key: bool = False
     _name: str = "trainer"
     _required_keys: Dict[str, List[str]] = {
         "trainer": ["type"]

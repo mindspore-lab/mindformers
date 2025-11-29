@@ -81,11 +81,8 @@ class LLMTrainer:
     LLM Model Trainer Class.
     This class provides training and inference capabilities for Large Language Models,
     handling dataset creation, model building, optimizer setup, and training loop execution.
-    Args:
-        task_name (str): Name of the task. Defaults to "llm".
     """
-    def __init__(self, task_name: str = "llm") -> None:
-        self.task_name = task_name
+    def __init__(self) -> None:
         self.llm_model = None
         self.train_dataset = None
         self.callbacks = []
@@ -152,7 +149,7 @@ class LLMTrainer:
         self._logging_host_info()
         mode_str = 'training' if is_train else 'inference'
         logger.info(
-            f"Configuration setup completed for {self.task_name} task in {mode_str} mode.")
+            f"Configuration setup completed for llm task in {mode_str} mode.")
 
     def _set_pipeline_parallel_context(self) -> None:
         """Set pipeline parallel context based on distributed parallel configuration.

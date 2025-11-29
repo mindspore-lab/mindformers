@@ -131,7 +131,3 @@ context:
     precision_mode: must_keep_origin_dtype
     parallel_speed_up_json_path: ./configs/qwen3/parallel_speed_up.json
   mempool_block_size: 1GB
-
-trainer:
-  type: LLMTrainer
-  task_name: Qwen3

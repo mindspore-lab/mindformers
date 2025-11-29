@@ -90,7 +90,3 @@ context:
     jit_level: "O0"  # 编译优化级别，O0关闭大部分优化，O1使能常用优化和自动算子融合优化
   ascend_config:
     parallel_speed_up_json_path: "./configs/model_path/parallel_speed_up.json"  # 并行加速JSON文件路径
-
-trainer:
-  type: LLMTrainer  # 训练器类型，LLMTrainer是专门为大语言模型设计的训练器，提供简化的训练流程
-  task_name: 'llm_pretrain'  # 任务名称，用户可自定义，建议使用模型名称便于识别和管理
