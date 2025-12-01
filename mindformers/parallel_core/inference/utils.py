@@ -20,12 +20,15 @@ __all__ = [
     "update_comm_config",
 ]
 
+import os
+import stat
 from contextlib import contextmanager
 import numpy as np
 
 import mindspore as ms
 from mindspore import Tensor, ops, Parameter, mint
 from mindspore.communication import get_group_size
+from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
 
 from mindformers.version_control import is_310p
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -65,7 +68,7 @@ ATTNMASK_FUNC_MAP = {
 
 
 def get_attn_mask_func(mask_func_type):
-    r"""
+    """
     Get attention mask function.
 
     Args:
@@ -75,9 +78,9 @@ def get_attn_mask_func(mask_func_type):
         Function, the attention mask function.
     """
     if mask_func_type not in ATTNMASK_FUNC_MAP:
-        raise KeyError("Invalid attention mask function. Supported attention "
-                       "mask function are ['attn_mask_fill', 'attn_mask_add'] "
-                       ", but got {}.".format(mask_func_type))
+        raise KeyError(f"Invalid attention mask function. Supported attention "
+                       f"mask function are ['attn_mask_fill', 'attn_mask_add'] "
+                       f", but got {mask_func_type}.")
     return ATTNMASK_FUNC_MAP[mask_func_type]
 
 
@@ -158,7 +161,7 @@ def create_empty_parameter(shape, *, dtype=None, device=None, **kwargs):
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     if numerator % denominator != 0:
-        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+        raise ValueError(f"{numerator} is not divisible by {denominator}")
 
 
 def divide(numerator, denominator):
@@ -178,10 +181,6 @@ def save_strategy_file(state_dict, strategy_file_name):
     Supported Platforms:
         ``Ascend``
     """
-    import os
-    import stat
-    from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
-
     stra = ckpt_strategy()
 
     stage_rank_size = state_dict["stage_rank_size"]
@@ -361,12 +360,13 @@ def get_num_layers_and_offset(config):
         return int(layer_list[pp_rank]), int(sum(layer_list[:pp_rank]))
     return num_layers, 0
 
+
 def use_ms_custom_ops():
     """
     Determine whether has custom ops
     """
     try:
-        # pylint: disable=W0611
+        # pylint: disable=W0611, C0415
         import ms_custom_ops
     except ModuleNotFoundError:
         # environment need install ms_custom_ops package

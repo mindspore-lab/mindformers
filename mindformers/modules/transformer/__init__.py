@@ -21,7 +21,6 @@ This is an experimental interface that is subject to change or deletion.
 
 from .transformer import (
     EmbeddingOpParallelConfig,
-    FeedForward,
     LowerTriangularMaskWithDynamic,
     TransformerOpParallelConfig,
     TransformerRecomputeConfig,

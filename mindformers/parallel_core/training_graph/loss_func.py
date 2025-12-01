@@ -40,26 +40,23 @@ _device_local_loss = {}
 
 def get_device_local_loss(tag="lm"):
     """Get `_device_local_loss` Parameter after init"""
-    global _device_local_loss
     if tag is None:
         return _device_local_loss
     if _device_local_loss.get(tag, None) is None:
         _device_local_loss[tag] = Parameter(
-            Tensor([0.0], mstype.float32), name=f"_device_local_loss", requires_grad=False
+            Tensor([0.0], mstype.float32), name="_device_local_loss", requires_grad=False
         )
     return _device_local_loss[tag]
 
 
 def reset_device_local_loss():
     """Reset `_device_local_loss` parameter to zero"""
-    global _device_local_loss
     for _, loss in _device_local_loss.items():
         F.assign(loss, Tensor([0.0], mstype.float32))
 
 
 def check_device_local_loss():
     """check if Nan or Inf in `_device_local_loss` parameter then terminate training"""
-    global _device_local_loss
     if not _device_local_loss:
         return
     for tag, device_local_loss in _device_local_loss.items():
@@ -88,7 +85,7 @@ class _LogSoftmax(nn.Cell):
         The corresponding log softmax results.
     """
     def __init__(self, config: TransformerConfig = default_transformer_config):
-        super(_LogSoftmax, self).__init__()
+        super().__init__()
         dp = config.data_parallel_size
         mp = config.tensor_model_parallel_size
         cp = config.context_parallel_size
@@ -143,7 +140,7 @@ class _NLLLoss(nn.Cell):
         The corresponding loss results.
     """
     def __init__(self, config: TransformerConfig = default_transformer_config):
-        super(_NLLLoss, self).__init__()
+        super().__init__()
         dp = config.data_parallel_size
         mp = config.tensor_model_parallel_size
         cp = config.context_parallel_size
@@ -176,7 +173,7 @@ class _NLLLoss(nn.Cell):
 
 
 class CrossEntropyLoss(nn.Cell):
-    r"""
+    """
     Calculate the cross entropy loss.
 
     CrossEntropyLoss supports two different types of targets:
@@ -185,9 +182,9 @@ class CrossEntropyLoss(nn.Cell):
       When reduction is set to 'none', the cross-entropy loss is computed as follows:
 
       .. math::
-          \ell(x, y) = L = \{l_1,\dots,l_N\}^\top, \quad
-          l_n = - w_{y_n} \log \frac{\exp(x_{n,y_n})}{\sum_{c=1}^C \exp(x_{n,c})}
-          \cdot \mathbb{1}\{y_n \not= \text{ignore_index}\}
+          \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\top, \\quad
+          l_n = - w_{y_n} \\log \\frac{\\exp(x_{n,y_n})}{\\sum_{c=1}^C \\exp(x_{n,c})}
+          \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore_index}\\}
 
       where :math:`x` denotes the predicted values, :math:`t` denotes the target values, :math:`w` denotes the weights,
       and :math:`N` is the batch size. The index :math:`c` ranges from [0, C-1], representing the class indices,
@@ -196,19 +193,19 @@ class CrossEntropyLoss(nn.Cell):
       If reduction is not set to 'none' (the default is 'mean'), the loss is computed as:
 
       .. math::
-          \ell(x, y) = \begin{cases}
-              \sum_{n=1}^N \frac{1}{\sum_{n=1}^N w_{y_n} \cdot \mathbb{1}\{y_n \not= \text{ignore_index}\}} l_n, &
-              \text{if reduction} = \text{'mean',}\\
-              \sum_{n=1}^N l_n,  &
-              \text{if reduction} = \text{'sum'.}
-              \end{cases}
+          \\ell(x, y) = \\begin{cases}
+              \\sum_{n=1}^N \\frac{1}{\\sum_{n=1}^N w_{y_n} \\cdot \\mathbb{1}\\{y_n \\not=
+              \\text{ignore_index}\\}} l_n, &\\text{if reduction} = \\text{'mean',}\\\\
+              \\sum_{n=1}^N l_n,  &
+              \\text{if reduction} = \\text{'sum'.}
+              \\end{cases}
 
     - Class probabilities (float), used when the target is a probability distribution over multiple class labels.
       When reduction is set to 'none', the cross-entropy loss is computed as follows:
 
       .. math::
-          \ell(x, y) = L = \{l_1,\dots,l_N\}^\top, \quad
-          l_n = - \sum_{c=1}^C w_c \log \frac{\exp(x_{n,c})}{\sum_{i=1}^C \exp(x_{n,i})} y_{n,c}
+          \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad
+          l_n = - \\sum_{c=1}^C w_c \\log \\frac{\\exp(x_{n,c})}{\\sum_{i=1}^C \\exp(x_{n,i})} y_{n,c}
 
       where :math:`x` denotes the predicted values, :math:`t` denotes the target values, :math:`w` denotes the weights,
       and :math:`N` is the batch size. The index :math:`c` ranges from [0, C-1], representing the class indices,
@@ -217,12 +214,12 @@ class CrossEntropyLoss(nn.Cell):
       If reduction is not set to 'none' (the default is 'mean'), the loss is computed as:
 
       .. math::
-          \ell(x, y) = \begin{cases}
-              \frac{\sum_{n=1}^N l_n}{N}, &
-              \text{if reduction} = \text{'mean',}\\
-              \sum_{n=1}^N l_n,  &
-              \text{if reduction} = \text{'sum'.}
-              \end{cases}
+          \\ell(x, y) = \\begin{cases}
+              \\frac{\\sum_{n=1}^N l_n}{N}, &
+              \\text{if reduction} = \\text{'mean',}\\\\
+              \\sum_{n=1}^N l_n,  &
+              \\text{if reduction} = \\text{'sum'.}
+              \\end{cases}
 
     Args:
         config (TransformerConfig): The parallel configuration. Default: default_transformer_config,
@@ -258,7 +255,7 @@ class CrossEntropyLoss(nn.Cell):
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, config: TransformerConfig = default_transformer_config, loss_tag='lm', **kwargs):
-        super(CrossEntropyLoss, self).__init__()
+        super().__init__()
         dp = config.data_parallel_size
         mp = config.tensor_model_parallel_size
         cp = config.context_parallel_size
@@ -347,7 +344,7 @@ class VocabParallelCrossEntropy(nn.Cell):
     """calculate cross entropy loss"""
 
     def __init__(self, config: TransformerConfig = default_transformer_config, **kwargs):
-        super(VocabParallelCrossEntropy, self).__init__()
+        super().__init__()
         self.cross_entropy = CrossEntropyLoss(config, **kwargs)
 
     def construct(self, vocab_parallel_logits, target, input_mask=None, label_smoothing=None):

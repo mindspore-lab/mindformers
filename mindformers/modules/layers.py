@@ -49,6 +49,8 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
 from mindformers.modules.activation import get_activation
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
+from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import \
+    _yarn_find_correction_range
 
 __all__ = [
     "FixedSparseAttention",
@@ -177,7 +179,6 @@ class _LayerInputCheck:
         Check the input shape's is equal to the expected shape, the value on 0-th is viewed as batch, and the
         batch size will not be checked.
         """
-        target_shape = target_shape
         length, hidden = target_shape
         if isinstance(input_shape, tuple):
             input_shape = list(input_shape)
@@ -244,11 +245,9 @@ class Dropout(nn.Cell):
     """
 
     def __init__(self, keep_prob=0.5, dtype=mstype.float32):
-        super(Dropout, self).__init__()
+        super().__init__()
         if keep_prob <= 0 or keep_prob > 1:
-            raise ValueError(
-                "dropout probability should be a number in range (0, 1], but got {}".format(
-                    keep_prob))
+            raise ValueError(f"dropout probability should be a number in range (0, 1], but got {keep_prob}")
         Validator.check_subclass("dtype", dtype, mstype.number_type, self.cls_name)
         Validator.check_value_type('keep_prob', keep_prob, [float], self.cls_name)
         self.keep_prob = keep_prob
@@ -269,7 +268,7 @@ class Dropout(nn.Cell):
         return out
 
     def extend_repr(self):
-        return 'keep_prob={}'.format(self.keep_prob)
+        return f'keep_prob={self.keep_prob}'
 
     def shard(self, strategy):
         self.dropout.shard(strategy)
@@ -291,10 +290,10 @@ class LayerNorm(Cell):
     """
 
     def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32, is_self_defined=False):
-        super(LayerNorm, self).__init__()
+        super().__init__()
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
-            raise TypeError("The type of parameter 'param_init_type' should in [float32, float16], "
-                            "but got the type : {}.".format(type(param_init_type)))
+            raise TypeError(f"The type of parameter 'param_init_type' should in [float32, float16], "
+                            f"but got the type : {type(param_init_type)}.")
         # Since the mindspore 1.10 version, the layernorm has been changed to P.LayerNorm
         self.is_self_defined = is_self_defined
         if not self.is_self_defined:
@@ -441,7 +440,7 @@ class Linear(Cell):
                  use_gmm=False,
                  param_init_type=mstype.float32,
                  compute_dtype=mstype.float16):
-        super(Linear, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         if not (isinstance(activation, str) or activation is None or issubclass(activation, nn.Cell)):
@@ -465,6 +464,7 @@ class Linear(Cell):
             self.weight = Parameter(initializer(weight_init, [self.expert_num] + weight_shape, param_init_type),
                                     name="weight")
             if self.use_gmm:
+                # pylint: disable=import-outside-toplevel
                 from mindspore.ops.auto_generate import GroupedMatmul
                 # split_item only supports 0 and 3 now, 0 means the size of tensorlist not equal to 1,
                 # 3 means the size of tensorlist is 1.
@@ -676,7 +676,7 @@ class FixedSparseAttention(nn.Cell):
                  seq_length=1024,
                  num_different_global_patterns=4,
                  parallel_config=default_dpmp_config):
-        super(FixedSparseAttention, self).__init__()
+        super().__init__()
         dp, mp = parallel_config.data_parallel, parallel_config.model_parallel
         if num_heads % mp != 0:
             raise ValueError(f"The number of heads {num_heads} must be a "
@@ -700,17 +700,17 @@ class FixedSparseAttention(nn.Cell):
         self.parallel_config = parallel_config
         size_per_head_list = [64, 128]
         if self.seq_length != 1024:
-            raise ValueError("For 'FixedSparseAttention', the class variable 'seq_length' must be 1024, "
-                             "but got the value : {}.".format(seq_length))
+            raise ValueError(f"For 'FixedSparseAttention', the class variable 'seq_length' must be 1024, "
+                             f"but got the value : {seq_length}.")
         if self.block_size != 64:
-            raise ValueError("For 'FixedSparseAttention', the class variable 'block_size' must be 64, "
-                             "but got the value : {}.".format(block_size))
+            raise ValueError(f"For 'FixedSparseAttention', the class variable 'block_size' must be 64, "
+                             f"but got the value : {block_size}.")
         if num_different_global_patterns != 4:
-            raise ValueError("For 'FixedSparseAttention', the class variable 'num_different_global_patterns' "
-                             "must be 4, but got the value : {}".format(num_different_global_patterns))
+            raise ValueError(f"For 'FixedSparseAttention', the class variable 'num_different_global_patterns' "
+                             f"must be 4, but got the value : {num_different_global_patterns}")
         if self.size_per_head not in size_per_head_list:
-            raise ValueError("For 'FixedSparseAttention', the class variable 'size_per_head' only supports {}, "
-                             "but got the value : {}.".format(size_per_head_list, self.size_per_head))
+            raise ValueError(f"For 'FixedSparseAttention', the class variable 'size_per_head' "
+                             f"only supports {size_per_head_list}, but got the value : {self.size_per_head}.")
         local_ones = np.ones((self.block_size, self.block_size),
                              dtype=np.float16)
         global_mask_original = np.ones((self.seq_length, self.global_size), dtype=np.float16)
@@ -851,7 +851,7 @@ class AlibiTensor(nn.Cell):
     """
 
     def __init__(self, seq_length, num_heads, parallel_config=default_dpmp_config):
-        super(AlibiTensor, self).__init__()
+        super().__init__()
         dp = parallel_config.data_parallel
 
         self.seq_length = seq_length
@@ -915,7 +915,7 @@ class AlibiTensorV2(nn.Cell):
     """
 
     def __init__(self, num_heads):
-        super(AlibiTensorV2, self).__init__()
+        super().__init__()
         self.num_heads = num_heads
 
         self.expand_2d = P.ExpandDims()
@@ -1122,22 +1122,6 @@ def _check_linear_scaling_factor(scaling_factor):
     factor = scaling_factor["factor"]
     if isinstance(factor, (int, float)) or factor < 1.0:
         raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
-
-
-def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
-    """Inverse dim formula to find dim based on number of rotations"""
-    return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (2 * math.log(base))
-
-
-def _yarn_find_correction_range(low_rot, high_rot, dim, base=10000, max_position_embeddings=2048):
-    """Find dim range bounds based on rotations"""
-    low = math.floor(
-        _yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
-    )
-    high = math.ceil(
-        _yarn_find_correction_dim(high_rot, dim, base, max_position_embeddings)
-    )
-    return max(low, 0), min(high, dim - 1)  # Clamp values just in case
 
 
 def _yarn_get_mscale(scale=1, mscale=1):

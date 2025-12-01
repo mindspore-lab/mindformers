@@ -77,7 +77,7 @@ ATTNMASK_FUNC_MAP = {
 
 
 def get_attn_mask_func(mask_func_type):
-    r"""
+    """
     Get attention mask function.
 
     Args:

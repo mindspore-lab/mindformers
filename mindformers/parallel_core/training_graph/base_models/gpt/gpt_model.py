@@ -29,7 +29,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore import ops
 
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
-from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock
+from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock, \
+    func_infer_dtype, func_infer_shape, func_infer_shape_labels_and_masks
 from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
@@ -54,26 +55,6 @@ from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
 from mindformers.core.optim.muon_utils import make_muon_fns
-
-
-def func_infer_dtype(*args):
-    """infer_dtype for Morph."""
-    return args[0]
-
-
-def func_infer_shape(*args):
-    """infer_shape for Morph."""
-    input_shape = args[0]
-    shape_value = np.prod(input_shape[:-1])
-    output_shape = [int(shape_value), args[0][-1]]
-    return output_shape
-
-def func_infer_shape_labels_and_masks(*args):
-    """infer_shape for Morph."""
-    input_shape = args[0]
-    shape_value = np.prod(input_shape)
-    output_shape = [int(shape_value)]
-    return output_shape
 
 
 class PreprocessLabelsAndMasks(nn.Cell):

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """FusedPmaAdamW implementation"""
-import mindspore.ops as ops
+from mindspore import ops
 
 from mindspore._checkparam import GT, INC_NEITHER
 from mindspore import _checkparam as validator
@@ -76,7 +76,7 @@ def _check_param_value(fused_num, interleave_step, fused_algo, ema_alpha, prim_n
 
 
 class FusedPmaAdamW(FusedAdamW):
-    r"""
+    """
     This is the implementation of PmaAdamW that uses fused operators.
 
     Args:

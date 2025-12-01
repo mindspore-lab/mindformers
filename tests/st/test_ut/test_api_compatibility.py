@@ -101,7 +101,7 @@ def is_not_compatibility(base_str, new_str):
 def set_failure_list(api_str, value, signature, failure_list):
     """set failure info list"""
     failure_list.append(f"# {api_str}:")
-    failure_list.append(f"  - function signature is different: ")
+    failure_list.append("  - function signature is different: ")
     failure_list.append(f"    - the base signature is {value}.")
     failure_list.append(f"    - now it is {signature}.")
 
@@ -170,12 +170,12 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
         else:
             tmp_len = -1
             signature = None
-            for i in range(len(signature_list)):
-                if signature_list[i] == "(*args, **kwargs)":
+            for _, sig in enumerate(signature_list):
+                if sig == "(*args, **kwargs)":
                     continue
-                if len(signature_list[i]) > tmp_len:
-                    tmp_len = len(signature_list[i])
-                    signature = signature_list[i]
+                if len(sig) > tmp_len:
+                    tmp_len = len(sig)
+                    signature = sig
     else:
         signature = str(inspect.signature(obj))
 
@@ -293,7 +293,8 @@ class TestApiStability:
             def check_one_element(elem, mod_name, mod, is_public):
                 obj = getattr(mod, elem)
                 if hasattr(obj, "__module__"):
-                    if obj.__module__ not in ['sentencepiece_model_pb2']:   # cannot use __import__ module list
+                    # cannot use __import__ module list
+                    if obj.__module__ not in ['sentencepiece_model_pb2', 'node_strategy_pb2']:
                         mod_source = str(__import__(obj.__module__))
                         if "mindformers" not in mod_source:
                             return
@@ -337,4 +338,4 @@ class TestApiStability:
             with open(self.api_json_path, "w", encoding="utf-8") as w:
                 w.write(json.dumps(self.content, ensure_ascii=False, indent=4))
 
-        assert not self.is_update, f"self.is_update should be set to False"
+        assert not self.is_update, "self.is_update should be set to False"
