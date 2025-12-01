@@ -28,47 +28,50 @@ __all__ = ['AdamW', 'PmaAdamW', 'Muon']
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class AdamW:
-    r"""
+    """
     This is the implementation of AdamW.
 
     .. math::
-        \begin{array}{l}
-            &\newline
-            &\hline \\
-            &\textbf{Parameters}: \: 1^{\text {st }}\text {moment vector} \: m , \: 2^{\text {nd}} \:
-             \text{moment vector} \: v , \\
-            &\: gradients \: g, \: \text{learning rate} \: \gamma,
-             \text {exponential decay rates for the moment estimates} \: \beta_{1} \: \beta_{2} , \\
-            &\:\text {parameter vector} \: w_{0}, \:\text{timestep} \: t, \: \text{weight decay} \: \lambda \\
-            &\textbf{Init}:  m_{0} \leftarrow 0, \: v_{0} \leftarrow 0, \: t \leftarrow 0, \:
-             \text{init parameter vector} \: w_{0} \\[-1.ex]
-            &\newline
-            &\hline \\
-            &\textbf{repeat} \\
-            &\hspace{5mm} t \leftarrow t+1 \\
-            &\hspace{5mm}\boldsymbol{g}_{t} \leftarrow \nabla f_{t}\left(\boldsymbol{w}_{t-1}\right) \\
-            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\lambda\boldsymbol{w}_{t-1} \\
-            &\hspace{5mm}\boldsymbol{m}_{t} \leftarrow \beta_{1} \boldsymbol{m}_{t-1}+\left(1-\beta_{1}\right)
-             \boldsymbol{g}_{t} \\
-            &\hspace{5mm}\boldsymbol{v}_{t} \leftarrow \beta_{2} \boldsymbol{v}_{t-1}+\left(1-\beta_{2}\right)
-             \boldsymbol{g}_{t}^{2} \\
-            &\hspace{5mm}\widehat{\boldsymbol{m}_{t}} \leftarrow \boldsymbol{m}_{t}/\big(1-\beta_{1}^{t} \big) \\
-            &\hspace{5mm}\widehat{\boldsymbol{v}_{t}} \leftarrow \boldsymbol{v}_{t}/\big(1-\beta_{2}^{t} \big) \\
-            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\widehat{\boldsymbol{m}_{t}}
-             /\left(\sqrt{\widehat{\boldsymbol{v}_{t}}}+\epsilon\right) \\
-            &\textbf{until}\text { stopping criterion is met } \\[-1.ex]
-            &\newline
-            &\hline \\[-1.ex]
-            &\textbf{return} \: \boldsymbol{w}_{t} \\[-1.ex]
-            &\newline
-            &\hline \\[-1.ex]
-        \end{array}
+        \\begin{array}{l}
+            &\\newline
+            &\\hline \\\\
+            &\\textbf{Parameters}: \\: 1^{\\text {st }}\\text {moment vector} \\: m , \\: 2^{\\text {nd}} \\:
+             \\text{moment vector} \\: v , \\\\
+            &\\: gradients \\: g, \\: \\text{learning rate} \\: \\gamma,
+             \\text {exponential decay rates for the moment estimates} \\: \\beta_{1} \\: \\beta_{2} , \\\\
+            &\\:\\text {parameter vector} \\: w_{0}, \\:\\text{timestep} \\: t, \\: \\text{weight decay} \\: \\lambda \\\\
+            &\\textbf{Init}:  m_{0} \\leftarrow 0, \\: v_{0} \\leftarrow 0, \\: t \\leftarrow 0, \\:
+             \\text{init parameter vector} \\: w_{0} \\\\[-1.ex]
+            &\\newline
+            &\\hline \\\\
+            &\\textbf{repeat} \\\\
+            &\\hspace{5mm} t \\leftarrow t+1 \\\\
+            &\\hspace{5mm}\\boldsymbol{g}_{t} \\leftarrow \\nabla f_{t}\\left(\\boldsymbol{w}_{t-1}\\right) \\\\
+            &\\hspace{5mm}\\boldsymbol{w}_{t} \\leftarrow \\boldsymbol{w}_{t-1}-\\gamma\\lambda
+             \\boldsymbol{w}_{t-1} \\\\
+            &\\hspace{5mm}\\boldsymbol{m}_{t} \\leftarrow \\beta_{1} \\boldsymbol{m}_{t-1}+\\left(1-\\beta_{1}\\right)
+             \\boldsymbol{g}_{t} \\\\
+            &\\hspace{5mm}\\boldsymbol{v}_{t} \\leftarrow \\beta_{2} \\boldsymbol{v}_{t-1}+\\left(1-\\beta_{2}\\right)
+             \\boldsymbol{g}_{t}^{2} \\\\
+            &\\hspace{5mm}\\widehat{\\boldsymbol{m}_{t}} \\leftarrow \\boldsymbol{m}_{t}/
+             \\big(1-\\beta_{1}^{t} \\big) \\\\
+            &\\hspace{5mm}\\widehat{\\boldsymbol{v}_{t}} \\leftarrow \\boldsymbol{v}_{t}/
+             \\big(1-\\beta_{2}^{t} \\big) \\\\
+            &\\hspace{5mm}\\boldsymbol{w}_{t} \\leftarrow \\boldsymbol{w}_{t-1}-\\gamma\\widehat{\\boldsymbol{m}_{t}}
+             /\\left(\\sqrt{\\widehat{\\boldsymbol{v}_{t}}}+\\epsilon\\right) \\\\
+            &\\textbf{until}\\text { stopping criterion is met } \\\\[-1.ex]
+            &\\newline
+            &\\hline \\\\[-1.ex]
+            &\\textbf{return} \\: \\boldsymbol{w}_{t} \\\\[-1.ex]
+            &\\newline
+            &\\hline \\\\[-1.ex]
+        \\end{array}
 
     :math:`m` represents the first moment vector moment1, :math:`v` represents the second moment vector moment2,
-    :math:`\widehat{m}` represents the bias-corrected first moment vector, :math:`\widehat{v}` represents
-    the bias-corrected second moment vector, :math:`g` represents gradients, :math:`\gamma` represents
-    learning_rate, :math:`\beta_1`, `\beta_2` represent beta1 and beta2, :math:`t` represents the current step,
-    :math:`w` represents params, and :math:`\lambda` represents weight_decay.
+    :math:`\\widehat{m}` represents the bias-corrected first moment vector, :math:`\\widehat{v}` represents
+    the bias-corrected second moment vector, :math:`g` represents gradients, :math:`\\gamma` represents
+    learning_rate, :math:`\\beta_1`, `\\beta_2` represent beta1 and beta2, :math:`t` represents the current step,
+    :math:`w` represents params, and :math:`\\lambda` represents weight_decay.
 
     Args:
         params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
@@ -218,7 +221,7 @@ class AdamW:
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class PmaAdamW:
-    r"""
+    """
     This is the implementation of PmAdamW.
 
     Args:

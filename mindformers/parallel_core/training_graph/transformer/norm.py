@@ -36,7 +36,7 @@ def get_strategy(config: TransformerConfig):
 
 
 class LayerNorm(nn.Cell):
-    r"""
+    """
     Layer norm operation.
 
     Args:
@@ -52,7 +52,7 @@ class LayerNorm(nn.Cell):
     """
 
     def __init__(self, config, dim, eps=1e-5):
-        super(LayerNorm, self).__init__()
+        super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
 
@@ -117,7 +117,7 @@ class LayerNorm(nn.Cell):
 
 
 class FusedLayerNorm(nn.Cell):
-    r"""
+    """
     Layer norm operation.
 
     Args:
@@ -133,7 +133,7 @@ class FusedLayerNorm(nn.Cell):
     """
 
     def __init__(self, config, dim, eps=1e-5):
-        super(FusedLayerNorm, self).__init__()
+        super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
 
@@ -170,8 +170,7 @@ class FusedLayerNorm(nn.Cell):
             strategy = (cp, dp, 1)
 
         if strategy[-1] != 1:
-            raise TypeError(
-                'The last dim in FusedLayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
+            raise TypeError(f'The last dim in FusedLayerNorm can not equal to 1! Strategy {strategy} not supported!')
 
         self.layer_norm.shard((strategy, (strategy[-1],), (strategy[-1],)))
 
@@ -180,7 +179,7 @@ class FusedLayerNorm(nn.Cell):
 
 
 class RMSNorm(nn.Cell):
-    r"""
+    """
     A self-defined RMSNorm operation using reduce mean.
 
     Args:
@@ -196,7 +195,7 @@ class RMSNorm(nn.Cell):
     """
 
     def __init__(self, config, dim, eps=1e-6):
-        super(RMSNorm, self).__init__()
+        super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
 
@@ -251,7 +250,7 @@ class RMSNorm(nn.Cell):
 
 
 class FusedRMSNorm(nn.Cell):
-    r"""
+    """
     FusedRMSNorm operation
 
     Args:
@@ -267,7 +266,7 @@ class FusedRMSNorm(nn.Cell):
     """
 
     def __init__(self, config, dim, eps=1e-6):
-        super(FusedRMSNorm, self).__init__()
+        super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
 

@@ -22,14 +22,14 @@ from mindspore.ops import operations as ops
 from mindspore.common.api import _cell_graph_executor
 
 from mindformers.core import CrossEntropyLoss
-from mindformers.modules import FeedForward, FixedSparseAttention, LowerTriangularMaskWithDynamic
+from mindformers.modules import FixedSparseAttention, LowerTriangularMaskWithDynamic
 
 
 class MyActivation(mindspore.nn.Cell):
     """An example of custom activation"""
 
     def __init__(self):
-        super(MyActivation, self).__init__()
+        super().__init__()
         self.add = ops.Add()
 
     def construct(self, x):
@@ -43,25 +43,11 @@ class MyActivationNoShard(mindspore.nn.Cell):
     """An example of custom activation without shard"""
 
     def __init__(self):
-        super(MyActivationNoShard, self).__init__()
+        super().__init__()
         self.add = ops.Add()
 
     def construct(self, x):
         return self.add(x, 0.1)
-
-
-def test_feedforward():
-    """
-    Feature: Feedforward
-    Description: Test Feedforward module
-    Expectation: No exception
-    """
-    model = FeedForward(hidden_size=15,
-                        ffn_hidden_size=30,
-                        dropout_rate=0.1,
-                        hidden_act='relu')
-    tensor = Tensor(np.ones((2, 20, 15)), dtype.float32)
-    _cell_graph_executor.compile(model, tensor)
 
 
 def test_cross_entropy_loss():

@@ -26,7 +26,6 @@ import mindspore as ms
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import Zero
-from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -40,18 +39,14 @@ except ImportError:
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
-from mindformers.modules.layers import Linear, _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
-    _check_input_dtype
-from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
-    _Config, _check_config, MoEParallelConfig
-from mindformers.version_control import get_dropout
+from mindformers.modules.transformer.op_parallel_config import _PipeLineConfig, OpParallelConfig, \
+    _Config, MoEParallelConfig
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.utils import is_pynative
 
 __all__ = [
     "LowerTriangularMaskWithDynamic",
-    "FeedForward",
     "TransformerOpParallelConfig",
     "EmbeddingOpParallelConfig",
     "TransformerRecomputeConfig",
@@ -211,7 +206,7 @@ class TransformerSwapConfig(_Config):
         if isinstance(layer_swap, dict):
             layer_swap = [layer_swap]
         if self._validate_layers_consistency(layer_swap):
-            return [dict(backward_prefetch=layer_swap[0][self.backward_prefetch], layers=True)]
+            return [{"backward_prefetch": layer_swap[0][self.backward_prefetch], "layers": True}]
         return layer_swap
 
     def _initialize_op_swap(self, op_swap):
@@ -225,7 +220,7 @@ class TransformerSwapConfig(_Config):
         op_swap_dict = self.op_swap_to_dict(op_swap)
         for k, v in op_swap_dict.items():
             if self._validate_layers_consistency(v, mode=f'op_swap: {k}'):
-                op_swap_dict[k] = [dict(backward_prefetch=v[0][self.backward_prefetch], layers=True)]
+                op_swap_dict[k] = [{"backward_prefetch": v[0][self.backward_prefetch], "layers": True}]
         return op_swap_dict
 
     def _validate_layers_consistency(self, layer_swap, mode='layer_swap'):
@@ -283,17 +278,17 @@ class TransformerSwapConfig(_Config):
         """Adds an operation swap configuration to the dictionary."""
         if key in dic:
             dic[key].append(
-                dict(
-                    layers=item.get(self.layers),
-                    backward_prefetch=item.get(self.backward_prefetch)
-                )
+                {
+                    'layers': item.get(self.layers),
+                    'backward_prefetch': item.get(self.backward_prefetch)
+                }
             )
         else:
             dic[key] = [
-                dict(
-                    layers=item.get(self.layers),
-                    backward_prefetch=item.get(self.backward_prefetch)
-                )
+                {
+                    'layers': item.get(self.layers),
+                    'backward_prefetch': item.get(self.backward_prefetch)
+                }
             ]
         return dic
 
@@ -507,9 +502,9 @@ class ContextParallelAlgo(Enum):
     Args:
         Enum (str): chosses context parallel type
     """
-    colossalai_cp = "colossalai_cp"
-    ulysses_cp = "ulysses_cp"
-    hybrid_cp = "hybrid_cp"
+    COLOSSALAI_CP = "colossalai_cp"
+    ULYSSES_CP = "ulysses_cp"
+    HYBRID_CP = "hybrid_cp"
 
 
 default_transformer_swap_config = TransformerSwapConfig()
@@ -601,7 +596,7 @@ class TransformerOpParallelConfig(_Config):
             ValueError: in hybrid_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
         """
         if self.context_parallel == 1:
-            if self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
+            if self.context_parallel_algo != ContextParallelAlgo.COLOSSALAI_CP:
                 logger.warning(f"context_parallel_algo {self.context_parallel_algo.value} will not take effect "
                                "when context_parallel == 1.")
             if self.ulysses_degree_in_cp > 1:
@@ -610,10 +605,10 @@ class TransformerOpParallelConfig(_Config):
             return
 
         # here context parallel > 1
-        if self.context_parallel_algo != ContextParallelAlgo.hybrid_cp and self.ulysses_degree_in_cp > 1:
+        if self.context_parallel_algo != ContextParallelAlgo.HYBRID_CP and self.ulysses_degree_in_cp > 1:
             logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
                            f"context_parallel_algo {self.context_parallel_algo.value} is not `hybrid_cp`.")
-        if (self.context_parallel_algo == ContextParallelAlgo.hybrid_cp and
+        if (self.context_parallel_algo == ContextParallelAlgo.HYBRID_CP and
                 self.context_parallel % self.ulysses_degree_in_cp != 0):
             raise ValueError(f"When using hybrid_cp algorithm, context_parallel {self.context_parallel} "
                              f"should be divisible by ulysses_degree_in_cp {self.ulysses_degree_in_cp}. "
@@ -627,9 +622,9 @@ class TransformerOpParallelConfig(_Config):
         """
         if self.context_parallel == 1:
             return 1
-        if self.context_parallel_algo == ContextParallelAlgo.colossalai_cp:
+        if self.context_parallel_algo == ContextParallelAlgo.COLOSSALAI_CP:
             return 1
-        if self.context_parallel_algo == ContextParallelAlgo.ulysses_cp:
+        if self.context_parallel_algo == ContextParallelAlgo.ULYSSES_CP:
             return self.context_parallel
         # hybird
         return self.ulysses_degree_in_cp
@@ -784,260 +779,6 @@ class TransformerOpParallelConfig(_Config):
 
 
 default_transformer_config = TransformerOpParallelConfig()
-
-
-class FeedForward(Cell):
-    r"""
-        The multilayer perceptron with two linear layers with dropout applied at final output. The first linear
-        will project the input dimension from hidden_size to ffn_hidden_size. The second linear will project the
-        dimension from ffn_hidden_size to hidden_size. The first linear is sharded on the relative dimension,
-        and the second linear is sharded on the output dimension. The overview process can be:
-
-        .. math::
-            Dropout((xW_1+b_1)W_2 + b_2)
-
-        where the :math:`W_1, W_2, b_1` and :math:`b_2` are trainable parameters.
-
-        Args:
-            hidden_size (int): The dimension of the inputs.
-            ffn_hidden_size (int): The intermediate hidden size.
-            dropout_rate (float): The dropout rate for the second linear's output.
-            hidden_act (str, nn.Cell): The activation of the internal feedforward layer. Supports 'relu',
-                'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
-                'hsigmoid', 'logsigmoid' and so on. User can provide custom activition to the argument.
-                If user wants to run the net in the parallel mode, the custom activation must also provide
-                the `activation_shard` function. Please see examples. Default: gelu.
-            expert_num (int): The number of experts used in Linear. For the case expert_num > 1, BatchMatMul is used
-                and the first dimension in BatchMatMul indicate expert_num. Default: 1.
-            expert_group_size (int): The number of tokens in each data parallel group. Default: None. This parameter is
-                effective only when in AUTO_PARALLEL mode, and NOT SHARDING_PROPAGATION.
-            param_init_type (dtype.Number): The parameter initialization type. Should be mstype.float32 or
-                mstype.float16. Default: mstype.float32.
-            parallel_config (OpParallelConfig, MoEParallelConfig): The config of parallel setting, see
-                `OpParallelConfig` or `MoEParallelConfig`. When MoE is applied, MoEParallelConfig is effective,
-                otherwise OpParallelConfig is effective. Default `default_dpmp_config`,
-                an instance of `OpParallelConfig` with default args.
-
-        Inputs:
-            - **x** (Tensor) - should be `[batch, seq_length, hidden_size] or [batch * seq_length, hidden_size]`.
-              Float tensor.
-
-        Outputs:
-            Tensor, the output of this layer after mapping. The shape is `[batch, seq_length, hidden_size] or
-            [batch * seq_length, hidden_size]`.
-
-        Raises:
-            TypeError: `hidden_act` is not a string or nn.Cell.
-            TypeError: `parallel_config` is not a subclass of OpParallelConfig.
-            ValueError: `ffn_hidden_size` is not a multiple of the model parallel way.
-            ValueError: `hidden_size` is not a multiple of the model parallel way.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU``
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindformers.modules.transformer import FeedForward
-            >>> from mindspore import dtype as mstype
-            >>> from mindspore import Tensor, nn
-            >>> import mindspore.ops as ops
-            >>> model = FeedForward(hidden_size=15, ffn_hidden_size=30, dropout_rate=0.1)
-            >>> tensor = Tensor(np.ones((2, 20, 15)), mstype.float32)
-            >>> output = model(tensor)
-            >>> print(output.shape)
-            (2, 20, 15)
-            >>> # Example 2 using custom hidden activation
-            >>> class MyActivationNoShard(nn.Cell):
-            ...     def __init__(self):
-            ...         super(MyActivationNoShard, self).__init__()
-            ...         self.add = ops.Add()
-            ...     def construct(self, x):
-            ...         return self.add(x, 0.1)
-            >>> model = FeedForward(hidden_size=15, ffn_hidden_size=30, dropout_rate=0.1,
-            ...                     hidden_act=MyActivationNoShard)
-            >>> tensor = Tensor(np.ones((2, 20, 15)), mstype.float32)
-            >>> output = model(tensor)
-            >>> print(output.shape)
-            (2, 20, 15)
-            >>> # Example 3 using custom hidden activation with activation_shard
-            >>> # If user wantss to run on the SEMI/AUTO parallel mode, the custom activation must provide
-            >>> # a class function named activation_shard. It accepts the argument parallel_config (OpParallelConfig,
-            >>> # MoEParallelConfig) and set the shard for the primitives used in the construct.
-            >>> class MyActivationWithShard(nn.Cell):
-            ...     def __init__(self):
-            ...         super(MyActivationWithShard, self).__init__()
-            ...         self.add = ops.Add()
-            ...     def construct(self, x):
-            ...         return self.add(x, 0.1)
-            ...     def activation_shard(self, parallel_config):
-            ...         self.add.shard(((parallel_config.data_parallel, parallel_config.model_parallel), ()))
-            >>>
-            >>> model = FeedForward(hidden_size=15, ffn_hidden_size=30, dropout_rate=0.1,
-            ...                     hidden_act=MyActivationWithShard)
-            >>> tensor = Tensor(np.ones((2, 20, 15)), mstype.float32)
-            >>> output = model(tensor)
-            >>> print(output.shape)
-            (2, 20, 15)
-    """
-
-    @_LogActionOnce(m_logger=logger, key='FeedForward',
-                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    @_args_type_validator_check(hidden_size=Validator.check_positive_int,
-                                ffn_hidden_size=Validator.check_positive_int,
-                                dropout_rate=Validator.check_non_negative_float,
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.bfloat16, mstype.float16],
-                                                                    "FeedForward"),
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.bfloat16, mstype.float16],
-                                                                  "FeedForward"),
-                                parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
-                                                                   "FeedForward"))
-    def __init__(self, hidden_size,
-                 ffn_hidden_size,
-                 dropout_rate,
-                 hidden_act='gelu',
-                 expert_num=1,
-                 expert_group_size=None,
-                 param_init_type=mstype.float32,
-                 parallel_config=default_dpmp_config,
-                 compute_dtype=mstype.float16):
-        super(FeedForward, self).__init__()
-        self.dtype = compute_dtype
-        if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
-            raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
-                            f"but got {hidden_act}.")
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
-            _check_config(parallel_config)
-            mp = parallel_config.model_parallel
-            if expert_num > 1:
-                ep = parallel_config.expert_parallel
-            else:
-                ep = 1
-            # ffn use less dp than other ops when use_moe, due to there are ops use dp and ep.
-            dp = parallel_config.data_parallel // ep
-            if ffn_hidden_size % mp != 0:
-                raise ValueError("For 'FeedForward', the class variable 'ffn_hidden_size' must be a multiple of the"
-                                 "num of model parallel, but got the ffn_hidden_size is {} and the num of model "
-                                 "parallel is {}.".format(ffn_hidden_size, mp))
-            if hidden_size % mp != 0:
-                raise ValueError("For 'FeedForward', the class variable 'hidden_size' must be a multiple of the num of "
-                                 "model parallel, but got the hidden_size is {} and the num of model parallel is {}."
-                                 .format(hidden_size, mp))
-            if dropout_rate < 0 or dropout_rate >= 1:
-                raise ValueError("For 'FeedForward', the class variable 'dropout_rate' must be in the range [0, 1.0), "
-                                 "but got the value : {}.".format(dropout_rate))
-            input_size = hidden_size
-            output_size = ffn_hidden_size
-
-            # Project to ffn_hidden_size
-            self.mapping = Linear(in_channels=input_size,
-                                  out_channels=output_size,
-                                  activation=hidden_act,
-                                  transpose_b=False,
-                                  expert_num=expert_num,
-                                  expert_group_size=expert_group_size,
-                                  outer_batch=dp,
-                                  param_init_type=param_init_type,
-                                  compute_dtype=compute_dtype)
-
-            # Project back to hidden_size
-            self.projection = Linear(in_channels=output_size,
-                                     out_channels=input_size,
-                                     transpose_b=False,
-                                     expert_num=expert_num,
-                                     expert_group_size=expert_group_size,
-                                     outer_batch=dp,
-                                     param_init_type=param_init_type,
-                                     compute_dtype=compute_dtype)
-            if expert_num > 1:
-                self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)))
-            else:
-                self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)))
-            self.projection.bias.parallel_optimizer = False
-            self.dropout = get_dropout(dropout_rate)
-            self.dropout_3d = get_dropout(dropout_rate)
-            self.dropout_4d = get_dropout(dropout_rate)
-            self.cast = P.Cast()
-        else:
-            _check_config(parallel_config)
-            mp = parallel_config.model_parallel
-            if expert_num > 1:
-                ep = parallel_config.expert_parallel
-            else:
-                ep = 1
-            # ffn use less dp than other ops when use_moe, due to there are ops use dp and ep.
-            dp = parallel_config.data_parallel // ep
-            if ffn_hidden_size % mp != 0:
-                raise ValueError("For 'FeedForward', the class variable 'ffn_hidden_size' must be a multiple of the"
-                                 "num of model parallel, but got the ffn_hidden_size is {} and the num of model "
-                                 "parallel is {}.".format(ffn_hidden_size, mp))
-            if hidden_size % mp != 0:
-                raise ValueError("For 'FeedForward', the class variable 'hidden_size' must be a multiple of the num of "
-                                 "model parallel, but got the hidden_size is {} and the num of model parallel is {}."
-                                 .format(hidden_size, mp))
-            if dropout_rate < 0 or dropout_rate >= 1:
-                raise ValueError("For 'FeedForward', the class variable 'dropout_rate' must be in the range [0, 1.0), "
-                                 "but got the value : {}.".format(dropout_rate))
-            input_size = hidden_size
-            output_size = ffn_hidden_size
-
-            # Project to ffn_hidden_size
-            self.mapping = Linear(in_channels=input_size,
-                                  out_channels=output_size,
-                                  activation=hidden_act,
-                                  transpose_b=False,
-                                  expert_num=expert_num,
-                                  expert_group_size=expert_group_size,
-                                  outer_batch=dp,
-                                  param_init_type=param_init_type,
-                                  compute_dtype=compute_dtype)
-
-            if expert_num > 1:
-                self.mapping.shard(strategy_matmul=((dp, ep, 1, 1), (ep, 1, mp)),
-                                   strategy_bias=((dp, ep, 1, mp), (1, ep, 1, mp)),
-                                   strategy_activation=((dp, ep, 1, mp),))
-            else:
-                self.mapping.shard(strategy_matmul=((dp, 1), (1, mp)),
-                                   strategy_bias=((dp, mp), (mp,)),
-                                   strategy_activation=((dp, mp),))
-            # Project back to hidden_size
-            self.projection = Linear(in_channels=output_size,
-                                     out_channels=input_size,
-                                     transpose_b=False,
-                                     expert_num=expert_num,
-                                     expert_group_size=expert_group_size,
-                                     outer_batch=dp,
-                                     param_init_type=param_init_type,
-                                     compute_dtype=compute_dtype)
-            if expert_num > 1:
-                self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)),
-                                      strategy_bias=((dp, ep, 1, 1), (1, ep, 1, 1)))
-            else:
-                self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
-                                      strategy_bias=((dp, 1), (1,)))
-            self.projection.bias.parallel_optimizer = False
-            self.dropout = get_dropout(dropout_rate)
-            self.dropout_3d = get_dropout(dropout_rate)
-            self.dropout_4d = get_dropout(dropout_rate)
-            self.dropout.dropout.shard(((dp, 1),))
-            self.dropout_3d.dropout.shard(((dp, 1, 1),))
-            self.dropout_4d.dropout.shard(((dp, ep, 1, 1),))
-            self.cast = P.Cast()
-
-    def construct(self, x):
-        """Forward process of the FeedForward"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
-        x = self.cast(x, self.dtype)
-        # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
-        hidden = self.mapping(x)
-        output = self.projection(hidden)
-        # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
-        if len(F.shape(output)) == 3:
-            output = self.dropout_3d(output)
-        elif len(F.shape(output)) == 2:
-            output = self.dropout(output)
-        else:
-            output = self.dropout_4d(output)
-        return output
 
 
 class LowerTriangularMaskWithDynamic(Cell):
