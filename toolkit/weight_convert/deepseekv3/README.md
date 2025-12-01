@@ -1,6 +1,6 @@
 # DeepSeek V3 权重转换脚本说明
 
-MindSpore Transformers 提供了用于在 Hugging Face 与 MindSpore Transformers 之间相互转换权重的离线脚本。
+MindSpore Transformers 提供了用于在 Hugging Face 与 MindSpore Transformers 之间相互转换权重的离线脚本，下面介绍这两个脚本的使用方法。
 
 ## Hugging Face 权重转换为 MindSpore Transformers 权重
 
@@ -70,7 +70,7 @@ python convert_weight.py \
 
 ## MindSpore Transformers 权重反转为 Hugging Face 权重
 
-本脚本适用于，将 MindSpore Transformers 训练后得到的权重反转为 HuggingFace 格式的权重，便于进行社区发布或者 vLLM 推理等任务。
+本脚本适用于将 MindSpore Transformers 训练后得到的权重反转为 HuggingFace 格式的权重，便于进行社区发布或者 vLLM 推理等任务。
 
 > 注：
 > 1. 进行权重反转前，需要对训练权重进行去优化器合并；
