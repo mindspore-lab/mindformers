@@ -181,6 +181,7 @@ class FlashAttention(Cell):
                 parallel_optimizer=False, requires_grad=False
             )
             self.reduce_max = aclnn_ops.ReduceMax()
+            self.reduce_max.add_prim_attr("self_define_shard", True)
             self.assign_add = ops.AssignAdd()
             self.assign_add.add_prim_attr("self_define_shard", True)
 
@@ -383,4 +384,14 @@ class FlashAttention(Cell):
                 in_strategy=(layout("tp"), layout("tp")),
                 out_strategy=(layout("tp"),)
             )
+            if self.input_layout == "BNSD":
+                self.reduce_max.shard(
+                    in_strategy=(layout("None", "tp", "None", "None"),),
+                    out_strategy=(layout("tp"),)
+                )
+            elif self.input_layout == "TND":
+                self.reduce_max.shard(
+                    in_strategy=(layout("None", "tp", "None"),),
+                    out_strategy=(layout("tp"),)
+                )
         return self
