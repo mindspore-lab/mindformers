@@ -20,6 +20,13 @@ from mindformers.tools.logger import logger
 from .validate_types_and_ranges import validate_config_types_and_ranges
 
 
+LR_SUPPORT_LIST = \
+    ["ConstantWarmUpLR", "LinearWithWarmUpLR",
+     "CosineWithWarmUpLR", "CosineWithRestartsAndWarmUpLR",
+     "PolynomialWithWarmUpLR", "WarmUpStableDecayLR",
+     "ConstantWithCoolDownLR"]
+
+
 class Config:
     """
     A base class for applying structured configuration.
@@ -1337,11 +1344,68 @@ class LrScheduleConfig(SpecConfig):
 
     type: str = "CosineWithWarmUpLR"
     learning_rate: float = 5.e-5
-    lr_end: float = 0.
+    warmup_lr_init: float = 0.
     warmup_ratio: float = 0.
     total_steps: int = -1
 
     _raise_error_for_unexpected_key: bool = False
+
+    _validation_rules = {
+        "type": {
+            "type": str,
+            "range": LR_SUPPORT_LIST,
+            "description": "Learning rate schedule type"
+        },
+        "learning_rate": {
+            "type": (float, int),
+            "range": None,
+            "description": "Learning rate"
+        },
+        "warmup_lr_init": {
+            "type": (float, int),
+            "range": None,
+            "description": "Initial learning rate during warmup"
+        },
+        "warmup_ratio": {
+            "type": (float, int),
+            "range": None,
+            "description": "Ratio of warmup steps to total steps"
+        },
+        "total_steps": {
+            "type": int,
+            "range": None,
+            "description": "Total number of training steps"
+        }
+    }
+
+
+class GroupedLrScheduleConfig(SpecConfig):
+    """Learning rate schedule configuration"""
+    _name: str = "grouped_lr_schedule"
+    _required_keys: Dict[str, List[str]] = {
+        "grouped_lr_schedule": ["default", "grouped"]
+    }
+
+    _raise_error_for_unexpected_key: bool = False
+
+    _validation_rules = {
+        "default": {
+            "type": dict,
+            "range": lambda x: all([x.get("type") in LR_SUPPORT_LIST,
+                                    (x.get("warmup_ratio") is not None
+                                     or x.get("warmup_steps") is not None)]),
+            "description": "Default learning rate schedule"
+        },
+        "grouped": {
+            "type": list,
+            "range": lambda x: all([all(isinstance(grouped_lr, dict) for grouped_lr in x),
+                                   all(grouped_lr.get("type") in LR_SUPPORT_LIST for grouped_lr in x),
+                                    all(isinstance(grouped_lr.get("params"), list)for grouped_lr in x),
+                                    all((grouped_lr.get("warmup_ratio") is not None or
+                                          grouped_lr.get("warmup_steps") is not None) for grouped_lr in x)]),
+            "description": "List of learning rate schedules for different groups"
+        }
+    }
 
 
 class CallbackConfig(ListConfig):
@@ -1698,6 +1762,7 @@ CONFIG_NAME_TO_CLASS: Dict[str, type] = {
     "model_config": ModelConfig,
     "optimizer": OptimizerConfig,
     "lr_schedule": LrScheduleConfig,
+    "grouped_lr_schedule": GroupedLrScheduleConfig,
     "callbacks": CallbackConfig,
     "monitor_config": MonitorConfig,
     "profile": ProfileConfig,
@@ -1733,6 +1798,7 @@ class ConfigTemplate:
     "model_config",
     "optimizer",
     "lr_schedule",
+    "grouped_lr_schedule",
     "callbacks",
     "monitor_config",
     "profile",
@@ -1746,6 +1812,13 @@ class ConfigTemplate:
     "context",
     "trainer",
     "model_config"]
+
+    # config module that should not be merged when it is not in input config
+    _default_not_merge_configs: List[str] = [
+        "lr_schedule",
+        "grouped_lr_schedule",
+        "callbacks"
+    ]
 
     _run_modes: List[str] = ['train', 'predict', 'finetune']
 
@@ -1788,6 +1861,9 @@ class ConfigTemplate:
 
         new_config = {}
         for sub_config in template:
+            if sub_config not in config.keys() and sub_config in cls._default_not_merge_configs:
+                continue
+
             if sub_config == "distribute_parallel_config":
                 origin_sub_config = config.pop(sub_config, None)
                 cls.update_distributed_parallel_config(sub_config, new_config, origin_sub_config, run_mode)
