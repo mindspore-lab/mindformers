@@ -2,7 +2,7 @@
 
 本规范以[PEP8](https://www.python.org/dev/peps/pep-0008/)为基础，参考华为Python通用编码规范、安全编程规范，并结合业界共识整理而成，参与MindSpore社区开发需要首先遵循本规范内容（与PEP8冲突部分），其余遵循PEP8规范。
 
-如果对规则异议，建议提交issue并说明理由，经MindSpore社区运营团队评审接纳后可修改生效。
+如果对规则有异议，建议提交 issue 并说明理由，经MindSpore社区运营团队评审接纳后可修改生效。
 a
 
 ## 适用范围
