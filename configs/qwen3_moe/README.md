@@ -136,7 +136,7 @@ train_dataset: &train_dataset
 
 #### 3. 启动预训练任务
 
-通过指定模型路径和配置文件[configs/qwen3/pretrain_qwen3_30b_a3b_4k.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml)以msrun的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，进行16卡分布式训练。可以参考如下方式拉起两台Atlas 800T A2（64G）训练。
+通过指定模型路径和配置文件[configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml)以`msrun`的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，进行16卡分布式训练。您可参考如下方式，拉起两台Atlas 800T A2（64G）训练。
 
 在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的序号；`port`为当前进程的端口号（可在50000~65536中选择）。
 
