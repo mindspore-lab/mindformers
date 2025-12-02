@@ -20,6 +20,10 @@ import tempfile
 import pytest
 from mindformers.core.callback.callback import ProfileMonitor
 
+# pylint: disable=protected-access
+# pylint: disable=unused-argument   # for mock logic
+
+
 class TestProfileMonitor(unittest.TestCase):
     """Test cases for ProfileMonitor class"""
 
@@ -160,5 +164,137 @@ class TestProfileMonitor(unittest.TestCase):
         self.assertIsNone(monitor.profile_rank_ids)
 
 
+class TestProfileMonitorExtended:
+    """Extended tests for ProfileMonitor"""
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    def test_check_step_valid(self):
+        """Test _check_step with valid inputs"""
+
+        start, stop = ProfileMonitor._check_step(5, 10)
+        assert start == 5
+        assert stop == 10
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    def test_check_step_invalid(self):
+        """Test _check_step with invalid inputs"""
+
+        # start > stop
+        start, stop = ProfileMonitor._check_step(15, 10)
+        assert start == 1
+        assert stop == 10
+
+        # negative values
+        start, stop = ProfileMonitor._check_step(-1, -5)
+        assert start == 1
+        assert stop == 10
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    def test_check_start_profile(self):
+        """Test _check_start_profile"""
+
+        # start_step != 1, should return False
+        result = ProfileMonitor._check_start_profile(True, 5)
+        assert not result
+
+        # start_step == 1, should keep original value
+        result = ProfileMonitor._check_start_profile(True, 1)
+        assert result
+
+
+class TestProfileMonitorInit:
+    """Test ProfileMonitor initialization and configuration"""
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @patch('mindformers.core.callback.callback.get_real_rank', return_value=0)
+    @patch('mindformers.core.callback.callback.get_pipeline_rank_ids', return_value=[0, 1])
+    @patch('mindformers.core.callback.callback.get_output_subpath', return_value='/output/profile')
+    @patch('mindformers.core.callback.callback.ms.get_context', return_value='Ascend')
+    @patch('mindformers.core.callback.callback.is_version_ge', return_value=True)
+    @patch('mindformers.core.callback.callback._check_mspti_is_on', return_value=False)
+    def test_profile_monitor_init_with_pipeline(self, mock_mspti, mock_version, mock_context,
+                                                mock_output, mock_pipeline_ids, mock_real_rank):
+        """Test ProfileMonitor initialization with pipeline profiling"""
+
+        # Mock the profile function from mindspore.profiler
+        with patch('mindspore.profiler.profile') as mock_profile:
+            mock_profiler_instance = Mock()
+            mock_profile.return_value = mock_profiler_instance
+
+            monitor = ProfileMonitor(
+                start_step=1,
+                stop_step=10,
+                profile_pipeline=True,
+                profile_communication=True,
+                profile_memory=True,
+                profiler_level=1
+            )
+
+            assert monitor.profiler is not None
+            assert monitor.start_step == 1
+            assert monitor.stop_step == 10
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @patch('mindformers.core.callback.callback.get_real_rank', return_value=5)
+    @patch('mindformers.core.callback.callback.get_pipeline_rank_ids', return_value=[0, 1])
+    def test_profile_monitor_not_required_rank(self, mock_pipeline_ids, mock_real_rank):
+        """Test ProfileMonitor when current rank doesn't need profiling"""
+
+        monitor = ProfileMonitor(
+            start_step=1,
+            stop_step=10,
+            profile_rank_ids=[0, 1, 2]
+        )
+
+        # Rank 5 is not in profile_rank_ids or pipeline_rank_ids
+        assert monitor.profiler is None
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @patch('mindformers.core.callback.callback.get_real_rank', return_value=0)
+    @patch('mindformers.core.callback.callback.get_pipeline_rank_ids', return_value=[0])
+    @patch('mindformers.core.callback.callback.get_output_subpath', return_value='/output/profile')
+    @patch('mindformers.core.callback.callback.ms.get_context', return_value='Ascend')
+    @patch('mindformers.core.callback.callback.is_version_ge', return_value=True)
+    @patch('mindformers.core.callback.callback._check_mspti_is_on', return_value=False)
+    def test_on_train_step_begin_start_profiler(self, mock_mspti, mock_version, mock_context,
+                                                mock_output, mock_pipeline_ids, mock_real_rank):
+        """Test on_train_step_begin starts profiler"""
+
+        # Create a mock profiler
+        mock_profiler = Mock()
+        mock_profiler.start = Mock()
+        mock_profiler.step = Mock()
+
+        # Create monitor - we'll manually set the profiler
+        monitor = ProfileMonitor(
+            start_step=1,
+            stop_step=10,
+            profile_rank_ids=[0]  # Ensure rank 0 is profiled
+        )
+
+        # Manually set the profiler and is_profiler_start flag
+        monitor.profiler = mock_profiler
+        monitor.is_profiler_start = False
+
+        # Create run context
+        run_context = Mock()
+        cb_params = Mock()
+        cb_params.cur_step_num = 1
+        run_context.original_args.return_value = cb_params
+
+        # Call on_train_step_begin
+        monitor.on_train_step_begin(run_context)
+
+        # Verify profiler.start() and profiler.step() were called
+        mock_profiler.start.assert_called_once()
+        mock_profiler.step.assert_called_once()
+        assert monitor.is_profiler_start
+
 if __name__ == '__main__':
-    unittest.main()
+    pytest.main([__file__, '-v'])
