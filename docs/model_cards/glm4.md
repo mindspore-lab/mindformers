@@ -138,7 +138,7 @@ MindSpore TransFormers 提供已经转换完成的预训练权重、词表文件
        mlp_concat: False
    ```
 
-2. 执行 mindforers 根目录下的 `convert_weight.py` [转换脚本](https://gitee.com/mindspore/mindformers/blob/master/convert_weight.py)，将 HuggingFace 的权重转换为完整的 MindSpore ckpt 权重。
+2. 执行 mindformers 根目录下的 `convert_weight.py` [转换脚本](https://gitee.com/mindspore/mindformers/blob/r1.7.0/convert_weight.py)，将 HuggingFace 的权重转换为完整的 MindSpore ckpt 权重。
 
    ```shell
    python convert_weight.py --model glm4 --input_path HF_CKPT_PATH --output_path MS_NOT_CONCAT_CKPT_PATH --dtype DTYPE --config YAML_PATH
@@ -201,13 +201,13 @@ bash scripts/examples/glm4/run_glm4_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TO
 
 参数说明如下表：
 
-| 参数名         | 含义                       | 取值说明                                                                                        |
-|-------------|--------------------------|---------------------------------------------------------------------------------------------|
-| PARALLEL    | 指定选择推理模式为单卡推理 or 多卡推理。   | (str, 必选) - 单卡推理配置为 `single` ，多卡推理配置为 `parallel` 。                                          |
-| CONFIG_PATH | 模型配置文件路径。                | (str, 必选) - 如 `/path/to/glm4/predict_glm4_9b_chat.yaml` 。                                   |
-| CKPT_PATH   | 推理时用到的模型权重文件路径。          | (str, 必选) - 单卡为完整权重，双卡为分布式权重。<br>如单卡推理 `/path/to/glm4.ckpt`，多卡推理 `/path/to/glm4_ckpt_dir` 。 |
-| TOKENIZER   | gml4 模型的 tokenizer 文件路径。 | (str, 必选) - 如 `/path/to/tokenizer.model` 。                                                  |
-| DEVICE_NUM  | 指定多卡推理的卡数。               | (int, 可选) - 多卡推理时必须指定推理卡数。<br>如双卡推理时，则配置为 `2` 。                                             |
+| 参数名         | 含义                        | 取值说明                                                                                        |
+|-------------|---------------------------|---------------------------------------------------------------------------------------------|
+| PARALLEL    | 指定选择推理模式为单卡推理 or 多卡推理。    | (str, 必选) - 单卡推理配置为 `single` ，多卡推理配置为 `parallel` 。                                          |
+| CONFIG_PATH | 模型配置文件路径。                 | (str, 必选) - 如 `/path/to/glm4/predict_glm4_9b_chat.yaml` 。                                   |
+| CKPT_PATH   | 推理时用到的模型权重文件路径。           | (str, 必选) - 单卡为完整权重，双卡为分布式权重。<br>如单卡推理 `/path/to/glm4.ckpt`，多卡推理 `/path/to/glm4_ckpt_dir` 。 |
+| TOKENIZER   | GLM-4 模型的 tokenizer 文件路径。 | (str, 必选) - 如 `/path/to/tokenizer.model` 。                                                  |
+| DEVICE_NUM  | 指定多卡推理的卡数。                | (int, 可选) - 多卡推理时必须指定推理卡数。<br>如双卡推理时，则配置为 `2` 。                                             |
 
 运行如下命令进行推理：
 
