@@ -328,10 +328,9 @@ def test_params_key_mapping(simple_network):
     }
 
     # Test params_key_mapping
-    mapped_metas, key_mapping, core_network = params_key_mapping(sharded_tensor_metas, simple_network)
+    mapped_metas, key_mapping = params_key_mapping(sharded_tensor_metas, simple_network)
     assert isinstance(mapped_metas, dict)
     assert isinstance(key_mapping, dict)
-    assert core_network is not None
 
 
 @pytest.mark.level0
@@ -548,32 +547,6 @@ def test_load_checkpoint_with_network_only(tmp_path, simple_network):
 
     with pytest.raises(Exception):
         load_checkpoint(invalid_ckpt_path, simple_network)
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_params_key_mapping_with_invalid_network():
-    """
-    Feature: Test params_key_mapping with invalid network.
-    Description: Test the functionality of params_key_mapping with a network that doesn't implement required methods.
-    Expectation: The function should raise NotImplementedError when the network is invalid.
-    """
-    sharded_tensor_metas = {}
-
-    # Create a network without required methods
-    class InvalidNet(nn.Cell):
-        def __init__(self):
-            super().__init__()
-            self.fc = nn.Dense(10, 1)
-
-        def construct(self, x):
-            return self.fc(x)
-
-    invalid_net = InvalidNet()
-
-    with pytest.raises(NotImplementedError):
-        params_key_mapping(sharded_tensor_metas, invalid_net)
 
 
 @pytest.mark.level0
