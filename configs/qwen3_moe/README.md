@@ -211,16 +211,16 @@ parallel_config:
 
 run_mindformer.py的参数说明如下：
 
-| 参数                             | 参数说明                                                      |
-|:-------------------------------|:----------------------------------------------------------|
-| config                         | yaml配置文件的路径                                               |
-| run_mode                       | 运行的模式，推理设置为predict                                        |
-| use_parallel                   | 是否使用多卡推理                                                  |
-| predict_data                   | 推理的输入数据，多batch推理时需要传入输入数据的txt文件路径，包含多行输入                  |
-| predict_batch_size             | 多batch推理的batch_size大小                                     |
-| pretrained_model_dir           | Hugging Face模型目录路径，放置模型配置、Tokenizer等文件                    |
-| parallel_config.data_parallel  | 数据并行，当前推理们模式下设置为1                                         |
-| parallel_config.model_parallel | 模型并行，默认值为 1。需根据实际模型规模及硬件资源情况，调整该参数为相应的device_nu（即实际使用的卡数） |
+| 参数                             | 参数说明                                                       |
+|:-------------------------------|:-----------------------------------------------------------|
+| config                         | yaml配置文件的路径                                                |
+| run_mode                       | 运行的模式，推理设置为predict                                         |
+| use_parallel                   | 是否使用多卡推理                                                   |
+| predict_data                   | 推理的输入数据，多batch推理时需要传入输入数据的txt文件路径，包含多行输入                   |
+| predict_batch_size             | 多batch推理的batch_size大小                                      |
+| pretrained_model_dir           | Hugging Face模型目录路径，放置模型配置、Tokenizer等文件                     |
+| parallel_config.data_parallel  | 数据并行，当前推理模式下设置为1                                           |
+| parallel_config.model_parallel | 模型并行，默认值为 1。需根据实际模型规模及硬件资源情况，调整该参数为相应的device_npu（即实际使用的卡数） |
 
 msrun_launcher.sh包括run_mindformer.py命令和推理卡数两个参数。
 
