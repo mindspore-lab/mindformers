@@ -152,7 +152,7 @@ dtype:       转换权重的精度
 
 ### 全参微调
 
-MindFormers提供`Llama3_1-8b`单机多卡以及`Llama3_1-70b`多机多卡的的微调示例，过程中使用`alpaca`
+MindSpore Transformers提供 `Llama3.1-8B` 单机多卡以及 `Llama3.1-70B` 多机多卡的微调示例，过程中使用 `alpaca`
 数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
 #### 单机训练

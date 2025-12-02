@@ -4,7 +4,7 @@ MindSpore Transformers 提供了对 Qwen3-MoE 模型从 MindSpore Transformers �
 
 ## MindSpore Transformers 权重反转为 Hugging Face 权重
 
-本脚本适用于，将 MindSpore Transformers 训练后得到的权重反转为 HuggingFace 格式的权重，便于进行社区发布或者 vLLM 推理等任务。
+本脚本适用于将 MindSpore Transformers 训练后得到的权重反转为 HuggingFace 格式的权重，便于进行社区发布或者 vLLM 推理等任务。
 
 > 注：
 > 1. 进行权重反转前，需要对训练权重进行去优化器合并；
@@ -59,11 +59,11 @@ python toolkit/weight_convert/qwen3_moe/reverse_mcore_qwen3_moe_weight_to_hf.py 
 |-----------------------|--------|------|--------|------------------------------------------------------------------------------------------------------------------------------|
 | mindspore_ckpt_path   | string | 必选   | 无      | 需要转换的 MindSpore Transformers 训练权重路径。                                                                                         |
 | huggingface_ckpt_path | string | 必选   | 无      | 转换后的 Hugging Face 权重的目标路径。                                                                                                   |
-| num_layers            | int    | 可选   | 48     | 模型层数，对应训练 yaml 文件中的 `model.mocel_config.num_layers`（别名可能为`model.mocel_config.num_hidden_layers`）。                            |
-| num_attention_heads   | int    | 可选   | 32     | Transformer 注意力头数，对应训练 yaml 文件中的 `model.mocel_config.num_attention_heads`。                                                   |
-| num_query_groups      | int    | 可选   | 4      | 组查询注意力的查询组数量，对应训练 yaml 文件中的 `model.mocel_config.num_query_groups`（别名可能为`model.mocel_config.num_key_value_heads`）。            |
-| kv_channels           | int    | 可选   | 128    | 多头注意力中的投影权重维度，对应训练 yaml 文件中的 `model.mocel_config.kv_channels`（别名可能为`model.mocel_config.head_dim`）。                           |
-| num_routed_experts    | int    | 可选   | 128    | 模型专家数，对应训练 yaml 文件中的 `model.mocel_config.num_routed_experts`（别名可能为`model.mocel_config.n_routed_experts`）。                    |
-| hidden_size           | int    | 可选   | 2048   | 模型隐藏层大小，对应训练 yaml 文件中的 `model.mocel_config.hidden_size`。                                                                     |
-| moe_ffn_hidden_size   | int    | 可选   | 768    | 模型 MoE 中前馈神经网络层的维度，对应训练 yaml 文件中的 `model.mocel_config.moe_ffn_hidden_size`（别名可能为`model.mocel_config.moe_intermediate_size`）。 |
+| num_layers            | int    | 可选   | 48     | 模型层数，对应训练 yaml 文件中的 `model.model_config.num_layers`（别名可能为`model.model_config.num_hidden_layers`）。                            |
+| num_attention_heads   | int    | 可选   | 32     | Transformer 注意力头数，对应训练 yaml 文件中的 `model.model_config.num_attention_heads`。                                                   |
+| num_query_groups      | int    | 可选   | 4      | 组查询注意力的查询组数量，对应训练 yaml 文件中的 `model.model_config.num_query_groups`（别名可能为`model.model_config.num_key_value_heads`）。            |
+| kv_channels           | int    | 可选   | 128    | 多头注意力中的投影权重维度，对应训练 yaml 文件中的 `model.model_config.kv_channels`（别名可能为`model.model_config.head_dim`）。                           |
+| num_routed_experts    | int    | 可选   | 128    | 模型专家数，对应训练 yaml 文件中的 `model.model_config.num_routed_experts`（别名可能为`model.model_config.n_routed_experts`）。                    |
+| hidden_size           | int    | 可选   | 2048   | 模型隐藏层大小，对应训练 yaml 文件中的 `model.model_config.hidden_size`。                                                                     |
+| moe_ffn_hidden_size   | int    | 可选   | 768    | 模型 MoE 中前馈神经网络层的维度，对应训练 yaml 文件中的 `model.model_config.moe_ffn_hidden_size`（别名可能为`model.model_config.moe_intermediate_size`）。 |
 | dtype                 | string | 可选   | 'bf16' | 目标转换的 Hugging Face 权重数据类型，可选为 `'bf16'` 、 `'fp16'` 和 `'fp32'` ，默认为 `'bf16'` 。                                                 |
