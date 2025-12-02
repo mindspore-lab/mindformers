@@ -38,8 +38,14 @@ CAST_TO_INT_COLUMNS = ["input_ids", "labels"]
 
 
 def _use_compressed_eod_mask(data_loader):
+    """
+    Determine whether the given data loader should use a compressed EOD (End-Of-Document) mask.
+    """
     if (hasattr(data_loader, 'config') and data_loader.config and
             data_loader.config.create_compressed_eod_mask):  # megatron dataset
+        return True
+    if (hasattr(data_loader, 'create_compressed_eod_mask') and
+            data_loader.create_compressed_eod_mask):
         return True
     if (hasattr(data_loader, 'adaptor_config') and data_loader.adaptor_config and
             data_loader.adaptor_config.compress_mask):  # common dataloader
