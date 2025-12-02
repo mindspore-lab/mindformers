@@ -195,7 +195,7 @@ class InferModelMixin(ModelMixin):
     def _safetensors_weights_iterator(self, weights_files: List[str]) -> Generator[Tuple[str, Any], None, None]:
         """Iterate over the weights in the model safetensor files."""
         rank_id = get_tensor_model_parallel_rank()
-        is_main_rank = (rank_id == 0)
+        is_main_rank = rank_id == 0
         for st_file in tqdm(
                 weights_files,
                 desc=f"[Rank {rank_id}] Loading safetensors checkpoint shards",
@@ -236,7 +236,9 @@ class InferModelMixin(ModelMixin):
         """
         mapping_rules = {
             '.linear_q_down_proj.': ('.linear_qkv_down_proj.', '.linear_q_down_proj.', 'q_down'),
-            '.linear_kv_down_proj.': ('.linear_qkv_down_proj.', '.linear_kv_down_proj.', 'kv_down'),
+            '.linear_kv_down_proj.': ('.linear_qkv_down_proj.', '.linear_kv_down_proj.', 'kv_down')
+            if getattr(self.config, 'q_lora_rank', None) is not None else
+            ('.linear_kv_down_proj.', '.linear_kv_down_proj.', 'kv_down'),
             '.linear_q_up_proj.': ('.linear_q_up_proj.', '.linear_q_up_proj.', 'q_up'),
             '.linear_kv_up_proj.': ('.linear_kv_up_proj.', '.linear_kv_up_proj.', 'kv_up'),
             '.linear_q.': ('.linear_qkv.', '.linear_q.', 'q'),
