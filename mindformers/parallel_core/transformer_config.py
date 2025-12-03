@@ -650,7 +650,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     "When using moe_dry_run, moe_token_dispatcher_type must be 'alltoall' or 'alltoall_deredundency'."
                     )
 
-        if self.position_embedding_type not in ["rope", "yarn", "none", "relative", "learned_absolute"]:
+        if self.position_embedding_type not in ["rope", "yarn", "none", "relative", "learned_absolute", "partial_rope"]:
             raise ValueError(
                 f"The current value of position_embedding_type is {self.position_embedding_type},"
                 " but position_embedding_type must be one of: 'rope', 'yarn', 'none', 'relative', 'learned_absolute'."
