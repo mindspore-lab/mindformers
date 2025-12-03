@@ -1475,7 +1475,7 @@ class BaseTrainer:
                     )
                 load_checkpoint(
                     checkpoint=config.load_checkpoint,
-                    network=model.train_network,
+                    network=network,
                     optimizer=optimizer,
                     global_step=global_step,
                     balanced_load=config.balanced_load
@@ -1483,7 +1483,7 @@ class BaseTrainer:
             else:
                 load_checkpoint(
                     checkpoint=config.load_checkpoint,
-                    network=model.train_network,
+                    network=network,
                     balanced_load=config.balanced_load
                 )
         elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():

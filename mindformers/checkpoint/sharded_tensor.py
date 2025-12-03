@@ -18,12 +18,11 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Union, Callable
 
 import mindspore as ms
-from mindspore.communication import get_group_size
 from mindspore.nn import Cell
 from mindspore.parallel.shard import _DistributedTensorInfo
 from mindspore.parallel.strategy import get_current_strategy_metadata, get_strategy_metadata
 
-from mindformers.tools.utils import get_real_rank
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.logger import logger
 
 
@@ -335,8 +334,11 @@ def get_replica_id_from_layout(param_infos: List[Dict]) -> List[List[int]]:
     return replica_ids
 
 
-def get_sharded_tensor_list_from_strategy_metadata(param_infos: List[Dict], cur_npu_rank: int,
-                                                   filter_func: Callable[[str], bool]) -> Optional[List[ShardedTensor]]:
+def get_sharded_tensor_list_from_strategy_metadata(
+        param_infos: List[Dict],
+        cur_npu_rank: int,
+        filter_func: Callable[[str], bool] = None
+) -> Optional[List[ShardedTensor]]:
     """
     Transform distributed strategy of a network to a list of ShardedTensor.
 
@@ -495,7 +497,10 @@ def convert_sharded_tensor_list_to_dict(
     return sharded_tensor_dict
 
 
-def get_all_sharded_tensor(network, filter_func) -> list:
+def get_all_sharded_tensor(
+        network: Cell,
+        filter_func: Callable[[str], bool] = None
+) -> List[List]:
     """Get all rank sharded tensors."""
     logger.info(".........Get All Ranks' Strategy Metadata.........")
     global_strategy_info = get_strategy_metadata(network)
@@ -503,9 +508,8 @@ def get_all_sharded_tensor(network, filter_func) -> list:
         raise RuntimeError('`get_strategy_metadata` returns `None`, which indicates there is no strategy info. '
                            'Please check whether this is a distributed job.')
 
-    npu_nums = get_group_size()
+    npu_nums = get_real_group_size()
     sharded_tensor_metas = []
-
     for cur_npu_rank in range(0, npu_nums):
         org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
         cur_rank_strategy_layout = [
@@ -524,7 +528,10 @@ def get_all_sharded_tensor(network, filter_func) -> list:
     return sharded_tensor_metas
 
 
-def get_cur_sharded_tensor(network, filter_func):
+def get_cur_sharded_tensor(
+        network: Cell,
+        filter_func: Callable[[str], bool] = None
+) -> List:
     """Get current rank sharded tensors."""
     logger.info(".........Get Current Strategy Metadata.........")
     strategy_info = get_current_strategy_metadata(network)

@@ -2046,7 +2046,7 @@ class CheckpointMonitor(ModelCheckpoint):
             network=cb_params.network,
             filter_func=(lambda x: x in list(
                 cb_params.network.network.parameters_dict().keys())) if not self.save_optimizer else None
-        )
+        ) if get_real_group_size() > 1 else None
 
         save_checkpoint(
             iteration=iteration,

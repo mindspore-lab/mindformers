@@ -66,6 +66,7 @@ from mindformers.checkpoint.sharded_tensor import (
     get_strategy_info_from_sharded_tensor,
     ShardedTensor, get_sharded_tensor_list_from_cell, get_cur_sharded_tensor
 )
+from mindformers.checkpoint.broadcast import single_parameter_broadcast
 
 
 @dataclass
@@ -831,14 +832,14 @@ def get_metadata_of_checkpoint(checkpoint_dir: str) -> tuple[dict, dict]:
 
 def params_key_mapping(
         sharded_tensor_metas: Dict[str, List[ShardedTensor]],
-        core_network: Cell
+        network: Cell
 ) -> tuple[dict, dict]:
     """
     Mapping Hugging Face checkpoint keys to MindSpore Transformers.
 
     Args:
         sharded_tensor_metas: Metadata about sharded tensors.
-        core_network: The core network (Cell) which has method `convert_name` to convert Hugging Face weight.
+        network: The network (Cell) which has method `convert_name` to convert Hugging Face weight.
 
     Returns:
         A dictionary after mapping about sharded tensor metas.
@@ -853,7 +854,7 @@ def params_key_mapping(
     key_mapping = {}
 
     for param_name in sharded_tensor_metas:
-        param_name_converted = core_network.convert_name(param_name)
+        param_name_converted = network.convert_name(param_name)
         sharded_tensor_list = sharded_tensor_metas.get(param_name)
 
         for sharded_tensor in sharded_tensor_list:
@@ -861,7 +862,7 @@ def params_key_mapping(
             sharded_tensor.org_key = param_name
 
         key_mapping[param_name] = param_name_converted
-        param_name_converted_concat = core_network.convert_concat_name(param_name_converted)
+        param_name_converted_concat = network.convert_concat_name(param_name_converted)
         mapped_sharded_tensor_metas.setdefault(param_name_converted_concat, []).extend(sharded_tensor_list)
 
     return mapped_sharded_tensor_metas, key_mapping
@@ -913,9 +914,9 @@ def load_checkpoint(
     src_sharded_tensor_metas, param_file_mappings = get_metadata_of_checkpoint(checkpoint_dir)
 
     # Get the core network and check the convert method is illegal
-    core_network = get_core_network(network)
+    network = get_core_network(network)
     # Mapping the weight keys, which is used to determine whether to load the Hugging Face weights.
-    src_sharded_tensor_metas, key_mapping = params_key_mapping(src_sharded_tensor_metas, core_network)
+    src_sharded_tensor_metas, key_mapping = params_key_mapping(src_sharded_tensor_metas, network)
 
     if not src_sharded_tensor_metas or not param_file_mappings:
         raise RuntimeError(
@@ -927,16 +928,17 @@ def load_checkpoint(
     def filter_func(param_name: str) -> bool:
         if optimizer:
             return "accu_grads" not in param_name
-        return param_name in list(core_network.parameters_dict().keys())
+        return param_name in list(network.parameters_dict().keys())
 
+    param_redundancy = None
     if balanced_load:
-        dst_sharded_tensor_metas = apply_balance_shard_strategy(network, filter_func)[-1]
+        dst_sharded_tensor_metas, param_redundancy = apply_balance_shard_strategy(network, filter_func)[2:]
     else:
         if get_real_group_size() > 1:
             cur_rank_sharded_tensors = get_cur_sharded_tensor(network, filter_func)
         else:
             # Fallback: Get sharded tensors directly from network and optimizer
-            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(core_network, optimizer)
+            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(network, optimizer)
 
         # Convert list of sharded tensors to dictionary for lookup
         dst_sharded_tensor_metas = convert_sharded_tensor_list_to_dict(cur_rank_sharded_tensors)
@@ -950,7 +952,7 @@ def load_checkpoint(
     state_dict: Dict[str, Parameter] = {}
 
     # Concat parameters
-    concat_params(checkpoint_dir, core_network, key_mapping, need_concat_params, state_dict)
+    concat_params(checkpoint_dir, network, key_mapping, need_concat_params, state_dict)
 
     # Load parameters that don't require resharding
     for file_name, param_info in no_shard_params.items():
@@ -989,16 +991,17 @@ def load_checkpoint(
 
     # Load state dictionary into network and optimizer
     load_parameters(
-        network if balanced_load else core_network,
+        network,
         state_dict,
         optimizer,
-        balanced_load=balanced_load
+        balanced_load=balanced_load,
+        param_redundancy=param_redundancy
     )
 
 
-def concat_params(checkpoint_dir: str, core_network, key_mapping: dict, need_concat_params, state_dict: dict):
+def concat_params(checkpoint_dir: str, network: Cell, key_mapping: dict, need_concat_params, state_dict: dict):
     """Concat the need_concat_params dict in checkpoint."""
-    if need_concat_params and not hasattr(core_network, 'convert_hf_weight'):
+    if need_concat_params and not hasattr(network, 'convert_hf_weight'):
         raise NotImplementedError("The `convert_hf_weight` method of network is not implemented.")
 
     for param_name, concat_info in need_concat_params.items():
@@ -1019,7 +1022,7 @@ def concat_params(checkpoint_dir: str, core_network, key_mapping: dict, need_con
             for k, v in org_weight_dict.items()
         }
         # Concat the weight.
-        concated_weight = core_network.convert_hf_weight(concat_dict)
+        concated_weight = network.convert_hf_weight(concat_dict)
 
         if reshard_info:
             # Get the offset of the Tensor to reshard.
@@ -1049,74 +1052,97 @@ def load_parameters(
         state_dict: Dict[str, Parameter],
         optimizer: Optional[Cell] = None,
         state_dict_opt: Optional[Dict[str, Parameter]] = None,
-        balanced_load: Optional[bool] = False
+        balanced_load: Optional[bool] = False,
+        param_redundancy: Optional[Dict[Tuple, str]] = None
 ):
     """
-    Loads parameters into network and optimizer.
+    Loads parameters into a MindSpore network and optional optimizer, with support for redundant parameter handling.
 
-    Separates network-specific and optimizer-specific parameters from the input state dictionaries,
-    loads them into their respective components, and returns lists of parameters that couldn't be loaded.
-    Filters out cache-related parameters from the unloaded network parameters list.
+    This function separates network-specific and optimizer-specific parameters from input state dictionaries,
+    loads them into their respective components, and provides detailed logging of unloaded parameters. When
+    `balanced_load` is enabled, it leverages shard balancing and parameter broadcasting to eliminate redundant
+    parameter storage across ranks, improving memory efficiency in distributed training scenarios.
+
+    Core workflow:
+    1. Initialize optimizer state dictionary if not provided.
+    2. (If balanced load enabled) Generate parameter redundancy map via shard balancing if not explicitly provided.
+    3. Separate parameters from the main state dict into network-specific and optimizer-specific (state_dict_opt).
+    4. Load network parameters, track unloaded parameters, and filter out cache-related entries from unloaded logs.
+    5. (If balanced load enabled) Broadcast redundant parameters across ranks to ensure consistency.
+    6. Load optimizer parameters (if optimizer and state_dict_opt are provided) and apply balanced load if enabled.
+    7. Log detailed information about loaded/unloaded parameters for both network and optimizer.
 
     Args:
-        network: The target network Cell to load parameters into
-        state_dict: Dictionary containing network parameters to load
-        optimizer: Optional optimizer Cell to load optimizer parameters into
-        state_dict_opt: Optional dictionary containing optimizer parameters to load
+        network (Cell): Target MindSpore Network Cell to load parameters into. Must be a valid Cell instance.
+        state_dict (Dict[str, Parameter]): Dictionary containing network parameters to load. Keys must match
+            parameter names in the network (or optimizer, for parameters to be redirected).
+        optimizer (Optional[Cell]): Optional MindSpore Optimizer Cell to load optimizer-specific parameters into.
+            If provided, must be a valid Cell instance.
+        state_dict_opt (Optional[Dict[str, Parameter]]): Optional dictionary containing optimizer parameters to load.
+            Initialized as an empty dict if not provided.
+        balanced_load (Optional[bool]): Whether to enable balanced loading with redundant parameter elimination.
+            When True, uses `apply_balance_shard_strategy` to identify redundant parameters and
+            `single_parameter_broadcast` to synchronize values across ranks. Defaults to False.
+        param_redundancy (Optional[Dict[Tuple[int, ...], List[str]]]): Precomputed mapping of redundant rank groups
+            (tuples of rank IDs) to lists of parameter keys. Only used if `balanced_load` is True; if not provided,
+            generated dynamically via `apply_balance_shard_strategy`. Defaults to None.
 
     Raises:
-        ValueError: If network is not a Cell, state_dict is invalid, state_dict_opt is not a dict,
-                   or optimizer is provided but is not a Cell
+        ValueError: If `network` is not a valid MindSpore Cell, `state_dict` is invalid (e.g., not a dict),
+            `state_dict_opt` is provided but not a dict, or `optimizer` is provided but not a valid Cell.
+        RuntimeError: If parameter loading fails due to mismatched keys or invalid parameter types (propagated from
+            `load_param_into_net`).
     """
-    state_dict_opt: Dict[str, Parameter] = {} if not state_dict_opt else state_dict_opt
-
-    # Separate network and optimizer parameters
-    network_param_names = set(network.parameters_dict().keys())
-    optimizer_param_names = set(optimizer.parameters_dict().keys()) if optimizer else set()
-
-    if balanced_load:
-        merge_optimizer_weights(state_dict, state_dict_opt)
-    else:
+    def split_state_dict(network, state_dict, optimizer, state_dict_opt):
+        """split state dict"""
+        network_param_names = set(network.parameters_dict().keys())
+        optimizer_param_names = set(optimizer.parameters_dict().keys()) if optimizer else set()
         for param_name in list(state_dict.keys()):
-            if param_name not in network_param_names and param_name in optimizer_param_names \
-                    and param_name not in state_dict_opt:
+            if param_name not in network_param_names and param_name in optimizer_param_names and \
+                param_name not in state_dict_opt:
                 state_dict_opt[param_name] = state_dict.pop(param_name)
-
-    # Load parameters into network
-    logger.debug(f"{'' if balanced_load else 'Network'} state_dict keys: {list(state_dict.keys())}")
-    param_not_load, ckpt_not_load = load_param_into_net(network, state_dict, remove_redundancy=balanced_load)
+        return network_param_names, optimizer_param_names, state_dict, state_dict_opt
 
     def print_not_load_info(param_list: List, param_info: str):
+        if not param_list:
+            logger.info(f"All {param_info} are loaded.")
+            return
+
         logger.info(f"{param_info} not loaded:")
         for p in param_list:
             logger.info(f"  - {p}")
 
+    state_dict_opt: Dict[str, Parameter] = {} if not state_dict_opt else state_dict_opt
+
+    # Separate network and optimizer parameters
+    if balanced_load and param_redundancy is None:
+        param_redundancy = apply_balance_shard_strategy(network)[-1]
+
+    network_param_names, _, state_dict, state_dict_opt = \
+        split_state_dict(network, state_dict, optimizer, state_dict_opt)
+
+    # Load parameters into network
+    logger.debug(f"Network state_dict keys: {list(state_dict.keys())}")
+    param_not_load, ckpt_not_load = load_param_into_net(network, state_dict, strict_load=True)
+    if balanced_load:
+        param_loaded = {param_name for param_name in state_dict if param_name not in ckpt_not_load}
+        single_parameter_broadcast(network, param_redundancy, param_not_load, param_loaded)
     # Filter out cache and optimizer parameters from unloaded list
     param_not_load = [p for p in param_not_load if "key_cache" not in p and "value_cache" not in p]
-
-    print_not_load_info(param_not_load, f"{'Parameters' if balanced_load else 'Network parameters'}")
+    print_not_load_info(param_not_load, "Network parameters")
     print_not_load_info(ckpt_not_load, "Checkpoint weights")
 
     # Load parameters into optimizer if available
-    if not balanced_load and optimizer and state_dict_opt:
-        for param_name in list(state_dict.keys()):
-            if param_name in optimizer_param_names and param_name not in state_dict_opt:
-                state_dict_opt[param_name] = state_dict.pop(param_name)
+    if optimizer and state_dict_opt:
         logger.debug(f"Optimizer state_dict keys: {list(state_dict_opt.keys())}")
-        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(optimizer, state_dict_opt)
+        param_not_load_opt, ckpt_not_load_opt = load_param_into_net(optimizer, state_dict_opt, strict_load=True)
+        if balanced_load:
+            param_loaded_opt = {param_name for param_name in state_dict_opt if param_name not in ckpt_not_load_opt}
+            single_parameter_broadcast(optimizer, param_redundancy, param_not_load_opt, param_loaded_opt)
+
         param_not_load_opt = [p for p in param_not_load_opt if p not in network_param_names]
         print_not_load_info(param_not_load_opt, "Optimizer parameters")
         print_not_load_info(ckpt_not_load_opt, "Optimizer weights")
-
-
-def merge_optimizer_weights(state_dict: dict[str, Parameter], state_dict_opt: dict[str, Parameter]):
-    """Merge optimizer-only keys into state_dict."""
-    for param_name in list(state_dict_opt.keys()):
-        if param_name not in state_dict:
-            state_dict[param_name] = state_dict_opt.pop(param_name)
-    if state_dict_opt:
-        logger.warning(f'{list(state_dict_opt.keys())} are discarded because they already exist in state_dict.')
-        state_dict_opt.clear()
 
 
 def get_checkpoint_path(checkpoint: str) -> str:

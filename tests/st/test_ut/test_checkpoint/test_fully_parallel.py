@@ -70,9 +70,9 @@ def mock_get_rank():
 
 
 @pytest.fixture
-def mock_get_real_local_rank():
-    """Mock get_real_local_rank function"""
-    with patch("mindformers.checkpoint.fully_parallel.get_real_local_rank") as mock:
+def mock_get_real_rank():
+    """Mock get_real_rank function"""
+    with patch("mindformers.checkpoint.fully_parallel.get_real_rank") as mock:
         mock.return_value = 0
         yield mock
 
@@ -226,7 +226,7 @@ def test_distribute_shards_single_rank():
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_apply_balance_shard_strategy(
-        mock_network, mock_get_all_sharded_tensor, mock_get_real_local_rank,
+        mock_network, mock_get_all_sharded_tensor, mock_get_real_rank,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -236,12 +236,13 @@ def test_apply_balance_shard_strategy(
     """
     result = apply_balance_shard_strategy(mock_network, None)
 
-    assert len(result) == 3
-    shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas = result
+    assert len(result) == 4
+    shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas, param_redundancy = result
 
     assert isinstance(shard_to_saving_rank, dict)
     assert isinstance(shard_id_to_tensor, dict)
     assert isinstance(dst_sharded_tensor_metas, dict)
+    assert isinstance(param_redundancy, dict)
 
 
 @pytest.mark.level0
