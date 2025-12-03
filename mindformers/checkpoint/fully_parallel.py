@@ -15,6 +15,7 @@
 """save / load parallelization strategy."""
 import os
 from collections import defaultdict
+from typing import Callable
 
 from mindspore import save_checkpoint
 from mindspore.communication import get_rank
@@ -32,7 +33,7 @@ from mindformers.checkpoint.utils import (
     _get_shard_size,
     sharded_tensor_shard_id
 )
-from mindformers.tools.utils import get_real_local_rank
+from mindformers.tools.utils import get_real_rank
 
 
 class BalancedSaveStrategy():
@@ -164,7 +165,7 @@ class BalancedSaveStrategy():
         if self.do_cache_distribution and self.cached_distribution is not None:
             shared_distribution = self.cached_distribution
         else:
-            shard_id_to_ranks, shard_id_to_tensor, _ = apply_balance_shard_strategy(self.network, self.filter_func)
+            shard_id_to_ranks, shard_id_to_tensor = apply_balance_shard_strategy(self.network, self.filter_func)[:2]
             shared_distribution = (shard_id_to_ranks, shard_id_to_tensor)
 
         if self.do_cache_distribution:
@@ -349,28 +350,35 @@ def distribute_shards(shard_coverage, shard_sizes, total_ranks):
     return shard_assignment
 
 
-def apply_balance_shard_strategy(network: Cell, filter_func):
+def apply_balance_shard_strategy(network: Cell, filter_func: Callable[[str], bool] = None):
     """
-    Process and balance sharded tensor metadata across all ranks.
+    Distributes and balances sharded tensor metadata across all ranks in a parallel group.
 
-    This function retrieves strategy metadata from the network (and optimizer if provided),
-    processes sharding information, and distributes shards across ranks to generate balanced
-    sharded tensor metadata. If no strategy metadata exists, it falls back to directly extracting
-    sharded tensors from the network and optimizer.
+    This function aggregates sharded tensor metadata from the input network (filtered by the provided 
+    `filter_func`), calculates shard sizes, maps shards to their associated ranks, and distributes 
+    shards to ranks in a load-balanced manner. It also identifies redundant shard copies across ranks 
+    and returns key metadata for shard management.
+
+    Core workflow:
+    1. Collect all sharded tensor metadata from the network, filtered by `filter_func`.
+    2. Generate unique shard IDs for each tensor shard and track which ranks own each shard.
+    3. Calculate the size (in bytes) of each unique shard based on its local shape and data type.
+    4. Distribute shards to ranks using a load-balanced strategy via the `distribute_shards` function.
+    5. Compile metadata for the current rank, including assigned shards and redundant shard copies.
 
     Args:
-        network (Cell): The MindSpore network cell containing parameters and sharding strategies.
-        optimizer (Optional[Optimizer]): Optional optimizer instance (if provided, filters out
-            accumulator gradient parameters from sharding metadata).
+        network (Cell): MindSpore Network Cell containing parameters and their sharding information.
+        filter_func: A filtering function to select specific tensors from the network (e.g., exclude
+            non-trainable parameters). Applied during sharded tensor collection via `get_all_sharded_tensor`.
 
     Returns:
-        list: Balanced sharded tensor metadata for the current rank, either derived from
-            strategy metadata distribution or directly extracted from the network/optimizer.
-
-    Notes:
-        - Relies on MindSpore's `get_strategy_metadata` for strategy-based sharding info.
-        - Filters out "accu_grads" parameters when an optimizer is provided to avoid redundant sharding.
-        - Falls back to direct tensor extraction if no strategy metadata is available.
+        tuple: A 4-element tuple containing:
+            1. shard_to_saving_rank (dict): Mapping of unique shard IDs to the rank responsible for storing the shard.
+            2. shard_id_to_tensor (dict): Mapping of unique shard IDs to their corresponding sharded tensor metadata.
+            3. dst_sharded_tensor_metas (dict): Mapping of original tensor keys to sharded tensor metadata 
+               assigned to the current local rank.
+            4. param_redundancy (dict): Mapping of rank groups (tuples of ranks) to lists of tensor keys. 
+               Represents shards that exist redundantly across multiple ranks in the group.
     """
     total_shard_metadata = get_all_sharded_tensor(network, filter_func)
     shard_id_to_ranks = defaultdict(list)
@@ -399,8 +407,16 @@ def apply_balance_shard_strategy(network: Cell, filter_func):
     )
 
     dst_sharded_tensor_metas = {}  # {shard_name: ShardTensor}
-    local_rank = get_real_local_rank()
+    local_rank = get_real_rank()
     for shard_id, rank_id in shard_to_saving_rank.items():
         if rank_id == local_rank:
             dst_sharded_tensor_metas[_reverse_sharded_tensor_shard_id(shard_id)[0]] = shard_id_to_tensor[shard_id]
-    return shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas
+
+    param_redundancy = {}
+    for shard_id, rank_group in shard_id_to_ranks.items():
+        if len(rank_group) == 1:
+            continue
+        if local_rank in rank_group:
+            param_redundancy.setdefault(tuple(rank_group), []).append(_reverse_sharded_tensor_shard_id(shard_id)[0])
+
+    return shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas, param_redundancy
