@@ -50,10 +50,10 @@ from mindformers.generation.utils import convert_pin
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
     r"""
-    Provide llama training loss or logits through network.
+    Provide Llama training loss or logits through network.
 
     Args:
-        config (LlamaConfig): The config of llama model.
+        config (LlamaConfig): The config of Llama model.
 
     Returns:
         output: Tensor, the output of llama decoderlayer

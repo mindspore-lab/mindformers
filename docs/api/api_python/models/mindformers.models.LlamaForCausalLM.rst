@@ -3,10 +3,10 @@ mindformers.models.LlamaForCausalLM
 
 .. py:class:: mindformers.models.LlamaForCausalLM(config=None)
 
-    在线计算并提供执行LLama训练时的损失值和逻辑值。
+    在线计算并提供执行Llama训练时的损失值和逻辑值。
 
     参数：
-        - **config** (LlamaConfig, 可选) - LLama模型的配置。默认值： ``None`` 。
+        - **config** (LlamaConfig, 可选) - Llama模型的配置。默认值： ``None`` 。
 
     输入：
         - **input_ids** (Tensor) - 数据类型为Int64/Int32的词汇表中输入序列标记的索引，张量的形状为：:math:`(batch, seq\_length)`。

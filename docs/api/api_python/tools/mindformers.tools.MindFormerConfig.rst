@@ -3,7 +3,7 @@ mindformers.tools.MindFormerConfig
 
 .. py:class:: mindformers.tools.MindFormerConfig(*args, **kwargs)
 
-    一个配置的类，继承于Python的dict类。可以解析来自yaml文件或dict实例的配置参数。
+    一个配置类，继承于Python的dict类。可以解析来自yaml文件或dict实例的配置参数。
 
     参数：
         - **args** (Any) - 可扩展参数列表，可以是yaml配置文件路径或配置字典。
