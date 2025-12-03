@@ -23,6 +23,7 @@ from mindspore.ops.auto_generate import MeanExt, Sqrt, Rsqrt, SubExt, AddExt, Mu
 from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.device_matrix import layout
 
@@ -55,6 +56,7 @@ class LayerNorm(nn.Cell):
         super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
+        self.dim = dim
 
         self.gamma = Parameter(initializer('ones', dim, self.params_dtype), name="gamma",
                                parallel_optimizer=False)
@@ -115,6 +117,29 @@ class LayerNorm(nn.Cell):
     def sharding_propagation(self, config: TransformerConfig):
         pass
 
+    def sharded_state_dict(self):
+        """Return sharding metadata for LayerNorm parameters."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.gamma.name] = ShardedTensor(
+            key=self.gamma.name,
+            org_key=self.gamma.name,
+            dtype=self.gamma.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        sharded_state_dict[self.beta.name] = ShardedTensor(
+            key=self.beta.name,
+            org_key=self.beta.name,
+            dtype=self.beta.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        return sharded_state_dict
+
 
 class FusedLayerNorm(nn.Cell):
     """
@@ -136,7 +161,7 @@ class FusedLayerNorm(nn.Cell):
         super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
-
+        self.dim = dim
         self.layer_norm = P.LayerNorm(begin_norm_axis=-1,
                                       begin_params_axis=-1,
                                       epsilon=eps)
@@ -177,6 +202,29 @@ class FusedLayerNorm(nn.Cell):
     def sharding_propagation(self, config: TransformerConfig):
         pass
 
+    def sharded_state_dict(self):
+        """Return sharding metadata for FusedLayerNorm parameters."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.gamma.name] = ShardedTensor(
+            key=self.gamma.name,
+            org_key=self.gamma.name,
+            dtype=self.gamma.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        sharded_state_dict[self.beta.name] = ShardedTensor(
+            key=self.beta.name,
+            org_key=self.beta.name,
+            dtype=self.beta.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        return sharded_state_dict
+
 
 class RMSNorm(nn.Cell):
     """
@@ -198,7 +246,7 @@ class RMSNorm(nn.Cell):
         super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
-
+        self.dim = dim
         self.eps = eps
         self.weight = Parameter(initializer('ones', (dim), self.params_dtype))
 
@@ -248,6 +296,20 @@ class RMSNorm(nn.Cell):
     def sharding_propagation(self, config: TransformerConfig):
         pass
 
+    def sharded_state_dict(self):
+        """Return sharding metadata for RMSNorm parameters."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        return sharded_state_dict
+
 
 class FusedRMSNorm(nn.Cell):
     """
@@ -269,7 +331,7 @@ class FusedRMSNorm(nn.Cell):
         super().__init__()
         self.params_dtype = config.params_dtype
         self.compute_type = config.layernorm_compute_dtype
-
+        self.dim = dim
         self.eps = eps
         self.weight = Parameter(initializer('ones', (dim), self.params_dtype))
 
@@ -293,10 +355,24 @@ class FusedRMSNorm(nn.Cell):
         if in_strategy:
             self.norm.shard(in_strategy)
         else:
-            self.norm.shard((layout("cp", "dp", "None"), layout("None",)))
+            self.norm.shard((layout("cp", "dp", "None"), layout("None", )))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
+
+    def sharded_state_dict(self):
+        """Return sharding metadata for FusedRMSNorm parameters."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=(self.dim,),
+            global_shape=(self.dim,),
+            global_offset=(0,),
+            axis_fragmentations=(1,),
+        )
+        return sharded_state_dict
 
 
 class Norm:

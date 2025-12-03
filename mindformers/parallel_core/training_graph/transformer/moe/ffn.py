@@ -23,6 +23,7 @@ from mindspore.ops.auto_generate import Shape, Cast, GroupedMatmul, Reshape, Swi
 from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode
 
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.training_graph.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher, MoEAlltoAllDeredundencyTokenDispatcher, MoEAlltoAllZeroRedundancyTokenDispatcher
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -215,3 +216,27 @@ class FFNGroupedGEMM(nn.Cell):
                 layout(dp, sp, mp0),  # output       [B, S, h]
             )
         )
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        ep = self.config.expert_model_parallel_size
+        sharded_state_dict = {}
+        sharded_state_dict[self.weight1.name] = ShardedTensor(
+            key=self.weight1.name,
+            org_key=self.weight1.name,
+            dtype=self.weight1.dtype,
+            local_shape=(self.num_local_experts // ep * self.hidden_size, self.moe_ffn_hidden_size * 2),
+            global_shape=(self.num_local_experts * self.hidden_size, self.moe_ffn_hidden_size * 2),
+            global_offset=(0, 0),
+            axis_fragmentations=(ep, 1),
+        )
+        sharded_state_dict[self.weight2.name] = ShardedTensor(
+            key=self.weight2.name,
+            org_key=self.weight2.name,
+            dtype=self.weight2.dtype,
+            local_shape=(self.num_local_experts // ep * self.moe_ffn_hidden_size, self.hidden_size),
+            global_shape=(self.num_local_experts * self.moe_ffn_hidden_size, self.hidden_size),
+            global_offset=(0, 0),
+            axis_fragmentations=(ep, 1),
+        )
+        return sharded_state_dict
