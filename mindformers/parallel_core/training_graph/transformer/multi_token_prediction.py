@@ -541,6 +541,9 @@ class MtpSharedVocabParallelEmbedding(VocabParallelEmbedding):
         output = self.embedding_morph(input_ids, weight)
         return output
 
+    def sharded_state_dict(self):
+        return {}
+
 
 class MtpSharedLanguageModelEmbedding(LanguageModelEmbedding):
     """Embedding layer used in Multi-Token Prediction module, same to standard LanguageModelEmbedding."""

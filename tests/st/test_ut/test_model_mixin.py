@@ -480,7 +480,7 @@ class TestTrainModelMixin:
         # Create a mock model with get_op_groups_info method
         class MockModel:
             # pylint: disable=W0613
-            def get_op_groups_info(self, parameters, op_size, tp_group, op_group):
+            def get_op_groups_info(self, parameters, op_size):
                 return f"info_{op_size}"
 
         class TestModel(TrainModelMixin):
@@ -489,7 +489,7 @@ class TestTrainModelMixin:
                 self.model = MockModel()
 
         mixin = TestModel()
-        assert mixin.get_op_groups_info(None, 2, None, None) == "info_2"
+        assert mixin.get_op_groups_info(None, 2) == "info_2"
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu

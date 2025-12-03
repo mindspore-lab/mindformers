@@ -577,10 +577,10 @@ class TrainModelMixin:
         model = self.check_and_get_model()
         return model.get_tp_dims(parameters)
 
-    def get_op_groups_info(self, parameters, op_size, tp_group, op_group):
+    def get_op_groups_info(self, parameters, op_size):
         """Get operation groups information for parameters."""
         model = self.check_and_get_model()
-        return model.get_op_groups_info(parameters, op_size, tp_group, op_group)
+        return model.get_op_groups_info(parameters, op_size)
 
     def get_parallel_config_for_muon(self):
         """Get parallel configuration for Muon optimizer."""

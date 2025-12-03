@@ -15,10 +15,12 @@
 """mindformers GPT model"""
 __all__ = ['GPTModel']
 
+import hashlib
 from typing import Literal, Optional, Union
 import numpy as np
 
 import mindspore as ms
+from mindspore.communication import create_group, get_group_size, get_rank
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops import auto_generate as aclnn_ops
@@ -55,6 +57,60 @@ from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
 from mindformers.core.optim.muon_utils import make_muon_fns
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
+
+
+def compute_repeat_num_and_model_parallel_size(sharded_info: ShardedTensor, world_size: int, pp: int, op: int):
+    """Compute real op size."""
+    axis_fragmentations = sharded_info.axis_fragmentations
+    flag = False
+    weight_sharded_size = 1
+    for axis in axis_fragmentations:
+        if axis == 1:
+            continue
+        if flag:
+            raise ValueError("Only one axis can be fragmented in Muon optimizer.")
+        flag = True
+        weight_sharded_size *= axis
+    repeat_num = world_size // pp // weight_sharded_size
+    real_op_size = min(op, repeat_num)
+    if sharded_info.local_shape[0] % real_op_size != 0:
+        real_op_size = 1
+    return real_op_size, weight_sharded_size
+
+
+def create_communication_group(rank_list):
+    """
+    Create a communication group with a hashed name.
+
+    Args:
+        rank_list: List of ranks in the communication group
+
+    Returns:
+        str: The created group name
+    """
+    rank_list_str = "-".join([str(i) for i in rank_list])
+    hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+    group_name = str(hashed)
+    create_group(group_name, rank_list)
+    return group_name
+
+
+OP_GROUP_NAME = {}
+
+
+def get_op_group_name(rank_id: int, real_op_size: int, model_parallel_size: int):
+    """Get op group name."""
+    if (rank_id, real_op_size, model_parallel_size) in OP_GROUP_NAME:
+        return OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)]
+    dp_range = model_parallel_size
+    op_range = model_parallel_size * real_op_size
+    rank_start = rank_id % dp_range + rank_id // op_range * op_range
+    rank_end = rank_start + op_range
+    rank_list = list(range(rank_start, rank_end, dp_range))
+    op_group_name = create_communication_group(rank_list)
+    OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)] = (op_group_name, rank_list)
+    return op_group_name, rank_list
 
 
 class PreprocessLabelsAndMasks(nn.Cell):
@@ -704,6 +760,14 @@ class GPTModel(nn.Cell):
     def sharding_propagation(self, config: TransformerConfig):
         pass
 
+    def sharded_state_dict(self):
+        """Get all sharded state dict."""
+        sharded_state_dict = {}
+        for _, sub_cell in self.cells_and_names():
+            if sub_cell != self and hasattr(sub_cell, "sharded_state_dict"):
+                sharded_state_dict.update(sub_cell.sharded_state_dict())
+        return sharded_state_dict
+
     def get_model_parameters(self):
         """Get current rank trainable parameters in gpt model ."""
         params = set()
@@ -830,7 +894,7 @@ class GPTModel(nn.Cell):
                 tp_dims.append(0)
         return tuple(tp_dims)
 
-    def get_op_groups_info(self, params, op, op_group, op_in_tp_group):
+    def get_op_groups_info(self, params, op):
         """Return optimizer parallel group information for each parameter.
         
         Args:
@@ -849,15 +913,13 @@ class GPTModel(nn.Cell):
             "self_attention.linear_q_down_proj.weight",
             "self_attention.linear_kv_up_proj.weight",
             "self_attention.linear_kv_down_proj.weight",
-            "eh_proj"
+            "eh_proj",
+            "max_logits_val"
         ]
 
-        use_tp_group_list = [
-            "mlp.router.weight",
-            "mlp.shared_experts.linear_fc",
-            "self_attention.linear_q_down_proj.weight",
-            "eh_proj",
-        ]
+        sharded_state_dict = self.sharded_state_dict()
+        world_size = get_group_size()
+        pp = self.config.pipeline_model_parallel_size
 
         def name_filter(param_name, full_name_list):
             for full_name in full_name_list:
@@ -878,13 +940,22 @@ class GPTModel(nn.Cell):
                     logger.warning(
                         f"Parameter {param.name}: parallel_optimizer was set to False due to the use of Muon optimizer."
                     )
-            else:
-                op_list.append(op)
+                continue
 
-                if name_filter(param.name, use_tp_group_list):
-                    op_groups.append(op_in_tp_group)
-                else:
-                    op_groups.append(op_group)
+            # compute real op size
+            sharded_info = sharded_state_dict.get(param.name)
+            real_op_size, weight_sharded_size = compute_repeat_num_and_model_parallel_size(sharded_info, world_size, pp,
+                                                                                           op)
+            if real_op_size == 1:
+                op_list.append(1)
+                op_groups.append("")
+                logger.info(f"Parameter {param.name} : No op group.")
+                continue
+
+            op_list.append(real_op_size)
+            op_group_name, rank_list = get_op_group_name(get_rank(), real_op_size, weight_sharded_size)
+            logger.info(f"Parameter {param.name} : Muon op group list is: {rank_list}")
+            op_groups.append(op_group_name)
 
         return tuple(op_list), tuple(op_groups)
 
