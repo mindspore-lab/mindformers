@@ -33,6 +33,7 @@ def get_tft_wrapped_cls(class_name, config):
         optim_cls = optim_cls.get_actual_adamw_cls(use_fused)
 
     if check_tft_valid():
+        # pylint: disable=C0415
         from mindspore.train.callback import TrainFaultTolerance
         optim_cls = TrainFaultTolerance.get_optimizer_wrapper(optim_cls)
     else:
@@ -89,7 +90,7 @@ def build_optim(
 
         if default_args is not None:
             config.update(default_args)
-
+        config = config.copy()
         optim_cls, config = get_tft_wrapped_cls(config.pop('type'), config)
     else:
         optim_cls, config = get_tft_wrapped_cls(class_name, kwargs)
