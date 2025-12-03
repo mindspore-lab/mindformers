@@ -98,8 +98,8 @@ def _slice_tensor_to_shards(x, tp, tp_dim, op, rank_id, op_group, tp_group):
             x = Chunk()(x, tp, tp_dim)[chunk_id]
 
     if op > 1:
-        if op_group == tp_group:
-            chunk_id = rank_id % tp
+        if tp_dim == -1:
+            chunk_id = rank_id % op
         else:
             chunk_id = rank_id // tp % op
         x = Chunk()(x, op)[chunk_id]
