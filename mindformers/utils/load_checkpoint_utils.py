@@ -65,7 +65,7 @@ def _get_origin_network(network):
     """recursive find if cells which have function <convert_name>"""
     if 'convert_name' in dir(network):
         return network, True
-    #DFS for network
+    # DFS for network
     for cell in list(network.cells()):
         network, find_cell = _get_origin_network(cell)
         if find_cell:
@@ -314,7 +314,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
     if config.resume_training or (config.get('remove_redundancy', False) and not do_predict):
         # pylint: disable=W0212
         network = model._train_network
-    #build model
+    # build model
     if config.use_parallel:
         compile_model(
             model=model,
@@ -325,7 +325,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
             sink_size=config.runner_config.sink_size,
             do_eval=do_eval, do_predict=do_predict
         )
-        #wait generate all rank strategy files
+        # wait generate all rank strategy files
         barrier()
 
     # only execute qkv concat check on the main rank in predict mode
@@ -337,7 +337,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         barrier()
 
     process_for_stand_alone_mode(config, network, strategy_path)
-    #merge dst strategy
+    # merge dst strategy
     strategy_path = get_merged_dst_strategy_path(config, strategy_path)
     load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint, optimizer)
 
@@ -457,7 +457,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 format=config.load_ckpt_format
             ))
         if not config.model.model_config.get("qkv_concat", False) \
-           and is_hf_safetensors_dir(load_ckpt_path, origin_network):
+                and is_hf_safetensors_dir(load_ckpt_path, origin_network):
             logger.info("......HuggingFace weights convert name......")
             params_dict = origin_network.convert_weight_dict(params_dict, model_config=config.model.model_config)
         if optimizer and config.resume_training:
