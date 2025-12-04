@@ -246,6 +246,11 @@ def _get_optimizer_state(optim_params, filter_fn: Callable = None):
     return norms
 
 
+def _is_positive_natural_number(x):
+    """Check if it is a positive natural number"""
+    return isinstance(x, int) and x > 0
+
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class MFLossMonitor(Callback):
     """
@@ -771,10 +776,9 @@ class TrainingStateMonitor(Callback):
                  embedding_size: int = 4096,
                  use_local_norm: bool = False):
         super().__init__()
-        if not (isinstance(step_interval, int) and step_interval > 0):
-            logger.warning("The value of 'monitor_config.step_interval' should be positive integer, "
-                           f"but get {step_interval}. Use default value: 1.")
-            step_interval = 1
+        if not _is_positive_natural_number(step_interval):
+            raise TypeError("The value of 'monitor_config.step_interval' should be positive integer, "
+                            f"but get {step_interval}.")
         self.step_interval = step_interval
         self.last_print_time = 0
         self.step_time = time.time()
@@ -808,7 +812,7 @@ class TrainingStateMonitor(Callback):
             self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
         # when pipeline_stages > 2, param aggregation is not supported for now
         pp_parallel = context.get_auto_parallel_context("pipeline_stages") > 1
-        if pp_parallel and self.sr_format:
+        if pp_parallel and self.sr_format and self.do_aggregation:
             raise TypeError("When pipeline_stages > 1, weight aggregation is not supported")
 
     def on_train_epoch_begin(self, run_context):
@@ -1076,14 +1080,36 @@ class TrainingStateMonitor(Callback):
         if hasattr(config.get('stable_rank_config'), "get"):
             self.sr_format = config.get('stable_rank_config').get('format', None)
             self.sr_step_interval = config.get('stable_rank_config').get('step_interval', 100)
+            if not _is_positive_natural_number(self.sr_step_interval):
+                raise TypeError("'monitor_config.stable_rank_config.step_interval' should be positive integer,"
+                                f"but get {self.sr_step_interval}.")
             self.sr_last_print_time = 0
             self.sr_target = config.get('stable_rank_config').get('target') or ['.*']
             self.sr_target_cache = {}
             self.do_aggregation = config.get('stable_rank_config').get('do_aggregation', False)
             self.moe_show_mode = config.get('stable_rank_config').get('moe_show_mode') or ["all"]
             self.power_iteration_num = config.get('stable_rank_config').get('power_iteration_num', 5)
+            if not _is_positive_natural_number(self.power_iteration_num):
+                raise TypeError("'monitor_config.stable_rank_config.power_iteration_num' should be positive integer,"
+                                f"but get {self.power_iteration_num}.")
         else:
             self.sr_format = None
+
+    def _init_global_norm_monitor_config(self, config):
+        """Initialize global norm monitor config"""
+        self.check_for_global_norm = config.get('check_for_global_norm')
+        self.global_norm_record_path = os.path.join(get_output_root_path(), "abnormal_global_norm.json")
+        self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
+        self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold', 10)
+        if not _is_positive_natural_number(self.global_norm_spike_count_threshold):
+            raise TypeError("'monitor_config.global_norm_spike_count_threshold' should be positive integer, "
+                            f"but get {self.global_norm_spike_count_threshold}.")
+        self.abnormal_global_norms: dict[str, list[float]] = {}
+        if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
+            # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
+            # because json cannot use number as key, we convert it to string
+            with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
+                self.abnormal_global_norms = json.load(file)
 
     def _init_config(self, config):
         """Initialize members from config"""
@@ -1106,15 +1132,9 @@ class TrainingStateMonitor(Callback):
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
         self._init_stable_rank_config(config)
+        self._init_global_norm_monitor_config(config)
         self.throughput_baseline = config.get('throughput_baseline', None)
         self.print_struct = config.get('print_struct')
-
-        self.check_for_global_norm = config.get('check_for_global_norm')
-        self.global_norm_record_path = os.path.join(get_output_root_path(), "abnormal_global_norm.json")
-        self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
-        self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold')
-        self.abnormal_global_norms: dict[str, list[float]] = {}
-
         if self.print_struct is None:
             self.print_struct = False
         if not (isinstance(self.target, list) and self.target and all(isinstance(i, str) for i in self.target)):
@@ -1130,11 +1150,6 @@ class TrainingStateMonitor(Callback):
                  'optimizer_state_format', 'weight_state_format', 'max_attention_logit_format']
         for attr in attrs:
             self._check_attr_formats(attr)
-        if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
-            # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
-            # because json cannot use number as key, we convert it to string
-            with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
-                self.abnormal_global_norms = json.load(file)
 
     def _print_stable_rank(self, name, param, cur_step_num):
         """output stable rank and max eigenvalues"""
