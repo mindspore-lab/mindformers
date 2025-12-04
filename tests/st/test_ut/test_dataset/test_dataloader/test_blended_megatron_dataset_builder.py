@@ -23,7 +23,7 @@ from mindformers.dataset.blended_datasets.blended_megatron_dataset_builder impor
     _get_size_per_split_per_dataset
 )
 from mindformers.dataset.blended_datasets.blended_megatron_dataset_config import BlendedMegatronDatasetConfig
-from mindformers.dataset.blended_datasets.utils import Split
+from mindformers.dataset.blended_datasets.utils import Split, compile_helpers
 
 
 class DummyTokenizer:
@@ -522,6 +522,7 @@ class TestBlendedMegatronDatasetBuilder:
         Description: Test build method works with blend configuration having weights and size
         Expectation: Method builds datasets correctly with weights processing
         """
+        compile_helpers()
         config = create_test_config()
         config.mock = False
         config.blend = (["prefix1", "prefix2"], [0.3, 0.7])
@@ -645,6 +646,7 @@ class TestBlendedMegatronDatasetBuilder:
         Description: Test parallel building of megatron datasets
         Expectation: Method builds datasets in parallel correctly
         """
+        compile_helpers()
         config = create_test_config()
         config.mock = False
         config.blend = (["prefix1", "prefix2"], [0.5, 0.5])
