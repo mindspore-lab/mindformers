@@ -205,7 +205,7 @@ mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重
 1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
 2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-以``qwen2_5-7b` 8卡微调为例，执行如下命令进行微调。
+以 `qwen2_5-7b` 8卡微调为例，执行如下命令进行微调。
 
 1. 主要参数配置参考:
 
@@ -236,7 +236,7 @@ mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重
     tokenizer:
       model_max_length: 32768
       vocab_file: "./path/vocab.json" # 参考qwen2_5-7b官网下载的词表
-      merges_file: "./path/merges.txt" # # 参考qwen2_5-7b官网下载的merge文件
+      merges_file: "./path/merges.txt" # 参考qwen2_5-7b官网下载的merge文件
    #callbacks config
    callbacks:
     - type: CheckpointMonitor

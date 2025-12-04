@@ -203,7 +203,7 @@ bash scripts/examples/glm4/run_glm4_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TO
 
 | 参数名         | 含义                        | 取值说明                                                                                        |
 |-------------|---------------------------|---------------------------------------------------------------------------------------------|
-| PARALLEL    | 指定选择推理模式为单卡推理 or 多卡推理。    | (str, 必选) - 单卡推理配置为 `single` ，多卡推理配置为 `parallel` 。                                          |
+| PARALLEL    | 指定选择推理模式为单卡推理或多卡推理。       | (str, 必选) - 单卡推理配置为 `single` ，多卡推理配置为 `parallel` 。                                          |
 | CONFIG_PATH | 模型配置文件路径。                 | (str, 必选) - 如 `/path/to/glm4/predict_glm4_9b_chat.yaml` 。                                   |
 | CKPT_PATH   | 推理时用到的模型权重文件路径。           | (str, 必选) - 单卡为完整权重，双卡为分布式权重。<br>如单卡推理 `/path/to/glm4.ckpt`，多卡推理 `/path/to/glm4_ckpt_dir` 。 |
 | TOKENIZER   | GLM-4 模型的 tokenizer 文件路径。 | (str, 必选) - 如 `/path/to/tokenizer.model` 。                                                  |
