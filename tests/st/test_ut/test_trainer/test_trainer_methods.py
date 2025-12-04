@@ -518,6 +518,9 @@ class TestTrainerCheckpointMethods(unittest.TestCase):
                 f.write('mock')
             os.stat(last_checkpoint_path)
 
+            os.utime(last_checkpoint_path, (os.path.getatime(last_checkpoint_path) + 1,
+                                            os.path.getmtime(last_checkpoint_path) + 1))
+
             trainer._check_checkpoint_config(True)
             assert trainer.config.model.model_config.checkpoint_name_or_path == last_checkpoint_path
 
