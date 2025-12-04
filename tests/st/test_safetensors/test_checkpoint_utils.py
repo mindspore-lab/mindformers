@@ -14,6 +14,8 @@
 #  ============================================================================
 """test for load_checkpoint_utils."""
 # pylint: disable=W0621
+import os
+import json
 import tempfile
 from unittest.mock import patch, MagicMock
 
@@ -22,7 +24,11 @@ import numpy as np
 from mindspore import Parameter
 
 from mindformers.tools.register import MindFormerConfig
-from mindformers.checkpoint.utils import compile_model
+
+from mindformers.checkpoint.utils import compile_model, check_checkpoints_dir_max_num, get_checkpoint_iter_dir, \
+    get_checkpoint_tracker_filename, get_common_filename, get_metadata_filename, \
+    get_latest_iteration_from_tracker, get_checkpoint_name, get_sharded_tensor_shard_id, \
+    sharded_tensor_shard_id, _reverse_sharded_tensor_shard_id, _get_shard_size, verify_ckpt_valid, FileType
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.utils.load_checkpoint_utils import (
     CkptFormat, _get_checkpoint_mode, CheckpointFileMode, _check_checkpoint_path,
@@ -94,6 +100,8 @@ def mock_file():
     mock_f = MagicMock()
     mock_f.metadata.return_value = None
     return mock_f
+
+
 
 
 class TestCommonCheckpointMethod:
@@ -805,13 +813,12 @@ class TestCommonCheckpointMethod:
                                              optimizer=optimizer)
             mock_load_safetensors_checkpoint.assert_called_once()
 
-
 class TestBuildModel:
     """A test class for testing build_model"""
     runner_config = {'sink_mode': True, 'epochs': 1, 'sink_size': 1}
     config = {
         'runner_config': runner_config,
-        'context': {'mode': 0}  # Add context.mode to fix AttributeError
+        'context': {'mode': 0}  # 0 is typically ms.GRAPH_MODE, 1 is ms.PYNATIVE_MODE
     }
     model = MagicMock()
     dataset = MagicMock()
@@ -854,18 +861,16 @@ class TestBuildModel:
         """test build model infer predict layout when do predict is true"""
         mock_get_auto_parallel_context.return_value = 'auto_parallel'
         config = MindFormerConfig(**self.config)
-        model = MagicMock()
-        dataset = MagicMock()
         compile_model(
-            model=model,
-            dataset=dataset,
+            model=self.model,
+            dataset=self.dataset,
             mode=config.context.mode,
             sink_mode=config.runner_config.sink_mode,
             epoch=config.runner_config.epochs,
             sink_size=config.runner_config.sink_size,
             do_eval=False, do_predict=True
         )
-        model.infer_predict_layout.assert_called_once_with(*dataset)
+        self.model.infer_predict_layout.assert_called_once_with(*self.dataset)
 
     @patch('mindspore.context.get_auto_parallel_context')
     def test_build_model_model_build(self, mock_get_auto_parallel_context):
@@ -890,15 +895,15 @@ class TestGetCheckpointMode:
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    def test_single_checkpoint_file(self):
+    @patch('os.path.isfile')
+    @patch('os.path.isdir')
+    def test_single_checkpoint_file(self, mock_isdir, mock_isfile):
         """test single checkpoint file"""
-        with patch('os.path.isfile') as mock_isfile, \
-                patch('os.path.isdir') as mock_isdir:
-            mock_isfile.return_value = True
-            mock_isdir.return_value = False
-            config = type('', (), {})()
-            config.load_checkpoint = '/test/checkpoint_file.safetensors'
-            assert _get_checkpoint_mode(config) == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value
+        mock_isfile.return_value = True
+        mock_isdir.return_value = False
+        config = type('', (), {})()
+        config.load_checkpoint = '/test/checkpoint_file.safetensors'
+        assert _get_checkpoint_mode(config) == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
@@ -958,3 +963,293 @@ class TestGetCheckpointMode:
                 config.load_ckpt_format = '.safetensors'
                 with pytest.raises(ValueError, match="not support mode: no valid checkpoint files found"):
                     _get_checkpoint_mode(config)
+
+
+class TestCheckpointUtils:
+    """A test class for testing checkpoint utils functions"""
+
+    # Test get_checkpoint_iter_dir function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_checkpoint_iter_dir(self):
+        """test get_checkpoint_iter_dir function"""
+        checkpoints_path = '/test/checkpoints'
+        iteration = 123
+        result = get_checkpoint_iter_dir(checkpoints_path, iteration)
+        # Use os.path.normpath to handle different path separators
+        assert os.path.normpath(result) == os.path.normpath('/test/checkpoints/iteration_00000123')
+
+        # Test with different iteration format
+        iteration = 1000
+        result = get_checkpoint_iter_dir(checkpoints_path, iteration)
+        assert os.path.normpath(result) == os.path.normpath('/test/checkpoints/iteration_00001000')
+
+    # Test get_checkpoint_tracker_filename function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_checkpoint_tracker_filename(self):
+        """test get_checkpoint_tracker_filename function"""
+        checkpoints_path = '/test/checkpoints'
+        result = get_checkpoint_tracker_filename(checkpoints_path)
+        assert os.path.normpath(result) == os.path.normpath('/test/checkpoints/latest_checkpointed_iteration.txt')
+
+    # Test get_common_filename function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_common_filename(self):
+        """test get_common_filename function"""
+        checkpoints_path = '/test/checkpoints'
+        iteration = 123
+        result = get_common_filename(checkpoints_path, iteration)
+        assert os.path.normpath(result) == os.path.normpath('/test/checkpoints/iteration_00000123/common.json')
+
+    # Test get_metadata_filename function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_metadata_filename(self):
+        """test get_metadata_filename function"""
+        checkpoints_path = '/test/checkpoints'
+        iteration = 123
+        result = get_metadata_filename(checkpoints_path, iteration)
+        assert os.path.normpath(result) == os.path.normpath('/test/checkpoints/iteration_00000123/metadata.json')
+
+    # Test get_checkpoint_name function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_checkpoint_name(self):
+        """test get_checkpoint_name function"""
+        # Test with cur_iter_checkpoint_dir and user_prefix
+        cur_iter_checkpoint_dir = '/test/checkpoints/iteration_00000123'
+        user_prefix = 'model'
+        file_idx = 0
+        total_file_num = 1
+        file_type = FileType.MODEL
+        result = get_checkpoint_name(cur_iter_checkpoint_dir, user_prefix, file_idx, total_file_num, file_type)
+        expected = '/test/checkpoints/iteration_00000123/model-model-0000000-0000001'
+        assert os.path.normpath(result) == os.path.normpath(expected)
+
+        # Test with optimizer type
+        file_type = FileType.OPTIMIZER
+        result = get_checkpoint_name(cur_iter_checkpoint_dir, user_prefix, file_idx, total_file_num, file_type)
+        expected = '/test/checkpoints/iteration_00000123/model-opt-0000000-0000001'
+        assert os.path.normpath(result) == os.path.normpath(expected)
+
+        # Test without user_prefix
+        result = get_checkpoint_name(cur_iter_checkpoint_dir, None, file_idx, total_file_num, FileType.MODEL)
+        expected = '/test/checkpoints/iteration_00000123/model-0000000-0000001'
+        assert os.path.normpath(result) == os.path.normpath(expected)
+
+        # Test without cur_iter_checkpoint_dir
+        result = get_checkpoint_name(None, None, file_idx, total_file_num, FileType.MODEL)
+        expected = 'model-0000000-0000001'
+        assert result == expected
+
+    # Test sharded tensor related functions
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_sharded_tensor_shard_id_functions(self):
+        """test sharded tensor shard id functions"""
+        param_name = 'model.layer.weight'
+        global_offset = (100, 200)
+
+        # Test get_sharded_tensor_shard_id
+        shard_id1 = get_sharded_tensor_shard_id(param_name, global_offset)
+        expected = "('model.layer.weight', (100, 200))"
+        assert shard_id1 == expected
+
+        # Test sharded_tensor_shard_id (duplicate function)
+        shard_id2 = sharded_tensor_shard_id(param_name, global_offset)
+        assert shard_id2 == expected
+        assert shard_id1 == shard_id2
+
+    # Test _reverse_sharded_tensor_shard_id function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_reverse_sharded_tensor_shard_id(self):
+        """test _reverse_sharded_tensor_shard_id function"""
+        # Test normal case
+        shard_id = "('model.layer.weight', (100, 200))"
+        param_name, global_offset = _reverse_sharded_tensor_shard_id(shard_id)
+        assert param_name == 'model.layer.weight'
+        assert global_offset == (100, 200)
+
+        # Test with empty offset
+        shard_id = "('model.layer.weight', ())"
+        param_name, global_offset = _reverse_sharded_tensor_shard_id(shard_id)
+        assert param_name == 'model.layer.weight'
+        assert not global_offset
+
+        # Test with single element offset
+        shard_id = "('model.layer.weight', (50,))"
+        param_name, global_offset = _reverse_sharded_tensor_shard_id(shard_id)
+        assert param_name == 'model.layer.weight'
+        assert global_offset == (50,)
+
+        # Test invalid shard id
+        with pytest.raises(ValueError):
+            _reverse_sharded_tensor_shard_id("invalid_shard_id")
+
+    # Test _get_shard_size function
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_shard_size(self):
+        """test _get_shard_size function"""
+        # Test with float32 type (32 bits per float32)
+        local_shape = (100, 200)
+        dtype = 'Float32'
+        expected = 100 * 200 * 32  # 100*200 elements * 32 bits each
+        assert _get_shard_size(local_shape, dtype) == expected
+
+        # Test with int8 type (8 bits per int8)
+        dtype = 'Int8'
+        expected = 100 * 200 * 8  # 100*200 elements * 8 bits each
+        assert _get_shard_size(local_shape, dtype) == expected
+
+        # Test with unknown dtype (should default to 16 bits)
+        dtype = 'UnknownType'
+        expected = 100 * 200 * 16  # 100*200 elements * 16 bits default
+        assert _get_shard_size(local_shape, dtype) == expected
+
+        # Test with empty shape
+        local_shape = ()
+        dtype = 'Float32'
+        expected = 1 * 32  # scalar, 32 bits
+        assert _get_shard_size(local_shape, dtype) == expected
+
+    # Test verify_ckpt_valid function with tmp_path
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_verify_ckpt_valid(self, tmp_path):
+        """test verify_ckpt_valid function"""
+        # Test with valid directory containing safetensors file
+        ckpt_dir = tmp_path / "valid_ckpt"
+        ckpt_dir.mkdir()
+        safetensor_file = ckpt_dir / "model.safetensors"
+        safetensor_file.touch()
+        assert verify_ckpt_valid(str(ckpt_dir)) is None
+
+        # Test with valid directory containing metadata and safetensors file
+        ckpt_dir = tmp_path / "valid_ckpt_with_metadata"
+        ckpt_dir.mkdir()
+        metadata_path = ckpt_dir / "metadata.json"
+        metadata_content = {
+            "storage_data": {
+                "param1": [{
+                    "file_name": "model.safetensors"
+                }]
+            }
+        }
+
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata_content, f)
+        safetensor_file = ckpt_dir / "model.safetensors"
+        safetensor_file.touch()
+        assert verify_ckpt_valid(str(ckpt_dir)) is None
+
+        # Test with invalid directory (not exists)
+        with pytest.raises(NotADirectoryError):
+            verify_ckpt_valid("/non/existent/directory")
+
+        # Test with directory containing no files
+        ckpt_dir = tmp_path / "empty_ckpt"
+        ckpt_dir.mkdir()
+        with pytest.raises(FileNotFoundError):
+            verify_ckpt_valid(str(ckpt_dir))
+
+        # Test with metadata referencing missing safetensors file
+        ckpt_dir = tmp_path / "invalid_metadata_ckpt"
+        ckpt_dir.mkdir()
+        metadata_path = ckpt_dir / "metadata.json"
+        metadata_content = {
+            "storage_data": {
+                "param1": [{
+                    "file_name": "missing.safetensors"
+                }]
+            }
+        }
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata_content, f)
+        with pytest.raises(FileNotFoundError):
+            verify_ckpt_valid(str(ckpt_dir))
+
+        # Test with invalid metadata json
+        ckpt_dir = tmp_path / "invalid_json_ckpt"
+        ckpt_dir.mkdir()
+        metadata_path = ckpt_dir / "metadata.json"
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            f.write("invalid json content")
+        with pytest.raises(RuntimeError):
+            verify_ckpt_valid(str(ckpt_dir))
+
+    # Test check_checkpoints_dir_max_num function with tmp_path
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_check_checkpoints_dir_max_num(self, tmp_path):
+        """test check_checkpoints_dir_max_num function"""
+        # Create test directory structure
+        checkpoints_root_path = tmp_path / "checkpoints"
+        checkpoints_root_path.mkdir()
+
+        # Create more directories than max_keep_num
+        for i in range(5):
+            dir_path = checkpoints_root_path / f"iteration_{i:08d}"
+            dir_path.mkdir()
+
+        # Test with max_keep_num = 3, should keep newest 3 directories
+        check_checkpoints_dir_max_num(3, str(checkpoints_root_path))
+
+        # Verify only 3 directories remain
+        remaining_dirs = list(checkpoints_root_path.iterdir())
+        remaining_dirs.sort()
+        assert len(remaining_dirs) == 3
+        assert [d.name for d in remaining_dirs] == ["iteration_00000002", "iteration_00000003", "iteration_00000004"]
+
+        # Test with max_keep_num larger than existing directories
+        check_checkpoints_dir_max_num(10, str(checkpoints_root_path))
+        remaining_dirs = list(checkpoints_root_path.iterdir())
+        assert len(remaining_dirs) == 3
+
+    # Test get_latest_iteration_from_tracker function with tmp_path
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_get_latest_iteration_from_tracker(self, tmp_path):
+        """test get_latest_iteration_from_tracker function"""
+        checkpoints_path = tmp_path / "checkpoints"
+        checkpoints_path.mkdir()
+
+        # Create tracker file
+        tracker_path = checkpoints_path / "latest_checkpointed_iteration.txt"
+        tracker_path.write_text("123", encoding="utf-8")
+
+        # Create corresponding directory
+        iter_dir = checkpoints_path / "iteration_00000123"
+        iter_dir.mkdir()
+
+        # Test normal case
+        assert get_latest_iteration_from_tracker(str(checkpoints_path)) == 123
+
+        # Test with missing tracker file
+        tracker_path.unlink()
+        with pytest.raises(FileNotFoundError):
+            get_latest_iteration_from_tracker(str(checkpoints_path))
+
+        # Test with invalid iteration number in tracker file
+        tracker_path.write_text("invalid_iter", encoding="utf-8")
+        with pytest.raises(ValueError):
+            get_latest_iteration_from_tracker(str(checkpoints_path))
+
+        # Test with missing iteration directory
+        tracker_path.write_text("456", encoding="utf-8")
+        with pytest.raises(FileNotFoundError):
+            get_latest_iteration_from_tracker(str(checkpoints_path))
