@@ -653,7 +653,8 @@ class TransformCkpt:
             else:
                 break
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--src_checkpoint',
                         default="",
@@ -707,3 +708,7 @@ if __name__ == '__main__':
     )
 
     print("......Transform finished!......")
+
+
+if __name__ == '__main__':
+    main()
