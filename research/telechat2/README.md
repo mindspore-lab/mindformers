@@ -168,13 +168,6 @@ torch_path: torch版本权重保存目录路径
 mindspore_path: 权重保存文件名，可以指定自定义保存路径
 ```
 
-2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
-
-- [TeleChat2-7B](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_7B/Telechat_7B.zip)
-- [TeleChat2-35B](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_35B/Telechat_35B.zip)
-- [TeleChat2-115B](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
-- [Telechat2-39B-A12B](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)：仅适用于8卡推理，使用方式请参考[Telechat2-39B-A12B推理](#Telechat2-39B-A12B推理)章节。
-
 ### 分布式权重切分与合并
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
