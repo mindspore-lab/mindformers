@@ -74,7 +74,7 @@ MindSpore Transformers 提供 `alpaca` 数据集示例处理脚本制作[全参�
 
 | 数据集名称        |  适用模型   |   适用阶段   |                                            下载链接                                            |
 |:-------------|:-------:|:--------:|:------------------------------------------------------------------------------------------:|
-| alpaca       | glm4-9b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
+| alpaca       | GLM-4-9B | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
 
 数据预处理中所用的 `tokenizer.model` 可以参考[模型权重下载](#模型权重下载)进行下载。
 
