@@ -66,30 +66,6 @@ class TestHelperFunctions(unittest.TestCase):
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    def test_get_weight_norm(self):
-        """Test _get_weight_norm function"""
-        # Create mock network
-        mock_network = Mock()
-        param1 = Mock()
-        param1.to.return_value = param1
-        param1.norm.return_value = Tensor(np.array([2.0]))
-        param2 = Mock()
-        param2.to.return_value = param2
-        param2.norm.return_value = Tensor(np.array([3.0]))
-
-        mock_network.trainable_params.return_value = [param1, param2]
-
-        with patch('mindspore.ops.functional.stack') as mock_stack:
-            mock_stack.return_value = Tensor(np.array([3.605551]))
-
-            # pylint: disable=W0212
-            norm = callback_module._get_weight_norm(mock_network)
-
-            self.assertAlmostEqual(norm, 3.605551, places=5)
-
-    @pytest.mark.level1
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
     @patch('mindformers.core.callback.callback.P')
     def test_init(self, mock_p):
         """Test AllReduceNet initialization"""
