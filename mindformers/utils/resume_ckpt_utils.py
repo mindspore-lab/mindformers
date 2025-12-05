@@ -56,7 +56,9 @@ def load_resume_checkpoint(load_checkpoint_path, remove_redundancy, load_ckpt_fo
     """resume training, load training info from checkpoint to config"""
     if not os.path.realpath(load_checkpoint_path) or \
             not os.path.exists(load_checkpoint_path):
-        raise FileNotFoundError(f"The load_checkpoint_path must be correct, but get {load_checkpoint_path}")
+        err_msg = f"The load_checkpoint_path must be correct, but get {load_checkpoint_path}"
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
 
     if os.path.isdir(load_checkpoint_path):
         hyper_param_file = os.path.join(load_checkpoint_path, 'hyper_param.safetensors')
