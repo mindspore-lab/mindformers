@@ -17,6 +17,7 @@
 import argparse
 import sys
 from collections import OrderedDict
+import copy
 
 import pytest
 
@@ -56,7 +57,7 @@ class TestConfig:
     def test_dict_config_deepcopy_isolated(self):
         """Deep copy should create independent nested objects."""
         cfg = DictConfig(nested=DictConfig(value=[1, 2]))
-        copied = cfg
+        copied = copy.deepcopy(cfg)
         copied.nested.value.append(3)
         assert cfg.nested.value == [1, 2]
         assert copied.nested.value == [1, 2, 3]

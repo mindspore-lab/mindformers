@@ -20,7 +20,7 @@ import numpy as np
 import mindspore
 from mindspore import nn, Parameter, ops, mint
 from mindspore.common.initializer import initializer
-from mindspore.ops.auto_generate import WeightQuantBatchMatmul, DynamicQuantExt, GroupedMatmulV4
+from mindspore.ops.auto_generate import DynamicQuantExt, GroupedMatmulV4
 
 from mindformers.parallel_core.inference.weights_utils import set_weight_attrs
 from mindformers.parallel_core.inference.transformer.moe.experts import GroupedMLP
@@ -77,20 +77,7 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
             layer.insert_param_to_cell("gmm_bias", gmm_bias)
 
         else:
-            self.matmul = WeightQuantBatchMatmul(False, True, group_size)
-            weight_shape = (self.output_size_per_partition, self.input_size_per_partition)
-            weight = Parameter(initializer('ones', weight_shape, mindspore.int8), requires_grad=False)
-
-            w_scale_shape = (output_size_per_partition,)
-            w_scale_dtype = mindspore.bfloat16 if params_dtype == mindspore.bfloat16 else mindspore.float32
-            w_scale = Parameter(
-                initializer('ones', w_scale_shape, w_scale_dtype), name="w_scale", requires_grad=False)
-
-            set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
-            set_weight_attrs(w_scale, {"output_dim": 0})
-
-            set_weight_attrs(weight, extra_weight_attrs)
-            set_weight_attrs(w_scale, extra_weight_attrs)
+            raise ValueError("A8W4DynamicQuant is now only support for MOE")
 
         if layer is not None:
             layer.insert_param_to_cell("weight", weight)
@@ -143,10 +130,7 @@ class A8W4DynamicLinearMethod(LinearMethodBase):
                               group_type=0,
                               group_list_type=1)[0]
         else:
-            w_scale = ops.cast(w_scale, mindspore.float16)
-            qx = ops.cast(qx, mindspore.float16)
-            out = self.matmul(qx, weight, w_scale, None, None, None, None)
-            out = ops.mul(out, qx_scale.unsqueeze(1))
+            raise ValueError("A8W4DynamicQuant is now only support for MOE")
         if bias is not None:
             out = self.bias_add(out, bias)
         out = out.reshape(output_shape)
