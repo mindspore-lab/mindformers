@@ -118,3 +118,14 @@ class InferenceQwen3ForCausalLM(Qwen3PreTrainedModel, InferModelMixin):
             value_cache=value_cache
         )
         return logits
+
+    def convert_name(self, weight_name):
+        r"""
+        Override convert_name method in inference model, in order to read PTQ weights correctly.
+        PTQ weights are generated after training, so it should only exist in inference model.
+        """
+        weight_name = super().convert_name(weight_name)
+        # Do extra conversion for quantization parameters.
+        if self.config.quantization is not None:
+            weight_name = weight_name.replace('.weight_scale', '.w_scale')
+        return weight_name
