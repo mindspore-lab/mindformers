@@ -262,7 +262,9 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
 
     pet_config = config.model.model_config.get("pet_config")
     if pet_config and pet_config.pet_type == "slora" and network.lora_list:
-        raise ValueError(f"slora only support .ckpt file, {config.load_ckpt_format} file will be compatible soon.")
+        err_msg = f"slora only support .ckpt file, {config.load_ckpt_format} file will be compatible soon."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     ckpt_file_mode = _get_checkpoint_mode(config)
     validate_config_with_file_mode(ckpt_file_mode, config.use_parallel, config.auto_trans_ckpt)
     # reduce compile time in prediction
@@ -422,6 +424,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                     logger.info("......obtain name map for HF safetensors.....")
                     name_map = origin_network.obtain_name_map(load_checkpoint_files)
                 except Exception as e:
+                    logger.error(f"Please complete abstract function obtain_name_map. Details: {e}")
                     raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
                 if is_main_rank():
                     _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
@@ -439,7 +442,9 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
         if optimizer and config.resume_training:
             if not os.path.exists(hyper_param_file):
-                raise FileNotFoundError(rf"No hyper_param.safetensors in given dir: {load_ckpt_path}")
+                err_msg = rf"No hyper_param.safetensors in given dir: {load_ckpt_path}"
+                logger.error(err_msg)
+                raise FileNotFoundError(err_msg)
             logger.info("......Start load hyper param into optimizer......")
             hyper_param_dict = ms.load_checkpoint(ckpt_file_name=hyper_param_file, format='safetensors')
             update_global_step(config, hyper_param_dict)
@@ -562,11 +567,15 @@ def validate_qkv_concat(model_cls_or_instance, qkv_concat_config, load_checkpoin
             break
 
     if is_qkv_concat and not qkv_concat_config:
-        raise ValueError("The qkv concat check failed! The qkv in the model weights has been concatenated,"
-                         " but qkv_concat is set to false.")
+        err_msg = ("The qkv concat check failed! The qkv in the model weights has been concatenated, "
+                   "but qkv_concat is set to false.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if not is_qkv_concat and qkv_concat_config:
-        raise ValueError("The qkv concat check failed! The qkv in the model weights has been not concatenated,"
-                         " but qkv_concat is set to true.")
+        err_msg = ("The qkv concat check failed! The qkv in the model weights has been not concatenated, "
+                   "but qkv_concat is set to true.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if is_qkv_concat and qkv_concat_config:
         logger.info("The qkv concat check succeed! The qkv in the model weights has been concatenated and "
                     "qkv_concat is set to true.")
