@@ -25,7 +25,7 @@ from mindformers.tools.logger import logger
 
 
 _LEVEL_0_TASK_TIME = 0
-_LEVEL_1_TASK_TIME = 124
+_LEVEL_1_TASK_TIME = 436
 _TASK_TYPE = TaskType.FOUR_CARDS_TASK
 
 
