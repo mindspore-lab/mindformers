@@ -348,7 +348,8 @@ def load_resume_context_from_checkpoint(config, dataset):
     """resume training, load training info from checkpoint to config"""
     if not os.path.realpath(config.load_checkpoint) or \
             not os.path.exists(config.load_checkpoint):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
+        err_log = f"The load_checkpoint must be correct, but get {config.load_checkpoint}"
+        raise FileNotFoundError(err_log)
 
     if os.path.isdir(config.load_checkpoint):
         # When graceful exit is enabled or auto checkpoint transformation is disabled,
@@ -570,7 +571,9 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     logger.info("............Start load slora checkpoint ............")
     adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
     if not os.path.exists(adapter_path):
-        raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
+        err_msg = f"The adapter_path must be correct, but get {adapter_path}"
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
     with open(adapter_path, 'r', encoding='utf-8') as file:
         path_dict = json.load(file)
     adapter_list = []
@@ -686,8 +689,9 @@ def get_load_checkpoint_result(config):
                 else:
                     checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
         else:
-            raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
-                             f"when auto_trans_ckpt is False.")
+            err_msg = f"{config.load_checkpoint} is not a valid path to load checkpoint when auto_trans_ckpt is False."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     return checkpoint_dict if checkpoint_dict else checkpoint_future
 
 

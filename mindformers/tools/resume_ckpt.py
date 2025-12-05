@@ -84,7 +84,9 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt',
     if check_in_modelarts():
         resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
         if not Validator.is_obs_url(resume_record_dir):
-            raise ValueError(f"{resume_record_dir} is not a valid obs path.")
+            err_meg = f"{resume_record_dir} is not a valid obs path."
+            logger.error(err_meg)
+            raise ValueError(err_meg)
     else:
         resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
     remake_folder(resume_record_dir, permissions=0o750)
@@ -167,12 +169,16 @@ def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
 
     if not check_in_modelarts():
         if not os.path.exists(latest_checkpointed_iteration_txt):
-            raise ValueError(f"Can not find {latest_checkpointed_iteration_txt}")
+            err_msg = f"Can not find {latest_checkpointed_iteration_txt}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         with open(latest_checkpointed_iteration_txt, 'r', encoding='utf-8') as f:
             resume_info = [line.strip() for line in f.readlines()]
     else:
         if not mox.file.exists(latest_checkpointed_iteration_txt):
-            raise ValueError(f"OBS: Can not find {latest_checkpointed_iteration_txt}")
+            err_msg = f"OBS: Can not find {latest_checkpointed_iteration_txt}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         with mox.file.File(latest_checkpointed_iteration_txt, 'r') as f:
             resume_info = [line.strip() for line in f.readlines()]
 
@@ -182,7 +188,9 @@ def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
         return True
 
     if resume_info[0].startswith("Error"):
-        raise ValueError(f"Get resume-able checkpoint failed, due to {resume_info[0]}")
+        err_msg = f"Get resume-able checkpoint failed, due to {resume_info[0]}"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
     resume_ckpt = replace_rank_id_in_ckpt_name(resume_info[-1], rank_id)
     logger.info("Get resume checkpoint: %s", resume_ckpt)
@@ -242,7 +250,9 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, rank_dir_num,
         ckpt_prefix_tmp = ckpt_prefix.replace(f"rank_{original_rank}", f"rank_{rank_id_tmp}")
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         if not os.path.exists(checkpoint_rank_dir):
-            raise FileNotFoundError(f"{checkpoint_rank_dir} is not found!")
+            err_msg = f"{checkpoint_rank_dir} is not found!"
+            logger.error(err_msg)
+            raise FileNotFoundError(err_msg)
         for ckpt_file in os.listdir(checkpoint_rank_dir):
             health_ckpt_match = (ckpt_file.startswith(ckpt_prefix_tmp[:ckpt_prefix_tmp.rfind("_")])
                                  and use_checkpoint_health_monitor)
@@ -262,10 +272,14 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, rank_dir_num,
             ckpt_file = replace_rank_id_in_ckpt_name(ckpts[0], rank_id)
             resume_ckpt = os.path.join(checkpoint_dir, f"rank_{rank_id}", ckpt_file)
             if not os.path.exists(resume_ckpt):
-                raise FileNotFoundError(f"{resume_ckpt} is not found!")
+                err_msg = f"{resume_ckpt} is not found!"
+                logger.error(err_msg)
+                raise FileNotFoundError(err_msg)
             resume_ckpt_list.append(resume_ckpt)
     if not resume_ckpt_list:
-        raise RuntimeError("No checkpoint could be resumed.")
+        err_msg = "No checkpoint could be resumed."
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
 
     if use_checkpoint_health_monitor:
         resume_ckpt_list.sort(key=lambda x: get_times_epoch_and_step_from_ckpt_name(x, ckpt_format))
@@ -325,8 +339,9 @@ def check_last_timestamp_checkpoints(checkpoint_dir, rank_dir_num, ckpt_format='
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         last_checkpoint = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
         if not last_checkpoint:
-            raise ValueError(f"Checkpoint not found under {checkpoint_rank_dir} "
-                             f"with config.load_ckpt_format:{ckpt_format}.")
+            err_msg = f"Checkpoint not found under {checkpoint_rank_dir} with config.load_ckpt_format:{ckpt_format}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if check_ckpt_file_name(last_checkpoint, ckpt_format):
             compared_checkpoint_name = replace_rank_id_in_ckpt_name(last_checkpoint, 0)
             compared_original_checkpoint_name = os.path.basename(last_checkpoint)
@@ -353,12 +368,16 @@ def check_last_timestamp_checkpoints(checkpoint_dir, rank_dir_num, ckpt_format='
             compared_checkpoint_name = current_checkpoint_name
             compared_original_checkpoint_name = original_checkpoint_name
         elif compared_checkpoint_name != current_checkpoint_name:
-            raise ValueError(f"Check name of the checkpoint file with the last timestamp Failed.\n"
-                             f"1. Find 2 different checkpoints name: {compared_original_checkpoint_name} and "
-                             f"{original_checkpoint_name}.\n2. Checkpoint file name should follow rule: "
-                             f"{{prefix}}-{{epoch}}_{{step}}.{ckpt_format}, and not corrupted across all rank "
-                             f"folders.\n 3. Rename `resume_training` checkpoint such as "
-                             f"llama_7b_rank_0-3_2.{ckpt_format} may solve the problem.")
+            err_msg = (f"Check name of the checkpoint file with the last timestamp Failed.\n"
+                       f"1. Find 2 different checkpoints name: {compared_original_checkpoint_name} and "
+                       f"{original_checkpoint_name}.\n2. Checkpoint file name should follow rule: "
+                       f"{{prefix}}-{{epoch}}_{{step}}.{ckpt_format}, and not corrupted across all rank "
+                       f"folders.\n 3. Rename `resume_training` checkpoint such as "
+                       f"llama_7b_rank_0-3_2.{ckpt_format} may solve the problem.")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     if find_diff_ckpt:
-        raise ValueError(f"Some checkpoints follow the {{prefix}}-{{epoch}}_{{step}}.{ckpt_format} "
-                         f"naming convention, while others do not.")
+        err_msg = (f"Some checkpoints follow the {{prefix}}-{{epoch}}_{{step}}.{ckpt_format} "
+                   f"naming convention, while others do not.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
