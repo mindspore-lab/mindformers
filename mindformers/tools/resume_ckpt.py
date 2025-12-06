@@ -153,7 +153,9 @@ def checkpoint_health_monitor(health_ckpts_record_dir, resume_ckpt_list):
                         health_ckpts.append(item)
 
     if not health_ckpts:
-        raise ValueError("The training has no healthy checkpoints yet, please start training again.")
+        err_msg = "The training has no healthy checkpoints yet, please start training again."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
     if not not_health_ckpts:
         not_health_ckpts_set = set(not_health_ckpts)
