@@ -562,6 +562,11 @@ class TrainModelMixin:
         model = self.check_and_get_model()
         return model.get_model_parameters()
 
+    def get_max_attention_logit(self):
+        """Get max attention logit values from the model."""
+        model = self.check_and_get_model()
+        return model.get_max_attention_logit()
+
     def make_model_muon_fns(self):
         """Make model muon functions."""
         model = self.check_and_get_model()
