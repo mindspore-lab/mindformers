@@ -177,18 +177,6 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
         # Append parameter to its group
         parameter_group_vars[group_name]["params"].append(param)
         parameter_group_names[group_name]["params"].append(param.name)
-    for param in model.get_parameters():
-        if "max_logits_val" in param.name:
-            param.requires_grad = False
-            if parameter_group_vars.get("max_logits") is None:
-                parameter_group_names["max_logits"] = {
-                    "params": [],
-                }
-                parameter_group_vars["max_logits"] = {
-                    "params": [],
-                }
-            parameter_group_vars["max_logits"]["params"].append(param)
-            parameter_group_names["max_logits"]["params"].append(param.name)
     param_groups = json.dumps(parameter_group_names, indent=2)
     logger.info("Param groups = %s", param_groups)
     return list(parameter_group_vars.values())

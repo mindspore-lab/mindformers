@@ -697,18 +697,45 @@ class GPTModel(nn.Cell):
             if hasattr(self.decoder.layers[i].mlp, "router"):
                 self.assign_aux(self.decoder.layers[i].mlp.router.fi_accu, self.zeros_tensor)
 
-    def reset_max_attention_logit(self,):
-        """Reset max attention logit for all layers."""
+    def _iter_core_attentions(self):
+        """Iterate over all core_attention modules with their param names.
+
+        Yields:
+            Tuple[str, module]: A tuple of (param_name, core_attention_module).
+        """
         num_layers = self.config.num_layers
         mtp_num_layers = self.config.mtp_num_layers
+
         for i in range(num_layers):
-            if hasattr(self.decoder.layers[i].self_attention.core_attention, "max_logits_val"):
-                param = self.decoder.layers[i].self_attention.core_attention.max_logits_val
-                F.assign(param, F.zeros_like(param))
+            core_attn = self.decoder.layers[i].self_attention.core_attention
+            yield f"decoder.layers.{i}.self_attention.core_attention", core_attn
 
         for i in range(mtp_num_layers):
-            if hasattr(self.mtp.layers[i].transformer_layer.self_attention.core_attention, "max_logits_val"):
-                param = self.mtp.layers[i].transformer_layer.self_attention.core_attention.max_logits_val
+            core_attn = self.mtp.layers[i].transformer_layer.self_attention.core_attention
+            yield f"mtp.layers.{i}.transformer_layer.self_attention.core_attention", core_attn
+
+    def get_max_attention_logit(self):
+        """Get max attention logit values for all layers.
+
+        Returns:
+            dict: A dictionary mapping parameter names to their max logit values.
+                  Only includes layers with valid (sum > 0) max_logits_val.
+        """
+        max_logits = {}
+        for param_name, core_attn in self._iter_core_attentions():
+            if not hasattr(core_attn, "max_logits_val"):
+                continue
+            param = core_attn.max_logits_val.value()
+            if param.sum() <= 0:
+                continue
+            max_logits[f"{param_name}.max_logits_val"] = param
+        return max_logits
+
+    def reset_max_attention_logit(self):
+        """Reset max attention logit to zeros for all layers."""
+        for _, core_attn in self._iter_core_attentions():
+            if hasattr(core_attn, "max_logits_val"):
+                param = core_attn.max_logits_val
                 F.assign(param, F.zeros_like(param))
 
     def shard(self, config: TransformerConfig):

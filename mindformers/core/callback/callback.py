@@ -58,6 +58,7 @@ from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 from mindspore.utils import stress_detect
 
+from mindformers.wrapper.wrapper import get_real_models
 from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
 from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
@@ -1291,25 +1292,19 @@ class TrainingStateMonitor(Callback):
 
     def _dump_max_attention_logit(self, cb_params):
         """write the max attention logit to log/tensorboard"""
-        if cb_params.optimizer is not None:
-            cb_optimizer = cb_params.optimizer
-        else:
-            cb_optimizer = cb_params.network.optimizer
-        params = cb_optimizer._parameters  # pylint: disable=W0212
+        network = cb_params.train_network
+        network = get_real_models(network)
+        params = network.get_max_attention_logit()
+
         if not params:
             return
         step = cb_params.cur_step_num
         vals = []
-        for param in params:
-            name = getattr(param, "name", "")
-            if "max_logits_val" not in name:
-                continue
-
-            t = param.value()
-            v = t.asnumpy().squeeze()
+        for param_name, param in params.items():
+            v = param.asnumpy().squeeze()
             v = v / max(1, self.micro_batch_num)
 
-            tag = f"max_attention_logit/{name}"
+            tag = f"max_attention_logit/{param_name}"
             if 'log' in self.max_attention_logit_format:
                 self._output(tag, v.tolist(), step, ['log'])
             if 'tensorboard' in self.max_attention_logit_format:
