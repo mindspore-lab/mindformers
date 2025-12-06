@@ -91,9 +91,13 @@ def get_load_path_after_hf_convert(config, network):
 def _check_checkpoint_path(path):
     """check checkpoint path."""
     if not isinstance(path, str) or isinstance(path, os.PathLike):
-        raise ValueError(f"config.load_checkpoint must be a `str`, but got `{path}` as type `{type(path)}`.")
+        err_msg = f"config.load_checkpoint must be a `str`, but got `{path}` as type `{type(path)}`."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if not os.path.exists(path):
-        raise FileNotFoundError(f"config.load_checkpoint `{path}` does not exist.")
+        err_msg = f"config.load_checkpoint `{path}` does not exist."
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
 
     if path[-1] == '/':  # remove last '/' in path
         return path[:-1]
@@ -113,7 +117,9 @@ def _get_checkpoint_mode(config):
 
     # check path is dir
     if not os.path.isdir(checkpoint_path):
-        raise ValueError("Provided path is neither a file nor a directory.")
+        err_msg = "Provided path is neither a file nor a directory."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
     dir_files = os.listdir(checkpoint_path)
     if any(folder_name.startswith('rank_') for folder_name in dir_files):
@@ -122,7 +128,9 @@ def _get_checkpoint_mode(config):
     if any(file_name.endswith(config.load_ckpt_format) for file_name in dir_files):
         return CheckpointFileMode.MULTI_CHECKPOINT_FILE.value
 
-    raise ValueError("not support mode: no valid checkpoint files found")
+    err_msg = "not support mode: no valid checkpoint files found"
+    logger.error(err_msg)
+    raise ValueError(err_msg)
 
 
 def _get_src_strategy(config):
@@ -139,8 +147,10 @@ def _get_src_strategy(config):
         src_strategy_path = os.path.join(upper_dir, 'strategy')
         logger.info(f"src_strategy_path_or_dir is empty, load source strategy from {src_strategy_path}.")
     else:
-        raise ValueError("when use checkpoint after train/finetune, src_strategy_path_or_dir should be set "
-                         "as a folder contained strategy ckpt files.")
+        err_msg = ("when use checkpoint after train/finetune, src_strategy_path_or_dir should be set "
+                   "as a folder contained strategy ckpt files.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     logger.info(f"load source strategy from {src_strategy_path}.")
     return src_strategy_path
 
@@ -246,7 +256,9 @@ def _get_src_file(checkpoint_dir, checkpoint_name=None, ckpt_format='ckpt'):
     else:
         ckpt_path = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
     if not os.path.exists(ckpt_path):
-        raise FileNotFoundError(f"{ckpt_path} is not found.")
+        err_msg = f"{ckpt_path} is not found."
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
     return ckpt_path
 
 
@@ -368,18 +380,26 @@ def validate_config_with_file_mode(ckpt_file_mode, use_parallel, auto_trans_ckpt
     """validate use_parallel and auto_trans_ckpt config with different file mode"""
     if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
         if use_parallel:
-            raise ValueError("When load checkpoint is a single file and use_parallel is True, please change "
-                             "load_checkpoint in yaml from file name to the directory where only this file is located.")
+            err_msg = ("When load checkpoint is a single file and use_parallel is True, please change "
+                       "load_checkpoint in yaml from file name to the directory where only this file is located.")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
         if use_parallel and not auto_trans_ckpt:
-            raise ValueError("When load checkpoint is complete and use_parallel is True, please set auto_trans_ckpt: "
-                             "True to enable automatic slicing function.")
+            err_msg = ("When load checkpoint is complete and use_parallel is True, please set auto_trans_ckpt: "
+                       "True, to enable automatic slicing function.")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value:
         if not use_parallel:
-            raise ValueError("when input checkpoint file is rank dir, Please set use_parallel: True to enable "
-                             "distributed ckpt load.")
+            err_msg = ("when input checkpoint file is rank dir, Please set use_parallel: "
+                       "True, to enable distributed ckpt load.")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     else:
-        raise ValueError("not support mode: no valid checkpoint files found")
+        err_msg = "not support mode: no valid checkpoint files found"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
 
 def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_parallel=False,
@@ -510,7 +530,9 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
 
         # If the child process exits abnormally, the main process should also throw an exception.
         if p.exitcode != 0:
-            raise RuntimeError("convert HuggingFace weight failed.")
+            err_msg = "convert HuggingFace weight failed."
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
 
     # If used parallel mode, other cards are waiting for the main card to complete the weight conversion.
     barrier_world("for the main rank to convert HuggingFace weight...")
@@ -523,11 +545,14 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
 def get_last_checkpoint(checkpoint_dir, ckpt_format='ckpt'):
     """get last checkpoint for resuming or finetune."""
     if not os.path.isdir(checkpoint_dir):
-        raise NotADirectoryError(
+        err_msg = (
             f"{checkpoint_dir} is not a real directory,"
             f"When distributed loads are sliced weights,"
             f"load_checkpoint should be a checkpoint directory containing the directory of rank_{{0-*}},"
             f"The directory structure is as follows: **checkpoint_root_dir/rank_{{0-*}}/**.{ckpt_format}")
+        logger.error(err_msg)
+        raise NotADirectoryError(err_msg)
+
     output_checkpoint_path = [
         checkpoint
         for checkpoint in os.listdir(checkpoint_dir)

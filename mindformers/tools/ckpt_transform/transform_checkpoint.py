@@ -352,7 +352,9 @@ class TransformCkpt:
                 checkpoint_rank_dir = os.path.join(src_checkpoint, f"rank_{src_rank_id}")
                 checkpoint_file_list = glob(os.path.join(checkpoint_rank_dir, "*.ckpt"))
                 if not checkpoint_file_list:
-                    raise ValueError(f"The checkpoint of rank_{src_rank_id} is not found!")
+                    err_msg = f"The checkpoint of rank_{src_rank_id} is not found!"
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
                 checkpoint_file_list = sorted(checkpoint_file_list, key=os.path.getmtime)
                 checkpoint_file_map[src_rank_id] = checkpoint_file_list[-1]
             save_checkpoint_dir = os.path.join(dst_checkpoint, f"rank_{current_transform_rank_id}")
