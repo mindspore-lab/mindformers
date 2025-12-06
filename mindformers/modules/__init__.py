@@ -15,7 +15,6 @@
 """MindFormers Transformers API."""
 from .transformer import (
     EmbeddingOpParallelConfig,
-    FeedForward,
     LowerTriangularMaskWithDynamic,
     MoEConfig,
     OpParallelConfig,

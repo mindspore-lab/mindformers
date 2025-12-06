@@ -221,14 +221,14 @@ class Quantizer(ABC):
 
     @abstractmethod
     def _process_model_after_weight_loading(self, model, **kwargs):
-        pass
+        return model
 
     @property
     @abstractmethod
     def is_serializable(self):
-        pass
+        return False
 
     @property
     @abstractmethod
     def is_trainable(self):
-        pass
+        return False

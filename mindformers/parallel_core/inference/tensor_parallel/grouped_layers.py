@@ -84,6 +84,7 @@ class UnquantizedGroupedLinearMethod(GroupedLinearMethodBase):
         self.cast = P.Cast()
         self.matmul = ops.auto_generate.GroupedMatmulV4()
 
+    # pylint: disable=W0237
     def create_weights(self, layer: nn.Cell, num_local_experts: int,
                        input_size_per_partition: int, output_partition_sizes: list[int],
                        params_dtype, **extra_weight_attrs):
@@ -216,17 +217,17 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(ColumnParallelGroupedLinear, self).__init__(num_local_experts,
-                                                          input_size,
-                                                          output_size,
-                                                          skip_bias_add,
-                                                          config.params_dtype,
-                                                          quant_config=quant_config,
-                                                          prefix=prefix)
+        super().__init__(num_local_experts,
+                         input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
-                "For ColumnParallelGroupedLinear, `stride > 1` is not supported for now, "
-                "but got `stride={}`".format(stride))
+                f"For ColumnParallelGroupedLinear, `stride > 1` is not supported for now, "
+                f"but got `stride={stride}`")
         if skip_bias_add:
             raise NotImplementedError(
                 "For ColumnParallelGroupedLinear, `skip_bias_add=True` is not supported for now."
@@ -275,6 +276,7 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
+    # pylint: disable=W0237
     def construct(self, input_parallel, weight=None, group_list=None):
         """Forward of ColumnParallelGroupedLinear."""
         if weight is None:
@@ -386,15 +388,15 @@ class ColumnParallelGroupedLinear(GroupedLinearBase):
 
 
 class RowParallelGroupedLinear(GroupedLinearBase):
-    r"""
+    """
     The group linear layer with weight sliced on first dimension by tensor parallel size.
     This layer implements the operation as:
 
     .. math::
-        \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
+        \\text{outputs} = \\text{inputs} * \\text{weight} + \\text{bias},
 
-    where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix created by the layer,
-    and :math:`\text{bias}` is a bias vector created by the layer (only if has_bias is True).
+    where :math:`inputs` is the input tensors, :math:`\\text{weight}` is a weight matrix created by the layer,
+    and :math:`\\text{bias}` is a bias vector created by the layer (only if has_bias is True).
 
     Args:
         num_local_experts (int): The number of local expert.
@@ -416,11 +418,11 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         prefix (str): The prefix string for this linear layer. Default: empty string("").
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-          to :math:`in\_channels` in `Inputs`.
+        - **x** (Tensor) - Tensor of shape :math:`(*, in\\_channels)`. The `input_size` in `Args` should be equal
+          to :math:`in\\_channels` in `Inputs`.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        Tensor of shape :math:`(*, out\\_channels)`.
 
     Supported Platforms:
         ``Ascend``
@@ -445,17 +447,17 @@ class RowParallelGroupedLinear(GroupedLinearBase):
             quant_config: Optional[QuantizationConfig] = None,
             prefix: str = ""
     ):
-        super(RowParallelGroupedLinear, self).__init__(num_local_experts,
-                                                       input_size,
-                                                       output_size,
-                                                       skip_bias_add,
-                                                       config.params_dtype,
-                                                       quant_config=quant_config,
-                                                       prefix=prefix)
+        super().__init__(num_local_experts,
+                         input_size,
+                         output_size,
+                         skip_bias_add,
+                         config.params_dtype,
+                         quant_config=quant_config,
+                         prefix=prefix)
         if stride > 1:
             raise NotImplementedError(
-                "For RowParallelGroupedLinear, `stride > 1` is not supported for now, "
-                "but got `stride={}`".format(stride))
+                f"For RowParallelGroupedLinear, `stride > 1` is not supported for now, "
+                f"but got `stride={stride}`")
         if not is_expert:
             raise NotImplementedError(
                 "For RowParallelGroupedLinear, `is_expert=False` is not supported for now.")
@@ -502,6 +504,7 @@ class RowParallelGroupedLinear(GroupedLinearBase):
         else:
             self.bias = None
 
+    # pylint: disable=W0237
     def construct(self, input_, weight=None, group_list=None):
         """Forward of RowParallelGroupedLinear."""
         if weight is None:

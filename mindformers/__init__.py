@@ -157,7 +157,6 @@ from mindformers.modules import (
     AlibiTensorV2,
     Dropout,
     EmbeddingOpParallelConfig,
-    FeedForward,
     FixedSparseAttention,
     LayerNorm,
     Linear,
