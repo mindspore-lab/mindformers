@@ -442,9 +442,7 @@ class Muon(Optimizer):
 
     def _initialize_op_groups(self, model):
         """Initialize optimizer parallel groups for parameters."""
-        self.ops, self.op_groups = model.get_op_groups_info(
-            self._parameters, self.op, self.op_group, self.op_in_tp_group
-        )
+        self.ops, self.op_groups = model.get_op_groups_info(self._parameters, self.op)
 
     def _create_communication_group(self, rank_list):
         """

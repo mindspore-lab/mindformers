@@ -23,6 +23,7 @@ from mindspore.ops.auto_generate import Cast, Mul, Sigmoid
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
 
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 from mindformers.parallel_core.training_graph.transformer.mlp import MLP, MLPSubmodules, MLPInterleaved
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.training_graph.device_matrix import layout
@@ -107,6 +108,20 @@ class SharedExpertMLP(MLP):
 
     def expert_sharding_propagation(self, config: TransformerConfig):
         super().sharding_propagation(config)
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.shared_experts_gate.weight.name] = ShardedTensor(
+            key=self.shared_experts_gate.weight.name,
+            org_key=self.shared_experts_gate.weight.name,
+            dtype=self.shared_experts_gate.weight.dtype,
+            local_shape=(1, self.hidden_size),
+            global_shape=(1, self.hidden_size),
+            global_offset=(0, 0),
+            axis_fragmentations=(1, 1),
+        )
+        return sharded_state_dict
 
 
 class SharedExpertMLPInterleaved(MLPInterleaved):
