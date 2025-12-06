@@ -102,8 +102,6 @@ def mock_file():
     return mock_f
 
 
-
-
 class TestCommonCheckpointMethod:
     """A test class for testing common methods"""
 
@@ -485,7 +483,8 @@ class TestCommonCheckpointMethod:
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
-    def test__get_src_file(self):
+    @patch('mindformers.utils.load_checkpoint_utils.logger')
+    def test__get_src_file(self, mock_logger):
         """test _get_src_file function"""
         # setup mocks using context managers
         with patch('os.path.exists') as mock_exists, \
@@ -509,6 +508,9 @@ class TestCommonCheckpointMethod:
             mock_exists.return_value = False
             with pytest.raises(FileNotFoundError):
                 _get_src_file("/test", "non_existent.ckpt", "ckpt")
+
+            # Verify that logger.error has been called.
+            mock_logger.error.assert_called()
 
     @pytest.mark.level0
     @pytest.mark.platform_x86_cpu
@@ -812,6 +814,7 @@ class TestCommonCheckpointMethod:
                                              do_predict=False,
                                              optimizer=optimizer)
             mock_load_safetensors_checkpoint.assert_called_once()
+
 
 class TestBuildModel:
     """A test class for testing build_model"""
