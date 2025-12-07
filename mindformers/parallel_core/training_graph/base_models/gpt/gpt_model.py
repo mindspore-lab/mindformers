@@ -946,6 +946,7 @@ class GPTModel(nn.Cell):
 
         sharded_state_dict = self.sharded_state_dict()
         world_size = get_group_size()
+        ep = self.config.expert_model_parallel_size
         pp = self.config.pipeline_model_parallel_size
 
         def name_filter(param_name, full_name_list):
@@ -981,8 +982,30 @@ class GPTModel(nn.Cell):
 
             op_list.append(real_op_size)
             op_group_name, rank_list = get_op_group_name(get_rank(), real_op_size, weight_sharded_size)
-            logger.info(f"Parameter {param.name} : Muon op group list is: {rank_list}")
+            logger.info(f"Parameter {param.name} : Muon real_op_size={real_op_size} group list is: {rank_list}")
             op_groups.append(op_group_name)
+
+        # check if op is valid for expert
+        for param, real_op_size in zip(params, op_list):
+            if "mlp.experts.weight1" not in param.name:
+                continue
+            # Validate MoE expert counts divisibility constraint:
+            # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
+            num_moe_experts = self.config.num_moe_experts
+            if bool(num_moe_experts and num_moe_experts > 0):
+                if num_moe_experts % (real_op_size * ep) != 0:
+                    error_msg =  (f"Invalid configuration: 'num_moe_experts' ({num_moe_experts}) must be divisible by "
+                        f"'real_op_size * expert_model_parallel_size' ({real_op_size} * "
+                        f"{ep} = {real_op_size * ep}).\n"
+                        f"Hint:\n"
+                        f"    Although you set `optimizer_weight_shard_size={op}`, the maximum optimizer shard size "
+                        f"for `{param.name}` is `{real_op_size}`. Try reducing 'optimizer_weight_shard_size'.")
+                    logger.error(error_msg)
+                    raise ValueError(
+                        error_msg
+                    )
+            # All expert weights share the same real_op_size, so we only need to check once
+            break
 
         return tuple(op_list), tuple(op_groups)
 

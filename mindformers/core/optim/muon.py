@@ -419,21 +419,6 @@ class Muon(Optimizer):
                                  'parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon.')
         logger.info(f"Muon op group size is: {self.op}")
 
-        # Validate MoE expert counts divisibility constraint:
-        # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
-        if model.is_moe_model():
-            config = model.get_gpt_transformer_config()
-            num_moe_experts = config.num_moe_experts
-            expert_model_parallel_size = config.expert_model_parallel_size
-            if self.op * expert_model_parallel_size <= 0:
-                raise ValueError("Invalid optimizer_shard * expert_model_parallel_size (<=0).")
-            if num_moe_experts % (self.op * expert_model_parallel_size) != 0:
-                raise ValueError(
-                    f"Invalid configuration: 'num_moe_experts' ({num_moe_experts}) must be divisible by "
-                    f"'optimizer_weight_shard_size * expert_model_parallel_size' ({self.op} * "
-                    f"{expert_model_parallel_size} = {self.op * expert_model_parallel_size})."
-                )
-
     def _initialize_communication_groups(self):
         """Initialize communication groups for parallel training."""
         self.tp_group = self._get_tp_group_name(self.rank_id, self.tp)
