@@ -7,7 +7,7 @@ mindformers.core.CheckpointMonitor
 
     参数：
         - **prefix** (str, 可选) - checkpoint文件的前缀名。默认值： ``CKP`` 。
-        - **directory** (str, 可选) - checkpoint文件将要保存的文件夹路径。默认值： ``None`` 。
+        - **directory** (str, 可选) - checkpoint文件将要保存的文件夹路径。默认值： ``None`` ，此时checkpoint文件将保存在当前工作目录下的 `./output/checkpoint` 文件夹中。
         - **config** (CheckpointConfig, 可选) - checkpoint的配置。默认值： ``None`` 。
         - **save_checkpoint_steps** (int, 可选) - 每隔多少个step保存一次checkpoint。默认值： ``1`` 。
         - **save_checkpoint_seconds** (int, 可选) - 每隔多少秒保存一次checkpoint。不能同时与 `save_checkpoint_steps` 一起使用。默认值： ``0`` 。
@@ -29,6 +29,8 @@ mindformers.core.CheckpointMonitor
         - **use_checkpoint_health_monitor** (bool, 可选) - 是否开启通过embedding norm来进行权重健康监测的功能。默认值： ``False`` 。
         - **embedding_local_norm_threshold** (float, 可选) - embedding norm的阈值。默认值： ``1.0`` 。
         - **health_ckpts_record_dir** (str, 可选) - 记录权重健康状态文件的保存地址。默认值： ``./output`` 。
+        - **use_legacy_format** (bool, 可选) - 是否使用旧版权重保存格式，默认值：``True``。
+        - **save_optimizer** (bool, 可选) - 是否保存优化器权重，仅用于新版权重保存流程。旧版流程中不启用该配置，保持为 ``None`` 。默认值：``True``。
 
 
     异常：
