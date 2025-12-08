@@ -1527,8 +1527,6 @@ class CheckpointMonitor(ModelCheckpoint):
         save_optimizer (bool, optional): Whether to save optimizer weights,
             only used in megatron-format weight save scene. Legacy scene will be set to ``None``.
             Default: ``True``.
-        save_checkpoint_path (str, optional): Users can specify the path to store weights.
-            If None, the checkpoints will be saved at './output_dir/checkpoint'. Default: ``None``.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -1565,8 +1563,7 @@ class CheckpointMonitor(ModelCheckpoint):
                  use_checkpoint_health_monitor=False,
                  health_ckpts_record_dir="./output",
                  use_legacy_format=True,
-                 save_optimizer=True,
-                 save_checkpoint_path=None):
+                 save_optimizer=True):
 
         self.config = config
         self.save_network_params = save_network_params
@@ -1580,7 +1577,7 @@ class CheckpointMonitor(ModelCheckpoint):
         # Ensure that 'save_optimizer' only use in the sense of 'use_legacy_format == False'
         self.save_optimizer = save_optimizer if not use_legacy_format else False
         self.origin_prefix = prefix
-        self.save_checkpoint_path = save_checkpoint_path
+        self.directory = directory
         self.need_remove_redundancy = remove_redundancy
 
         prefix = prefix + f"_rank_{self.rank_id}"
@@ -2051,7 +2048,7 @@ class CheckpointMonitor(ModelCheckpoint):
             common_info=self.common_info,
             keep_max_num=self._config.keep_checkpoint_max,
             user_prefix=self.origin_prefix,
-            save_checkpoint_path=self.save_checkpoint_path,
+            save_checkpoint_path=self.directory,
             sharded_tensor_metas=sharded_tensor_metas,
             remove_redundancy=self.need_remove_redundancy
         )
