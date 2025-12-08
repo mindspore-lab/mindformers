@@ -193,13 +193,12 @@ class MultiTokenPredictionLayer(nn.Cell):
         """Set parallel strategy."""
         dp = self.config.data_parallel_size
         tp = self.config.tensor_model_parallel_size
-        cp = self.config.context_parallel_size
         self.concat.add_prim_attr("self_define_shard", True)
         self.concat.shard(in_strategy=((layout("cp", "dp", "None"), layout("cp", "dp", "None")),),
                           out_strategy=(layout("cp", "dp", "None"),))
-        if self.use_seq_parallel and cp == 1:
-            self.enorm.shard(config, in_strategy=(layout("tp", "dp", "None"), layout("None",)))
-            self.hnorm.shard(config, in_strategy=(layout("tp", "dp", "None"), layout("None",)))
+        if self.use_seq_parallel:
+            self.enorm.shard(config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
+            self.hnorm.shard(config, in_strategy=(layout(("cp", "tp"), "dp", "None"), layout("None",)))
             self.concat.add_prim_attr("self_define_shard", True)
             self.concat.shard(in_strategy=((layout(("cp", "tp"), "dp", "None"), layout(("cp", "tp"), "dp", "None")),),
                               out_strategy=(layout(("cp", "tp"), "dp", "None"),))
