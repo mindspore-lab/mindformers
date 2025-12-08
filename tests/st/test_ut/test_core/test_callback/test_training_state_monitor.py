@@ -935,12 +935,20 @@ class TestTrainingStateMonitorDumpMethods:
         cb_params.cur_step_num = 10
         cb_params.optimizer = Mock()
 
+        # Mock train_network to avoid infinite loop in get_real_models
+        mock_network = Mock(spec=['get_max_attention_logit'])
+        mock_tensor = Mock()
+        mock_tensor.asnumpy.return_value = np.array([[1.5, 2.0, 2.5]])
+        mock_tensor.squeeze.return_value = np.array([1.5, 2.0, 2.5])
+        mock_network.get_max_attention_logit.return_value = {'layer.max_logits': mock_tensor}
+        cb_params.train_network = mock_network
+
         # Mock parameter with max_logits_val in name
         mock_param = Mock()
         mock_param.name = 'layer.max_logits_val'
-        mock_tensor = Mock()
-        mock_tensor.asnumpy.return_value = np.array([[1.5, 2.0, 2.5]])
-        mock_param.value.return_value = mock_tensor
+        mock_tensor_param = Mock()
+        mock_tensor_param.asnumpy.return_value = np.array([[1.5, 2.0, 2.5]])
+        mock_param.value.return_value = mock_tensor_param
 
         cb_params.optimizer._parameters = [mock_param]
 
