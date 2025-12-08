@@ -310,7 +310,7 @@ node_rank=0
 port=50001
 
 bash scripts/msrun_launcher.sh "run_mindformer.py \
- --config configs/qwen3_moe/predict_qwen3_moe.yaml" \
+ --config configs/qwen3_moe/predict_qwen3_moe.yaml \
  --run_mode predict \
  --use_parallel True \
  --pretrained_model_dir '/path/hf_dir' \
