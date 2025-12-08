@@ -145,7 +145,7 @@ master_ip=192.168.1.1
 node_rank=0
 port=50001
 bash scripts/msrun_launcher.sh "run_mindformer.py \
---config configs/qwen3_moe/pretrain_qwen3_moe_30b_a3b_4k.yaml \
+--config configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml \
 --auto_trans_ckpt False \
 --use_parallel True \
 --run_mode train" \
