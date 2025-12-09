@@ -182,7 +182,7 @@ class MultiLatentAttention(nn.Cell):
         cp = self.cp
 
         self.bs_transpose.shard(((dp, cp, tp),))
-        self.tnd_transpose.shard(((cp, dp, tp, 1),))
+        self.tnd_transpose.shard((layout("cp", "dp", "tp", "None"),))
 
     def construct(self, x: Tensor, attention_mask=None, rotary_pos_emb=None, rotary_pos_cos=None,
                   rotary_pos_sin=None, prefix_keys_values=None, pad_zeros=None, actual_seq_len=None):
