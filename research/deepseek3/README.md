@@ -87,6 +87,11 @@ python research/deepseek3/fp8_cast_bf16.py \
 --output-bf16-hf-path path/to/hf_model_bf16_dir/
 ```
 
+参数说明：
+
+- input-fp8-hf-path：数据类型为fp8的原始权重文件夹路径。
+- output-bf16-hf-path：转换成数据类型为bf16后的权重文件夹路径。
+
 >`path/to/hf_model_bf16_dir/` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
 
 ## 推理
@@ -135,6 +140,11 @@ python research/deepseek3/convert_weight.py \
 - infer：是否进行推理权重的转换，默认值：`False`。
 - mindspore_ckpt_path：转换后的MindSpore权重文件夹保存路径
 - worker_num：多进程转换的进程数，默认值：`4`。
+- use_grouped_gemm：是否使用grouped_gemm，默认值：`False`。
+- n_head：模型结构中Attention的头数，默认值：`128`。
+- v_head_dim：单个注意力头中，Value向量的维度大小，默认值为：`128`。
+- save_format：权重保存的格式，默认值：`safetensors`。
+- param_json：权重的参数映射表的JSON文件名，默认值：`model.safetensors.index.json`。
 
 如果使用训练后保存的权重进行推理，需要使用`deepseek3_train2infer.py`脚本将其转换为推理格式。执行以下命令进行转换：
 
@@ -219,6 +229,11 @@ bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 3 output/msrun_log False 300
 ```
+
+参数说明：
+
+- config： 推理的YAML配置文件路径。
+- input： 推理的问题输入。
 
 预期的推理结果如下：
 
