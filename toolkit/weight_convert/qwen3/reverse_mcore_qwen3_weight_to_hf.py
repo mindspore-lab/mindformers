@@ -447,11 +447,6 @@ def convert_ms_to_pt(input_path, output_path, config=None):
 
 def reverse_weight(para):
     """convert weight entrance"""
-    if not hasattr(para, 'mindspore_ckpt_path'):
-        para.mindspore_ckpt_path = para.input_path
-    if not hasattr(para, 'huggingface_ckpt_path'):
-        para.huggingface_ckpt_path = para.output_path
-
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
         if key in ['num_layers', 'num_attention_heads', 'num_query_groups', 'kv_channels',
@@ -465,8 +460,8 @@ def reverse_weight(para):
     )
 
     convert_ms_to_pt(
-        input_path=para.mindspore_ckpt_path,
-        output_path=para.huggingface_ckpt_path,
+        input_path=para.input_path,
+        output_path=para.output_path,
         config=DEFAULT_CONFIG
     )
 
@@ -474,10 +469,11 @@ def reverse_weight(para):
 if __name__ == "__main__":
     # Get configuration args.
     parser = argparse.ArgumentParser()
-    parser.add_argument('--huggingface_ckpt_path', default=None, type=str,
-                        help="Converted HuggingFace checkpoint directory.")
-    parser.add_argument('--mindspore_ckpt_path', default=None, type=str,
-                        help="MindSpore Transformers MCore checkpoint directory.")
+
+    parser.add_argument('--input_path', default=None, type=str,
+                        help="Input MindSpore Transformers MCore checkpoint directory.")
+    parser.add_argument('--output_path', default=None, type=str,
+                        help="Output converted HuggingFace checkpoint directory.")
 
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'],
                         help="The dtype of converted weight used, choices in ['fp16', 'bf16', 'fp32']")
