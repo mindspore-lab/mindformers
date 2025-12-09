@@ -217,11 +217,9 @@ def _get_max_eigenvalue(input_tensor, num_iter):
         v_tensor = ms.ops.matmul(input_seq, u_tensor)  # (b,n,n) * (n,1) = (b,n,1)
         eigenvalue = ms.ops.matmul(v_tensor.transpose(-2, -1), u_tensor).squeeze()  # (b,1,n) * (b,n,1) = b
         v_norm = v_tensor.norm(dim=1, keepdim=True)  # (b,1,1)
-        if (v_norm != 0).all():
-            u_tensor = v_tensor / v_norm
-        else:
-            return 0.0
-    return eigenvalue.asnumpy()
+        v_norm_safe = ms.ops.select(v_norm == 0, ms.ops.ones_like(v_norm), v_norm)
+        u_tensor = v_tensor / v_norm_safe
+    return eigenvalue
 
 
 def _get_stable_rank(weight, num_iter):
@@ -231,11 +229,13 @@ def _get_stable_rank(weight, num_iter):
     except Exception as e:
         logger.warning(f"{weight.name} calculate max eigenvalue failed: {e}")
         return 0.0, 0.0
-    eig = np.asarray(eig)
-    if (eig != 0.0).all():
-        f_norm = ms.ops.norm(weight, ord='fro', dim=(-2, -1))
-        return ms.ops.square(f_norm).asnumpy() / eig, eig
-    return 0.0, 0.0
+    f_norm_square = ms.ops.square(ms.ops.norm(weight, ord='fro', dim=(-2, -1)))
+    stable_rank = ms.ops.select(
+        eig != 0,
+        f_norm_square / eig,
+        ms.ops.zeros_like(eig)
+    )
+    return stable_rank.asnumpy(), eig.asnumpy()
 
 
 def _get_optimizer_state(optim_params, filter_fn: Callable = None):
@@ -1136,8 +1136,12 @@ class TrainingStateMonitor(Callback):
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
             self._output(f'weight_stable_rank/{name}', stable_rank, cur_step_num, self.sr_format)
             self._output(f'weight_eigenvalue/{name}', eigenvalue, cur_step_num, self.sr_format)
+            if (stable_rank, eigenvalue) == (0.0, 0.0):
+                logger.info(f"{name}'s stable rank might be 0 or some exception happened, check warning above.")
         else:
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
+            if (stable_rank, eigenvalue) == (0.0, 0.0):
+                return
             if self.moe_show_mode in ('all', 'full'):
                 for index, sr in enumerate(stable_rank):
                     self._output(f'weight_stable_rank/{name}/expert_{index}', sr, cur_step_num,
