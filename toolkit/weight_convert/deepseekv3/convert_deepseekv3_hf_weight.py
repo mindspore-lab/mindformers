@@ -652,11 +652,6 @@ def convert_hf_to_ms(input_path, output_path, config=None):
 
 def convert_weight(para):
     """convert weight entrance"""
-    if not hasattr(para, 'huggingface_ckpt_path'):
-        para.huggingface_ckpt_path = para.input_path
-    if not hasattr(para, 'mindspore_ckpt_path'):
-        para.mindspore_ckpt_path = para.output_path
-
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
         if key in ['num_routed_experts', 'num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace',
@@ -670,8 +665,8 @@ def convert_weight(para):
     )
 
     convert_hf_to_ms(
-        input_path=para.huggingface_ckpt_path,
-        output_path=para.mindspore_ckpt_path,
+        input_path=para.input_path,
+        output_path=para.output_path,
         config=DEFAULT_CONFIG
     )
 
@@ -679,10 +674,10 @@ def convert_weight(para):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--huggingface_ckpt_path', default=None, type=str,
-                        help="HuggingFace checkpoint directory.")
-    parser.add_argument('--mindspore_ckpt_path', default=None, type=str,
-                        help="Converted MindSpore Transformers MCore checkpoint directory.")
+    parser.add_argument('--input_path', default=None, type=str,
+                        help="Input HuggingFace checkpoint directory.")
+    parser.add_argument('--output_path', default=None, type=str,
+                        help="Output converted MindSpore Transformers MCore checkpoint directory.")
 
     parser.add_argument("--num_layers", default=61, type=int,
                         help="The number of attention layers.")
