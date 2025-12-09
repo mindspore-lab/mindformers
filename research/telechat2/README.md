@@ -35,28 +35,24 @@ TeleChat2-7B:
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |:---------------------------------------------------:| :-------------------: |:----------:|:---------:|:---------------:|:------------:|
 | [TeleChat2_7B](./telechat2-7b/finetune_telechat_7b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
-| [TeleChat2_7B](./telechat2-7b/predict_telechat_7b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
 
 TeleChat2-35B:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
 | [TeleChat2_35B](./telechat2-35b/finetune_telechat_35b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
-| [TeleChat2_35B](./telechat2-35b/predict_telechat_35b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
 
 TeleChat2-115B:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
 | [TeleChat2_115B](./telechat2-115b/finetune_telechat_115b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
-| [TeleChat2_115B](./telechat2-115b/predict_telechat_115b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
 
 TeleChat2-39B-A12B:
 
 | config                                                       | task            | Datasets        | SeqLength | phase            | performance   |
 | ------------------------------------------------------------ | --------------- | --------------- | --------- | ---------------- | ------------- |
 | [TeleChat2_39B_A12B](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 865 tokens/s/p |
-| [TeleChat2_39B_A12B](./telechat2-39b-a12b/predict_telechat_39b_a12b_parallel.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
 
 ## 模型文件
 
@@ -138,6 +134,12 @@ input_dataset_file: 预训练的数据集
 vocab_file_path: 词模型文件路径(如使用上述链接下载，指定到对应路径下即可)
 max_length: 数据集长度
 output_path: 生成数据集的路径
+seed: 随机数种子，默认值：2024
+start_token: 输入的首token，默认值：<_start>
+user_token: 用户输入的提示词token，默认值：<_usr>
+bot_token: 机器人输入的提示词token，默认值：<_bot>
+end_token: 终止符对应的token，默认值：<_end>
+pad_token: padding时补齐的token，默认值：<_pad>
 ```
 
   > 注：`bos`, `eos`, `pad`等特殊`ids`要和`yaml`配置文件中`model_config`部分保持一致，默认`bos_token_id=1`, `eos_token_id=2`, `pad_token_id=3`。
