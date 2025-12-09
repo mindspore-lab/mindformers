@@ -81,8 +81,6 @@ def _create_allreduce_input(params, group, net_param_dict, total_param_loaded, p
     for param in params:
         if param not in net_param_dict:
             continue
-        if param.startswith("accu_grads") or param.endswith("expert_load"):
-            continue
         param_rank_index = _get_param_index_in_group(total_param_loaded, group, param)
         if not param_rank_index:
             continue
@@ -172,9 +170,6 @@ def single_parameter_broadcast(net, param_redundancy, param_not_load, param_load
     total_param_loaded = [None] * total_num
     synchronize()
     all_gather_object(total_param_loaded, param_loaded)
-    logger.debug("Total params loaded:")
-    for param_loaded_ in total_param_loaded:
-        logger.debug(param_loaded_)
 
     group_map = _get_sorted_group_map()
     for group, params in param_redundancy.items():

@@ -54,18 +54,10 @@ def mock_get_all_sharded_tensor():
     mock_shard_tensor3 = MockShardTensor("param3", (0,), (10,), "float32")
 
     with patch("mindformers.checkpoint.fully_parallel.get_all_sharded_tensor") as mock:
-        mock.return_value = [
-            [mock_shard_tensor1, mock_shard_tensor2],
-            [mock_shard_tensor3]
-        ]
-        yield mock
-
-
-@pytest.fixture
-def mock_get_rank():
-    """Mock get_rank function"""
-    with patch("mindformers.checkpoint.fully_parallel.get_rank") as mock:
-        mock.return_value = 0
+        mock.return_value = {
+            0: {"param1": mock_shard_tensor1, "param2": mock_shard_tensor2},
+            1: {"param3": mock_shard_tensor3}
+        }
         yield mock
 
 
@@ -172,12 +164,13 @@ def test_distribute_shards_basic():
 
     # Check that all shards are assigned
     assert len(result) == 3
-    # Check that each shard is assigned to a valid rank
-    for rank in result.values():
-        assert 0 <= rank < total_ranks
-    # Check that shards are assigned to ranks that cover them
-    for shard_id, rank in result.items():
-        assert rank in shard_coverage[shard_id]
+    for shard_id, rank_info in result.items():
+        selected_rank, rank_group = rank_info
+        # Check that each shard is assigned to a valid rank
+        assert 0 <= selected_rank < total_ranks
+        # Check that shards are assigned to ranks that cover them
+        assert selected_rank in shard_coverage[shard_id]
+        assert rank_group == tuple(shard_coverage[shard_id])
 
 
 @pytest.mark.level0
@@ -219,7 +212,7 @@ def test_distribute_shards_single_rank():
 
     result = distribute_shards(shard_coverage, shard_sizes, total_ranks)
 
-    assert result == {"shard1": 0, "shard2": 0}
+    assert result == {"shard1": (0, (0,)), "shard2": (0, (0,))}
 
 
 @pytest.mark.level0
@@ -236,19 +229,13 @@ def test_apply_balance_shard_strategy(
     """
     result = apply_balance_shard_strategy(mock_network, None)
 
-    assert len(result) == 4
-    shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas, param_redundancy = result
-
-    assert isinstance(shard_to_saving_rank, dict)
-    assert isinstance(shard_id_to_tensor, dict)
-    assert isinstance(dst_sharded_tensor_metas, dict)
-    assert isinstance(param_redundancy, dict)
+    assert isinstance(result, dict)
 
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
-def test_balanced_save_strategy_init(mock_network, mock_get_rank):
+def test_balanced_save_strategy_init(mock_network, mock_get_real_rank):
     """
     Feature: BalancedSaveStrategy initialization
     Description: Test BalancedSaveStrategy class initialization with various parameters
@@ -274,7 +261,7 @@ def test_balanced_save_strategy_init(mock_network, mock_get_rank):
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_apply_saving_parallelization(
-        mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -289,17 +276,14 @@ def test_balanced_save_strategy_apply_saving_parallelization(
 
     result = strategy.apply_saving_parallelization()
 
-    assert len(result) == 2
-    shard_id_to_ranks, shard_id_to_tensor = result
-    assert isinstance(shard_id_to_ranks, dict)
-    assert isinstance(shard_id_to_tensor, dict)
+    assert isinstance(result, dict)
 
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_apply_saving_parallelization_with_cache(
-        mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -318,7 +302,7 @@ def test_balanced_save_strategy_apply_saving_parallelization_with_cache(
 
     # Second call - should use cached distribution
     with patch("mindformers.checkpoint.fully_parallel.apply_balance_shard_strategy") as mock_apply:
-        mock_apply.return_value = ({}, {})
+        mock_apply.return_value = {}
         result2 = strategy.apply_saving_parallelization()
         # Check that apply_balance_shard_strategy was not called again
         mock_apply.assert_not_called()
@@ -330,7 +314,7 @@ def test_balanced_save_strategy_apply_saving_parallelization_with_cache(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_get_total_files(
-        mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -353,7 +337,7 @@ def test_balanced_save_strategy_get_total_files(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_get_cur_rank_file_id(
-        mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -376,7 +360,7 @@ def test_balanced_save_strategy_get_cur_rank_file_id(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_save(
-        tmp_path, mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        tmp_path, mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size, mock_save_checkpoint,
         mock_get_metadata_filename, mock_get_checkpoint_name, mock_get_checkpoint_iter_dir,
         mock_save_metadata, mock_load_metadata, mock_reverse_sharded_tensor_shard_id
@@ -409,7 +393,7 @@ def test_balanced_save_strategy_save(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_save_with_existing_metadata(
-        tmp_path, mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        tmp_path, mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size, mock_save_checkpoint,
         mock_get_metadata_filename, mock_get_checkpoint_name, mock_get_checkpoint_iter_dir,
         mock_save_metadata, mock_reverse_sharded_tensor_shard_id
@@ -448,7 +432,7 @@ def test_balanced_save_strategy_save_with_existing_metadata(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy__get_rank_params_mappings(
-        mock_network, mock_get_rank
+        mock_network, mock_get_real_rank
 ):
     """
     Feature: BalancedSaveStrategy._get_rank_params_mappings method
@@ -460,13 +444,6 @@ def test_balanced_save_strategy__get_rank_params_mappings(
         checkpoint_path="./checkpoint"
     )
 
-    # Create mock data
-    shared_distribution = {
-        "shard1": 0,
-        "shard2": 1,
-        "shard3": 0
-    }
-
     mock_tensor1 = MagicMock()
     mock_tensor1.key = "param1"
     mock_tensor2 = MagicMock()
@@ -474,13 +451,13 @@ def test_balanced_save_strategy__get_rank_params_mappings(
     mock_tensor3 = MagicMock()
     mock_tensor3.key = "param3"
 
-    id_to_tensor = {
-        "shard1": mock_tensor1,
-        "shard2": mock_tensor2,
-        "shard3": mock_tensor3
+    # Create mock data
+    shared_distribution = {
+        0: {"shard1": (mock_tensor1, (0,)), "shard3": (mock_tensor3, (0,))},
+        1: {"shard2": (mock_tensor2, (1,))}
     }
 
-    result = strategy._get_rank_params_mappings(shared_distribution, id_to_tensor)
+    result = strategy._get_rank_params_mappings(shared_distribution)
 
     assert isinstance(result, dict)
     assert 0 in result
@@ -494,7 +471,7 @@ def test_balanced_save_strategy__get_rank_params_mappings(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy__get_rank_param_ids_mappings(
-        mock_network, mock_get_rank
+        mock_network, mock_get_real_rank
 ):
     """
     Feature: BalancedSaveStrategy._get_rank_param_ids_mappings method
@@ -508,9 +485,8 @@ def test_balanced_save_strategy__get_rank_param_ids_mappings(
 
     # Create mock data
     shared_distribution = {
-        "shard1": 0,
-        "shard2": 1,
-        "shard3": 0
+        0: {"shard1": (None, (0,)), "shard3": (None, (0,))},
+        1: {"shard2": (None, (1,))}
     }
 
     result = strategy._get_rank_param_ids_mappings(shared_distribution)
@@ -527,7 +503,7 @@ def test_balanced_save_strategy__get_rank_param_ids_mappings(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy__get_total_files_num(
-        mock_network, mock_get_rank
+        mock_network, mock_get_real_rank
 ):
     """
     Feature: BalancedSaveStrategy._get_total_files_num method
@@ -563,7 +539,7 @@ def test_balanced_save_strategy__get_total_files_num(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy__get_cur_rank_file_id(
-        mock_network, mock_get_rank
+        mock_network, mock_get_real_rank
 ):
     """
     Feature: BalancedSaveStrategy._get_cur_rank_file_id method
@@ -612,7 +588,7 @@ def test_balanced_save_strategy__get_cur_rank_file_id(
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
 def test_balanced_save_strategy_get_total_files_and_cur_rank_file_id(
-        mock_network, mock_get_rank, mock_get_all_sharded_tensor,
+        mock_network, mock_get_real_rank, mock_get_all_sharded_tensor,
         mock_sharded_tensor_shard_id, mock_get_shard_size
 ):
     """
@@ -634,7 +610,7 @@ def test_balanced_save_strategy_get_total_files_and_cur_rank_file_id(
 
     # Check that second calls use cached values
     with patch("mindformers.checkpoint.fully_parallel.apply_balance_shard_strategy") as mock_apply:
-        mock_apply.return_value = ({}, {})
+        mock_apply.return_value = {}
         total_files2 = strategy.get_total_files()
         cur_rank_file_id2 = strategy.get_cur_rank_file_id()
 

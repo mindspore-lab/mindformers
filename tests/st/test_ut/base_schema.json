@@ -1,6 +1,9 @@
 {
+    "mindformers.checkpoint.load_checkpoint": {
+        "signature": "(checkpoint: str, network: mindspore.nn.cell.Cell, optimizer: mindspore.nn.optim.optimizer.Optimizer = None, global_step: int = None, balanced_load: bool = False)"
+    },
     "mindformers.checkpoint.save_checkpoint": {
-        "signature": "(iteration: int, network: mindspore.nn.cell.Cell, optimizer: mindspore.nn.optim.optimizer.Optimizer = None, async_save_manager: mindformers.checkpoint.checkpoint.AsyncSaveManager = None, common_info: mindformers.checkpoint.checkpoint.CommonInfo = None, keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None, sharded_tensor_metas: list = None, remove_redundancy: bool = False)"
+        "signature": "(iteration: int, network: mindspore.nn.cell.Cell, optimizer: mindspore.nn.optim.optimizer.Optimizer = None, async_save_manager: mindformers.checkpoint.checkpoint.AsyncSaveManager = None, common_info: mindformers.checkpoint.checkpoint.CommonInfo = None, keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None, sharded_tensor_metas: Dict = None, remove_redundancy: bool = False)"
     },
     "mindformers.core.AdamW": {
         "signature": "(params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, use_fused=False, amsgrad=False, maximize=False, swap=False)"
