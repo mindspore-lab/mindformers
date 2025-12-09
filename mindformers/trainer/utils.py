@@ -47,6 +47,7 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.version_control import need_nz
 
+
 # pylint: disable=import-outside-toplevel
 
 
@@ -58,9 +59,9 @@ class BaseEnum(str, Enum):
     @classmethod
     def _missing_(cls, value):
         """Enum with more explicit error message for missing values."""
-        raise ValueError(
-            f"{value} is not a valid {cls.__name__}, please select one of {list(cls._value2member_map_.keys())}"
-        )
+        err_msg = f"{value} is not a valid {cls.__name__}, please select one of {list(cls._value2member_map_.keys())}"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
 
 class IntervalStrategy(BaseEnum):
@@ -134,12 +135,17 @@ def preload_ckpt(config):
         return
     mindio_pool_capacity = config.get("mindio_pool_capacity", 128)
     set_mindio_server_info(mindio_pool_capacity)
+
     if hasattr(_init_mindio(), "preload"):
         logger.info("MindIO is initialized successfully!")
     else:
         return
+
     if not os.path.realpath(ckpt_path) or not os.path.exists(ckpt_path):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {ckpt_path}")
+        err_log = f"The load_checkpoint must be correct, but get {ckpt_path}"
+        logger.error(err_log)
+        raise FileNotFoundError(err_log)
+
     if os.path.isfile(ckpt_path):
         # only preload the ckpt file once.
         if is_main_rank() or f"rank_{rank_id}" in ckpt_path:
@@ -158,7 +164,10 @@ def preload_ckpt(config):
         logger.info(f"MindIO preloading `{checkpoint_path}`...")
         mindio_preload(checkpoint_path)
     else:
-        raise ValueError(f"{ckpt_path} is not a valid path to load checkpoint when auto_trans_ckpt is False.")
+        err_msg = f"{ckpt_path} is not a valid path to load checkpoint when auto_trans_ckpt is False."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
     if config.use_parallel:
         barrier()
 
@@ -198,8 +207,10 @@ def check_runner_config(config, dataset):
     if config.runner_config.sink_mode:
         if config.runner_config.sink_size != -1:
             if config.runner_config.sink_size <= 0:
-                raise ValueError("per epoch size must be more than 0 or equal to -1, "
-                                 f"but get {config.runner_config.sink_size}")
+                err_log = (f"per epoch size must be more than 0 or equal to -1, "
+                           f"but get {config.runner_config.sink_size}")
+                logger.error(err_log)
+                raise ValueError(err_log)
             if data_size < config.runner_config.sink_size:
                 logger.warning("The data size %s (get from dataset.get_dataset_size()) is smaller "
                                "than the sink_size %s (get from config.runner_config.sink_size), "
@@ -321,7 +332,9 @@ def get_distribute_checkpoint_path(checkpoint_dir, rank_id=None, ckpt_format='ck
         logger.info("Your load_checkpoint is file, it will be load in network.")
         distribute_checkpoint_path = checkpoint_dir
     else:
-        raise FileNotFoundError(f"{checkpoint_dir} is not found.")
+        err_msg = f"{checkpoint_dir} is not found."
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
     return distribute_checkpoint_path
 
 
@@ -349,7 +362,9 @@ def load_resume_context_from_checkpoint(config, dataset):
     """resume training, load training info from checkpoint to config"""
     if not os.path.realpath(config.load_checkpoint) or \
             not os.path.exists(config.load_checkpoint):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
+        err_log = f"The load_checkpoint must be correct, but get {config.load_checkpoint}"
+        logger.error(err_log)
+        raise FileNotFoundError(err_log)
 
     if os.path.isdir(config.load_checkpoint):
         # When graceful exit is enabled or auto checkpoint transformation is disabled,
@@ -376,6 +391,10 @@ def load_resume_context_from_checkpoint(config, dataset):
         else:
             checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{rank_id}",
                                           replace_rank_id_in_ckpt_name(config.resume_training, rank_id))
+            if not os.path.isfile(checkpoint_tmp):
+                err_msg = f"{checkpoint_tmp} is not found!"
+                logger.error(err_msg)
+                raise FileNotFoundError(err_msg)
             resume_dict = load_checkpoint(
                 checkpoint_tmp,
                 choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
@@ -513,15 +532,20 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
 
 def check_checkpoint_config_valid(config):
+    """Check valid load checkpoint path in config."""
     # check valid load checkpoint path
     if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
                                           not os.path.exists(config.load_checkpoint)):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
+        err_msg = f"The load_checkpoint must be correct, but get {config.load_checkpoint}"
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
 
     # check valid format
     if config.load_ckpt_format is not None and config.load_ckpt_format not in CkptFormat.support_type():
-        raise ValueError(
-            f"config.load_ckpt_format only support for 'ckpt' or 'safetensors', but got {config.load_ckpt_format}.")
+        err_msg = ("config.load_ckpt_format only support for 'ckpt' or 'safetensors', "
+                   f"but got {config.load_ckpt_format}.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
 
 def check_path_include_total_ckpt(path):
@@ -571,7 +595,9 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     logger.info("............Start load slora checkpoint ............")
     adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
     if not os.path.exists(adapter_path):
-        raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
+        err_msg = f"The adapter_path must be correct, but get {adapter_path}"
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
     with open(adapter_path, 'r', encoding='utf-8') as file:
         path_dict = json.load(file)
     adapter_list = []
@@ -688,8 +714,9 @@ def get_load_checkpoint_result(config):
                 else:
                     checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
         else:
-            raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
-                             f"when auto_trans_ckpt is False.")
+            err_msg = f"{config.load_checkpoint} is not a valid path to load checkpoint when auto_trans_ckpt is False."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     return checkpoint_dict if checkpoint_dict else checkpoint_future
 
 
