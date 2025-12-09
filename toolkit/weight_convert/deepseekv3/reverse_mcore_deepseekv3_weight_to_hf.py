@@ -624,11 +624,6 @@ def convert_ms_to_pt(input_path, output_path, config=None):
 
 def reverse_weight(para):
     """convert weight entrance"""
-    if not hasattr(para, 'mindspore_ckpt_path'):
-        para.mindspore_ckpt_path = para.input_path
-    if not hasattr(para, 'huggingface_ckpt_path'):
-        para.huggingface_ckpt_path = para.output_path
-
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
         if key in ['num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace', 'num_routed_experts',
@@ -642,8 +637,8 @@ def reverse_weight(para):
     )
 
     convert_ms_to_pt(
-        input_path=para.mindspore_ckpt_path,
-        output_path=para.huggingface_ckpt_path,
+        input_path=para.input_path,
+        output_path=para.output_path,
         config=DEFAULT_CONFIG
     )
 
@@ -651,10 +646,11 @@ def reverse_weight(para):
 if __name__ == "__main__":
     # Get configuration args
     parser = argparse.ArgumentParser()
-    parser.add_argument('--huggingface_ckpt_path', default=None, type=str,
-                        help="Converted HuggingFace checkpoint directory.")
-    parser.add_argument('--mindspore_ckpt_path', default=None, type=str,
-                        help="MindSpore Transformers MCore checkpoint directory.")
+
+    parser.add_argument('--input_path', default=None, type=str,
+                        help="Input MindSpore Transformers MCore checkpoint directory.")
+    parser.add_argument('--output_path', default=None, type=str,
+                        help="Output converted HuggingFace checkpoint directory.")
 
     parser.add_argument("--max_worker", default=16, type=int,
                         help="Maximum number of child processes to be allocated. "
