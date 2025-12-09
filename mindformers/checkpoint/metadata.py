@@ -109,28 +109,31 @@ def save_metadata(sharded_tensor_metas, param_file_mappings, meta_data_path):
                  due to file system errors, permission issues, or disk space problems.
     """
     state_dict_metadata = {}
-    sharded_tensor_metas = [
-        item
-        for sublist in sharded_tensor_metas
-        for item in sublist
-    ]
-    for _, tensor_meta in enumerate(sharded_tensor_metas):
-        param_name = tensor_meta.key
+    sharded_tensor_list = []
+    for _, cur_rank_sharded_tensor_metas in sharded_tensor_metas.items():
+        for _, sharded_tensor in cur_rank_sharded_tensor_metas.items():
+            if isinstance(sharded_tensor, list):
+                sharded_tensor_list.extend(sharded_tensor)
+            else:
+                sharded_tensor_list.append(sharded_tensor)
+
+    for sharded_tensor in sharded_tensor_list:
+        param_name = sharded_tensor.key
         new_chunk = {
-            "global_offset": tensor_meta.global_offset,
-            "local_shape": tensor_meta.local_shape
+            "global_offset": sharded_tensor.global_offset,
+            "local_shape": sharded_tensor.local_shape
         }
         if param_name not in state_dict_metadata:
             state_dict_metadata[param_name] = {
                 "properties": {
-                    "dtype": str(tensor_meta.dtype),
-                    "replica_id": tensor_meta.replica_id,
-                    "allow_shape_mismatch": tensor_meta.allow_shape_mismatch,
-                    "allow_to_save": tensor_meta.allow_to_save
+                    "dtype": str(sharded_tensor.dtype),
+                    "replica_id": sharded_tensor.replica_id,
+                    "allow_shape_mismatch": sharded_tensor.allow_shape_mismatch,
+                    "allow_to_save": sharded_tensor.allow_to_save
                 },
-                "global_shape": tensor_meta.global_shape,
-                "axis_fragmentations": tensor_meta.axis_fragmentations,
-                "layout": _serialize_sharded_tensor_layout(tensor_meta.layout),
+                "global_shape": sharded_tensor.global_shape,
+                "axis_fragmentations": sharded_tensor.axis_fragmentations,
+                "layout": _serialize_sharded_tensor_layout(sharded_tensor.layout),
                 "chunk": [new_chunk]
             }
         elif param_name in state_dict_metadata:
@@ -344,9 +347,9 @@ def get_total_params_file_mapping_info(sharded_tensor_metas, user_prefix, model_
 
     npu_nums = get_group_size()
     param_file_mappings = []
-    for cur_npu_rank, cur_rank_sharded_tensor_list in enumerate(sharded_tensor_metas):
+    for cur_npu_rank, cur_rank_sharded_tensors in sharded_tensor_metas.items():
         # Get mappings of parameter file of current rank.
-        for sharded_tensor in cur_rank_sharded_tensor_list:
+        for sharded_tensor in cur_rank_sharded_tensors.values():
             if model_keys and sharded_tensor.key not in list(model_keys):
                 ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.OPTIMIZER)
             else:
