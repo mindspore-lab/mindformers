@@ -121,6 +121,7 @@ class LLMTrainer:
             raise TypeError(f"Configuration must be of type MindFormerConfig, but received {type(config)}.")
 
         self.config = config
+        self._set_model_config_adapter_old_format()
 
         if is_train:
             self._set_runner_seed(seed=self.config.training_args.training_seed, is_train=True)
@@ -143,8 +144,6 @@ class LLMTrainer:
             self._check_parallel_mode_valid_for_predict()
             self._set_data_parallel_size()
             logger.info("Inference configuration setup completed successfully.")
-
-        self._set_model_config_adapter_old_format()
 
         # set output directory
         set_output_path(self.config.output_dir)
@@ -942,7 +941,7 @@ class LLMTrainer:
                            "Setting async_save to False.")
 
         save_ckpt_callback = CheckpointMonitor(
-            use_legacy_format=False,
+            use_legacy_format=True,  # After fixing the bug in checkpoint 2.0, set it to False.
             prefix=self.config.checkpoint_config.get('prefix', 'llm'),
             directory=self.config.checkpoint_config.get('directory', self.config.output_dir),
             save_checkpoint_steps=self.config.checkpoint_config.get('save_checkpoint_steps', 1),

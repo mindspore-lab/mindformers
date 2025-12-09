@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Parallel operator."""
+import os
 
 from mindspore import context
 from mindspore.communication.management import get_group_size, get_rank, init
@@ -57,6 +58,7 @@ class ParallelOperator:
             self.config.parallel.pipeline_stages = final_stages
 
     def _get_parallel_ctx_config(self):
+        """Get parallel context config."""
         parallel_ctx = self.config.get('parallel', {})
         parallel_mode = parallel_ctx.get('parallel_mode')
         if parallel_mode not in [
@@ -68,9 +70,17 @@ class ParallelOperator:
         return parallel_ctx
 
     def _get_parallel_config(self):
-        parallel_config = self.config.get('parallel_config', {})
-        if isinstance(parallel_config, TransformerOpParallelConfig):
-            parallel_config = parallel_config.to_dict()
+        """Get parallel config."""
+        if os.environ.get("USE_CONFIG_TEMPLATE_V2") == "1":
+            parallel_config = self.config.get('distribute_parallel_config', {})
+            parallel_config['data_parallel'] = parallel_config.pop('data_parallel_size', 1)
+            parallel_config['model_parallel'] = parallel_config.pop('tensor_model_parallel_size', 1)
+            parallel_config['pipeline_stage'] = parallel_config.pop('pipeline_model_parallel_size', 1)
+            parallel_config['expert_parallel'] = parallel_config.pop('expert_model_parallel_size', 1)
+        else:
+            parallel_config = self.config.get('parallel_config', {})
+            if isinstance(parallel_config, TransformerOpParallelConfig):
+                parallel_config = parallel_config.to_dict()
         return ParallelConfig.filter_kwargs(**parallel_config)
 
     def init_communication(self):
