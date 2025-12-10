@@ -1062,7 +1062,7 @@
         "signature": "(use_fused)"
     },
     "mindformers.core.optim.Muon": {
-        "signature": "(params, learning_rate=0.02, weight_decay=0.1, matched_adamw_rms=0.2, momentum=0.95, nesterov=True, ns_steps=5, adamw_betas=(0.95, 0.95), adamw_eps=1e-08, micro_batch_num=1, qk_clip_threshold=4, model=None, **kwargs)"
+        "signature": "(params, learning_rate=0.02, weight_decay=0.1, matched_adamw_rms=0.2, momentum=0.95, nesterov=True, ns_steps=5, adamw_betas=(0.95, 0.95), adamw_eps=1e-08, micro_batch_num=1, qk_clip_threshold=100, model=None, **kwargs)"
     },
     "mindformers.core.optim.Muon._verify_model": {
         "signature": "(self, model)"

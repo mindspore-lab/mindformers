@@ -273,7 +273,7 @@ class Muon(Optimizer):
         adamw_betas=(0.95, 0.95),
         adamw_eps=1e-8,
         micro_batch_num=1,
-        qk_clip_threshold=4,
+        qk_clip_threshold=100,
         model=None,
         **kwargs,
     ):
