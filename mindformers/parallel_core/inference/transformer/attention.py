@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import math
 from typing import Union, Optional
 
-from mindspore import mint, nn, ops
+from mindspore import nn, ops
 
 from mindformers.parallel_core.inference.quantization import QuantizationConfig
 from mindformers.parallel_core.inference.transformer.identity_op import IdentityOp
@@ -146,13 +146,12 @@ class Attention(nn.Cell):
         self.tp_group_size = self.tp.size
 
         self.num_attention_heads_per_partition = divide(self.num_heads, self.tp_group_size)
-        self.use_gqa = (self.num_heads != self.num_query_groups)
+        self.use_gqa = self.num_heads != self.num_query_groups
 
         if self.use_gqa:
             self._check_gqa_valid()
             # Note: Special handling when kv heads is less than tp size
-            if self.num_query_groups < self.tp_group_size:
-                self.num_query_groups = self.tp_group_size
+            self.num_query_groups = max(self.num_query_groups, self.tp_group_size)
             self.num_query_groups_per_partition = divide(self.num_query_groups, self.tp_group_size)
             self.repeat_num = divide(self.num_heads, self.num_query_groups)
         else:
@@ -370,7 +369,7 @@ class SelfAttention(Attention):
 
     def get_query_key_value_tensors(self, hidden_states):
         qkv = self.cast(self.linear_qkv(hidden_states), self.compute_dtype)
-        query, key, value = mint.split(qkv,
+        query, key, value = ops.function.array_func.split_ext(qkv,
                                        (self.hidden_size_per_partition,
                                         self.kv_hidden_size_per_partition,
                                         self.kv_hidden_size_per_partition), -1)
