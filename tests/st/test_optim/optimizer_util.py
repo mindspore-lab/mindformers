@@ -22,6 +22,7 @@ from mindspore import nn, Tensor
 from mindspore.ops import operations as P
 
 from mindformers.core.optim import build_optim
+from mindformers.core.optim.muon import Muon
 
 np.random.seed(1024)
 
@@ -58,7 +59,7 @@ class NetWithLoss(nn.Cell):
     """
 
     def __init__(self, network, loss_fn):
-        super(NetWithLoss, self).__init__()
+        super().__init__()
         self.network = network
         self.loss = loss_fn
 
@@ -74,7 +75,7 @@ class FakeNet(nn.Cell):
     """
 
     def __init__(self):
-        super(FakeNet, self).__init__()
+        super().__init__()
         self.fc1 = nn.Dense(in_channels=8, out_channels=4, weight_init=Tensor(fc1_weight), bias_init=Tensor(fc1_bias))
         self.fc2 = nn.Dense(in_channels=4, out_channels=1, weight_init=Tensor(fc2_weight), bias_init=Tensor(fc2_bias))
         self.relu = nn.ReLU()
@@ -155,3 +156,100 @@ default_fc1_weight_adamw_v = (
 default_fc2_weight_adamw_v = (
     np.array([[35.217834, 42.283375, 26.52298, 21.510029]], dtype=np.float32)
 )
+
+
+class MockTransformerConfig:
+    """Mock transformer config for testing Muon optimizer."""
+    def __init__(self):
+        self.multi_latent_attention = True
+        self.tensor_model_parallel_size = 1
+        self.data_parallel_size = 1
+
+
+class MockModel:
+    """
+    Mock model class that provides required interfaces for Muon optimizer.
+    This simulates the model interface that Muon optimizer expects.
+    """
+    def __init__(self):
+        self.config = MockTransformerConfig()
+
+    def get_gpt_transformer_config(self):
+        """Return transformer config."""
+        return self.config
+
+    def make_model_muon_fns(self):
+        """Return muon split and merge functions."""
+        def muon_split_fn(param_name, tensor):  # pylint: disable=unused-argument
+            """Split function - returns tensor as list."""
+            return [tensor]
+
+        def muon_merge_fn(param_name, tensor_list):  # pylint: disable=unused-argument
+            """Merge function - returns first tensor."""
+            return tensor_list[0]
+
+        return muon_split_fn, muon_merge_fn
+
+    def get_param_layer_indices(self, params):
+        """Return layer indices for parameters."""
+        return {p.name: 0 for p in params}
+
+    def get_muon_filter(self):
+        """Return filter function to determine which params use Muon."""
+        def muon_filter(param):
+            # Apply Muon to weight parameters with 2D shape (not bias)
+            return len(param.shape) == 2 and 'bias' not in param.name
+        return muon_filter
+
+    def get_tp_dims(self, params):
+        """Return tensor parallel dimensions."""
+        return tuple(-1 for _ in params)
+
+    def get_op_groups_info(self, params, op):  # pylint: disable=unused-argument
+        """Return optimizer parallel group info."""
+        ops = tuple(1 for _ in params)
+        op_groups = tuple("" for _ in params)
+        return ops, op_groups
+
+
+def build_muon_network(net, mock_model, learning_rate=0.02):
+    """
+    Build network with Muon optimizer for testing.
+
+    Args:
+        net: The network to train
+        mock_model: Mock model providing Muon interface
+        learning_rate: Learning rate for optimizer
+
+    Returns:
+        tuple: (losses, optimizer)
+    """
+
+    loss_fn = nn.L1Loss(reduction='mean')
+    networkwithloss = NetWithLoss(net, loss_fn)
+    networkwithloss.set_train()
+
+    params = networkwithloss.trainable_params()
+
+    # Create Muon optimizer
+    optimizer = Muon(
+        params=params,
+        learning_rate=learning_rate,
+        weight_decay=0.1,
+        matched_adamw_rms=0.2,
+        momentum=0.95,
+        nesterov=True,
+        adamw_betas=(0.95, 0.95),
+        adamw_eps=1e-8,
+        model=mock_model,
+    )
+
+    trainonestepcell = mindspore.nn.TrainOneStepCell(networkwithloss, optimizer)
+
+    losses = []
+    data, label = make_fake_data()
+    for i in range(20):
+        loss = trainonestepcell(data[i], label[i])
+        losses.append(loss.asnumpy())
+
+    return np.array(losses), optimizer
