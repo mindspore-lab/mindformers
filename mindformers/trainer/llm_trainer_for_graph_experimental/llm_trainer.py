@@ -947,7 +947,7 @@ class LLMTrainer:
                            "Setting async_save to False.")
 
         save_ckpt_callback = CheckpointMonitor(
-            use_legacy_format=False,
+            use_legacy_format=True,  # After fixing the bug in checkpoint 2.0, set it to False.
             prefix=self.config.checkpoint_config.get('prefix', 'llm'),
             directory=self.config.checkpoint_config.get('directory', self.config.output_dir),
             save_checkpoint_steps=self.config.checkpoint_config.get('save_checkpoint_steps', 1),

@@ -54,7 +54,7 @@ def get_description():
     os_info = get_platform()
     cpu_info = platform.machine().strip()
 
-    return 'mindformers platform: %s, cpu: %s' % (os_info, cpu_info)
+    return f'mindformers platform: {os_info}, cpu: {cpu_info}'
 
 
 def get_install_requires():
@@ -64,7 +64,7 @@ def get_install_requires():
     Returns:
         list, list of dependent packages.
     """
-    with open('requirements.txt') as file:
+    with open('requirements.txt', 'r', encoding='utf-8') as file:
         return file.read().strip().splitlines()
 
 
@@ -147,6 +147,7 @@ if __name__ == '__main__':
         long_description_content_type="text/markdown",
         test_suite="tests",
         packages=find_packages(exclude=["*tests*"]),
+        py_modules=['mindformers_cli'],
         platforms=[get_platform()],
         include_package_data=True,
         package_data={'mindformers': ['../configs/**/*.yaml',
@@ -155,6 +156,11 @@ if __name__ == '__main__':
                                       './*.json',
                                       './dataset/blended_datasets/*',
                                       '.commit_id']},
+        entry_points={
+            'console_scripts': [
+                'mindformers-cli = mindformers_cli:launcher',
+            ]
+        },
         cmdclass={
             'egg_info': EggInfo,
             'build_py': BuildPy,
