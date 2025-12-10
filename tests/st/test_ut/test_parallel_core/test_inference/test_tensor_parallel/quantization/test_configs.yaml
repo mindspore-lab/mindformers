@@ -1,0 +1,108 @@
+# Test configurations for parallel linear layers quantization
+# Each test case is a dictionary with linear_type, has_bias, quant_policy, and optional precision thresholds
+
+# Model configuration parameters
+model_config:
+  input_size: 2048
+  output_size: 2048
+  head_size: 16  # 修改为16以满足 trans_data 的32对齐要求 (16*2*3=96, 96%32=0)
+  total_num_heads: 2
+  total_num_kv_heads: 2
+  compute_dtype: bf16
+  param_init_dtype: bf16
+  num_local_experts: 1
+
+# Default precision thresholds (used when not specified in test case)
+default_precision:
+  cos_sim_thd: 0.999
+  l1_norm_thd: 0.01
+  kl_dvg_thd: 0.01
+
+# All test cases
+test_cases:
+  # ColumnParallelLinear tests
+  - linear_type: ColumnParallelLinear
+    has_bias: true
+    quant_policy: a8w8
+  
+  - linear_type: ColumnParallelLinear
+    has_bias: true
+    quant_policy: a8dynw8
+  
+  - linear_type: ColumnParallelLinear
+    has_bias: false
+    quant_policy: a8w8
+  
+  - linear_type: ColumnParallelLinear
+    has_bias: false
+    quant_policy: a8dynw8
+  
+  # RowParallelLinear tests
+  - linear_type: RowParallelLinear
+    has_bias: true
+    quant_policy: a8w8
+  
+  - linear_type: RowParallelLinear
+    has_bias: true
+    quant_policy: a8dynw8
+  
+  - linear_type: RowParallelLinear
+    has_bias: false
+    quant_policy: a8w8
+  
+  - linear_type: RowParallelLinear
+    has_bias: false
+    quant_policy: a8dynw8
+  
+  # QKVParallelLinear tests
+  - linear_type: QKVParallelLinear
+    has_bias: true
+    quant_policy: a8w8
+  
+  - linear_type: QKVParallelLinear
+    has_bias: true
+    quant_policy: a8dynw8
+  
+  - linear_type: QKVParallelLinear
+    has_bias: false
+    quant_policy: a8w8
+    # Custom precision for this edge case
+    precision:
+      cos_sim_thd: 0.996
+      l1_norm_thd: 0.01
+      kl_dvg_thd: 0.01
+  
+  - linear_type: QKVParallelLinear
+    has_bias: false
+    quant_policy: a8dynw8
+  
+  # MergedColumnParallelLinear tests
+  - linear_type: MergedColumnParallelLinear
+    has_bias: true
+    quant_policy: a8w8
+  
+  - linear_type: MergedColumnParallelLinear
+    has_bias: true
+    quant_policy: a8dynw8
+  
+  - linear_type: MergedColumnParallelLinear
+    has_bias: false
+    quant_policy: a8w8
+  
+  - linear_type: MergedColumnParallelLinear
+    has_bias: false
+    quant_policy: a8dynw8
+
+  # ColumnParallelGroupedLinear (MoE) tests
+  - linear_type: ColumnParallelGroupedLinear
+    has_bias: null
+    quant_policy: a8dynw8
+
+  - linear_type: ColumnParallelGroupedLinear
+    has_bias: null
+    quant_policy: a8w4
+    # Relaxed thresholds for int4 quantization
+    precision:
+      cos_sim_thd: 0.96
+      l1_norm_thd: 0.05
+      kl_dvg_thd: 0.01
