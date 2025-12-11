@@ -48,7 +48,7 @@ def filter_current_stage_parameters(model, model_params):
                 param.requires_grad = False
 
 
-def _get_gouped_lr_map(model, grouped_lr_scheduler=None):
+def _get_grouped_lr_map(model, grouped_lr_scheduler=None):
     """
     Build parameter-to-group and group-to-learning-rate mappings
     based on grouped learning rate scheduler configuration.
@@ -78,7 +78,11 @@ def _get_gouped_lr_map(model, grouped_lr_scheduler=None):
     GROUPED_PARAMS = [[] for _ in range(len(grouped_lr_scheduler))]
 
     # Match actual parameter names to group patterns
-    for param in model.trainable_params():
+    trainable_params = model.trainable_params()
+    support_matching_param_names = json.dumps([param.name for param in trainable_params], indent=2)
+    logger.info(f"Support matching grouped parameter names: {support_matching_param_names}")
+
+    for param in trainable_params:
         for grouped_param_name in list(group_map.keys()):
             group_id = group_map.get(grouped_param_name)
             # Match exact or wildcard parameter names
@@ -86,6 +90,7 @@ def _get_gouped_lr_map(model, grouped_lr_scheduler=None):
                 param_group_map[param.name] = group_id
                 GROUPED_PARAMS[group_id].append(param.name)
                 break
+
     for group_id, sub_params in enumerate(GROUPED_PARAMS):
         if not sub_params:
             raise ValueError(
@@ -130,7 +135,7 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
         filter_current_stage_parameters(model, model_params)
 
     # Build mapping from params to LR groups
-    param_group_map, lr_scheduler_map = _get_gouped_lr_map(model, grouped_lr_schedule)
+    param_group_map, lr_scheduler_map = _get_grouped_lr_map(model, grouped_lr_schedule)
     parameter_group_names = {}  # For logging
     parameter_group_vars = {}  # Actual optimizer groups
 

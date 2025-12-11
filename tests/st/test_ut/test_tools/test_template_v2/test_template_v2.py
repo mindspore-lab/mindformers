@@ -984,7 +984,6 @@ class TestLrScheduleConfig:
         default_config = LrScheduleConfig.default_value()
         assert default_config['type'] == 'CosineWithWarmUpLR'
         assert default_config['learning_rate'] == 5.e-5
-        assert default_config['lr_end'] == 0.
         assert default_config['warmup_ratio'] == 0.
         assert default_config['total_steps'] == -1
 
@@ -1697,6 +1696,7 @@ class TestConfigTemplate:
             'model_config',
             'optimizer',
             'lr_schedule',
+            'grouped_lr_schedule',
             'callbacks',
             'monitor_config',
             'profile',

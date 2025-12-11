@@ -11,10 +11,9 @@
             - [CosineWithWarmUpLR](#cosinewithwarmuplr)
             - [CosineWithRestartsAndWarmUpLR](#cosinewithrestartsandwarmuplr)
             - [PolynomialWithWarmUpLR](#polynomialwithwarmuplr)
-            - [CosineAnnealingLR](#cosineannealinglr)
-            - [CosineAnnealingWarmRestarts](#cosineannealingwarmrestarts)
             - [WarmUpStableDecayLR](#warmupstabledecaylr)
             - [ConstantWithCoolDownLR](#constantwithcooldownlr)
+            - [参数分组学习率](#参数分组学习率)
         - [优化器配置](#优化器配置)
             - [AdamW优化器](#adamw优化器)
             - [PmaAdamW优化器](#pmaadamw优化器)
@@ -415,55 +414,6 @@ lr_schedule: # 多项式衰减学习率调度器配置
   decay_steps: null
 ```
 
-#### CosineAnnealingLR
-
-```yaml
-lr_schedule: # 余弦退火学习率调度器配置
-  # type: 学习率调度器类型，CosineAnnealingLR余弦退火学习率调度器
-  # 该调度器按照余弦函数周期性地衰减学习率，在每个周期内从base_lr衰减到eta_min
-  # 当训练步数达到t_max的倍数时，学习率会重启到base_lr，开始新的周期
-  type: CosineAnnealingLR
-
-  # base_lr: 基础学习率值，每个重启周期的初始学习率
-  # 余弦退火会以此为起点，逐渐衰减到eta_min
-  base_lr: 1.e-6
-
-  # t_max: 余弦退火周期的步数，控制学习率衰减周期的长度
-  # 当训练步数达到t_max的倍数时，学习率会重启到base_lr，开始新的余弦退火周期
-  # 需要根据算法需求和训练总步数进行设置，通常设置为训练总步数的整数分之一
-  t_max: 10
-
-  # eta_min: 最小学习率值，余弦退火衰减的最终学习率
-  # 学习率会在每个周期内从base_lr衰减到该值
-  # null表示使用默认值0，也可以设置为一个很小的正数
-  eta_min: null
-```
-
-#### CosineAnnealingWarmRestarts
-
-```yaml
-lr_schedule: # 余弦退火重启学习率调度器配置
-  # type: 学习率调度器类型，CosineAnnealingWarmRestarts余弦退火重启学习率调度器
-  # 该调度器按照余弦函数周期性地衰减学习率，并在每个周期结束时重启学习率
-  type: CosineAnnealingWarmRestarts
-
-  # base_lr: 基础学习率值，每个重启周期的初始学习率
-  # 余弦退火会以此为起点，逐渐衰减到eta_min
-  base_lr: 1.e-6
-
-  # t_0: 第一个重启周期的步数，控制第一个学习率周期的长度
-  # 当训练步数达到t_0的倍数时，学习率会重启到base_lr，需要根据算法需求人工进行设置
-  t_0: 10
-
-  # t_mult: 周期倍数因子，控制后续重启周期长度的倍数
-  # 当t_mult=1时，所有周期长度相同；当t_mult>1时，后续周期会逐渐变长
-  t_mult: 1.
-
-  # eta_min: 最小学习率值，余弦退火衰减的最终学习率
-  # 学习率会在每个周期内从base_lr衰减到该值
-  eta_min: null
-```
-
 #### WarmUpStableDecayLR
 
 ```yaml
@@ -565,6 +515,108 @@ lr_schedule: # 恒定学习率带冷却调度器配置
   decay_ratio: 0.
 ```
 
+#### 参数分组学习率
+
+```yaml
+# grouped_lr_schedule: 参数分组学习率调度器配置
+# 该配置允许为模型的不同参数组设置独立的学习率调度策略，实现细粒度的学习率控制
+# 适用于迁移学习、微调、逐层衰减等场景，可以为不同组件（如embedding、attention、MLP等）设置不同的学习率
+grouped_lr_schedule:
+  # default: 默认学习率调度器配置，应用于所有不匹配任何分组模式的参数
+  # 当某个参数不匹配任何grouped中的params模式时，将使用此默认调度器
+  default:
+    # type: 默认学习率调度器类型，支持所有标准的学习率调度器类型
+    # 例如：ConstantWarmUpLR、CosineWithWarmUpLR、PolynomialWithWarmUpLR等
+    type: "ConstantWarmUpLR"
+
+    # learning_rate: 默认学习率值，用于所有未匹配到特定分组的参数
+    # 该值将作为默认调度器的基础学习率
+    learning_rate: 1.e-4
+
+    # warmup_ratio: warmup比例，控制预热阶段占总训练步数的比例
+    # 0表示不使用学习率预热，直接使用恒定学习率，数值范围为[0, 1]
+    # 不为0时，会覆盖warmup_steps的设置, 且warmup_steps=total_steps*warmup_ratio
+    warmup_ratio: 0.
+
+    # total_steps: 总训练步数，-1表示使用默认的数据集大小计算出的总步数
+    # 设置为正整数时，将使用指定的步数作为训练总步数，如果设置了stop_step训练提前退出功能，建议手动调整该参数
+    total_steps: -1
+
+    # 注意：default配置中还可以包含对应调度器类型的其他参数
+    # 例如：warmup_steps、warmup_ratio、total_steps等，具体参数取决于选择的调度器类型
+
+  # grouped: 参数分组列表，每个分组包含参数匹配模式和对应的学习率调度器配置
+  # 系统会按照列表顺序匹配参数，第一个匹配的分组将被应用
+  grouped:
+    # 第一个参数分组：匹配所有embedding相关的参数
+    - # type: 该参数组的学习率调度器类型
+      # 可以为不同参数组选择不同的调度策略，实现差异化的学习率调整
+      type: "CosineWithWarmUpLR"
+
+      # params: 参数名称匹配模式列表，支持通配符模式（使用fnmatch进行匹配）
+      # 可以使用通配符 "*" 匹配任意字符序列，"?" 匹配单个字符
+      # 例如："*.embedding*" 会匹配所有包含"embedding"的参数名
+      # 参数匹配是大小写敏感的，且支持多个模式，只要参数名匹配任一模式即可
+      params: ['embedding.*', 'output_layer.weight']
+
+      # learning_rate: 该参数组的基础学习率值
+      # 通常embedding层使用较小的学习率，以保持预训练的特征表示
+      learning_rate: 1.e-5
+
+      # warmup_ratio: warmup比例，控制预热阶段占总训练步数的比例
+      # 0表示不使用学习率预热，直接使用恒定学习率，数值范围为[0, 1]
+      # 不为0时，会覆盖warmup_steps的设置, 且warmup_steps=total_steps*warmup_ratio
+      warmup_ratio: 0.
+
+      # total_steps: 总训练步数，-1表示使用默认的数据集大小计算出的总步数
+      # 设置为正整数时，将使用指定的步数作为训练总步数，如果设置了stop_step训练提前退出功能，建议手动调整该参数
+      total_steps: -1
+
+      # 注意：每个分组可以包含对应调度器类型的完整配置参数
+      # 例如：warmup_steps、warmup_ratio、total_steps、lr_end等
+      # 这些参数仅对该分组内的参数生效
+
+    # 第二个参数分组：匹配所有attention相关的参数
+    - # type: attention层使用的学习率调度器类型
+      # 可以为attention层选择更激进的学习率策略
+      type: "PolynomialWithWarmUpLR"
+
+      # params: 匹配所有attention层相关的参数
+      # 例如："*.attention*" 会匹配 "decoder.layers.0.self_attention.linear_qkv.weight" 等参数
+      params: ["*.self_attention*"]
+
+      # learning_rate: attention层的基础学习率值
+      # 通常attention层可以使用较大的学习率，以便快速适应新任务
+      learning_rate: 2.e-4
+
+      # warmup_ratio: warmup比例，控制预热阶段占总训练步数的比例
+      # 0表示不使用学习率预热，直接使用恒定学习率，数值范围为[0, 1]
+      # 不为0时，会覆盖warmup_steps的设置, 且warmup_steps=total_steps*warmup_ratio
+      warmup_ratio: 0.
+
+      # total_steps: 总训练步数，-1表示使用默认的数据集大小计算出的总步数
+      # 设置为正整数时，将使用指定的步数作为训练总步数，如果设置了stop_step训练提前退出功能，建议手动调整该参数
+      total_steps: -1
+    # 注意：可以继续添加更多参数分组，每个分组都有独立的调度器配置
+    # 例如：可以为MLP层、LayerNorm层等分别设置不同的学习率策略
+
+# 使用说明：
+# 1. 参数匹配优先级：系统按照grouped列表的顺序依次匹配参数，第一个匹配的分组将被应用
+# 2. 默认调度器：如果参数不匹配任何grouped中的模式，将使用default配置的调度器
+# 3. 通配符匹配：支持fnmatch风格的通配符，如"*.layer.*.weight"可以匹配多层结构
+# 4. 配置完整性：每个分组（包括default）都需要包含对应调度器类型所需的完整参数
+# 5. 使用场景：
+#    - 迁移学习：预训练层使用小学习率，新添加层使用大学习率
+#    - 微调：embedding层冻结或使用极小学习率，上层使用正常学习率
+#    - 逐层衰减：不同层使用不同的学习率衰减策略
+#    - 组件优化：为attention、MLP等不同组件设置不同的学习率
+# 6. 注意事项：
+#    - 确保参数名称模式能够正确匹配到目标参数, 可以通过任意配之后运行程序查看匹配结果，会打印出支持的匹配参数
+#    - 建议在训练前检查参数匹配情况，确保所有参数都被正确分组
+#    - 不同分组的total_steps应该保持一致，以确保训练步数同步
+#    - 如果某个参数同时匹配多个模式，将使用第一个匹配的分组配置
+```
+
 ### 优化器配置
 
 #### AdamW优化器
@@ -572,7 +624,7 @@ lr_schedule: # 恒定学习率带冷却调度器配置
 ```yaml
 # Optimizer configuration
 # 优化器配置，用于指定训练过程中使用的优化器类型及其相关参数
-optimizer: # 优化器1
+optimizer:
   # type: 优化器类型
   type: AdamW
 
@@ -609,7 +661,7 @@ optimizer: # 优化器1
 #### PmaAdamW优化器
 
 ```yaml
-optimizer: # 优化器2
+optimizer:
   # type: 优化器类型，PmaAdamW优化器
   # Pre-trained Model Average（PMA）权重合并是指在训练过程中，
   # 根据选择 Exponential Moving Average（EMA）算法或 Simple Moving Average（SMA）算法对权重进行融合合并，从而提升模型训练的效果。
@@ -676,7 +728,7 @@ Muon优化器具有以下特点：
 3. 在MoE模型中，专家数量必须能被(optimizer_weight_shard_size * expert_model_parallel_size)整除
 
 ```yaml
-optimizer: # 优化器3 - Muon优化器配置
+optimizer:
   # type: 优化器类型，指定使用Muon优化器
   type: Muon
 

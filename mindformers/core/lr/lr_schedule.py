@@ -36,9 +36,9 @@ def _get_lr_steps(steps: int, ratio: float, total_steps: int, phase_tag: str):
     """check args and get specified steps."""
     if ratio is None:
         if not isinstance(steps, int):
-            raise TypeError(f"The type of {phase_tag}_step must be int, but got {type(steps)}")
+            raise TypeError(f"The type of {phase_tag}_steps must be int, but got {type(steps)}")
         if steps < 0:
-            raise ValueError(f"The {phase_tag}_step must be >= 0, but got {steps}")
+            raise ValueError(f"The {phase_tag}_steps must be >= 0, but got {steps}")
         return steps
 
     if not isinstance(ratio, (float, int)):
@@ -173,7 +173,7 @@ class ConstantWithCoolDownLR(LearningRateSchedule):
             lr_end2: float = None,
             **kwargs
     ):
-        super(ConstantWithCoolDownLR, self).__init__()
+        super().__init__()
         warmup_steps_ = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         decay_steps = max(1, decay_steps) if decay_steps is not None else max(1, total_steps)
         decay_steps_ = _get_lr_steps(decay_steps, decay_ratio, total_steps, "decay")
@@ -280,7 +280,7 @@ class ConstantWarmUpLR(LearningRateSchedule):
     )
     def __init__(self, learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0.,
                  warmup_ratio: float = None, total_steps: int = None, **kwargs):
-        super(ConstantWarmUpLR, self).__init__()
+        super().__init__()
         warmup_steps = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         self.learning_rate = learning_rate
         self.warmup_lr_init = warmup_lr_init
@@ -367,7 +367,7 @@ class LinearWithWarmUpLR(LearningRateSchedule):
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int = None,
                  warmup_lr_init: float = 0., warmup_ratio: float = None,
                  **kwargs):
-        super(LinearWithWarmUpLR, self).__init__()
+        super().__init__()
         warmup_steps = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         linear_steps = max(1, total_steps - warmup_steps)
         self.kwargs = kwargs
@@ -463,7 +463,7 @@ class CosineWithWarmUpLR(LearningRateSchedule):
     def __init__(self, learning_rate: float, warmup_steps: int = 0, total_steps: int = None,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.,
                  warmup_ratio: float = None, decay_steps: int = None, decay_ratio: float = None, **kwargs):
-        super(CosineWithWarmUpLR, self).__init__()
+        super().__init__()
         _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         cosine_steps = max(1, total_steps - warmup_steps)
@@ -568,7 +568,7 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     def __init__(self, learning_rate: float, warmup_steps: int = None, total_steps: int = None,
                  num_cycles: float = 1., lr_end: float = 0., warmup_lr_init: float = 0.,
                  warmup_ratio: float = None, decay_steps: int = None, **kwargs):
-        super(CosineWithRestartsAndWarmUpLR, self).__init__()
+        super().__init__()
         _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         cosine_steps = max(1, total_steps - warmup_steps)
@@ -687,7 +687,7 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int = None,
                  lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0.,
                  warmup_ratio: float = None, decay_steps: int = None, **kwargs):
-        super(PolynomialWithWarmUpLR, self).__init__()
+        super().__init__()
         _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_lr_steps(warmup_steps, warmup_ratio, total_steps, "warmup")
         decay_steps = max(1, decay_steps) \
@@ -783,7 +783,7 @@ class LearningRateWiseLayer(LearningRateSchedule):
     """
 
     def __init__(self, base_lr, lr_scale):
-        super(LearningRateWiseLayer, self).__init__()
+        super().__init__()
         self.base_lr = base_lr
         self.lr_scale = lr_scale
 
@@ -943,7 +943,7 @@ class CosineAnnealingLR(LearningRateSchedule):
 
     @args_type_check(base_lr=(int, float), t_max=int, eta_min=(int, float))
     def __init__(self, base_lr: float, t_max: int, eta_min: float = 0., **kwargs):
-        super(CosineAnnealingLR, self).__init__()
+        super().__init__()
         if t_max < 1 or not isinstance(t_max, int):
             raise ValueError(f"Expected positive integer T_max, but got {t_max}")
         self.kwargs = kwargs
@@ -1015,7 +1015,7 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
 
     @args_type_check(base_lr=(int, float), t_0=int, t_mult=int, eta_min=(int, float))
     def __init__(self, base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0., **kwargs):
-        super(CosineAnnealingWarmRestarts, self).__init__()
+        super().__init__()
         if t_0 < 1 or not isinstance(t_0, int):
             raise ValueError(f"Expected positive integer t_0, but got {t_0}")
         if t_mult < 1 or not isinstance(t_mult, int):
