@@ -19,16 +19,16 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import nn, ops, mint, Tensor
 
+from research.telechat2.infer.moe import ParallelMoE, RoutedParallelMLP
+from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear
+from research.telechat2.infer.transformer import \
+    ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
 from mindformers.parallel_core.inference.utils import divide
 from mindformers.parallel_core.inference.tensor_parallel.mappings import reduce_from_model_parallel_region
 from mindformers.parallel_core.inference.parallel_state import get_tensor_model_parallel_group
 from mindformers.parallel_core.process_group_config import default_model_comm_pgs
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
-from research.telechat2.infer.moe import ParallelMoE, RoutedParallelMLP
-from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear
-from research.telechat2.infer.transformer import \
-    ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
 
 
 class TelechatParallelMoE(ParallelMoE):
@@ -52,7 +52,7 @@ class TelechatParallelMoE(ParallelMoE):
                  hidden_size,
                  moe_config,
                  use_fused_op=True):
-        super(TelechatParallelMoE, self).__init__(
+        super().__init__(
             ffn=ffn,
             hidden_size=hidden_size,
             moe_config=moe_config,
@@ -167,8 +167,9 @@ class TelechatParallelMLP(ParallelMLP):
         if self.mlp_has_gate:
             if self.ffn_concat:
                 gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-                gate, hidden = mint.split(gate_hidden_out,
-                                          (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
+                gate, hidden = ops.function.array_func.split_ext(
+                    gate_hidden_out,
+                    (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
             else:
                 gate = self.w1(x)  # dp,1 -> dp, mp
                 hidden = self.w3(x)  # dp,1 -> dp, mp
@@ -219,7 +220,7 @@ class TelechatParallelAttention(ParallelAttention):
             # [B, S, H] --> [B, S, H + 2 * kv_H]
             if self.qkv_concat:
                 qkv = self.cast(self.w_qkv(x), self.compute_dtype)
-                query, key, value = mint.split(qkv,
+                query, key, value = ops.function.array_func.split_ext(qkv,
                                                (self.hidden_size_per_partition,
                                                 self.kv_hidden_size_per_partition,
                                                 self.kv_hidden_size_per_partition), -1)
@@ -227,14 +228,15 @@ class TelechatParallelAttention(ParallelAttention):
                 query = self.cast(self.wq(x), self.compute_dtype)
                 key_value = self.cast(self.wk_v(x), self.compute_dtype)
                 key_value = key_value.reshape(-1, self.kv_num_heads_per_partition, self.head_dim * 2)
-                key, value = mint.split(key_value, (self.head_dim, self.head_dim), -1)
+                key, value = ops.function.array_func.split_ext(key_value, (self.head_dim, self.head_dim), -1)
                 key = key.reshape(bs, seq_len, -1)
                 value = value.reshape(bs, seq_len, -1)
         else:
             query = self.cast(self.wq(x), self.compute_dtype)
             if self.qkv_concat:
                 kv = self.cast(self.w_kv(encoder_output), self.compute_dtype)
-                key, value = mint.split(kv, (self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition), -1)
+                key, value = ops.function.array_func.split_ext(
+                    kv, (self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition), -1)
             else:
                 key = self.cast(self.wk(encoder_output), self.compute_dtype)
                 value = self.cast(self.wv(encoder_output), self.compute_dtype)
