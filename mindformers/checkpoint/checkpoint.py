@@ -62,9 +62,12 @@ from mindformers.checkpoint.metadata import (
     get_total_params_file_mapping_info,
 )
 from mindformers.checkpoint.sharded_tensor import (
-    convert_sharded_tensor_list_to_dict,
     get_strategy_info_from_sharded_tensor,
-    ShardedTensor, get_sharded_tensor_list_from_cell, get_cur_sharded_tensor
+    ShardedTensor,
+    get_sharded_tensor_from_cell,
+    get_cur_sharded_tensor,
+    get_cur_sharded_tensor_after_balanced,
+    get_param_redundancy_after_balanced
 )
 from mindformers.checkpoint.broadcast import single_parameter_broadcast
 
@@ -264,7 +267,7 @@ class AsyncSaveManager:
 def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
                     async_save_manager: AsyncSaveManager = None, common_info: CommonInfo = None,
                     keep_max_num: int = 5, user_prefix: str = None, save_checkpoint_path: str = None,
-                    sharded_tensor_metas: list = None, remove_redundancy: bool = False):
+                    sharded_tensor_metas: Dict = None, remove_redundancy: bool = False):
     """
     Saves the current state of the training process,
         including the model, optimizer, and learning rate scheduler, to a checkpoint file.
@@ -280,7 +283,7 @@ def save_checkpoint(iteration: int, network: Cell, optimizer: Optimizer = None,
         save_checkpoint_path (str): The user can specify the path to save the weights.
             If None, the default path is 'output_dir/checkpoint'.
             And 'output_dir' is configured in yaml and defaults to './output' in the execution script path.
-        sharded_tensor_metas (List): The ShardedTensor metas of this network.
+        sharded_tensor_metas (Dict): The ShardedTensor metas of this network.
         remove_redundancy (bool): Whether to remove redundancy of saving checkpoint.
     """
     logger.info('....... Start to save checkpoint as new format .......')
@@ -932,16 +935,12 @@ def load_checkpoint(
 
     param_redundancy = None
     if balanced_load:
-        dst_sharded_tensor_metas, param_redundancy = apply_balance_shard_strategy(network, filter_func)[2:]
+        rank_id_to_sharded_tensors = apply_balance_shard_strategy(network, filter_func)
+        dst_sharded_tensor_metas = get_cur_sharded_tensor_after_balanced(rank_id_to_sharded_tensors)
+        param_redundancy = get_param_redundancy_after_balanced(rank_id_to_sharded_tensors)
     else:
-        if get_real_group_size() > 1:
-            cur_rank_sharded_tensors = get_cur_sharded_tensor(network, filter_func)
-        else:
-            # Fallback: Get sharded tensors directly from network and optimizer
-            cur_rank_sharded_tensors = get_sharded_tensor_list_from_cell(network, optimizer)
-
-        # Convert list of sharded tensors to dictionary for lookup
-        dst_sharded_tensor_metas = convert_sharded_tensor_list_to_dict(cur_rank_sharded_tensors)
+        dst_sharded_tensor_metas = get_cur_sharded_tensor(network, filter_func) \
+            if get_real_group_size() > 1 else get_sharded_tensor_from_cell(network, optimizer)
 
     # Categorize parameters based on sharding strategies
     _, need_concat_params, no_shard_params, online_shard_params = categorize_params(
@@ -1116,7 +1115,8 @@ def load_parameters(
 
     # Separate network and optimizer parameters
     if balanced_load and param_redundancy is None:
-        param_redundancy = apply_balance_shard_strategy(network)[-1]
+        rank_id_to_sharded_tensors = apply_balance_shard_strategy(network)
+        param_redundancy = get_param_redundancy_after_balanced(rank_id_to_sharded_tensors)
 
     network_param_names, _, state_dict, state_dict_opt = \
         split_state_dict(network, state_dict, optimizer, state_dict_opt)
