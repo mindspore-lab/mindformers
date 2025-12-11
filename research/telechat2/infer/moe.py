@@ -16,17 +16,17 @@
 Note: Mixture of Expert (MoE) structure. This is an experimental interface that is subject to change or deletion.
 """
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn, Parameter, mint
+from mindspore import Tensor, nn, Parameter, mint, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
 
+from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.parallel_core.inference.transformer.activation import get_act_func
 from mindformers.parallel_core.inference.parallel_state import default_pgs, get_moe_tensor_parallel_group
 # pylint: disable=C0412
 from mindformers.parallel_core.inference.utils import get_moe_ep_world_size, get_moe_tp_world_size
 from mindformers.tools.utils import divide
 
-from research.telechat2.infer.layers import ColumnParallelLinear, RowParallelLinear
 
 MOE_FUSED_OP_VALID = True
 
@@ -51,7 +51,7 @@ class TopkRouter(nn.Cell):
         A router implementation which maps each tokens to the topk expert.
     """
     def __init__(self, expert_num):
-        super(TopkRouter, self).__init__()
+        super().__init__()
         self.topk_bias = Parameter(initializer('zeros', (expert_num), mstype.float32),
                                    requires_grad=False, parallel_optimizer=False)
 
@@ -64,7 +64,7 @@ class Router(nn.Cell):
     def __init__(self,
                  hidden_size,
                  moe_config):
-        super(Router, self).__init__()
+        super().__init__()
         self.expert_num = moe_config.expert_num
         self.dense = nn.Dense(in_channels=hidden_size, out_channels=self.expert_num,
                               has_bias=False, dtype=dtype_map.get(moe_config.router_dense_type))
@@ -94,7 +94,7 @@ class ParallelMoE(nn.Cell):
                  hidden_size,
                  moe_config,
                  use_fused_op=True):
-        super(ParallelMoE, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
         self.expert_dim = moe_config.expert_num
@@ -272,7 +272,7 @@ class ColumnParallelGroupLinear(ColumnParallelLinear):
             tp_group=default_pgs,
             **kwargs
     ):
-        super(ColumnParallelGroupLinear, self).__init__(
+        super().__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -357,7 +357,7 @@ class RowParallelGroupLinear(RowParallelLinear):
             tp_group=default_pgs,
             **kwargs
     ):
-        super(RowParallelGroupLinear, self).__init__(
+        super().__init__(
             input_size=input_size,
             output_size=output_size,
             config=config,
@@ -476,7 +476,7 @@ class RoutedParallelMLP(nn.Cell):
         """Forward process of the FeedForward"""
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-            gate, hidden = mint.split(gate_hidden_out,
+            gate, hidden = ops.function.array_func.split_ext(gate_hidden_out,
                                       (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
         else:
             gate = self.w1(x, group_list=group_list)
