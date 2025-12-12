@@ -79,11 +79,26 @@ __all__ = ['LLMTrainer']
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, legacy=False)
 class LLMTrainer:
-    """
-    LLM Model Trainer Class.
-    This class provides training and inference capabilities for Large Language Models,
-    handling dataset creation, model building, optimizer setup, and training loop execution.
-    """
+    """Initialize LLM Trainer instance.
+
+       This method initializes all instance variables required for training and inference.
+       All attributes are set to their default values (None for objects, False for booleans,
+       empty list for callbacks) and will be configured during the setup and training process.
+
+       Instance Variables:
+           llm_model: The neural network model instance (initialized as None)
+           train_dataset: The training dataset instance (initialized as None)
+           callbacks: List of training callbacks for monitoring and control
+           global_batch_size: Global batch size across all devices in distributed training
+           dataset_batch_size: Batch size for dataset processing
+           predict_batch_size: Batch size for prediction/inference
+           append_restore_info: Additional information for checkpoint restoration
+           common_restore_info: Common checkpoint restoration information
+           network_delay_inited: Flag indicating if network parameters use delayed initialization
+           optimizer_delay_inited: Flag indicating if optimizer parameters use delayed initialization
+           lr_scheduler: Learning rate scheduler instance
+           grouped_lr_scheduler: Grouped learning rate scheduler for different parameter groups
+       """
     def __init__(self) -> None:
         self.llm_model = None
         self.train_dataset = None
@@ -102,18 +117,43 @@ class LLMTrainer:
         """Initialize and setup configuration for training or inference.
 
         This method sets up the configuration based on whether it's for training or inference mode.
-        For training, it configures parallel context, batch sizes, and other training-specific settings.
-        For inference, it validates parallel mode and sets data parallel size.
+        It performs comprehensive initialization including parallel context setup, batch size calculation,
+        seed configuration, and various training/inference-specific settings.
+
+        For training mode (is_train=True), it performs:
+        - Sets random seed for reproducibility
+        - Configures optimizer parallel context
+        - Sets up pipeline parallel context
+        - Configures dump local norm parallel context
+        - Resets and validates gradient accumulation steps
+        - Computes and sets data parallel size
+        - Sets dataset strategy parallel context
+        - Calculates training batch sizes based on global batch size
+        - Configures model settings for Muon optimizer if applicable
+        - Validates auto parallel mode for training
+
+        For inference mode (is_train=False), it performs:
+        - Sets inference seed
+        - Validates parallel mode for prediction
+        - Sets data parallel size
 
         Args:
             config (MindFormerConfig): Configuration object containing all training/inference settings.
+                Must include: training_args, distribute_parallel_config, optimizer, model, etc.
             is_train (bool): Flag indicating whether setup is for training (True) or inference (False).
                             Defaults to True.
 
         Raises:
-            ValueError: If config is None.
+            ValueError: If config is None or contains invalid values.
             TypeError: If config is not an instance of MindFormerConfig.
             RuntimeError: If parallel mode is not supported for the specified mode.
+
+        Side Effects:
+            - Sets self.config to the provided config object
+            - Modifies config.model structure (via _set_model_config_adapter_old_format)
+            - Updates various config attributes based on computed values
+            - Sets output directory path
+            - Logs host information
         """
         if config is None:
             raise ValueError("Configuration must be provided, but received None.")
@@ -160,12 +200,29 @@ class LLMTrainer:
 
         This method configures the pipeline parallel settings for the model training process.
         It sets the pipeline stages and pipeline configuration parameters such as interleave
-        and scheduler type when in auto parallel mode.
+        and scheduler type when in auto parallel mode. Pipeline parallelism splits the model
+        across multiple devices, with each device processing different layers sequentially.
 
         The pipeline configuration includes:
-        - pipeline_model_parallel_size: Number of pipeline stages
-        - pipeline_interleave: Whether to enable pipeline interleave
-        - pipeline_scheduler: Scheduler type, default is "1f1b"
+        - pipeline_model_parallel_size: Number of pipeline stages (how many devices the model
+          is split across). Each stage processes a subset of model layers.
+        - pipeline_interleave: Whether to enable pipeline interleave optimization, which
+          improves pipeline efficiency by overlapping computation and communication.
+        - pipeline_scheduler: Scheduler type for pipeline execution. Default is "1f1b" (1 forward,
+          1 backward), which alternates forward and backward passes. Other options may include
+          "gpipe" "zero_bubble_v" or custom schedulers.
+
+        Note:
+            - This method only takes effect when auto parallel mode is valid and
+              distribute_parallel_config is provided
+            - Pipeline parallelism requires careful configuration of micro_batch_num to ensure
+              it's >= pipeline_model_parallel_size
+            - The configuration is applied to MindSpore's auto parallel context
+
+        Side Effects:
+            - Calls ms.set_auto_parallel_context() to configure pipeline stages
+            - Sets pipeline_config with interleave and scheduler settings
+            - Logs pipeline parallel configuration information
         """
         # New process uses distribute_parallel_config to set PP-related parallel configuration
         distribute_parallel_config = self.config.distribute_parallel_config
@@ -188,13 +245,32 @@ class LLMTrainer:
         """Set optimizer parallel context based on distributed parallel configuration.
 
         This method configures the optimizer parallel settings for model training.
-        It enables parallel optimizer and sets optimizer level and weight shard size
-        when the distribute parallel configuration is provided and parallel optimizer is enabled.
+        Optimizer parallelism distributes optimizer states (e.g., momentum, variance) across
+        devices to reduce memory usage per device, enabling training of larger models.
 
         The optimizer parallel configuration includes:
-        - enable_parallel_optimizer: Whether to enable parallel optimizer
-        - optimizer_level: Optimizer level, default is "level1"
-        - optimizer_weight_shard_size: Weight shard size, default is -1
+        - enable_parallel_optimizer: Whether to enable parallel optimizer. When enabled,
+          optimizer states are sharded across devices, reducing memory footprint.
+        - optimizer_level: Optimizer parallelization level. "level1" shards optimizer states
+          across data parallel dimension, "level2" may include additional optimizations.
+          Default is "level1".
+        - optimizer_weight_shard_size: Weight shard size for optimizer parallelism. -1 means
+          automatic calculation based on available devices. Positive values specify explicit
+          shard size.
+        - parallel_optimizer_threshold: Minimum parameter size threshold (in MB) for applying
+          optimizer parallelism. Parameters smaller than this threshold won't be sharded.
+          Default is 64 MB.
+
+        Note:
+            - This method only takes effect when distribute_parallel_config is provided and
+              enable_parallel_optimizer is True
+            - Optimizer parallelism is particularly useful for large models with limited
+              per-device memory
+            - The configuration is applied to MindSpore's auto parallel context
+
+        Side Effects:
+            - Calls ms.set_auto_parallel_context() to configure optimizer parallelism
+            - Logs optimizer parallel configuration information
         """
         # New process uses distribute_parallel_config to set optimizer-related parallel configuration
         distribute_parallel_config = self.config.distribute_parallel_config
@@ -292,17 +368,44 @@ class LLMTrainer:
         """Check runner config and set training step parameters.
 
         This method calculates and configures the training steps based on the dataset size,
-        epochs, and sink mode settings. It adjusts the number of epochs when sink mode
-        is enabled and sink_size is specified. It also sets initial epoch and step values
-        for training resumption.
+        epochs, and sink mode settings. It handles sink mode optimization, which improves
+        training efficiency by processing data in batches within the computational graph.
+        It also sets initial epoch and step values for training resumption from checkpoints.
 
+        Args:
+            dataset (GeneratorDataset): Training dataset used to determine data size for
+                calculations. The dataset must have a get_dataset_size() method that returns
+                the total number of samples.
         The method performs the following operations:
-        1. Gets the training dataset size
-        2. Sets original epochs value
-        3. Initializes gradient accumulation steps if not set
-        4. Sets initial epoch and step to 0 if not specified
-        5. Adjusts epochs calculation based on sink mode and sink size
-        6. Updates configuration with dataset size and training parameters
+        1. Gets the training dataset size via _get_train_dataset_size()
+        2. Stores original epochs value in origin_epochs for reference
+        3. Initializes gradient_accumulation_steps to 1 if not set
+        4. Sets initial_epoch and initial_step to 0 if not specified (for fresh training)
+        5. Adjusts epochs calculation based on sink mode:
+           - If sink_mode is True and sink_size is specified (> 0):
+             * Validates sink_size is positive
+             * Warns if dataset size < sink_size
+             * Calculates adjusted epochs: epochs = (data_size / sink_size) * original_epochs
+             * Sets sink_size to data_size if sink_size is -1
+           - If sink_mode is False: Sets sink_size to -1 (disabled)
+        6. Updates config.data_size with the dataset size
+        7. Logs training configuration information
+
+        Raises:
+            ValueError: If sink_size is set but is <= 0 (and not -1) when sink_mode is True.
+            RuntimeError: If train_dataset is not set (via _get_train_dataset_size).
+
+        Note:
+            - Sink mode improves training efficiency by reducing Python overhead
+            - When resuming training, initial_epoch and initial_step should be set before
+              calling this method
+            - The adjusted epochs calculation ensures consistent training duration regardless
+              of sink_size configuration
+
+        Side Effects:
+            - Modifies self.config.training_args with computed values
+            - Sets self.config.data_size
+            - Logs configuration information
         """
         data_size = self._get_train_dataset_size()
         new_epochs = self.config.training_args.epochs
@@ -413,6 +516,16 @@ class LLMTrainer:
 
         This method computes the appropriate data parallel size based on the available
         devices and other parallel configuration settings, then updates the configuration.
+
+        Data parallelism splits the training data across multiple devices, enabling
+        parallel processing of different data batches.
+
+        The method delegates the actual calculation to _compute_data_parallel_size()
+        and stores the result in the distribute_parallel_config.
+
+        Side Effects:
+            - Updates self.config.distribute_parallel_config.data_parallel_size
+              with the computed value
         """
         self.config.distribute_parallel_config.data_parallel_size = self._compute_data_parallel_size()
 
@@ -420,14 +533,46 @@ class LLMTrainer:
         """Compute the data parallel size based on distributed configuration.
 
         This method calculates the appropriate data parallel size based on the available
-        devices and other parallel configuration settings. It ensures that the parallel
-        configuration is valid and compatible with the device setup.
+        devices and other parallel configuration settings. Data parallelism splits the
+        training data across multiple devices, with each device processing a different
+        subset of the data.
+
+        Calculation logic:
+        1. If auto parallel mode is not valid, returns 1 (no data parallelism)
+        2. If data_parallel_size is explicitly set in config, returns that value
+        3. Otherwise, calculates: dp = device_num / (tp * pp * cp)
+           where:
+           - device_num: Total number of available devices
+           - tp: tensor_model_parallel_size (model parallelism across tensor dimensions)
+           - pp: pipeline_model_parallel_size (model parallelism across layers)
+           - cp: context_parallel_size (sequence parallelism)
+        4. For prediction mode with batch_size=1, forces dp=1
+        5. Validates expert_parallel_size constraints if MoE is used
+
+        Args:
+            self: Trainer instance with configured distribute_parallel_config
 
         Returns:
-            int: The computed data parallel size.
+            int: The computed data parallel size. Represents how many data parallel groups
+                will be created. Each group processes a different shard of the training data.
 
         Raises:
-            ValueError: If the parallel configuration is invalid or incompatible.
+            ValueError:
+                - If device_num is not divisible by (tp * pp * cp)
+                - If expert_parallel_size > data_parallel_size * tensor_parallel_size * context_parallel_size
+                - If (dp * tp * cp) is not divisible by expert_parallel_size when MoE is used
+
+        Note:
+            - Data parallel size must satisfy: device_num = dp * tp * pp * cp
+            - Expert parallelism (for MoE models) has additional constraints:
+              ep <= dp * tp * cp and (dp * tp * cp) % ep == 0
+            - In prediction mode with batch_size=1, data parallelism is disabled (dp=1)
+            - The method ensures all parallel dimensions are compatible
+
+        Example:
+            With 8 devices, tp=2, pp=2, cp=1:
+            dp = 8 / (2 * 2 * 1) = 2
+            This means 2 data parallel groups, each with 4 devices (2 tp * 2 pp)
         """
         if not self._check_auto_parallel_mode_valid():
             return 1
@@ -467,18 +612,51 @@ class LLMTrainer:
         """Compute training batch size according to Global Batch Size (GBS).
 
         This method calculates the appropriate dataset batch size and global batch size based on
-        user-specified GBS and micro_batch_size. It handles different modes including:
-        1. Semi-auto/automatic parallel mode with various configurations
-        2. Data parallel/standalone mode
+        user-specified GBS and micro_batch_size. The Global Batch Size (GBS) represents the
+        effective batch size across all devices and micro-batches, which is crucial for maintaining
+        consistent training dynamics in distributed settings.
 
-        The method validates basic constraints and computes gradient accumulation steps or
-        micro batch numbers based on the parallel configuration.
+        The method handles different training modes:
+        1. Semi-auto/automatic parallel mode:
+           - Validates that GBS is divisible by (dp * micro_batch_size * micro_batch_interleave_num)
+           - Computes num_micro_batches = GBS / (dp * micro_batch_size * micro_batch_interleave_num)
+           - Sets gradient_accumulation_steps or micro_batch_num based on training configuration
+           - Validates pipeline parallel constraints (micro_batch_num >= pipeline_stages)
+           - Calculates train_data_batch_size = GBS / data_parallel_size
+
+        2. Data parallel/standalone mode:
+           - Calculates train_data_batch_size = GBS / device_num
+           - Resets distribute_parallel_config to defaults
+
+        Formula:
+            GBS = data_parallel_size * micro_batch_size * micro_batch_interleave_num * num_micro_batches
+            train_data_batch_size = GBS / data_parallel_size (in auto parallel mode)
+            train_data_batch_size = GBS / device_num (in standalone/data parallel mode)
 
         Returns:
-            tuple: A tuple containing (train_data_batch_size, global_batch_size)
+            tuple[int, int]: A tuple containing:
+                - train_data_batch_size (int): Batch size for each device's dataset processing
+                - global_batch_size (int): Global batch size across all devices (same as input GBS)
 
         Raises:
-            ValueError: If batch sizes are invalid or incompatible with parallel configuration.
+            ValueError:
+                - If global_batch_size or micro_batch_size <= 0
+                - If GBS is not divisible by (dp * micro_batch_size * micro_batch_interleave_num)
+                - If gradient_accumulation_steps > 1 and pipeline_parallel_size > 1 simultaneously
+                - If micro_batch_num < pipeline_model_parallel_size in pipeline parallel mode
+
+        Note:
+            - Gradient accumulation and pipeline parallel cannot be used simultaneously
+            - In pipeline parallel mode, micro_batch_num must be >= pipeline_model_parallel_size
+            - The method modifies config values (gradient_accumulation_steps, micro_batch_num)
+              based on computed values
+            - For standalone mode, distribute_parallel_config is reset to defaults
+
+        Side Effects:
+            - Modifies self.config.training_args.gradient_accumulation_steps (if applicable)
+            - Modifies self.config.distribute_parallel_config.micro_batch_num (if applicable)
+            - May reset distribute_parallel_config in standalone mode
+            - Logs batch size calculation information
         """
         # Validate basic constraints
         global_batch_size = self.config.training_args.global_batch_size
@@ -554,12 +732,25 @@ class LLMTrainer:
         This method resets the `distribute_parallel_config` to its default configuration
         and explicitly sets the `data_parallel_size` to 1. This is typically used when
         falling back to a standalone or data parallel mode where complex parallel strategies
-        are not needed or supported.
+        (tensor parallelism, pipeline parallelism, etc.) are not needed or supported.
 
         The method performs the following operations:
         1. Updates the distribute_parallel_config with default values from TrainingParallelConfig
-        2. Sets the data_parallel_size to 1
+           This resets all parallel dimensions (tensor_parallel_size, pipeline_parallel_size,
+           context_parallel_size, expert_parallel_size) to their defaults (typically 1)
+        2. Explicitly sets the data_parallel_size to 1, indicating no data parallelism
         3. Logs the configuration change for debugging purposes
+
+        Note:
+            - This method is typically called when not in auto parallel mode
+            - After resetting, the configuration represents a single-device or simple
+              data parallel setup
+            - All model parallelism features are disabled after this reset
+
+        Side Effects:
+            - Modifies self.config.distribute_parallel_config with default values
+            - Sets data_parallel_size to 1
+            - Logs configuration reset information
         """
         self.config.distribute_parallel_config.update(TrainingParallelConfig().default_value())
         self.config.distribute_parallel_config.data_parallel_size = 1
@@ -624,12 +815,51 @@ class LLMTrainer:
             self.config.model.model_config.disable_lazy_inline = True
 
     def _set_construct_args_key(self, column_names: List[str] = None) -> None:
+        """Set the construct arguments key for dataset processing.
+
+        This method configures the column names that will be used for dataset construction.
+        The construct_args_key specifies which columns from the dataset should be passed
+        to the model's forward function. This is essential for proper data flow during
+        training and inference.
+
+        Args:
+            column_names (List[str], optional): List of column names to be used for dataset
+                construction. These names should match the keys in the dataset output.
+                If None and construct_args_key is not already set in config, no action is taken.
+
+        Note:
+            - This method only sets the construct_args_key if it's not already configured
+              in the config and column_names is provided
+            - The column names are typically extracted from the dataset's input columns
+              during dataset creation
+            - This configuration affects how data is passed to the model during training
+        """
         if self.config.train_dataset.construct_args_key is None and column_names is not None:
             self.config.train_dataset.construct_args_key = column_names
             logger.info("The config of train_dataset.construct_args_key has been set to %s.",
                         self.config.train_dataset.construct_args_key)
 
     def _set_model_config_for_muon_optimizer(self) -> None:
+        """Configure model settings for Muon optimizer.
+
+        This method automatically enables the maximum attention logit monitoring feature
+        when Muon optimizer is detected. The Muon optimizer requires monitoring of maximum
+        attention logits during training to track attention patterns and optimize training
+        stability. When enabled, the model will record the maximum logit values from attention
+        mechanisms, which can be used for debugging, monitoring, and optimization purposes.
+
+        The configuration is set automatically during training setup and only takes effect
+        when the optimizer type is explicitly set to "Muon". This ensures that the necessary
+        monitoring infrastructure is in place before training begins.
+
+        Note:
+            This method should be called during the training configuration phase, typically
+            as part of the initial setup process before model construction.
+
+        Side Effects:
+            - Modifies `self.config.model.model_config.monitor_max_attention_logit` to True
+            - Logs an informational message when Muon optimizer is detected
+        """
         # Enable max attention logits for Muon optimizer
         if self.config.optimizer.type == "Muon":
             self.config.model.model_config.monitor_max_attention_logit = True
@@ -853,24 +1083,50 @@ class LLMTrainer:
     def _wrap_network_with_tool_cells(self, network: nn.Cell) -> nn.Cell:
         """Wrap the network with tool cells for training process.
 
-        This method wraps the network with various tool cells based on the training configuration:
-        1. Micro-batch interleaving for double copy parallel feature
-        2. Gradient accumulation cell for gradient accumulation training
-        3. Pipeline cell for pipeline parallel training
-        4. Virtual dataset cell for auto parallel training
+        This method wraps the network with various tool cells based on the training configuration.
+        These wrappers enable advanced training features like gradient accumulation, pipeline
+        parallelism, and data parallelism optimizations. The wrappers are applied in a specific
+        order to ensure proper functionality.
+
+        Wrapping order (from innermost to outermost):
+        1. MicroBatchInterleaved: Enables double copy parallel feature for improved memory
+           efficiency when micro_batch_interleave_num > 1
+        2. GradAccumulationCellWithMultiOutputs: Enables gradient accumulation when
+           gradient_accumulation_steps > 1 and not using pipeline parallel
+        3. PipelineCellWithMultiOutputs: Enables pipeline parallel training when
+           pipeline_stages > 1
+        4. _VirtualDatasetCell: Enables virtual dataset for auto parallel mode in graph mode,
+           ensuring proper data distribution across devices
 
         Args:
-            network (nn.Cell): The base network to be wrapped.
+            network (nn.Cell): The base network to be wrapped. This should be the core model
+                without any training wrappers.
 
         Returns:
-            nn.Cell: The wrapped network with appropriate tool cells.
+            nn.Cell: The wrapped network with appropriate tool cells applied in the correct
+                order. The returned network is ready for training with the configured
+                parallel and optimization features.
 
         The method performs the following operations:
         - Applies MicroBatchInterleaved wrapper when micro_batch_interleave_num > 1
         - Applies GradAccumulationCellWithMultiOutputs when gradient_accumulation_steps > 1
-          and not using pipeline parallel
-        - Applies PipelineCellWithMultiOutputs when pipeline stages > 1
-        - Applies _VirtualDatasetCell for auto parallel mode in graph mode
+          and not using pipeline parallel (pipeline parallel has its own gradient handling)
+        - Applies PipelineCellWithMultiOutputs when pipeline stages > 1, which handles
+          micro-batch scheduling across pipeline stages
+        - Applies _VirtualDatasetCell for auto parallel mode in graph mode (mode == 0),
+          which ensures proper data sharding and broadcasting
+        - Configures dataset broadcast optimization level if applicable
+
+        Note:
+            - Wrappers are applied sequentially, with each wrapper wrapping the previous result
+            - The order matters: MicroBatchInterleaved is innermost, _VirtualDatasetCell is outermost
+            - Pipeline parallel and gradient accumulation are mutually exclusive at this level
+            - Virtual dataset cell is only applied in graph mode (not in PyNative mode)
+
+        Side Effects:
+            - Modifies the network structure by adding wrapper layers
+            - Logs wrapper application information for each wrapper type
+            - May configure dataset broadcast optimization attributes
         """
         micro_batch_interleave_num = self.config.distribute_parallel_config.micro_batch_interleave_num
         gradient_accumulation_steps = self.config.training_args.gradient_accumulation_steps
@@ -909,18 +1165,44 @@ class LLMTrainer:
     def _init_parameters_data(self, network: nn.Cell, optimizer: Optional[nn.Optimizer] = None) -> None:
         """Initialize network and optimizer parameters data.
 
-        This method initializes the parameters data for both network and optimizer when needed:
-        1. Initializes network parameters if network_delay_inited flag is set
-        2. Initializes optimizer parameters if optimizer_delay_inited flag is set and optimizer is provided
+        This method initializes the parameters data for both network and optimizer when delayed
+        initialization was used. Delayed initialization is a memory optimization technique where
+        parameter memory allocation is deferred until after checkpoint loading, allowing for
+        more efficient memory usage during model construction.
+
+        The method handles two scenarios:
+        1. Network parameter initialization: When network_delay_inited is True, initializes
+           all network parameters. This is typically needed when parameters were created with
+           no_init_parameters() context manager.
+        2. Optimizer parameter initialization: When optimizer_delay_inited is True and an
+           optimizer is provided, initializes optimizer state parameters (e.g., momentum buffers,
+           variance estimates for Adam).
 
         Args:
             network (nn.Cell): The neural network model whose parameters need to be initialized.
+                Must have an init_parameters_data() method if network_delay_inited is True.
             optimizer (Optional[nn.Optimizer]): The optimizer whose parameters need to be initialized.
-                Defaults to None.
+                Must have an init_parameters_data() method if optimizer_delay_inited is True.
+                Defaults to None. If None and optimizer_delay_inited is True, optimizer
+                initialization is skipped.
 
         The method performs the following operations:
-        - Calls network.init_parameters_data() when network_delay_inited is True
-        - Calls optimizer.init_parameters_data() when optimizer_delay_inited is True and optimizer is not None
+        - Calls network.init_parameters_data() when network_delay_inited is True, which
+          allocates memory for all network parameters
+        - Calls optimizer.init_parameters_data() when optimizer_delay_inited is True and
+          optimizer is not None, which allocates memory for optimizer state variables
+
+        Note:
+            - Delayed initialization is typically used when loading checkpoints, as it allows
+              loading weights before allocating parameter memory
+            - Both network and optimizer can have delayed initialization independently
+            - If flags are False, no initialization is performed (parameters were already initialized)
+            - This method should be called after checkpoint loading but before training starts
+
+        Side Effects:
+            - Allocates memory for network parameters if network_delay_inited is True
+            - Allocates memory for optimizer state if optimizer_delay_inited is True
+            - Logs initialization status for debugging
         """
         if self.network_delay_inited:
             logger.info("Initializing network parameters data with delay initialization...")
@@ -1033,22 +1315,66 @@ class LLMTrainer:
         """Create training dataset for LLM training.
 
         This method creates and configures a training dataset based on the configuration settings.
-        It handles different data loader types and applies appropriate dataset processing.
+        It handles the complete dataset creation pipeline including data loading, preprocessing,
+        sharding, batching, and special optimizations. The method supports various data loader
+        types and applies appropriate dataset processing for distributed training.
+
+        Dataset Creation Pipeline:
+        1. Creates LLMDataset instance from train_dataset configuration
+        2. Configures MindSpore dataset settings (seed, prefetch, NUMA)
+        3. Generates shard information for data parallel distribution
+        4. Determines input columns based on attention mask and EOD mask requirements
+        5. Creates data loader with appropriate column names and sharding
+        6. Builds final dataset with batching, micro-batch handling, and other options
+        7. Applies special processing for BlendedMegatronDatasetDataLoader if needed
 
         Returns:
-            GeneratorDataset: Configured training dataset ready for model training.
+            GeneratorDataset: Configured training dataset ready for model training. The dataset
+                is properly sharded for data parallelism, batched according to configuration,
+                and includes all necessary preprocessing (padding, masking, etc.).
 
         Raises:
-            ValueError: If dataset broadcast optimization level is incompatible with sink mode,
-                       or if broadcast data configuration is invalid for certain data loaders.
+            ValueError:
+                - If dataset broadcast optimization level is incompatible with sink mode
+                - If broadcast data configuration is invalid for certain data loaders
+                - If required configuration parameters are missing
+            RuntimeError: If dataset creation fails due to invalid data paths or formats
 
         The method performs the following operations:
-        - Validates dataset broadcast optimization level compatibility
-        - Creates LLMDataset instance with provided configuration
-        - Configures dataset sharding information
-        - Creates data loader with specified column names
-        - Builds final dataset with batching and processing options
-        - Applies special processing for BlendedMegatronDatasetDataLoader if needed
+        - Creates LLMDataset instance with train_dataset configuration
+        - Sets MindSpore dataset configuration (seed, prefetch_size, numa_enable)
+        - Generates shard information (shard_id, num_shards) for data parallel distribution
+        - Determines if compressed EOD mask and attention mask should be created
+        - Gets default input columns based on mask requirements
+        - Sets construct_args_key for dataset construction
+        - Enables EOD attention mask compression if needed
+        - Creates data loader with column names and sharding configuration
+        - Calculates micro_batch_num based on pipeline stages or gradient accumulation
+        - Creates final dataset with:
+          * Data batch size from training_args
+          * Drop remainder setting
+          * Input/output column configuration
+          * Micro batch number for pipeline parallel or gradient accumulation
+          * EOD reset configuration
+          * Dynamic batching settings
+          * Padding token configuration
+          * Parallel workers configuration
+          * Token profiling configuration (if enabled)
+        - Applies special handling for BlendedMegatronDatasetDataLoader:
+          * Adjusts dataset size to align with global batch size
+          * Removes redundant data
+
+        Note:
+            - The dataset is sharded based on data_parallel_size for distributed training
+            - Micro batch number is determined by pipeline_stages or gradient_accumulation_steps
+            - EOD mask compression can be enabled for memory efficiency
+            - BlendedMegatronDatasetDataLoader requires special size adjustment
+            - The dataset supports token profiling for performance analysis
+
+        Side Effects:
+            - Sets self.config.model.model_config.use_eod_attn_mask_compression if needed
+            - Sets train_dataset.construct_args_key via _set_construct_args_key()
+            - Logs dataset creation and configuration information
         """
         llm_dataset = LLMDataset(dataset_config=self.config.train_dataset)
         dataset_seed = self.config.training_args.dataset_seed or self.config.training_args.training_seed or 1234
@@ -1830,6 +2156,26 @@ class LLMTrainer:
         return load_checkpoint_path_or_dir
 
     def _get_muon_optimizer_kwargs(self) -> dict:
+        """Get keyword arguments for Muon optimizer initialization.
+
+        This method prepares the required keyword arguments for creating a Muon optimizer
+        instance. The Muon optimizer requires specific parameters including the model instance
+        and micro batch number, which is determined based on the training configuration.
+
+        Returns:
+            dict: Dictionary containing keyword arguments for Muon optimizer:
+                - "model": The LLM model instance
+                - "micro_batch_num": Number of micro batches per step, determined by:
+                  - pipeline_model_parallel_size > 1: Uses micro_batch_num from config
+                  - Otherwise: Uses gradient_accumulation_steps from training args
+                  - Defaults to 1 if neither is set
+
+        Note:
+            - This method is specifically for Muon optimizer configuration
+            - The micro_batch_num calculation ensures compatibility with both pipeline
+              parallel and gradient accumulation training modes
+            - The model instance must be set before calling this method
+        """
         micro_batch_num = self.config.distribute_parallel_config.get("micro_batch_num", 1) \
             if self._get_pipeline_stages() > 1 \
             else self.config.training_args.get("gradient_accumulation_steps", 1)
@@ -1876,10 +2222,21 @@ class LLMTrainer:
         """Get the GPT model's Transformer configuration information.
 
         This method retrieves the GPT Transformer configuration information from the LLM model instance.
-        It is primarily used to obtain specific configuration parameters of the model, such as embedding dimension size.
+        It is primarily used to obtain specific configuration parameters of the model, such as
+        embedding dimension size, number of layers, attention heads, MoE configuration, etc.
 
         Returns:
             int: The GPT Transformer configuration information.
+            TransformerConfig: The GPT Transformer configuration object containing all model
+                architecture parameters including:
+                - Model dimensions (hidden_size, num_layers, num_heads, etc.)
+                - MoE configuration (if applicable)
+                - Attention and MLP configurations
+                - Parallel and optimization settings
+                - Other transformer-specific parameters
+
+        Raises:
+            AttributeError: If llm_model is not set or doesn't have the get_gpt_transformer_config method.
         """
         return self.llm_model.get_gpt_transformer_config()
 
