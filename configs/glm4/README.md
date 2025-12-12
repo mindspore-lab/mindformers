@@ -1,4 +1,4 @@
-# Glm4
+# GLM-4
 
 ## 模型描述
 
@@ -8,8 +8,8 @@ GLM-4 系列模型是专为智能代理设计的基础模型, 其性能可与Ope
 
 |    模型名称    |    规格     |  支持任务  | 模型架构  |                       支持设备                        |        模型级别         |
 |:----------:|:---------:|:------:|:-----:|:-------------------------------------------------:|:-------------------:|
-|GLM4-32B    | 32B |   推理   | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD | [Validated](#模型级别介绍) |
-|GLM4-9B    | 9B   |   推理   | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |     [Validated](#模型级别介绍)     |
+|GLM-4-32B    | 32B |   推理   | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD | [Validated](#模型级别介绍) |
+|GLM-4-9B    | 9B   |   推理   | Mcore | Atlas 800T A2/Atlas 800I A2/Atlas 900 A3 SuperPoD |     [Validated](#模型级别介绍)     |
 
 说明：
 
@@ -18,15 +18,15 @@ GLM-4 系列模型是专为智能代理设计的基础模型, 其性能可与Ope
 
 ## 版本配套
 
-GLM4 当前支持的版本配套如下。
+GLM-4 当前支持的版本配套如下。
 
-|           | Mindspore Transformers | MindSpore | CANN | HDK |
+|           | MindSpore Transformers | MindSpore | CANN | HDK |
 |:---------:|:----------------------:|:---------:|:----:|:---:|
 | 当前支持的版本 |           在研版本           |    在研版本     |  在研版本  | 在研版本  |
 
 ## 使用样例
 
-MindSpore Transformers 支持使用 GLM4 进行推理。各任务的整体使用流程如下：
+MindSpore Transformers 支持使用 GLM-4 进行推理。各任务的整体使用流程如下：
 
 | 任务  | 前期准备                    | 使用流程                       |
 |:---:|:------------------------|:---------------------------|
@@ -69,7 +69,7 @@ parallel_config:
 - pretrained_model_dir：Hugging Face模型目录路径，放置模型配置、Tokenizer等文件。`/path/hf_dir`中的内容如下：
 
 ```text
-📂GLM4
+📂GLM-4
 ├── 📄config.json
 ├── 📄generation_config.json
 ├── 📄merges.txt
@@ -130,7 +130,7 @@ python run_mindformer.py \
 
 多卡推理：
 
-Glm4的32B规模模型，只能进行多卡推理，多卡推理的配置需参考下面修改配置：
+GLM-4的32B规模模型，只能进行多卡推理，多卡推理的配置需参考下面修改配置：
 
 1. 模型并行model_parallel的配置和使用的卡数需保持一致，下文用例为8卡推理，需将model_parallel设置成8；
 2. 当前版本的多卡推理不支持数据并行，需将data_parallel设置为1。
@@ -188,15 +188,15 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ### 模型文件说明
 
-Glm4的模型文件包括以下内容：
+GLM-4的模型文件包括以下内容：
 
 ```text
 📦glm4
-├── 📄__init__.py                   # glm4模块初始化文件
-├── 📄configuration_glm4.py         # glm4模型配置类定义
-├── 📄modeling_glm4.py              # glm4模型主体实现
-├── 📄modeling_glm4_infer.py        # glm4推理模型实现
-└── 📄utils.py                      # glm4工具函数和基础类
+├── 📄__init__.py                   # GLM-4模块初始化文件
+├── 📄configuration_glm4.py         # GLM-4模型配置类定义
+├── 📄modeling_glm4.py              # GLM-4模型主体实现
+├── 📄modeling_glm4_infer.py        # GLM-4推理模型实现
+└── 📄utils.py                      # GLM-4工具函数和基础类
 ```
 
 ### 并行配置建议
@@ -218,7 +218,7 @@ Glm4的模型文件包括以下内容：
     <th>模型级别</th>
   </tr>
   <tr>
-    <td>GLM4-32B</td>
+    <td>GLM-4-32B</td>
     <td>32B</td>
     <td>1 × Atlas 800T A2 (2P)</td>
     <td>2</td>
@@ -235,7 +235,7 @@ Glm4的模型文件包括以下内容：
     <td> Validated </td>
   </tr>
   <tr>
-    <td>GLM4-9B</td>
+    <td>GLM-4-9B</td>
     <td>9B</td>
     <td>1 × Atlas 800T A2 (1P)</td>
     <td>1</td>

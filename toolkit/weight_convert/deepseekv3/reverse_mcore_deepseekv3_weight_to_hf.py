@@ -21,6 +21,9 @@ import argparse
 from collections import defaultdict
 from glob import glob
 from time import time
+from functools import partial
+from multiprocessing import Pool
+
 from safetensors.torch import save_file
 import numpy as np
 
@@ -50,6 +53,7 @@ DEFAULT_CONFIG = {
     'ffn_hidden_size': 18432,
     'moe_ffn_hidden_size': 2048,
     'dtype': torch.bfloat16,
+    'max_worker': 16,
 }
 
 
@@ -146,7 +150,7 @@ def layers_model_file_map(file_path, config):
 
     # Try to get the 'param_name_map' of weight.
     if os.path.exists(weight_map_file):
-        with open(weight_map_file) as f:
+        with open(weight_map_file, encoding='utf-8') as f:
             weights_map = json.load(f)
         try:
             weights_map = weights_map["weight_map"]
@@ -493,78 +497,118 @@ def get_torch_storage_size(tensor):
     return tensor.untyped_storage().nbytes()
 
 
+def _process_single_layer(layer_id, *, num_layers, total_num_layers, layer_st_map, config, output_path):
+    """Handles MindSpore Transformers to HuggingFace weight transformation tasks for a single layer."""
+    # Read the HF weights of the current layer.
+    if layer_id == 0:
+        ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=False)
+    elif 0 < layer_id < num_layers - 1:
+        ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=False)
+    elif layer_id == num_layers - 1:
+        ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=True)
+    else:
+        # MTP layers (layer_id >= num_layers)
+        ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=True)
+
+    pt_layer_weights = {}
+
+    # Process `word_embeddings` in first layer.
+    if layer_id == 0:
+        pt_layer_weights.update(_model_preprocess_ms_to_pt(ms_layer_weights, config))
+    # Process `output_layer` etc. in last layer.
+    if layer_id == total_num_layers - 1:
+        pt_layer_weights.update(_model_postprocess_ms_to_pt(ms_layer_weights, config))
+
+    # Common process for each layer.
+    if layer_id >= num_layers:
+        # MTP layer.
+        pt_layer_weights.update(_mtp_ms_to_pt(layer_id, ms_layer_weights, config))
+    else:
+        # Standard Transformer layer: MLA + MLP.
+        pt_layer_weights.update(_mla_ms_to_pt(layer_id, ms_layer_weights, config))
+        pt_layer_weights.update(_mlp_ms_to_pt(layer_id, ms_layer_weights, config))
+
+    # Save weight file.
+    saving_file_name = f"model-{layer_id + 1:05d}-of-{total_num_layers:05d}.safetensors"
+    file_path = os.path.join(output_path, saving_file_name)
+    save_file(pt_layer_weights, file_path)
+    set_safe_mode_for_file_or_dir(file_path)
+
+    # Calculate the weight size and get the file mapping for this layer.
+    weight_map_entries = {}
+    total_layer_size = 0
+    for name, value in pt_layer_weights.items():
+        weight_map_entries[name] = saving_file_name
+        total_layer_size += get_torch_storage_size(value)
+
+    return layer_id, weight_map_entries, total_layer_size, saving_file_name
+
+
 def ms_safetensors_convertor(input_path, output_path, config):
-    """Convert safetensors format checkpoint"""
-    # Try to get weight-file map of each layer.
+    """
+    Convert MindSpore Transformer to Hugging Face format checkpoint.
+
+    Args:
+        input_path (str): Hugging Face weight directory path.
+        output_path (str): Mindspore Transformers weight directory path.
+        config (dict): Conversion configuration.
+    """
+    # Get layer mapping.
     layer_st_map = layers_model_file_map(input_path, config)
 
+    # Get the config.
     num_layers = config["num_layers"]
     num_nextn_predict_layers = config["num_nextn_predict_layers"]
     total_num_layers = num_layers + num_nextn_predict_layers
+    max_worker = config["max_worker"]
 
-    converted_st_map = defaultdict()
-    converted_st_map["weight_map"] = defaultdict()
-    converted_st_map["metadata"] = defaultdict()
+    # Constructing child process handling functions.
+    worker = partial(
+        _process_single_layer,
+        num_layers=num_layers,
+        total_num_layers=total_num_layers,
+        layer_st_map=layer_st_map,
+        config=config,
+        output_path=output_path
+    )
 
+    # Stores `model.safetensors.index.json` JSON information.
+    converted_st_map = {
+        "weight_map": {},
+        "metadata": {}
+    }
     total_size = 0
-    for layer_id in tqdm(
-            range(total_num_layers), desc="Converting layers", unit="layers", position=0, leave=True
-    ):
-        # Get current layer weight keys.
-        if layer_id == 0:
-            ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=False)
-        elif 0 < layer_id < num_layers - 1:
-            ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=False)
-        elif layer_id == num_layers - 1:
-            ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=False, is_last=True)
-        else:
-            # For mtp layers, embed weight and lm_head weight are needed for shared weights.
-            ms_layer_weights = read_matched_file(layer_st_map, [layer_id], is_first=True, is_last=True)
 
-        pt_layer_weights = defaultdict()
-        # First Layer
-        if layer_id == 0:
-            pt_layer_weights.update(
-                _model_preprocess_ms_to_pt(ms_layer_weights, config)
-            )
-        # Last Layer
-        if layer_id == total_num_layers - 1:
-            pt_layer_weights.update(
-                _model_postprocess_ms_to_pt(ms_layer_weights, config)
-            )
-        # MTP Layers process
-        if layer_id > num_layers - 1:
-            pt_layer_weights.update(
-                _mtp_ms_to_pt(layer_id, ms_layer_weights, config)
-            )
-        else:
-            pt_layer_weights.update(
-                _mla_ms_to_pt(layer_id, ms_layer_weights, config)
-            )
-            pt_layer_weights.update(
-                _mlp_ms_to_pt(layer_id, ms_layer_weights, config)
-            )
+    # Use multiprocess to accelerate the conversion process.
+    with Pool(processes=min(max_worker, total_num_layers)) as pool:
+        for result in tqdm(
+            pool.imap_unordered(worker, range(total_num_layers)),
+            desc="Converting layers",
+            total=total_num_layers,
+            unit="layers",
+            position=0,
+            leave=True
+        ):
+            layer_id, weight_map_entries, layer_size, saving_file_name = result
+            converted_st_map["weight_map"].update(weight_map_entries)
+            total_size += layer_size
+            tqdm.write(f"Saved weights in layer-{layer_id} to file '{saving_file_name}' successfully!")
 
-        saving_file_name = f"model-{layer_id + 1:05d}-of-{total_num_layers:05d}.safetensors"
-        for name in list(pt_layer_weights.keys()):
-            converted_st_map["weight_map"][name] = saving_file_name
-            total_size += get_torch_storage_size(pt_layer_weights.get(name))
-        save_file(pt_layer_weights, os.path.join(output_path, saving_file_name))
-        tqdm.write(f"Saved weights in layer-{layer_id} to file '{saving_file_name}' successfully!")
-
+    # Write the `model.safetensors.index.json`.
     converted_st_map["metadata"]["total_size"] = total_size
-    converted_model_index_file = os.path.join(output_path, f"model.safetensors.index.json")
-    with open(converted_model_index_file, "w") as f:
+    index_file = os.path.join(output_path, "model.safetensors.index.json")
+    with open(index_file, "w", encoding='utf-8') as f:
         json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
-    set_safe_mode_for_file_or_dir(converted_model_index_file)
-    tqdm.write(f"Param name map is saved into file '{converted_model_index_file}' successfully!")
+    set_safe_mode_for_file_or_dir(index_file)
+
+    tqdm.write(f"Param name map saved to '{index_file}' successfully!")
 
 
 def convert_ms_to_pt(input_path, output_path, config=None):
     """convert ms weight to huggingface."""
     if config is None:
-        config = default_config
+        config = DEFAULT_CONFIG
     os.makedirs(output_path, exist_ok=True)
 
     tqdm.write(f"Trying to convert huggingface checkpoint in '{input_path}'.")
@@ -580,15 +624,10 @@ def convert_ms_to_pt(input_path, output_path, config=None):
 
 def reverse_weight(para):
     """convert weight entrance"""
-    if not hasattr(para, 'mindspore_ckpt_path'):
-        para.mindspore_ckpt_path = para.input_path
-    if not hasattr(para, 'huggingface_ckpt_path'):
-        para.huggingface_ckpt_path = para.output_path
-
     for key in DEFAULT_CONFIG:
         DEFAULT_CONFIG[key] = getattr(para, key, DEFAULT_CONFIG[key])
-        if key in ['num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace',
-                   'num_routed_experts', 'hidden_size', 'ffn_hidden_size', 'moe_ffn_hidden_size']:
+        if key in ['num_layers', 'num_nextn_predict_layers', 'first_k_dense_replace', 'num_routed_experts',
+                   'hidden_size', 'ffn_hidden_size', 'moe_ffn_hidden_size', 'max_worker']:
             DEFAULT_CONFIG[key] = int(DEFAULT_CONFIG[key])
 
     DEFAULT_CONFIG['dtype'] = (
@@ -598,8 +637,8 @@ def reverse_weight(para):
     )
 
     convert_ms_to_pt(
-        input_path=para.mindspore_ckpt_path,
-        output_path=para.huggingface_ckpt_path,
+        input_path=para.input_path,
+        output_path=para.output_path,
         config=DEFAULT_CONFIG
     )
 
@@ -607,10 +646,17 @@ def reverse_weight(para):
 if __name__ == "__main__":
     # Get configuration args
     parser = argparse.ArgumentParser()
-    parser.add_argument('--huggingface_ckpt_path', default=None, type=str,
-                        help="Converted HuggingFace checkpoint directory.")
-    parser.add_argument('--mindspore_ckpt_path', default=None, type=str,
-                        help="MindSpore Transformers MCore checkpoint directory.")
+
+    parser.add_argument('--input_path', default=None, type=str,
+                        help="Input MindSpore Transformers MCore checkpoint directory.")
+    parser.add_argument('--output_path', default=None, type=str,
+                        help="Output converted HuggingFace checkpoint directory.")
+
+    parser.add_argument("--max_worker", default=16, type=int,
+                        help="Maximum number of child processes to be allocated. "
+                             "Please manage child processes appropriately "
+                             "to avoid resource contention caused by too many child processes, "
+                             "as this may lead to OutOfMemoryError (OOM).")
 
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'],
                         help="The dtype of converted weight, choices in ['fp16', 'bf16', 'fp32']")

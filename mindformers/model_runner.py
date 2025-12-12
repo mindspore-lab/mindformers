@@ -18,6 +18,7 @@ For text generation
 """
 import os
 import json
+import importlib
 from typing import Optional, List, Union, Dict
 import numpy as np
 
@@ -186,7 +187,6 @@ class ModelRunner:
         model_runner_cls = MindIEModelRunner
         if model_type not in models.__all__:
             try:
-                import importlib
                 model_runner_cls = importlib.import_module(model_type, ["MindIEModelRunner"]).MindIEModelRunner
             except ImportError:
                 logger.info(f"import MindIEModelRunner from module {model_type} failed, "
@@ -581,7 +581,7 @@ class InputBuilder:
              input_ids
         """
         if not hasattr(self.tokenizer, "apply_chat_template"):
-            raise RuntimeError("The tokenizer dose not implement apply_chat_template function.")
+            raise RuntimeError("The tokenizer does not implement apply_chat_template function.")
         if not self.tokenizer.chat_template:
             raise RuntimeError("The model does not appear to be a chat model because it is not configured with a "
                                "`chat_template`.")

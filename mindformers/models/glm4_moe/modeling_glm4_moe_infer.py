@@ -17,7 +17,6 @@ __all__ = ['InferenceGlm4MoeForCausalLM']
 
 from mindformers.models.utils import jit
 from mindformers.parallel_core.transformer_config import TransformerConfig
-from mindformers.parallel_core.transformer_config_utils import convert_to_transformer_config
 from mindformers.models.glm4_moe.utils import Glm4MoePreTrainedModel
 from mindformers.parallel_core.inference.utils import update_comm_config
 from mindformers.parallel_core.inference.base_models.gpt.gpt_model import GPTModel
@@ -41,8 +40,11 @@ class InferenceGlm4MoeForCausalLM(Glm4MoePreTrainedModel, InferModelMixin):
 
     def __init__(self, config: Glm4MoeConfig):
         super().__init__(config, auto_prefix=False)
+        if config.model_type == "glm4_moe":
+            setattr(config, "num_nextn_predict_layers", 0)
+
         self.config = config
-        config: TransformerConfig = convert_to_transformer_config(self.config)
+        config: TransformerConfig = self.convert_to_transformer_config(self.config)
 
         # update communication-related configuration in TransformerConfig
         config = update_comm_config(config)

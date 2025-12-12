@@ -26,6 +26,7 @@ from mindspore.ops.auto_generate import AddExt, AssignAdd, Cast, Div, Mul, Resha
 from mindspore.ops.operations import Shape, ReduceSum, ReduceMean
 from mindspore.parallel._utils import _get_parallel_mode
 
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 from mindformers.parallel_core.training_graph.device_matrix import layout_moe as layout
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.tools.utils import get_real_group_size, get_real_rank
@@ -116,6 +117,20 @@ class Router(ABC, nn.Cell):
         weight = self.weight.astype(self.moe_router_dtype)
         router_logits = self.linear(inputs.astype(self.moe_router_dtype), weight)
         return router_logits
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        sharded_state_dict = {}
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=(self.expert_dim, self.hidden_size),
+            global_shape=(self.expert_dim, self.hidden_size),
+            global_offset=(0, 0),
+            axis_fragmentations=(1, 1),
+        )
+        return sharded_state_dict
 
 
 class TopKRouter(Router):

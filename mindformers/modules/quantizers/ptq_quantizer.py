@@ -52,19 +52,9 @@ class PtqQuantizer(Quantizer):
     def _process_model_before_weight_loading(
             self, model: "PreTrainedModel", **kwargs
     ):
+        # pylint: disable=import-outside-toplevel
         from mindspore_gs.ptq import PTQ
         ptq = PTQ(config=self.quant_config, layer_policies=self.layer_policies)
         model = ptq.apply(model)
         model = ptq.convert(model)
         return model
-
-    def _process_model_after_weight_loading(self, model, **kwargs):
-        return model
-
-    @property
-    def is_serializable(self):
-        return False
-
-    @property
-    def is_trainable(self):
-        return False

@@ -177,9 +177,11 @@ class FlashAttention(Cell):
 
         if self.monitor_max_attention_logit:
             self.max_logits_val = Parameter(
-                Tensor(np.zeros((1, self.head_num)), dtype=mstype.float32),
+                Tensor(np.zeros((self.head_num)), dtype=mstype.float32),
                 parallel_optimizer=False, requires_grad=False
             )
+            self.reduce_max = aclnn_ops.ReduceMax()
+            self.reduce_max.add_prim_attr("self_define_shard", True)
             self.assign_add = ops.AssignAdd()
             self.assign_add.add_prim_attr("self_define_shard", True)
 
@@ -288,7 +290,7 @@ class FlashAttention(Cell):
             attention_mask = self.lower_triangle_mask
 
         if self.input_layout == "TND":
-            _, _, _, output = self.flash_attention(query,
+            softmax_val, _, _, output = self.flash_attention(query,
                                                    key,
                                                    value,
                                                    alibi_mask,
@@ -298,6 +300,9 @@ class FlashAttention(Cell):
                                                    prefix,
                                                    actual_seq_qlen,
                                                    actual_seq_kvlen)
+            if self.monitor_max_attention_logit:
+                max_logits = self.reduce_max(softmax_val, (0, 2))
+                output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
             return output
 
         q_seq_len, bsz = query.shape[:2]
@@ -331,8 +336,7 @@ class FlashAttention(Cell):
                                                attention_mask,
                                                prefix)
         if self.monitor_max_attention_logit:
-            max_logits = ops.ReduceMax()(softmax_val, (2, 3))
-            max_logits = ops.ReduceMax(keep_dims=True)(max_logits, (0))
+            max_logits = self.reduce_max(softmax_val, (0, 2, 3))
             output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
 
         if self.input_layout == "BNSD":
@@ -377,12 +381,17 @@ class FlashAttention(Cell):
 
         if self.monitor_max_attention_logit:
             self.assign_add.shard(
-                in_strategy=(
-                    layout("None", "tp"),
-                    layout("None", "tp"),
-                ),
-                out_strategy=(
-                    layout("None", "tp"),
-                )
+                in_strategy=(layout("tp"), layout("tp")),
+                out_strategy=(layout("tp"),)
             )
+            if self.input_layout == "BNSD":
+                self.reduce_max.shard(
+                    in_strategy=(layout("None", "tp", "None", "None"),),
+                    out_strategy=(layout("tp"),)
+                )
+            elif self.input_layout == "TND":
+                self.reduce_max.shard(
+                    in_strategy=(layout("None", "tp", "None"),),
+                    out_strategy=(layout("tp"),)
+                )
         return self

@@ -58,6 +58,7 @@ from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 from mindspore.utils import stress_detect
 
+from mindformers.wrapper.wrapper import get_real_models
 from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
 from mindformers.core.context.build_context import is_legacy_model
 from mindformers.tools import get_output_root_path
@@ -216,11 +217,9 @@ def _get_max_eigenvalue(input_tensor, num_iter):
         v_tensor = ms.ops.matmul(input_seq, u_tensor)  # (b,n,n) * (n,1) = (b,n,1)
         eigenvalue = ms.ops.matmul(v_tensor.transpose(-2, -1), u_tensor).squeeze()  # (b,1,n) * (b,n,1) = b
         v_norm = v_tensor.norm(dim=1, keepdim=True)  # (b,1,1)
-        if (v_norm != 0).all():
-            u_tensor = v_tensor / v_norm
-        else:
-            return 0.0
-    return eigenvalue.asnumpy()
+        v_norm_safe = ms.ops.select(v_norm == 0, ms.ops.ones_like(v_norm), v_norm)
+        u_tensor = v_tensor / v_norm_safe
+    return eigenvalue
 
 
 def _get_stable_rank(weight, num_iter):
@@ -230,11 +229,13 @@ def _get_stable_rank(weight, num_iter):
     except Exception as e:
         logger.warning(f"{weight.name} calculate max eigenvalue failed: {e}")
         return 0.0, 0.0
-    eig = np.asarray(eig)
-    if (eig != 0.0).all():
-        f_norm = ms.ops.norm(weight, ord='fro', dim=(-2, -1))
-        return ms.ops.square(f_norm).asnumpy() / eig, eig
-    return 0.0, 0.0
+    f_norm_square = ms.ops.square(ms.ops.norm(weight, ord='fro', dim=(-2, -1)))
+    stable_rank = ms.ops.select(
+        eig != 0,
+        f_norm_square / eig,
+        ms.ops.zeros_like(eig)
+    )
+    return stable_rank.asnumpy(), eig.asnumpy()
 
 
 def _get_optimizer_state(optim_params, filter_fn: Callable = None):
@@ -244,6 +245,11 @@ def _get_optimizer_state(optim_params, filter_fn: Callable = None):
         if filter_fn is None or filter_fn(param.name):
             norms[param.name] = float(param.to(ms.float32).norm().item())
     return norms
+
+
+def _is_positive_natural_number(x):
+    """Check if it is a positive natural number"""
+    return isinstance(x, int) and x > 0
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -679,58 +685,34 @@ class TrainingStateMonitor(Callback):
 
             - local_norm_format: Determine where to display the local norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Only params specified will be monitored.
+              or a `list` containing them, or ``None``. Only params specified will be monitored.
               may cause a large amount of print info if 'log' is selected.
               Set to ``None`` to ignore this metric. Default: ``None``.
 
             - device_local_norm_format: Determine where to display the device local norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric. Default: ``None``.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric. Default: ``None``.
 
             - local_loss_format: Determine where to display the local loss.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
             - device_local_loss_format: Determine where to display the device local loss.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
 
             - optimizer_state_format: Determine where to display the optimizer state.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Only the optimizer state of params specified
+              or a `list` containing them, or ``None``. Only the optimizer state of params specified
               will be monitored, may cause a large amount of print info if 'log' is selected.
               Set to ``None`` to ignore this metric. Default: ``None``.
 
             - weight_state_format: Determine where to display the weight L2-norm.
               Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              or a `list` containing them, or ``None``. Set to ``None`` to ignore this metric.
               Default: ``None``.
-
-            - stable_rank_config
-                - format: Determine where to display the weight stable_rank and max eigenvalue.
-                Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
-                or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
-                Default: ``None``.
-
-                - step_interval (int, optional): Specify the frequency of monitoring stable rank.
-                Must be natural number. Default: ``1``.
-
-                - target (list[str], optional): Specify the name or regular expression of params to calculate
-                stable rank. e.g. ["layers.[01]", "attention"]. Default: ``['*']``.
-
-                - do_aggregation (bool, optional): Whether to aggregate weight parameter when when it has been
-                sliced to calculate stable_rank and eigenvalue.. Default: ``False``.
-
-                - moe_show_mode (Literal['full', 'statistics', 'all'], optional): Only works when calculating
-                weight_stable_rank and weight_eigenvalue for MOE model (3D param). Set to `full` to list all
-                experts data. Set to `statistics` to show min, max, mean of all experts. Set to `all` to show
-                both original data and statistic data. Default: ``'all'``.
-
-                - power_iteration_num (int, optional): The power iteration method is used to approximate the max
-                eigenvalue.The more iterations performed, the closer the computed result is to the true value,
-                but the computational cost increases accordingly. Must be natural number. Default: ``5``.
 
             - throughput_baseline: The model throughput baseline to calculate linearity. Must be a positive number.
               Will be displayed both to tensorboard and log. Set to ``None`` to ignore this metric. Default: ``None``.
@@ -752,7 +734,6 @@ class TrainingStateMonitor(Callback):
         embedding_size (int, optional): The size of embedding norm which is get
             by hidden_size * vocab_size. Default: ``4096``.
         use_local_norm (bool, optional): Whether to turn on the local norm. Default: ``False``.
-            Default: ``False``.
     """
 
     @args_type_check(embedding_size=int, use_skip_data_by_global_norm=bool)
@@ -771,10 +752,9 @@ class TrainingStateMonitor(Callback):
                  embedding_size: int = 4096,
                  use_local_norm: bool = False):
         super().__init__()
-        if not (isinstance(step_interval, int) and step_interval > 0):
-            logger.warning("The value of 'monitor_config.step_interval' should be positive integer, "
-                           f"but get {step_interval}. Use default value: 1.")
-            step_interval = 1
+        if not _is_positive_natural_number(step_interval):
+            raise TypeError("The value of 'monitor_config.step_interval' should be positive integer, "
+                            f"but get {step_interval}.")
         self.step_interval = step_interval
         self.last_print_time = 0
         self.step_time = time.time()
@@ -808,7 +788,7 @@ class TrainingStateMonitor(Callback):
             self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
         # when pipeline_stages > 2, param aggregation is not supported for now
         pp_parallel = context.get_auto_parallel_context("pipeline_stages") > 1
-        if pp_parallel and self.sr_format:
+        if pp_parallel and self.sr_format and self.do_aggregation:
             raise TypeError("When pipeline_stages > 1, weight aggregation is not supported")
 
     def on_train_epoch_begin(self, run_context):
@@ -1076,14 +1056,36 @@ class TrainingStateMonitor(Callback):
         if hasattr(config.get('stable_rank_config'), "get"):
             self.sr_format = config.get('stable_rank_config').get('format', None)
             self.sr_step_interval = config.get('stable_rank_config').get('step_interval', 100)
+            if not _is_positive_natural_number(self.sr_step_interval):
+                raise TypeError("'monitor_config.stable_rank_config.step_interval' should be positive integer,"
+                                f"but get {self.sr_step_interval}.")
             self.sr_last_print_time = 0
             self.sr_target = config.get('stable_rank_config').get('target') or ['.*']
             self.sr_target_cache = {}
             self.do_aggregation = config.get('stable_rank_config').get('do_aggregation', False)
             self.moe_show_mode = config.get('stable_rank_config').get('moe_show_mode') or ["all"]
             self.power_iteration_num = config.get('stable_rank_config').get('power_iteration_num', 5)
+            if not _is_positive_natural_number(self.power_iteration_num):
+                raise TypeError("'monitor_config.stable_rank_config.power_iteration_num' should be positive integer,"
+                                f"but get {self.power_iteration_num}.")
         else:
             self.sr_format = None
+
+    def _init_global_norm_monitor_config(self, config):
+        """Initialize global norm monitor config"""
+        self.check_for_global_norm = config.get('check_for_global_norm')
+        self.global_norm_record_path = os.path.join(get_output_root_path(), "abnormal_global_norm.json")
+        self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
+        self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold', 10)
+        if not _is_positive_natural_number(self.global_norm_spike_count_threshold):
+            raise TypeError("'monitor_config.global_norm_spike_count_threshold' should be positive integer, "
+                            f"but get {self.global_norm_spike_count_threshold}.")
+        self.abnormal_global_norms: dict[str, list[float]] = {}
+        if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
+            # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
+            # because json cannot use number as key, we convert it to string
+            with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
+                self.abnormal_global_norms = json.load(file)
 
     def _init_config(self, config):
         """Initialize members from config"""
@@ -1106,15 +1108,9 @@ class TrainingStateMonitor(Callback):
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
         self._init_stable_rank_config(config)
+        self._init_global_norm_monitor_config(config)
         self.throughput_baseline = config.get('throughput_baseline', None)
         self.print_struct = config.get('print_struct')
-
-        self.check_for_global_norm = config.get('check_for_global_norm')
-        self.global_norm_record_path = os.path.join(get_output_root_path(), "abnormal_global_norm.json")
-        self.global_norm_spike_threshold = config.get('global_norm_spike_threshold')
-        self.global_norm_spike_count_threshold = config.get('global_norm_spike_count_threshold')
-        self.abnormal_global_norms: dict[str, list[float]] = {}
-
         if self.print_struct is None:
             self.print_struct = False
         if not (isinstance(self.target, list) and self.target and all(isinstance(i, str) for i in self.target)):
@@ -1130,11 +1126,6 @@ class TrainingStateMonitor(Callback):
                  'optimizer_state_format', 'weight_state_format', 'max_attention_logit_format']
         for attr in attrs:
             self._check_attr_formats(attr)
-        if self.global_norm_record_path and os.path.exists(self.global_norm_record_path):
-            # the data format might be like {"300": [3.3], "600": [4.1, 4.2],}
-            # because json cannot use number as key, we convert it to string
-            with open(self.global_norm_record_path, 'r', encoding="utf-8") as file:
-                self.abnormal_global_norms = json.load(file)
 
     def _print_stable_rank(self, name, param, cur_step_num):
         """output stable rank and max eigenvalues"""
@@ -1145,8 +1136,12 @@ class TrainingStateMonitor(Callback):
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
             self._output(f'weight_stable_rank/{name}', stable_rank, cur_step_num, self.sr_format)
             self._output(f'weight_eigenvalue/{name}', eigenvalue, cur_step_num, self.sr_format)
+            if (stable_rank, eigenvalue) == (0.0, 0.0):
+                logger.info(f"{name}'s stable rank might be 0 or some exception happened, check warning above.")
         else:
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
+            if (stable_rank, eigenvalue) == (0.0, 0.0):
+                return
             if self.moe_show_mode in ('all', 'full'):
                 for index, sr in enumerate(stable_rank):
                     self._output(f'weight_stable_rank/{name}/expert_{index}', sr, cur_step_num,
@@ -1276,25 +1271,19 @@ class TrainingStateMonitor(Callback):
 
     def _dump_max_attention_logit(self, cb_params):
         """write the max attention logit to log/tensorboard"""
-        if cb_params.optimizer is not None:
-            cb_optimizer = cb_params.optimizer
-        else:
-            cb_optimizer = cb_params.network.optimizer
-        params = cb_optimizer._parameters  # pylint: disable=W0212
+        network = cb_params.train_network
+        network = get_real_models(network)
+        params = network.get_max_attention_logit()
+
         if not params:
             return
         step = cb_params.cur_step_num
         vals = []
-        for param in params:
-            name = getattr(param, "name", "")
-            if "max_logits_val" not in name:
-                continue
-
-            t = param.value()
-            v = t.asnumpy().squeeze()
+        for param_name, param in params.items():
+            v = param.asnumpy().squeeze()
             v = v / max(1, self.micro_batch_num)
 
-            tag = f"max_attention_logit/{name}"
+            tag = f"max_attention_logit/{param_name}"
             if 'log' in self.max_attention_logit_format:
                 self._output(tag, v.tolist(), step, ['log'])
             if 'tensorboard' in self.max_attention_logit_format:
@@ -1517,8 +1506,6 @@ class CheckpointMonitor(ModelCheckpoint):
         save_optimizer (bool, optional): Whether to save optimizer weights,
             only used in megatron-format weight save scene. Legacy scene will be set to ``None``.
             Default: ``True``.
-        save_checkpoint_path (str, optional): Users can specify the path to store weights.
-            If None, the checkpoints will be saved at './output_dir/checkpoint'. Default: ``None``.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -1555,8 +1542,7 @@ class CheckpointMonitor(ModelCheckpoint):
                  use_checkpoint_health_monitor=False,
                  health_ckpts_record_dir="./output",
                  use_legacy_format=True,
-                 save_optimizer=True,
-                 save_checkpoint_path=None):
+                 save_optimizer=True):
 
         self.config = config
         self.save_network_params = save_network_params
@@ -1570,7 +1556,7 @@ class CheckpointMonitor(ModelCheckpoint):
         # Ensure that 'save_optimizer' only use in the sense of 'use_legacy_format == False'
         self.save_optimizer = save_optimizer if not use_legacy_format else False
         self.origin_prefix = prefix
-        self.save_checkpoint_path = save_checkpoint_path
+        self.directory = directory
         self.need_remove_redundancy = remove_redundancy
 
         prefix = prefix + f"_rank_{self.rank_id}"
@@ -2031,7 +2017,7 @@ class CheckpointMonitor(ModelCheckpoint):
             network=cb_params.network,
             filter_func=(lambda x: x in list(
                 cb_params.network.network.parameters_dict().keys())) if not self.save_optimizer else None
-        )
+        ) if get_real_group_size() > 1 else None
 
         save_checkpoint(
             iteration=iteration,
@@ -2041,7 +2027,7 @@ class CheckpointMonitor(ModelCheckpoint):
             common_info=self.common_info,
             keep_max_num=self._config.keep_checkpoint_max,
             user_prefix=self.origin_prefix,
-            save_checkpoint_path=self.save_checkpoint_path,
+            save_checkpoint_path=self.directory,
             sharded_tensor_metas=sharded_tensor_metas,
             remove_redundancy=self.need_remove_redundancy
         )
@@ -2306,6 +2292,7 @@ class ProfileMonitor(Callback):
         step_num = cb_params.cur_step_num
         if self.profiler and not self.is_profiler_start:
             self.profiler.start()
+            self.profiler.step()    # avoid the first step to align with train steps
             self.is_profiler_start = True
 
         if self.mstx_enabled:
@@ -2353,7 +2340,7 @@ class ProfileMonitor(Callback):
                 'world_size': parallel.get('device_num', None)
             }))
         except AttributeError as e:
-            logger.warning("Profiler failed to record distributed args,  %s", e)
+            logger.warning("Profiler failed to record distributed args, %s", e)
 
     def _is_profile_required(self, rank_id):
         """

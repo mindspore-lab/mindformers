@@ -34,7 +34,7 @@ ms.set_context(mode=ms.GRAPH_MODE)
 def ds3_train(config, dataset, construct_args_key, checker_config):
     """set model train."""
     callback = TrainingChecker(**checker_config)
-    task_trainer = Trainer(task="text_generation",
+    task_trainer = Trainer(task='text_generation',
                            args=config,
                            train_dataset=dataset,
                            callbacks=callback)
@@ -59,7 +59,7 @@ def parallel_train_dp2_mp2_cp2_ep2():
     config.print_separate_loss = False
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
-    config.parallel.full_batch = True
+    config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.parallel_config.context_parallel = 2
     config.parallel_config.pipeline_stage = 1
@@ -121,6 +121,73 @@ def parallel_train_dp2_pp2_ep2_tnd():
     ds3_train(config, dataset, construct_args_key, checker_config)
 
 
+def parallel_train_alltoall_deredundency():
+    """test mcore deepseekv3 train in dp=pp=ep=2 with moe_token_dispatcher = alltoall_deredundency."""
+    ms.set_seed(0)
+    config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = False
+    config.train_precision_sync = True
+    config.pretrained_model_dir = CUR_DIR
+    config.runner_config.sink_mode = True
+    config.parallel.full_batch = False
+    config.model.model_config.moe_token_dispatcher_type = 'alltoall_deredundency'
+    config.model.model_config.npu_nums_per_device = 2
+    dp = config.parallel_config.data_parallel
+    config.parallel_config.model_parallel = 1
+    config.parallel_config.use_seq_parallel = False
+    config.parallel.dataset_strategy = [[dp, 1], [dp, 1]]
+    build_context(config)
+
+    construct_args_key = ['input_ids', 'labels']
+    model_config = config.model.model_config
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 2, 20)
+
+    loss_std = [13.485920, 13.485721, 13.485860, 13.485846, 13.486056,
+                13.485989, 13.486071, 13.485976, 13.485886, 13.485951,
+                13.485897, 13.486100, 13.485947, 13.486015, 13.486045,
+                13.485865, 13.486064, 13.486042, 13.485949, 13.485986,]
+    checker_config = {
+        'loss_list_std': loss_std,
+        'experiment_mode': False,
+        'micro_batch_num': 2,
+        'micro_batch_interleave_num': 1
+    }
+    ds3_train(config, dataset, construct_args_key, checker_config)
+
+
+def parallel_train_alltoall_zero_redundancy():
+    """test mcore deepseekv3 train in dp=pp=ep=2 with moe_token_dispatcher = alltoall_zero_redundancy."""
+    ms.set_seed(0)
+    config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = False
+    config.train_precision_sync = True
+    config.pretrained_model_dir = CUR_DIR
+    config.runner_config.sink_mode = True
+    config.parallel.full_batch = False
+    config.model.model_config.moe_token_dispatcher_type = 'alltoall_zero_redundancy'
+    dp = config.parallel_config.data_parallel
+    config.parallel_config.model_parallel = 1
+    config.parallel_config.use_seq_parallel = False
+    config.parallel.dataset_strategy = [[dp, 1], [dp, 1]]
+    build_context(config)
+
+    construct_args_key = ['input_ids', 'labels']
+    model_config = config.model.model_config
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 2, 20)
+
+    loss_std = [13.485920, 13.485721, 13.485860, 13.485846, 13.486056,
+                13.485989, 13.486071, 13.485976, 13.485886, 13.485951,
+                13.485897, 13.486100, 13.485947, 13.486015, 13.486045,
+                13.485865, 13.486064, 13.486042, 13.485949, 13.485986,]
+    checker_config = {
+        'loss_list_std': loss_std,
+        'experiment_mode': False,
+        'micro_batch_num': 2,
+        'micro_batch_interleave_num': 1
+    }
+    ds3_train(config, dataset, construct_args_key, checker_config)
+
+
 def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss():
     """test mcore deepseekv3 train in dp=mp=ep=2."""
     ms.set_seed(0)
@@ -130,7 +197,7 @@ def parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss(
 
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
-    config.parallel.full_batch = True
+    config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.parallel_config.pipeline_stage = 1
     build_context(config)
@@ -160,7 +227,7 @@ def moe_token_permute():
     config.print_separate_loss = False
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
-    config.parallel.full_batch = True
+    config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.model.model_config.moe_permute_fusion = True
     build_context(config)
@@ -189,7 +256,7 @@ def parallel_train_pp2_mp2_ep2_zbv():
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
     config.runner_config.sink_mode = True
-    config.parallel.full_batch = True
+    config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.parallel_config.data_parallel = 1
     config.parallel_config.micro_batch_num = 4
@@ -222,7 +289,7 @@ def moe_eplb():
     config.print_separate_loss = False
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
-    config.parallel.full_batch = True
+    config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.model.model_config.print_expert_load = True
     build_context(config)
@@ -245,12 +312,15 @@ def moe_eplb():
 
 
 TEST_MAP = {
+    'parallel_train_dp2_mp2_cp2_ep2': parallel_train_dp2_mp2_cp2_ep2,
     'parallel_train_dp2_pp2_ep2_tnd': parallel_train_dp2_pp2_ep2_tnd,
-    "parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss":
+    'parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss':
         parallel_train_dp2_mp2_ep2_calculate_per_token_loss_and_print_seperate_loss,
     'parallel_train_pp2_mp2_ep2_zbv': parallel_train_pp2_mp2_ep2_zbv,
-    "moe_token_permute": moe_token_permute,
-    "moe_eplb": moe_eplb,
+    'parallel_train_alltoall_deredundency': parallel_train_alltoall_deredundency,
+    'parallel_train_alltoall_zero_redundancy': parallel_train_alltoall_zero_redundancy,
+    'moe_token_permute': moe_token_permute,
+    'moe_eplb': moe_eplb,
 }
 
 if __name__ == '__main__':

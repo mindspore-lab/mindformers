@@ -15,7 +15,7 @@
 """Base Trainer."""
 import os
 import re
-import subprocess
+import socket
 from pprint import pprint
 from functools import partial
 from typing import Optional, Union, List
@@ -108,12 +108,8 @@ class BaseTrainer:
 
     def __init__(self, task: str = None, model_name: str = None):
 
-        host_name_output = subprocess.run(['hostname'], shell=False, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE, encoding='utf-8', check=True)
-        host_ip_output = subprocess.run(['hostname', '-I'], shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, encoding='utf-8', check=True)
-        host_name = host_name_output.stdout.strip()
-        host_ip = host_ip_output.stdout.strip().split(' ')[0]
+        host_name = socket.gethostname()
+        host_ip = socket.gethostbyname(host_name)
         logger.info(f"host_name: {host_name}, host_ip: {host_ip}")
 
         if model_name is None:
@@ -1133,7 +1129,9 @@ class BaseTrainer:
                 logger.info(".............Start load resume context from common.json..................")
                 common_file = os.path.join(config.load_checkpoint, 'common.json')
                 if not os.path.exists(common_file):
-                    raise FileNotFoundError(f"No common.json found in directory '{config.load_checkpoint}'.")
+                    error_msg = f"No common.json found in directory '{config.load_checkpoint}'."
+                    logger.error(error_msg)
+                    raise FileNotFoundError(error_msg)
                 common_info = CommonInfo.load_common(common_file)
                 step_scale = common_info.global_batch_size / config.runner_config.global_batch_size
                 config.runner_config.initial_step = int(common_info.step_num * step_scale)
@@ -1167,9 +1165,11 @@ class BaseTrainer:
                     logger.info("..............Start resume checkpoint path from strategy..............")
                     resume_ckpt_path = self.resume_ckpt_path_with_strategy(config)
                     if resume_ckpt_path is None:
-                        raise ValueError(f"Try to resume from checkpoints with strategy in directory "
-                                         f"'{config.load_checkpoint}' failed, please specify load_checkpoint to "
-                                         f"specific checkpoint file to resume training.")
+                        err_msg = (f"Try to resume from checkpoints with strategy in directory "
+                                   f"'{config.load_checkpoint}' failed, please specify load_checkpoint to "
+                                   f"specific checkpoint file to resume training.")
+                        logger.error(err_msg)
+                        raise ValueError(err_msg)
                     config.load_checkpoint = resume_ckpt_path
                 load_resume_context_from_checkpoint(config, dataset)
                 resume_dict = {
@@ -1253,8 +1253,9 @@ class BaseTrainer:
             if hasattr(network, "get_model_parameters"):
                 model_params.update(network.get_model_parameters())
             else:
-                raise NotImplementedError(f"The {type(network)} has not implemented the interface: "
-                                          f"get_model_parameters.")
+                err_msg = f"The {type(network)} has not implemented the interface: `get_model_parameters`."
+                logger.error(err_msg)
+                raise NotImplementedError(err_msg)
 
         is_moe_model = False
         is_mtp_model = False
@@ -1475,7 +1476,7 @@ class BaseTrainer:
                     )
                 load_checkpoint(
                     checkpoint=config.load_checkpoint,
-                    network=model.train_network,
+                    network=network,
                     optimizer=optimizer,
                     global_step=global_step,
                     balanced_load=config.balanced_load
@@ -1483,7 +1484,7 @@ class BaseTrainer:
             else:
                 load_checkpoint(
                     checkpoint=config.load_checkpoint,
-                    network=model.train_network,
+                    network=network,
                     balanced_load=config.balanced_load
                 )
         elif (config.load_checkpoint or config.only_save_strategy) and not check_is_reboot_node():

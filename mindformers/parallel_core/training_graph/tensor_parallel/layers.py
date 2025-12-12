@@ -36,6 +36,7 @@ from mindspore.ops.operations import Morph
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore import mint
 
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.init_method import init_method_zero
 from mindformers.parallel_core.inference.utils import divide
@@ -206,6 +207,28 @@ class VocabParallelEmbedding(nn.Cell):
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        sharded_state_dict = {}
+        weight_shape = (self.num_embeddings, self.embedding_dim)
+
+        if self.enable_embedding_tp:
+            axis_fragmentations = (self.tp, 1)
+            local_shape = (self.num_embeddings // self.tp, self.embedding_dim)
+        else:
+            axis_fragmentations = (1, 1)
+            local_shape = (self.num_embeddings, self.embedding_dim)
+
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=local_shape,
+            global_shape=weight_shape,
+            global_offset=(0, 0),
+            axis_fragmentations=axis_fragmentations)
+        return sharded_state_dict
 
 
 class ColumnParallelLinear(nn.Cell):
@@ -426,6 +449,33 @@ class ColumnParallelLinear(nn.Cell):
             weight_strategy = (1, tp)
         matmul_in_strategy = ((dp * cp, 1), weight_strategy)
         self.matmul.shard(in_strategy=matmul_in_strategy)
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        tp = self.config.tensor_model_parallel_size
+
+        sharded_state_dict = {}
+        weight_shape = (self.output_size, self.input_size)
+        local_shape = (self.output_size // tp, self.input_size)
+        if not self.skip_weight_param_allocation:
+            sharded_state_dict[self.weight.name] = ShardedTensor(
+                key=self.weight.name,
+                org_key=self.weight.name,
+                dtype=self.weight.dtype,
+                local_shape=local_shape,
+                global_shape=weight_shape,
+                global_offset=(0, 0),
+                axis_fragmentations=(tp, 1))
+        if self.has_bias:
+            sharded_state_dict[self.bias.name] = ShardedTensor(
+                key=self.bias.name,
+                org_key=self.bias.name,
+                dtype=self.bias.dtype,
+                local_shape=(self.output_size,),
+                global_shape=(self.output_size,),
+                global_offset=(0,),
+                axis_fragmentations=(1,))
+        return sharded_state_dict
 
 
 class RowParallelLinear(nn.Cell):
@@ -663,6 +713,33 @@ class RowParallelLinear(nn.Cell):
         matmul_in_strategy = ((dp * cp, tp), weight_strategy)
         self.matmul.shard(in_strategy=matmul_in_strategy)
 
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        tp = self.config.tensor_model_parallel_size
+        sharded_state_dict = {}
+        weight_shape = (self.output_size, self.input_size)
+        local_shape = (self.output_size, self.input_size // tp)
+
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=local_shape,
+            global_shape=weight_shape,
+            global_offset=(0, 0),
+            axis_fragmentations=(1, tp))
+
+        if self.has_bias:
+            sharded_state_dict[self.bias.name] = ShardedTensor(
+                key=self.bias.name,
+                org_key=self.bias.name,
+                dtype=self.bias.dtype,
+                local_shape=(self.output_size,),
+                global_shape=(self.output_size,),
+                global_offset=(0,),
+                axis_fragmentations=(1,))
+        return sharded_state_dict
+
 
 class LinearNoTP(ColumnParallelLinear):
     """Linear layer without tensor parallelism.
@@ -711,6 +788,32 @@ class LinearNoTP(ColumnParallelLinear):
                 layout("cp", "dp", "None"),  # output       [S, B, H]
             )
         )
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        sharded_state_dict = {}
+        weight_shape = (self.output_size, self.input_size)
+        local_shape = (self.output_size, self.input_size)
+
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=local_shape,
+            global_shape=weight_shape,
+            global_offset=(0, 0),
+            axis_fragmentations=(1, 1))
+
+        if self.has_bias:
+            sharded_state_dict[self.bias.name] = ShardedTensor(
+                key=self.bias.name,
+                org_key=self.bias.name,
+                dtype=self.bias.dtype,
+                local_shape=(self.output_size,),
+                global_shape=(self.output_size,),
+                global_offset=(0,),
+                axis_fragmentations=(1,))
+        return sharded_state_dict
 
 
 class SequenceParallelLinear(ColumnParallelLinear):
@@ -761,3 +864,29 @@ class SequenceParallelLinear(ColumnParallelLinear):
                 layout(("cp", "tp"), "dp", "None"),  # output       [S, B, H]
             )
         )
+
+    def sharded_state_dict(self):
+        """Provide the sharded state dict. Sharded info is not complete, Only for Muon optimizer now."""
+        sharded_state_dict = {}
+        weight_shape = (self.output_size, self.input_size)
+        local_shape = (self.output_size, self.input_size)
+
+        sharded_state_dict[self.weight.name] = ShardedTensor(
+            key=self.weight.name,
+            org_key=self.weight.name,
+            dtype=self.weight.dtype,
+            local_shape=local_shape,
+            global_offset=(0, 0),
+            global_shape=weight_shape,
+            axis_fragmentations=(1, 1))
+
+        if self.has_bias:
+            sharded_state_dict[self.bias.name] = ShardedTensor(
+                key=self.bias.name,
+                org_key=self.bias.name,
+                dtype=self.bias.dtype,
+                local_shape=(self.output_size,),
+                global_offset=(0,),
+                global_shape=(self.output_size,),
+                axis_fragmentations=(1,))
+        return sharded_state_dict

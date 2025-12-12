@@ -18,11 +18,11 @@ import os
 from dataclasses import dataclass
 from typing import Union
 
-import mindspore as ms
-import mindspore.dataset as ds
+import mindspore
 import mindspore.context as ms_context
 import psutil
 
+import mindformers
 from mindformers.core.config_args import (
     ContextConfig,
     MFContextConfig,
@@ -36,9 +36,7 @@ from mindformers.tools.utils import (
     MODE,
     get_output_subpath,
     check_in_dynamic_cluster,
-    get_real_local_rank
 )
-from mindformers.utils import get_cann_workqueue_cores
 from mindformers.version_control import (
     check_tft_valid,
     set_ms_deterministic
@@ -155,7 +153,7 @@ class MSContextOperator:
                 kernel_launch_group[key] = val
             thread_num = int(kernel_launch_group.get('thread_num', 2))
             kernel_group_num = int(kernel_launch_group.get('kernel_group_num', 8))
-            ms.runtime.set_kernel_launch_group(thread_num=thread_num, kernel_group_num=kernel_group_num)
+            mindspore.runtime.set_kernel_launch_group(thread_num=thread_num, kernel_group_num=kernel_group_num)
 
     def _set_device_id(self, ctx, ms_ctx):
         if self.config.use_parallel and check_in_dynamic_cluster():
@@ -386,7 +384,18 @@ def set_ms_affinity(affinity_config, affinity_cpu_list):
         affinity_cpu_list = None
 
     if affinity_config:
-        device_id = get_real_local_rank()
+        # Check if any device_X in affinity_config has X >= device_num
+        max_device_id = mindformers.tools.utils.get_real_group_size() - 1
+        for key in affinity_config:
+            try:
+                x = int(key.split('_')[1])
+            except Exception as exc:
+                raise ValueError(f"Invalid device config key {key} in affinity_config. "
+                                 f"The pattern should be `device_X`, where X refers to device id.") from exc
+            if x > max_device_id:
+                raise ValueError(f"Invalid device id {x} in affinity_config. "
+                                 f"Maximum allowed device id is {max_device_id}.")
+        device_id = mindformers.tools.utils.get_real_local_rank()
         device_config = affinity_config.get(f'device_{device_id}', None)
         if device_config:
             affinity_cpu_list = device_config.get('affinity_cpu_list', None)
@@ -397,7 +406,7 @@ def set_ms_affinity(affinity_config, affinity_cpu_list):
     else:
         module_to_cpu_dict = None
 
-    ms.runtime.set_cpu_affinity(
+    mindspore.runtime.set_cpu_affinity(
         True,
         affinity_cpu_list,
         module_to_cpu_dict
@@ -408,14 +417,14 @@ def set_cpu_affinity(rank_id, rank_size):
     """cpu affinity"""
     use_cpu_affinity = os.environ.get('CPU_AFFINITY')
     if use_cpu_affinity and use_cpu_affinity.lower() in ('1', 'true'):
-        ds.config.set_numa_enable(True)
+        mindspore.dataset.config.set_numa_enable(True)
         count = psutil.cpu_count()
         current_process = psutil.Process()
         used_cpus_num = count // rank_size
         used_cpus = list(
             range(rank_id * used_cpus_num, (rank_id + 1) * used_cpus_num)
         )
-        cann_used_cpus = get_cann_workqueue_cores(rank_id)
+        cann_used_cpus = mindformers.utils.get_cann_workqueue_cores(rank_id)
         logger.info(f"cann workqueue cpus: {cann_used_cpus}")
         used_cpus = list(set(used_cpus) - set(cann_used_cpus))
         if not used_cpus:

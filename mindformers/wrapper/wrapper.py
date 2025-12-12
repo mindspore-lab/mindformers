@@ -207,7 +207,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         **kwargs (Any): Additional parameters.
 
     Inputs:
-        - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
+        - **\\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \\ldots)`.
 
     Outputs:
         Tuple of 5 or 7 Tensor, the loss, overflow flag, current loss scale value, learning rate,

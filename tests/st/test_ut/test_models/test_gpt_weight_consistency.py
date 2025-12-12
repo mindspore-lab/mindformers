@@ -38,7 +38,7 @@ from mindformers.parallel_core.process_group_config import ModelCommProcessGroup
 
 class DummyGoldenStickConfig(GoldenStickConfig):
     def get_quant_method(self, layer, prefix):
-        if "experts" in prefix:
+        if ".experts" in prefix:
             return A8W4DynamicLinearMethod(self)
         if "self_attn" in prefix:
             return A8W8LinearMethod(self)

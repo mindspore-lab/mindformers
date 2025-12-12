@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-GLM-4.5 系列模型是专为智能代理设计的基础模型，基于GLM4采用了MoE结构的变体，也标记为GLM4-MoE。GLM-4.5 总参数 3550 亿，激活参数 320 亿，而 GLM-4.5-Air 采用更紧凑的设计，总参数 1060 亿，激活参数 120 亿。GLM-4.5模型统一了推理、编码和智能体能力，满足智能体应用的复杂需求。  
+GLM-4.5 系列模型是专为智能代理设计的基础模型，基于GLM-4采用了MoE结构的变体，也标记为GLM-4-MoE。GLM-4.5 总参数 3550 亿，激活参数 320 亿，而 GLM-4.5-Air 采用更紧凑的设计，总参数 1060 亿，激活参数 120 亿。GLM-4.5模型统一了推理、编码和智能体能力，满足智能体应用的复杂需求。  
 具体模型能力查看以下技术报告：[GLM-4.5: Reasoning, Coding, and Agentic Abililties](https://z.ai/blog/glm-4.5)
 
 ## 支持规格
@@ -21,7 +21,7 @@ GLM-4.5 系列模型是专为智能代理设计的基础模型，基于GLM4采�
 
 GLM-4.5 当前支持的版本配套如下。
 
-|           | Mindspore Transformers | MindSpore | CANN | HDK |
+|           | MindSpore Transformers | MindSpore | CANN | HDK |
 |:---------:|:----------------------:|:---------:|:----:|:---:|
 | 当前支持的版本 |           在研版本           |    在研版本     |  在研版本  | 在研版本  |
 
@@ -70,7 +70,7 @@ parallel_config:
 - pretrained_model_dir：Hugging Face模型目录路径，放置模型配置、Tokenizer等文件。`/path/hf_dir`中的内容如下：
 
 ```text
-📂Glm4.5
+📂GLM-4.5
 ├── 📄config.json
 ├── 📄generation_config.json
 ├── 📄merges.txt
@@ -110,7 +110,7 @@ msrun_launcher.sh包括run_mindformer.py命令和推理卡数两个参数。
 
 多卡推理：
 
-Glm4.5分别有355B和106B两种规模，只能进行多卡推理，多卡推理的配置需参考下面修改配置：
+GLM-4.5分别有355B和106B两种规模，只能进行多卡推理，多卡推理的配置需参考下面修改配置：
 
 1. 模型并行model_parallel的配置和使用的卡数需保持一致，下文用例为8卡推理，需将model_parallel设置成8；
 2. 当前版本的多卡推理不支持数据并行，需将data_parallel设置为1。
@@ -190,15 +190,15 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ### 模型文件说明
 
-glm4_moe的模型文件包括以下内容：
+GLM-4-MoE的模型文件包括以下内容：
 
 ```text
 📦glm4_moe
-├── 📄__init__.py                   # glm4_moe模块初始化文件
-├── 📄configuration_glm4_moe.py     # glm4_moe模型配置类定义
-├── 📄modeling_glm4_moe.py          # glm4_moe模型主体实现
-├── 📄modeling_glm4_moe_infer.py    # glm4_moe推理模型实现
-└── 📄utils.py                      # glm4_moe工具函数和基础类
+├── 📄__init__.py                   # GLM-4-MoE模块初始化文件
+├── 📄configuration_glm4_moe.py     # GLM-4-MoE模型配置类定义
+├── 📄modeling_glm4_moe.py          # GLM-4-MoE模型主体实现
+├── 📄modeling_glm4_moe_infer.py    # GLM-4-MoE推理模型实现
+└── 📄utils.py                      # GLM-4-MoE工具函数和基础类
 ```
 
 ### 并行配置建议

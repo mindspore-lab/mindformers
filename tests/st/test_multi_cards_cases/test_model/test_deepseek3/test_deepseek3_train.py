@@ -17,13 +17,14 @@ import os
 from multiprocessing.pool import Pool
 from pathlib import Path
 import random
+import pytest
 
-from mindformers.tools.logger import logger
 from tests.st.test_multi_cards_cases.utils import TaskType
+from mindformers.tools.logger import logger
 
 
-_LEVEL_0_TASK_TIME = 170
-_LEVEL_1_TASK_TIME = 0
+_LEVEL_0_TASK_TIME = 0
+_LEVEL_1_TASK_TIME = 170
 _TASK_TYPE = TaskType.EIGHT_CARDS_TASK
 
 def run_command(command_info):
@@ -51,13 +52,14 @@ class TestDeepseekV3:
         self.run_script_path = self.sh_path / "run_deepseek3.py"
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
+    @pytest.mark.level1
     def test_eight_card_configurations(self):
         """Test eight cards for DeepseekV3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         cmd_list = [
             (f"msrun --worker_num=8 --local_worker_num=8 --master_port={port_id} --log_dir=./msrun_log_deepseekv3 "
              f"--join=True {self.run_script_path} --mode=parallel_train_dp2_mp2_cp2_ep2",
-             f"./msrun_log_deepseekv3/worker_7.log"),
+             "./msrun_log_deepseekv3/worker_7.log"),
         ]
         with Pool(len(cmd_list)) as pool:
             results = list(pool.imap(run_command, cmd_list))

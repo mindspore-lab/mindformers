@@ -111,22 +111,22 @@ class LlamaModel(LlamaPreTrainedModel):
         else:
             logger.info("MoE config is None, use normal FFN")
         if not self.use_flash_attention and self.use_ring_attention:
-            raise ValueError(f"When the ring_attention = True, the flash_attention must be True.")
+            raise ValueError("When the ring_attention = True, the flash_attention must be True.")
         if not self.use_flash_attention and self.use_eod_attn_mask_compression:
-            raise ValueError(f"When the use_eod_attn_mask_compression = True, the flash_attention must be True.")
+            raise ValueError("When the use_eod_attn_mask_compression = True, the flash_attention must be True.")
         self.seq_split_num = config.parallel_config.seq_split_num
         self.seq_pipe = self.seq_split_num > 1
         if self.seq_pipe:
             dp = config.parallel_config.data_parallel
             if self.use_ring_attention:
-                raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True.")
+                raise ValueError("When the seq_pipe = True, the use_ring_attention cannot be True.")
             if config.use_attn_mask_compression and not check_seqpp_fa_opt_support():
-                raise ValueError(f"Currently, when the seq_pipe = True, "
-                                 f"use_attn_mask_compress must be False with mindspore < 2.6.0. "
-                                 f"If you want to enable it, please upgrade mindspore to 2.6.0 or later.")
+                raise ValueError("Currently, when the seq_pipe = True, "
+                                 "use_attn_mask_compress must be False with mindspore < 2.6.0. "
+                                 "If you want to enable it, please upgrade mindspore to 2.6.0 or later.")
             if config.use_eod_attn_mask_compression:
-                raise ValueError(f"Currently, when the seq_pipe = True, "
-                                 f"use_eod_attn_mask_compression cannot be True.")
+                raise ValueError("Currently, when the seq_pipe = True, "
+                                 "use_eod_attn_mask_compression cannot be True.")
             self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
             kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
             self.zeros = initializer('zeros', kv_shape, dtype=self.dtype)
@@ -430,10 +430,10 @@ class LlamaModel(LlamaPreTrainedModel):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLM(LlamaPreTrainedModel):
     r"""
-    Provide llama training loss or logits through network.
+    Provide Llama training loss or logits through network.
 
     Args:
-        config (LlamaConfig, optional): The config of llama model. Default: `None` .
+        config (LlamaConfig, optional): The config of Llama model. Default: `None` .
 
     Inputs:
         - **input_ids** (Tensor) - the indices of input sequence tokens in the vocabulary with data type Int64/Int32,
@@ -485,7 +485,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     @lazy_inline
     def __init__(self, config: LlamaConfig = None):
-        super(LlamaForCausalLM, self).__init__(config, auto_prefix=True)
+        super().__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
         self.config = config
         self.ignore_token_id = config.ignore_token_id
@@ -507,7 +507,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.prefill_gather_flatten = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.predict_run_mode = get_predict_run_mode()
-        logger.info("Predict run mode: {}".format(self.predict_run_mode))
+        logger.info(f"Predict run mode: {self.predict_run_mode}")
         if self.predict_run_mode and self.config.is_dynamic:
             logger.info("use_flash_attention is set to True when run_mode is predict and is_dynamic is True.")
             self.config.use_flash_attention = True
@@ -807,7 +807,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     @classmethod
     def obtain_name_map(cls, load_checkpoint_files):
-        name_map = dict()
+        name_map = {}
         for checkpoint_file in load_checkpoint_files:
             with safe_open(checkpoint_file, framework="np") as f:
                 for k in f.keys():
@@ -829,6 +829,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return params
 
 
+# pylint: disable=C0415
 def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict):
     """concat qkv weight from dicts"""
     from mindformers.utils.convert_utils import qkv_concat_hf2mg
@@ -876,6 +877,7 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condit
         target_dict.update({w_qkv_key: w_qkv_value_mg})
 
 
+# pylint: disable=C0415
 def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict):
     """concat ffn weight from dicts"""
     from mindformers.utils.convert_utils import ffn_concat_hf2mg

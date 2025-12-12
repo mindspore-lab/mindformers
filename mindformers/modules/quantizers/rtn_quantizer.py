@@ -65,14 +65,3 @@ class RtnQuantizer(Quantizer):
         model = ptq.apply(model)
         model = ptq.convert(model)
         return model
-
-    def _process_model_after_weight_loading(self, model, **kwargs):
-        return model
-
-    @property
-    def is_serializable(self):
-        return False
-
-    @property
-    def is_trainable(self):
-        return False

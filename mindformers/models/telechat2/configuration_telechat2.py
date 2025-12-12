@@ -84,6 +84,7 @@ class Telechat2Config(PretrainedConfig):
         ('embed_layernorm', NotSupportedInfo.useless),
         ('base_seqlen', NotSupportedInfo.useless),
         ('training_seqlen', NotSupportedInfo.useless),
+        ('masked_softmax_fusion', NotSupportedInfo.useless),
     ])
     def __init__(
             self,

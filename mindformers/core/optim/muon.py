@@ -98,8 +98,8 @@ def _slice_tensor_to_shards(x, tp, tp_dim, op, rank_id, op_group, tp_group):
             x = Chunk()(x, tp, tp_dim)[chunk_id]
 
     if op > 1:
-        if op_group == tp_group:
-            chunk_id = rank_id % tp
+        if tp_dim == -1:
+            chunk_id = rank_id % op
         else:
             chunk_id = rank_id // tp % op
         x = Chunk()(x, op)[chunk_id]
@@ -273,10 +273,13 @@ class Muon(Optimizer):
         adamw_betas=(0.95, 0.95),
         adamw_eps=1e-8,
         micro_batch_num=1,
-        qk_clip_threshold=4,
+        qk_clip_threshold=100,
         model=None,
+        **kwargs,
     ):
         super().__init__(learning_rate, params, weight_decay)
+        if kwargs.get('swap', False):
+            raise ValueError("Muon does not support swap.")
 
         self._verify_model(model)
 
@@ -400,31 +403,21 @@ class Muon(Optimizer):
         """Initialize parallel configuration."""
         self.tp = model.get_gpt_transformer_config().tensor_model_parallel_size
         self.tps = tuple(self.tp for _ in self._parameters)
+        self.dp = model.get_gpt_transformer_config().data_parallel_size
         logger.info(f"Muon tp group size is: {self.tp}")
 
         if not get_auto_parallel_context('enable_parallel_optimizer'):
             self.op = 1
         else:
             self.op = get_auto_parallel_context('optimizer_weight_shard_size')
-            if self.op == -1:
+            if self.op < 1:
                 raise ValueError(
-                    "Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon")
+                    "Must set parallel.parallel_optimizer_config.optimizer_weight_shard_size > 1 "
+                    "when enable_parallel_optimizer is True.")
+            if self.dp < self.op:
+                raise ValueError('Must set parallel_config.data_parallel >= '
+                                 'parallel.parallel_optimizer_config.optimizer_weight_shard_size when using Muon.')
         logger.info(f"Muon op group size is: {self.op}")
-
-        # Validate MoE expert counts divisibility constraint:
-        # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
-        if model.is_moe_model():
-            config = model.get_gpt_transformer_config()
-            num_moe_experts = config.num_moe_experts
-            expert_model_parallel_size = config.expert_model_parallel_size
-            if self.op * expert_model_parallel_size <= 0:
-                raise ValueError("Invalid optimizer_shard * expert_model_parallel_size (<=0).")
-            if num_moe_experts % (self.op * expert_model_parallel_size) != 0:
-                raise ValueError(
-                    f"Invalid configuration: 'num_moe_experts' ({num_moe_experts}) must be divisible by "
-                    f"'optimizer_weight_shard_size * expert_model_parallel_size' ({self.op} * "
-                    f"{expert_model_parallel_size} = {self.op * expert_model_parallel_size})."
-                )
 
     def _initialize_communication_groups(self):
         """Initialize communication groups for parallel training."""
@@ -434,9 +427,7 @@ class Muon(Optimizer):
 
     def _initialize_op_groups(self, model):
         """Initialize optimizer parallel groups for parameters."""
-        self.ops, self.op_groups = model.get_op_groups_info(
-            self._parameters, self.op, self.op_group, self.op_in_tp_group
-        )
+        self.ops, self.op_groups = model.get_op_groups_info(self._parameters, self.op)
 
     def _create_communication_group(self, rank_list):
         """
@@ -473,7 +464,7 @@ class Muon(Optimizer):
             logger.info(
                 f"op_in_tp group will reuse tp group" \
                 f", since tensor_parallel_size({tp}) == optimizer_parallel_size({op})."
-                )
+            )
             op_in_tp_group_name = tp_group
         else:
             logger.info(f"Muon op_in_tp group list is: {rank_list}")
@@ -495,32 +486,11 @@ class Muon(Optimizer):
         tp_group_name = self._create_communication_group(rank_list)
         return tp_group_name
 
-    @jit(backend="ms_backend")
-    def construct(self, gradients):
-        """Construct method for optimizer.
-
-        Args:
-            gradients: Gradients for optimization.
-
-            Returns:
-            Updated gradients after optimization.
+    def _hyper_map_func(self, lr, weight_decay, gradients):
         """
-        gradients = self.flatten_gradients(gradients)
-        weight_decay = self.get_weight_decay()
-        lr = self.get_lr()
-        self.assignadd(self.global_step, self.global_step_increase_tensor)
-        optim_result = self.hyper_map(
-            F.partial(
-                _muon_opt,
-                self.muon_momentum,
-                self.matched_adamw_rms,
-                self.beta1,
-                self.beta2,
-                self.global_step,
-                self.eps,
-                lr,
-            ),
-            weight_decay,
+        Apply Muon optimizer update using hyper_map across parameter structures.
+        """
+        hyper_map_args = [
             self.rank_ids,
             self._parameters,
             self.moments1,
@@ -537,7 +507,52 @@ class Muon(Optimizer):
             self.tp_groups,
             self.param_name_tuple,
             self.muon_split_fns,
-            self.muon_merge_fns,
+            self.muon_merge_fns
+        ]
+
+        if self.is_group:
+            # If parameters are divided into groups (group-wise hyperparams)
+            if self.is_group_lr:
+                # Case 1: Both learning rate and weight decay are grouped
+                partial_func = F.partial(
+                    _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                    self.beta1, self.beta2, self.global_step, self.eps
+                )
+                hyper_map_args = [lr, weight_decay] + hyper_map_args
+            else:
+                # Case 2: Only weight decay is grouped, lr is global
+                partial_func = F.partial(
+                    _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                    self.beta1, self.beta2, self.global_step, self.eps, lr
+                )
+                hyper_map_args = [weight_decay] + hyper_map_args
+        else:
+            # No parameter groups: lr and weight decay are global hyperparameters
+            partial_func = F.partial(
+                _muon_opt, self.muon_momentum, self.matched_adamw_rms,
+                self.beta1, self.beta2, self.global_step, self.eps, lr, weight_decay
+            )
+
+        return self.hyper_map(partial_func, *hyper_map_args)
+
+    @jit(backend="ms_backend")
+    def construct(self, gradients):
+        """Construct method for optimizer.
+
+        Args:
+            gradients: Gradients for optimization.
+
+            Returns:
+            Updated gradients after optimization.
+        """
+        gradients = self.flatten_gradients(gradients)
+        weight_decay = self.get_weight_decay()
+        lr = self.get_lr()
+        self.assignadd(self.global_step, self.global_step_increase_tensor)
+        optim_result = self._hyper_map_func(
+            lr,
+            weight_decay,
+            gradients,
         )
 
         updates = self.model.apply_qk_clip_scaling(

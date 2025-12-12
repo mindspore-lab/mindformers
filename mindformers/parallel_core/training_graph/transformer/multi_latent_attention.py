@@ -113,10 +113,9 @@ class MultiLatentAttention(nn.Cell):
         self.cp_co = self.cp // self.cp_ds
 
         if self.num_attention_heads % (self.tp * self.cp_ds) != 0:
-            raise ValueError("For 'ParallelAttention', the class variable 'num_heads' must be a multiple of "
-                             "'tensor_parallel * ulysses_cp_num', but got num_heads is {}, tensor_parallel is {}, "
-                             "ulysses_cp_num is {}."
-                             .format(self.num_attention_heads, self.tp, self.cp_ds))
+            raise ValueError(f"For 'ParallelAttention', the class variable 'num_heads' must be a multiple of "
+                 f"'tensor_parallel * ulysses_cp_num', but got num_heads is {self.num_attention_heads}, "
+                 f"tensor_parallel is {self.tp}, ulysses_cp_num is {self.cp_ds}.")
 
         zero_pad_length = self.q_head_dim - self.v_head_dim
         if zero_pad_length < 0:
@@ -183,7 +182,7 @@ class MultiLatentAttention(nn.Cell):
         cp = self.cp
 
         self.bs_transpose.shard(((dp, cp, tp),))
-        self.tnd_transpose.shard(((cp, dp, tp, 1),))
+        self.tnd_transpose.shard((layout("cp", "dp", "tp", "None"),))
 
     def construct(self, x: Tensor, attention_mask=None, rotary_pos_emb=None, rotary_pos_cos=None,
                   rotary_pos_sin=None, prefix_keys_values=None, pad_zeros=None, actual_seq_len=None):
@@ -422,12 +421,11 @@ class MLASelfAttentionConcatenated(MultiLatentAttention):
 
     def shard_self_attn(self):
         """sharding for MLASelfAttentionConcatenated with semi_auto_parallel"""
-        dp = self.config.data_parallel_size
-        tp = self.config.tensor_model_parallel_size
-        cp = self.config.context_parallel_size
+        self.pe_concat.add_prim_attr("self_define_shard", True)
 
         self.tile_kv.shard((layout("cp", "dp", "None", "None"),))
-        self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
+        self.pe_concat.shard(in_strategy=((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")),),
+                           out_strategy=(layout("cp", "dp", "tp", "None"),))
         self.split.shard((layout("cp", "dp", "tp", "None"),))
         self.split_3d.shard((layout(("cp", "tp"), "dp", "None"),))
 
@@ -629,12 +627,11 @@ class MLASelfAttention(MultiLatentAttention):
 
     def shard_self_attn(self):
         """sharding for MLASelfAttention with semi_auto_parallel"""
-        dp = self.config.data_parallel_size
-        tp = self.config.tensor_model_parallel_size
-        cp = self.config.context_parallel_size
+        self.pe_concat.add_prim_attr("self_define_shard", True)
 
         self.tile_kv.shard((layout("cp", "dp", "None", "None"),))
-        self.pe_concat.shard(((cp, dp, tp, 1), (cp, dp, tp, 1)))
+        self.pe_concat.shard(in_strategy=((layout("cp", "dp", "tp", "None"), layout("cp", "dp", "tp", "None")),),
+                           out_strategy=(layout("cp", "dp", "tp", "None"),))
         self.split.shard((layout("cp", "dp", "tp", "None"),))
         self.split_3d.shard((layout(("cp", "tp"), "dp", "None"),))
         self.expand_dims.shard((layout("cp", "dp", "None"),))

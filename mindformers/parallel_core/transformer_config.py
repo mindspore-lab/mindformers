@@ -650,6 +650,12 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                     "When using moe_dry_run, moe_token_dispatcher_type must be 'alltoall' or 'alltoall_deredundency'."
                     )
 
+        if self.position_embedding_type not in ["rope", "yarn", "none", "relative", "learned_absolute", "partial_rope"]:
+            raise ValueError(
+                f"The current value of position_embedding_type is {self.position_embedding_type},"
+                " but position_embedding_type must be one of: 'rope', 'yarn', 'none', 'relative', 'learned_absolute'."
+            )
+
         if isinstance(self.rope_scaling, dict):
             self.position_embedding_type = (self.rope_scaling.pop("type", None) or
                                             self.rope_scaling.pop("rope_type", None))
@@ -659,6 +665,17 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             for k, v in self.rope_scaling.items():
                 setattr(self, k, v)
             del self.rope_scaling
+
+        if self.position_embedding_type == "none":
+            self.nope_layer_interval = None
+
+        if self.nope_layer_interval is None:
+            pass
+        elif not isinstance(self.nope_layer_interval, int):
+            raise TypeError("nope_layer_interval must be a int, "
+                            f"but got {type(self.nope_layer_interval)}.")
+        elif self.nope_layer_interval <= 0:
+            raise ValueError("nope_layer_interval must be larger than 0.")
 
         if self.bias_swiglu_fusion and self.hidden_act != 'swiglu':
             raise ValueError(

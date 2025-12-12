@@ -52,7 +52,7 @@ reversed_convert_map = {
 }
 
 
-if __name__ == '__main__':
+def main(args_list=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', default=None, type=str, required=True, help='model name')
     parser.add_argument('--reversed', action='store_true', help="convert ms to hf")
@@ -65,7 +65,11 @@ if __name__ == '__main__':
                         help="Only for telechat. Telechat version.")
     parser.add_argument('--is_lora', default=False, type=str2bool, required=False)
 
-    args, extra_args = parser.parse_known_args()
+    if args_list is not None:
+        args, extra_args = parser.parse_known_args(args_list)
+    else:
+        args, extra_args = parser.parse_known_args()
+
     extra_args = [i
                   for item in extra_args
                   for i in item.split("=")]
@@ -103,3 +107,7 @@ if __name__ == '__main__':
 
     merged_args = argparse.Namespace(**{**vars(args), **extra_kwargs})
     convert_func(merged_args)
+
+
+if __name__ == '__main__':
+    main()

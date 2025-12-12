@@ -136,7 +136,7 @@ train_dataset: &train_dataset
 
 #### 3. 启动预训练任务
 
-通过指定模型路径和配置文件[configs/qwen3/pretrain_qwen3_30b_a3b_4k.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml)以msrun的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，进行16卡分布式训练。可以参考如下方式拉起两台Atlas 800T A2（64G）训练。
+通过指定模型路径和配置文件[configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml](https://gitee.com/mindspore/mindformers/blob/master/configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml)以`msrun`的方式启动[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/master/run_mindformer.py)脚本，进行16卡分布式训练。您可参考如下方式，拉起两台Atlas 800T A2（64G）训练。
 
 在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的序号；`port`为当前进程的端口号（可在50000~65536中选择）。
 
@@ -145,7 +145,7 @@ master_ip=192.168.1.1
 node_rank=0
 port=50001
 bash scripts/msrun_launcher.sh "run_mindformer.py \
---config configs/qwen3_moe/pretrain_qwen3_moe_30b_a3b_4k.yaml \
+--config configs/qwen3_moe/pretrain_qwen3_30b_a3b_4k.yaml \
 --auto_trans_ckpt False \
 --use_parallel True \
 --run_mode train" \
@@ -211,16 +211,16 @@ parallel_config:
 
 run_mindformer.py的参数说明如下：
 
-| 参数                             | 参数说明                                                      |
-|:-------------------------------|:----------------------------------------------------------|
-| config                         | yaml配置文件的路径                                               |
-| run_mode                       | 运行的模式，推理设置为predict                                        |
-| use_parallel                   | 是否使用多卡推理                                                  |
-| predict_data                   | 推理的输入数据，多batch推理时需要传入输入数据的txt文件路径，包含多行输入                  |
-| predict_batch_size             | 多batch推理的batch_size大小                                     |
-| pretrained_model_dir           | Hugging Face模型目录路径，放置模型配置、Tokenizer等文件                    |
-| parallel_config.data_parallel  | 数据并行，当前推理们模式下设置为1                                         |
-| parallel_config.model_parallel | 模型并行，默认值为 1。需根据实际模型规模及硬件资源情况，调整该参数为相应的device_nu（即实际使用的卡数） |
+| 参数                             | 参数说明                                                       |
+|:-------------------------------|:-----------------------------------------------------------|
+| config                         | yaml配置文件的路径                                                |
+| run_mode                       | 运行的模式，推理设置为predict                                         |
+| use_parallel                   | 是否使用多卡推理                                                   |
+| predict_data                   | 推理的输入数据，多batch推理时需要传入输入数据的txt文件路径，包含多行输入                   |
+| predict_batch_size             | 多batch推理的batch_size大小                                      |
+| pretrained_model_dir           | Hugging Face模型目录路径，放置模型配置、Tokenizer等文件                     |
+| parallel_config.data_parallel  | 数据并行，当前推理模式下设置为1                                           |
+| parallel_config.model_parallel | 模型并行，默认值为 1。需根据实际模型规模及硬件资源情况，调整该参数为相应的device_npu（即实际使用的卡数） |
 
 msrun_launcher.sh包括run_mindformer.py命令和推理卡数两个参数。
 
@@ -310,7 +310,7 @@ node_rank=0
 port=50001
 
 bash scripts/msrun_launcher.sh "run_mindformer.py \
- --config configs/qwen3_moe/predict_qwen3_moe.yaml" \
+ --config configs/qwen3_moe/predict_qwen3_moe.yaml \
  --run_mode predict \
  --use_parallel True \
  --pretrained_model_dir '/path/hf_dir' \

@@ -30,33 +30,29 @@
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-TeleChat2-7b:
+TeleChat2-7B:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |:---------------------------------------------------:| :-------------------: |:----------:|:---------:|:---------------:|:------------:|
-| [TeleChat2_7b](./telechat2-7b/finetune_telechat_7b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
-| [TeleChat2_7b](./telechat2-7b/predict_telechat_7b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
+| [TeleChat2_7B](./telechat2-7b/finetune_telechat_7b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
 
-TeleChat2-35b:
-
-| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
-|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_35b](./telechat2-35b/finetune_telechat_35b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
-| [TeleChat2_35b](./telechat2-35b/predict_telechat_35b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
-
-TeleChat2-115b:
+TeleChat2-35B:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_115b](./telechat2-115b/finetune_telechat_115b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
-| [TeleChat2_115b](./telechat2-115b/predict_telechat_115b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
+| [TeleChat2_35B](./telechat2-35b/finetune_telechat_35b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
 
-TeleChat2-39b-a12b:
+TeleChat2-115B:
+
+| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
+|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
+| [TeleChat2_115B](./telechat2-115b/finetune_telechat_115b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
+
+TeleChat2-39B-A12B:
 
 | config                                                       | task            | Datasets        | SeqLength | phase            | performance   |
 | ------------------------------------------------------------ | --------------- | --------------- | --------- | ---------------- | ------------- |
-| [TeleChat2_39b_a12b](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 865 tokens/s/p |
-| [TeleChat2_39b_a12b](./telechat2-39b-a12b/predict_telechat_39b_a12b_parallel.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
+| [TeleChat2_39B_A12B](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 865 tokens/s/p |
 
 ## 模型文件
 
@@ -138,6 +134,12 @@ input_dataset_file: 预训练的数据集
 vocab_file_path: 词模型文件路径(如使用上述链接下载，指定到对应路径下即可)
 max_length: 数据集长度
 output_path: 生成数据集的路径
+seed: 随机数种子，默认值：2024
+start_token: 输入的首token，默认值：<_start>
+user_token: 用户输入的提示词token，默认值：<_usr>
+bot_token: 机器人输入的提示词token，默认值：<_bot>
+end_token: 终止符对应的token，默认值：<_end>
+pad_token: padding时补齐的token，默认值：<_pad>
 ```
 
   > 注：`bos`, `eos`, `pad`等特殊`ids`要和`yaml`配置文件中`model_config`部分保持一致，默认`bos_token_id=1`, `eos_token_id=2`, `pad_token_id=3`。
@@ -149,10 +151,10 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 
 1.torch模型权重及词模型下载链接：
 
-- [TeleChat2-7b](https://modelscope.cn/models/TeleAI/TeleChat2-7B-32K)
+- [TeleChat2-7B](https://modelscope.cn/models/TeleAI/TeleChat2-7B-32K)
 - [TeleChat2-39B-A12B](https://modelscope.cn/models/TeleAI/TeleChat2-39B-A12B)
-- [TeleChat2-35b](https://modelscope.cn/models/TeleAI/TeleChat2-35B)
-- [TeleChat2-115b](https://modelscope.cn/models/TeleAI/TeleChat2-115B)
+- [TeleChat2-35B](https://modelscope.cn/models/TeleAI/TeleChat2-35B)
+- [TeleChat2-115B](https://modelscope.cn/models/TeleAI/TeleChat2-115B)
 
 下载完成后，运行如下转换脚本，将全量微调的权重转换为完整的ckpt权重。
 
@@ -167,13 +169,6 @@ python mindformers/research/telechat2/convert_weight.py \
 torch_path: torch版本权重保存目录路径
 mindspore_path: 权重保存文件名，可以指定自定义保存路径
 ```
-
-2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
-
-- [TeleChat2-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_7B/Telechat_7B.zip)
-- [TeleChat2-35b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_35B/Telechat_35B.zip)
-- [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
-- [Telechat2-39b-a12b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)：仅适用于8卡推理，使用方式请参考[Telechat2-39B-A12B推理](#Telechat2-39B-A12B推理)章节。
 
 ### 分布式权重切分与合并
 
@@ -226,7 +221,7 @@ MindFormers提供`TeleChat2-115B`的微调示例，过程中使用中电信人�
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
   ```yaml
-  # 以telechat-115b模型8机64卡训练为例，默认配置机4096卡，如果节点数有变，需要修改相应的配置。
+  # 以telechat-115B模型8机64卡训练为例，默认配置机4096卡，如果节点数有变，需要修改相应的配置。
   # 配置文件路径：finetune_telechat_115b.yaml
   parallel_config:
     data_parallel: 1

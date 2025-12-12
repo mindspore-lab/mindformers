@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-DeepSeek-V3是由DeepSeek（深度求索）推出的一个强大的专家混合（MoE）语言模型，它拥有671B总参数，其中激活参数量为37B。为了实现高效推理和低成本训练，DeepSeek-V3采用了多头潜注意力（MLA）和DeepSeekMoE架构，这在DeepSeek-V2中得到了充分验证。此外，DeepSeek-V3 还率先采用了无辅助损失的负载均衡策略，并设定了多token预测训练目标，以提高性能。DeepSeek-V3在14.8万亿个多种类的高质量token上进行预训练，接着通过监督微调和强化学习充分优化其能力。综合评估显示，在发布时DeepSeek-V3的性能优于其他开源模型，并可与领先的闭源模型相媲美。尽管性能卓越，DeepSeek-V3 的全部训练成本非常低，且其训练过程也非常稳定。
+DeepSeek-V3是由DeepSeek（深度求索）推出的一个强大的专家混合（MoE）语言模型，它拥有671B总参数，其中激活参数量为37B。为了实现高效推理和低成本训练，DeepSeek-V3采用了多头潜在注意力（MLA）和DeepSeekMoE架构，这在DeepSeek-V2中得到了充分验证。此外，DeepSeek-V3 还率先采用了无辅助损失的负载均衡策略，并设定了多token预测训练目标，以提高性能。DeepSeek-V3在14.8万亿个多种类的高质量token上进行预训练，接着通过监督微调和强化学习充分优化其能力。综合评估显示，在发布时DeepSeek-V3的性能优于其他开源模型，并可与领先的闭源模型相媲美。尽管性能卓越，DeepSeek-V3 的全部训练成本非常低，且其训练过程也非常稳定。
 
 ```text
 @misc{deepseekai2024deepseekv3technicalreport,
@@ -87,6 +87,11 @@ python research/deepseek3/fp8_cast_bf16.py \
 --output-bf16-hf-path path/to/hf_model_bf16_dir/
 ```
 
+参数说明：
+
+- input-fp8-hf-path：数据类型为fp8的原始权重文件夹路径。
+- output-bf16-hf-path：转换成数据类型为bf16后的权重文件夹路径。
+
 >`path/to/hf_model_bf16_dir/` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
 
 ## 推理
@@ -135,6 +140,11 @@ python research/deepseek3/convert_weight.py \
 - infer：是否进行推理权重的转换，默认值：`False`。
 - mindspore_ckpt_path：转换后的MindSpore权重文件夹保存路径
 - worker_num：多进程转换的进程数，默认值：`4`。
+- use_grouped_gemm：是否使用grouped_gemm，默认值：`False`。
+- n_head：模型结构中Attention的头数，默认值：`128`。
+- v_head_dim：单个注意力头中，Value向量的维度大小，默认值为：`128`。
+- save_format：权重保存的格式，默认值：`safetensors`。
+- param_json：权重的参数映射表的JSON文件名，默认值：`model.safetensors.index.json`。
 
 如果使用训练后保存的权重进行推理，需要使用`deepseek3_train2infer.py`脚本将其转换为推理格式。执行以下命令进行转换：
 
@@ -219,6 +229,11 @@ bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 3 output/msrun_log False 300
 ```
+
+参数说明：
+
+- config： 推理的YAML配置文件路径。
+- input： 推理的问题输入。
 
 预期的推理结果如下：
 

@@ -15,10 +15,12 @@
 """mindformers GPT model"""
 __all__ = ['GPTModel']
 
+import hashlib
 from typing import Literal, Optional, Union
 import numpy as np
 
 import mindspore as ms
+from mindspore.communication import create_group, get_group_size, get_rank
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops import auto_generate as aclnn_ops
@@ -29,7 +31,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore import ops
 
 from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
-from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock
+from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock, \
+    func_infer_dtype, func_infer_shape, func_infer_shape_labels_and_masks
 from mindformers.parallel_core.training_graph.device_matrix import layout
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
@@ -54,26 +57,60 @@ from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
 from mindformers.core.optim.muon_utils import make_muon_fns
+from mindformers.checkpoint.sharded_tensor import ShardedTensor
 
 
-def func_infer_dtype(*args):
-    """infer_dtype for Morph."""
-    return args[0]
+def compute_repeat_num_and_model_parallel_size(sharded_info: ShardedTensor, world_size: int, pp: int, op: int):
+    """Compute real op size."""
+    axis_fragmentations = sharded_info.axis_fragmentations
+    flag = False
+    weight_sharded_size = 1
+    for axis in axis_fragmentations:
+        if axis == 1:
+            continue
+        if flag:
+            raise ValueError("Only one axis can be fragmented in Muon optimizer.")
+        flag = True
+        weight_sharded_size *= axis
+    repeat_num = world_size // pp // weight_sharded_size
+    real_op_size = min(op, repeat_num)
+    if sharded_info.local_shape[0] % real_op_size != 0:
+        real_op_size = 1
+    return real_op_size, weight_sharded_size
 
 
-def func_infer_shape(*args):
-    """infer_shape for Morph."""
-    input_shape = args[0]
-    shape_value = np.prod(input_shape[:-1])
-    output_shape = [int(shape_value), args[0][-1]]
-    return output_shape
+def create_communication_group(rank_list):
+    """
+    Create a communication group with a hashed name.
 
-def func_infer_shape_labels_and_masks(*args):
-    """infer_shape for Morph."""
-    input_shape = args[0]
-    shape_value = np.prod(input_shape)
-    output_shape = [int(shape_value)]
-    return output_shape
+    Args:
+        rank_list: List of ranks in the communication group
+
+    Returns:
+        str: The created group name
+    """
+    rank_list_str = "-".join([str(i) for i in rank_list])
+    hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+    group_name = str(hashed)
+    create_group(group_name, rank_list)
+    return group_name
+
+
+OP_GROUP_NAME = {}
+
+
+def get_op_group_name(rank_id: int, real_op_size: int, model_parallel_size: int):
+    """Get op group name."""
+    if (rank_id, real_op_size, model_parallel_size) in OP_GROUP_NAME:
+        return OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)]
+    dp_range = model_parallel_size
+    op_range = model_parallel_size * real_op_size
+    rank_start = rank_id % dp_range + rank_id // op_range * op_range
+    rank_end = rank_start + op_range
+    rank_list = list(range(rank_start, rank_end, dp_range))
+    op_group_name = create_communication_group(rank_list)
+    OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)] = (op_group_name, rank_list)
+    return op_group_name, rank_list
 
 
 class PreprocessLabelsAndMasks(nn.Cell):
@@ -660,18 +697,45 @@ class GPTModel(nn.Cell):
             if hasattr(self.decoder.layers[i].mlp, "router"):
                 self.assign_aux(self.decoder.layers[i].mlp.router.fi_accu, self.zeros_tensor)
 
-    def reset_max_attention_logit(self,):
-        """Reset max attention logit for all layers."""
+    def _iter_core_attentions(self):
+        """Iterate over all core_attention modules with their param names.
+
+        Yields:
+            Tuple[str, module]: A tuple of (param_name, core_attention_module).
+        """
         num_layers = self.config.num_layers
         mtp_num_layers = self.config.mtp_num_layers
+
         for i in range(num_layers):
-            if hasattr(self.decoder.layers[i].self_attention.core_attention, "max_logits_val"):
-                param = self.decoder.layers[i].self_attention.core_attention.max_logits_val
-                F.assign(param, F.zeros_like(param))
+            core_attn = self.decoder.layers[i].self_attention.core_attention
+            yield f"decoder.layers.{i}.self_attention.core_attention", core_attn
 
         for i in range(mtp_num_layers):
-            if hasattr(self.mtp.layers[i].transformer_layer.self_attention.core_attention, "max_logits_val"):
-                param = self.mtp.layers[i].transformer_layer.self_attention.core_attention.max_logits_val
+            core_attn = self.mtp.layers[i].transformer_layer.self_attention.core_attention
+            yield f"mtp.layers.{i}.transformer_layer.self_attention.core_attention", core_attn
+
+    def get_max_attention_logit(self):
+        """Get max attention logit values for all layers.
+
+        Returns:
+            dict: A dictionary mapping parameter names to their max logit values.
+                  Only includes layers with valid (sum > 0) max_logits_val.
+        """
+        max_logits = {}
+        for param_name, core_attn in self._iter_core_attentions():
+            if not hasattr(core_attn, "max_logits_val"):
+                continue
+            param = core_attn.max_logits_val.value()
+            if param.sum() <= 0:
+                continue
+            max_logits[f"{param_name}.max_logits_val"] = param
+        return max_logits
+
+    def reset_max_attention_logit(self):
+        """Reset max attention logit to zeros for all layers."""
+        for _, core_attn in self._iter_core_attentions():
+            if hasattr(core_attn, "max_logits_val"):
+                param = core_attn.max_logits_val
                 F.assign(param, F.zeros_like(param))
 
     def shard(self, config: TransformerConfig):
@@ -722,6 +786,14 @@ class GPTModel(nn.Cell):
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
+
+    def sharded_state_dict(self):
+        """Get all sharded state dict."""
+        sharded_state_dict = {}
+        for _, sub_cell in self.cells_and_names():
+            if sub_cell != self and hasattr(sub_cell, "sharded_state_dict"):
+                sharded_state_dict.update(sub_cell.sharded_state_dict())
+        return sharded_state_dict
 
     def get_model_parameters(self):
         """Get current rank trainable parameters in gpt model ."""
@@ -849,7 +921,7 @@ class GPTModel(nn.Cell):
                 tp_dims.append(0)
         return tuple(tp_dims)
 
-    def get_op_groups_info(self, params, op, op_group, op_in_tp_group):
+    def get_op_groups_info(self, params, op):
         """Return optimizer parallel group information for each parameter.
         
         Args:
@@ -868,15 +940,14 @@ class GPTModel(nn.Cell):
             "self_attention.linear_q_down_proj.weight",
             "self_attention.linear_kv_up_proj.weight",
             "self_attention.linear_kv_down_proj.weight",
-            "eh_proj"
+            "eh_proj",
+            "max_logits_val"
         ]
 
-        use_tp_group_list = [
-            "mlp.router.weight",
-            "mlp.shared_experts.linear_fc",
-            "self_attention.linear_q_down_proj.weight",
-            "eh_proj",
-        ]
+        sharded_state_dict = self.sharded_state_dict()
+        world_size = get_group_size()
+        ep = self.config.expert_model_parallel_size
+        pp = self.config.pipeline_model_parallel_size
 
         def name_filter(param_name, full_name_list):
             for full_name in full_name_list:
@@ -897,13 +968,44 @@ class GPTModel(nn.Cell):
                     logger.warning(
                         f"Parameter {param.name}: parallel_optimizer was set to False due to the use of Muon optimizer."
                     )
-            else:
-                op_list.append(op)
+                continue
 
-                if name_filter(param.name, use_tp_group_list):
-                    op_groups.append(op_in_tp_group)
-                else:
-                    op_groups.append(op_group)
+            # compute real op size
+            sharded_info = sharded_state_dict.get(param.name)
+            real_op_size, weight_sharded_size = compute_repeat_num_and_model_parallel_size(sharded_info, world_size, pp,
+                                                                                           op)
+            if real_op_size == 1:
+                op_list.append(1)
+                op_groups.append("")
+                logger.info(f"Parameter {param.name} : No op group.")
+                continue
+
+            op_list.append(real_op_size)
+            op_group_name, rank_list = get_op_group_name(get_rank(), real_op_size, weight_sharded_size)
+            logger.info(f"Parameter {param.name} : Muon real_op_size={real_op_size} group list is: {rank_list}")
+            op_groups.append(op_group_name)
+
+        # check if op is valid for expert
+        for param, real_op_size in zip(params, op_list):
+            if "mlp.experts.weight1" not in param.name:
+                continue
+            # Validate MoE expert counts divisibility constraint:
+            # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
+            num_moe_experts = self.config.num_moe_experts
+            if bool(num_moe_experts and num_moe_experts > 0):
+                if num_moe_experts % (real_op_size * ep) != 0:
+                    error_msg =  (f"Invalid configuration: 'num_moe_experts' ({num_moe_experts}) must be divisible by "
+                        f"'real_op_size * expert_model_parallel_size' ({real_op_size} * "
+                        f"{ep} = {real_op_size * ep}).\n"
+                        f"Hint:\n"
+                        f"    Although you set `optimizer_weight_shard_size={op}`, the maximum optimizer shard size "
+                        f"for `{param.name}` is `{real_op_size}`. Try reducing 'optimizer_weight_shard_size'.")
+                    logger.error(error_msg)
+                    raise ValueError(
+                        error_msg
+                    )
+            # All expert weights share the same real_op_size, so we only need to check once
+            break
 
         return tuple(op_list), tuple(op_groups)
 

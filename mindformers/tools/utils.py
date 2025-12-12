@@ -18,6 +18,7 @@ import os
 import re
 import stat
 import tempfile
+import time
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 from importlib import import_module
@@ -475,15 +476,52 @@ def is_last_pipeline_stage():
     return (rank // device_num_per_stage + 1) == stage_num
 
 
-def set_safe_mode_for_file_or_dir(path):
+def set_safe_mode_for_file_or_dir(path, max_retries=5, retry_interval=2):
+    """Set safe file permissions for file or directory with retry mechanism.
+
+    Args:
+        path (str or list): Path(s) to set permissions for.
+        max_retries (int): Maximum number of retry attempts. Default: 5.
+        retry_interval (int): Interval between retries in seconds. Default: 2.
+
+    Raises:
+        Exception: If all retry attempts fail.
+    """
     if isinstance(path, str):
         path = [path]
+
     for item in path:
+        success = True
+        err_msg = ""
         item = Path(item)
-        if item.is_dir():
-            item.chmod(DIRECTORY_PERMISSION)
-        if item.is_file():
-            item.chmod(FILE_PERMISSION)
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    time.sleep(retry_interval)
+                    os.stat(item)
+
+                if item.is_dir():
+                    item.chmod(DIRECTORY_PERMISSION)
+                if item.is_file():
+                    item.chmod(FILE_PERMISSION)
+                break
+            except FileNotFoundError as e:
+                if attempt < max_retries - 1:
+                    continue
+                success = False
+                err_msg = e
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    continue
+                success = False
+                err_msg = e
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    continue
+                success = False
+                err_msg = e
+        if not success:
+            raise Exception(err_msg)
 
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):

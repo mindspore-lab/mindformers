@@ -10,7 +10,7 @@
 python unified_safetensors.py \
   --mindspore_ckpt_dir /path/checkpoint \
   --src_strategy_dirs /path/src_strategy_dirs \
-  --output_dir /path/src_strategy_dirs \
+  --output_dir /path/output_dir \
   --file_suffix "1_1" \
   --format "ckpt" \
   --has_redundancy False \
