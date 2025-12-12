@@ -4650,7 +4650,7 @@ License: Apache License V2.0
    See the License for the specific language governing permissions and
    limitations under the License.
 
-Software: transformers 4.51.3
+Software: transformers 4.57.1
 Copyright notice:
 Copyright 2022 Microsoft Research and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 Iz Beltagy, Matthew E. Peters, Arman Cohan and The HuggingFace Inc. team. All rights reserved
@@ -4659,11 +4659,11 @@ Copyright 2020 The HuggingFace Inc. team, Microsoft Corporation
 Copyright 2024 JetMoe AI
 Copyright 2021 Google AI, Ross Wightman, The HuggingFace Inc. team. All rights reserved
 Copyright 2024 AI21 Labs Ltd.
+Copyright 2025 The rednote-hilab team
 Copyright 2021 Microsoft Research and The HuggingFace Inc. team. All rights reserved
-Copyright 2022 Facebook AI Research (FAIR) and The HuggingFace Inc. team. All rights reserved
 Copyright 2025 HuggingFace Inc.
+Copyright 2022 Facebook AI Research (FAIR) and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 SenseTime and The HuggingFace Inc. team. All rights reserved
-Copyright 2023 The HuggingFace Team All rights reserved
 Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved
 Copyright 2023 The HuggingFace Team. All rights reserved
 Copyright 2021 NVIDIA Corporation and The HuggingFace Team
@@ -4679,15 +4679,19 @@ Copyright 2025 Cohere team. All rights reserved
 Copyright 2021 Google AI and HuggingFace Inc. team
 Copyright 2022 Facebook AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2018 Microsoft
+Copyright 2025 Kyutai and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Google Inc.
 Copyright 2022 Microsoft Research and The HuggingFace Inc. team
 Copyright 2021 AlQuraishi Laboratory
-Copyright 2024 The Fairseq Authors
+Copyright (c) 2025 Baidu, Inc. and HuggingFace Inc. team. All Rights Reserved
 Copyright 2020 The Facebook AI Research Team
 Copyright (c) 2021 THUML Tsinghua University
 Copyright 2020 The Hugging Face Team
 Copyright 2023 The HuggingFace and Baidu Team. All rights reserved
 Copyright 2023 MBZUAI and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Google LLC and HuggingFace Inc. team
+Copyright 2024 Microsoft Research and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Apple Inc. and The HuggingFace Team. All rights reserved
 Copyright 2023 Meta AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2018 The Google AI Language Team
 Copyright 2022 The HuggingFace Team and Microsoft Research AI4Science. All rights reserved
@@ -4705,7 +4709,6 @@ Copyright 2021 Facebook AI Research (FAIR) and The HuggingFace Inc. team. All ri
 Copyright 2024 Zyphra Technologies
 Copyright 2022 NAVER AI Labs and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 The HuggingFace Inc. team
-Copyright 2021 Google T5
 Copyright 2023 The HuggingFace Inc. team. All rights reserved
 Copyright 2020 The HuggingFace Inc. team. All rights reserved
 Copyright 2024 BigCode and The HuggingFace Inc. team. All rights reserved
@@ -4725,19 +4728,22 @@ Copyright 2018 LXMERT Authors, The Hugging Face Team
 Copyright 2023 Adept AI
 Copyright 2023, The T5 Authors and HuggingFace Inc.
 Copyright 2020 Huggingface
+Copyright 2025 TII
 Copyright 2025 The HuggingFace Inc. team. All rights reserved
 Copyright 2023 EleutherAI and The HuggingFace Inc. team. All rights reserved
 Copyright 2019 The Google AI Language Team
 Copyright 2023 The Salesforce Team
 Copyright 2022 The Impira Team
-Copyright 2022 University of Cambridge, Tencent AI Lab, DeepMind and The University of Hong Kong
+Copyright 2025 SHI Labs and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 The Kyutai and HuggingFace Inc. teams. All rights reserved
 Copyright 2023 Mistral AI
+Copyright 2025 Deepseek AI and The HuggingFace Team. All rights reserved
 Copyright 2019-present CNRS, Facebook Inc.
 Copyright 2022 Google AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 EleutherAI
 Copyright The HuggingFace team. All rights reserved
 Copyright 2023 HuggingFace Inc. team and MosaicML NLP team
+Copyright 2025 Microsoft Research and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 Google AI and The HuggingFace Team. All rights reserved
 Copyright 2019-present
 Copyright 2022 LongT5
@@ -4772,8 +4778,8 @@ Copyright 2021 ASAPP Inc.
 Copyright Google AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 University of Wisconsin-Madison and The HuggingFace Inc. team. All rights reserved
 Copyright 2021-2023 HuggingFace Inc.
-Copyright 2023 The Mega Authors and The HuggingFace Inc. team
 Copyright 2022, UCLA NLP, The Facebook AI Research Team and The HuggingFace Inc. team. All rights reserved
+Copyright 2023 The Mega Authors and The HuggingFace Inc. team
 Copyright 2018 Mesh TensorFlow
 Copyright 2024 Tri Dao, Albert Gu, Technological Innovation Institute and HuggingFace Inc. team
 Copyright 2020 Microsoft
@@ -4790,15 +4796,16 @@ Copyright 2025 Advanced Micro Devices, Inc. and The HuggingFace Team. All rights
 Copyright 2024 TikTok and The HuggingFace Inc. team. All rights reserved
 Copyright 2018 HuggingFace Inc
 Copyright 2023 The Espnet authors, IMS Toucan
-Copyright 2022 HuggingFace Inc.
-Copyright 2024 Baidu Inc and The HuggingFace Inc. team
 Copyright 2018- The Hugging Face team. All rights reserved
+Copyright 2024 Baidu Inc and The HuggingFace Inc. team
+Copyright 2022 HuggingFace Inc.
 Copyright 2023 Meta Platforms Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2025 Google Inc. HuggingFace Inc. team. All rights reserved
 Copyright 2024 Answer.AI, LightOn, and contributors
 Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved
 Copyright (c) Microsoft Corporation and HuggingFace
 Copyright 2022, The LongT5 Authors and HuggingFace Inc.
+Copyright (c) 2024 THL A29 Limited, a Tencent company and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 The Apple Research Team
 Copyright 2020 The Allen Institute
 Copyright 2022 Meta Platforms and The HuggingFace Inc. team. All rights reserved
@@ -4806,6 +4813,7 @@ Copyright 2021 Mesh TensorFlow
 Copyright 2020-present Google Brain and Carnegie Mellon University
 Copyright 2024 The Qwen team, Alibaba Group and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 NVIDIA The HuggingFace Inc. team. All rights reserved
+Copyright 2025 The BitNet team and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 WenXiang ZhongzhiCheng LedellWu LiuGuang BoWenZhang The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Databricks Mosaic Research and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 The Fairseq Authors, Microsoft Research
@@ -4831,11 +4839,14 @@ Copyright 2023 EleutherAI
 Copyright 2023 Google Research, Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 The Trajectory Transformers paper
 Copyright 2025 Baidu Inc and The HuggingFace Inc. team
+Copyright 2025 Johns Hopkins University, LightOn
 Copyright 2022 WenXiang ZhongzhiCheng LedellWu LiuGuang BoWenZhang and The HuggingFace Inc. team. All rights reserved
 Copyright 2020 The HuggingFace Team. Tutti
 Copyright 2020 The HuggingFace Team Inc.
 Copyright 2023 The Google Flax Team
+Copyright 2025 The Meta AI
 Copyright 2021, The Facebook AI Research Team and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Technology Innovation Institute
 Copyright (c) Facebook, Inc.
 Copyright 2024 Kyutai and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 School of EIC, Huazhong University of Science & Technology and The HuggingFace Inc. team. All rights reserved
@@ -4846,16 +4857,19 @@ Copyright 2024 Meta Platforms, Inc.
 Copyright 2020 The Google AI Language Team Authors, Allegro.pl, Facebook Inc.
 Copyright 2024 Cohere Inc. HuggingFace Inc. team. All rights reserved
 Copyright 2021 Deepmind and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 The Intel Labs Team Authors, The Microsoft Research Team
 Copyright 2023 HuggingFace Inc. team
 Copyright 2022 Salesforce
 Copyright 2022 The Salesforce authors, The Open AI Team
 Copyright 2022 The BAAI Teams
 Copyright 2022 cookiecutter.authors . All rights reserved
+Copyright 2025 Google LLC
 Copyright 2020 The SqueezeBert authors and The HuggingFace Inc. team
 Copyright 2021- NVIDIA Corporation and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 The Facebook AI Research Team
 Copyright 2020 Hugging Face
 Copyright 2023 MetaAI
+Copyright 2024 The HuggingFace Team Inc.
 Copyright 2022 The OFA-Sys Team
 Copyright 2024 BigCode
 Copyright 2022 The OpenAI team and The HuggingFace Team. All rights reserved
@@ -4863,11 +4877,13 @@ Copyright 2021 NVIDIA Corporation and The HuggingFace Team. All rights reserved
 Copyright 2018 The Microsoft Research Asia LayoutLM Team
 Copyright 2023 Amazon and The HuggingFace Inc. team. All rights reserved
 Copyright 2019 Hugging Face inc.
+Copyright 2025 The OFA-Sys Team
 Copyright 2023, HuggingFace Inc.
 Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved
 Copyright 2022 Sea AI Lab and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 The Intel Labs Team Authors, The Microsoft Research Team
 Copyright 2020 The HuggingFace Inc. team, The Microsoft Research team
+Copyright 2025 Westlake Representational Learning Lab (Fajie Yuan Lab) team
 Copyright 2023 NllbMoe
 Copyright 2021 The UCLA NLP Authors and The HuggingFace Inc. team. All rights reserved
 Copyright 2025 The Qwen team, Alibaba Group
@@ -4877,7 +4893,6 @@ Copyright 2021 The Eleuther AI and HuggingFace Inc. team. All rights reserved
 Copyright 2022 Meta and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 Apple Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 Meta Platforms, Inc.and The HuggingFace Inc. team. All rights reserved
-Copyright 2024 Mistral AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 HuggingFace Inc. Team and Bigscience Workshop. All rights reserved
 Copyright 2022s HuggingFace Inc.
 Copyright The HuggingFace Inc. team. All rights reserved
@@ -4900,12 +4915,14 @@ Copyright 2021 The HuggingFace Team
 Copyright 2024, The HuggingFace Inc. team. All rights reserved
 Copyright 2018 The Google AI Language Team Authors, The HuggingFace Inc. team
 Copyright 2024 Intel Labs and The HuggingFace Inc. team. All rights reserved
-Copyright 2022 The HuggingFace Inc. Team. All rights reserved
+Copyright 2025 Bytedance-Seed Ltd
 Copyright 2018 Salesforce and HuggingFace Inc. team
 Copyright 2022 The Metaseq Authors and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 HuggingFace Inc.
 Copyright 2022 HuggingFace Inc. team and BigScience
+Copyright 2025 Meta AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 The HuggingFace Team and Microsoft Research AI4Science All rights reserved
+Copyright 2025 The ZhipuAI Inc. team and HuggingFace Inc. team. All rights reserved
 Copyright 2018 The Google Flax Team
 Copyright 2020 Google and The HuggingFace Inc. team
 Copyright 2021 ASAPP Inc. and The HuggingFace Inc. team. All rights reserved
@@ -4913,22 +4930,26 @@ Copyright 2023 Meta Platforms, Inc. and The HuggingFace Inc. team. All rights re
 Copyright 2023 The Kakao Enterprise
 Copyright 2023 HuggingFace Inc. team. All rights reserved
 Copyright 2024 IDEA Research and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Meta Platforms, Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 HuggingFace Inc. team
 Copyright 2022 The Hugging Face Team
 Copyright 2024 Mistral
 Copyright Deepmind and The HuggingFace Inc. team. All rights reserved
-Copyright Iz Beltagy, Matthew E. Peters, Arman Cohan and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The EleutherAI and HuggingFace Teams. All rights reserved
 Copyright 2023 The BigCode team and HuggingFace Inc. team
 Copyright 2023 Mixtral AI and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 IBM
 Copyright 2021 Facebook AI Research The HuggingFace Inc. team. All rights reserved
 Copyright 2020, The T5 Authors and HuggingFace Inc.
 Copyright 2021, The Facebook, Inc. and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Meituan
 Copyright (c) 2020, VinAI Research
 Copyright 2019 The TensorFlow Authors, The Hugging Face Team. All Rights Reserved
 Copyright 2024 The HuggingFace Inc. team
 Copyright 2023 The Meta AI Team
 Copyright 2023 IBM and HuggingFace Inc. team. All rights reserved
+Copyright 2025 Meta Platforms, Inc.
+Copyright 2025 MiniMaxAI and HuggingFace Inc. teams. All rights reserved
 Copyright 2021 The Fairseq Authors, Microsoft Research, and The HuggingFace Inc. team. All rights reserved
 Copyright 2019 The Open AI Team
 Copyright 2018 The Microsoft Research Asia LayoutLM Team Authors, The Hugging Face Team
@@ -4937,6 +4958,7 @@ Copyright 2018 The Google AI Language Team Authors
 Copyright 2022 Google AI, Ross Wightman, The HuggingFace Inc. team. All rights reserved
 Copyright 2018 Amazon.com, Inc.
 Copyright 2022 The HuggingFace Team The HuggingFace Inc. team. All rights reserved
+Copyright 2025 Arcee AI
 Copyright 2024 Microsoft and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 UW-Madison and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 The HuggingFace Team All rights reserved
@@ -4954,6 +4976,7 @@ Copyright 2023 Meta Platforms, Inc.
 Copyright 2023 The Intel Team Authors, The HuggingFace Inc. team. All rights reserved
 Copyright 2023 Toshiyuki
 Copyright 2024 Microsoft Research and HuggingFace Inc. team
+Copyright 2025 Eduard Durech and SGLang team
 Copyright 2022 The Salesforce Team
 Copyright 2022 Microsoft
 Copyright 2021, The HuggingFace Inc. team. All rights reserved
@@ -4968,10 +4991,12 @@ Copyright 2024 IBM
 Copyright Studio Ousia and The HuggingFace Inc. team
 Copyright 2022, UCLA NLP, The Facebook AI Research Team
 Copyright 2022 SHI Labs and The HuggingFace Inc. team
+Copyright (c) 2025 THL A29 Limited, a Tencent company
 Copyright 2021 HuggingFace Inc. team
 Copyright 2023 MURGe-Lab and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 EleutherAI and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 Bo Peng and HuggingFace Inc. team
+Copyright 2025 NXAI GmbH. All rights reserved
 Copyright 2025 The Qwen Team and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The Facebook AI Research Team
 Copyright 2022 Microsoft Research Asia
@@ -4992,6 +5017,7 @@ Copyright 2019 Facebook AI Research
 Copyright 2021 NVIDIA and The HuggingFace Inc. team. All rights reserved
 Copyright 2025 Advanced Micro Devices, Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The HuggingFace Team. All rights reserved
+Copyright 2025 The LG AI Research and HuggingFace Inc. team. All rights reserved
 Copyright 2022 Leon Derczynski. All rights reserved
 Copyright 2024 Descript and The HuggingFace Inc. team. All rights reserved
 Copyright 2021, The Microsoft Research Asia MarkupLM Team
@@ -5001,6 +5027,7 @@ Copyright 2018 HuggingFace Inc. team
 Copyright 2024 The Qwen team, Alibaba Group
 Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved
 Copyright 2020 The Microsoft Authors and The HuggingFace Inc. team
+Copyright 2025 Meta Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 Google AI and The HuggingFace Team. All rights reserved
 Copyright 2022 Google LongT5
 Copyright 2021 Google Research and The HuggingFace Inc. team
@@ -5010,10 +5037,12 @@ Copyright 2020 Ecole Polytechnique
 Copyright 2022 The Fairseq Authors and The Google Flax Team
 Copyright 2022 Microsoft Research and The HuggingFace Team. All rights reserved
 Copyright 2024 Stability AI and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 The Fairseq Authors
 Copyright 2022, The HuggingFace Inc. team. All rights reserved
 Copyright 2023 Meta AI, EleutherAI
 Copyright 2022 KAIST and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 NVIDIA and The HuggingFace Team. All rights reserved
+Copyright 2025 Mobile Perception Systems Lab
 Copyright 2024 Microsoft Research, Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2020 The HuggingFace Inc. team
 Copyright 2022 Sea AI Labs and The HuggingFace Inc. team. All rights reserved
@@ -5023,8 +5052,10 @@ Copyright Meta Platforms and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Meta Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Meta and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 Google AI, Google
+Copyright 2025 The LG AI Research and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Microsoft Research & University of Wisconsin-Madison
 Copyright 2021 The Marian Team
+Copyright 2025 Mistral AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The Fairseq Authors and The Google Flax Team
 Copyright 2021 Studio Ousia
 Copyright 2024 Cohere team. All rights reserved
@@ -5032,11 +5063,15 @@ Copyright 2010, The Microsoft Research Asia LayoutLM Team
 Copyright 2020, The RAG Authors and The HuggingFace Inc. team
 Copyright 2020, Microsoft
 Copyright 2018 DPR Authors, The Hugging Face Team
+Copyright 2025 The LG AI Research and The HuggingFace Team. All rights reserved
+Copyright 2025 The BitNet Team and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 JetMoe AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2023 The Bigcode team and HuggingFace Inc. team
 Copyright 2024 HuggingFace Inc. team. All rights reserved
+Copyright 2025 Sesame and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 ABEJA, Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2018 The Google AI Language Team Authors, Facebook AI Research
+Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved
 Copyright 2021, Google and The HuggingFace Inc. team. All rights reserved
 Copyright 2022 Apple Inc. and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 The HuggingFace Team. All rights reserved
@@ -5046,6 +5081,7 @@ Copyright 2024 HuggingFace Inc.
 Copyright 2022 The HuggingFace Team. All rights reserved
 Copyright 2023 IBM & Hugging Face. All rights reserved
 Copyright 2023 The Pop2Piano Authors and The HuggingFace Inc. team. All rights reserved
+Copyright 2025 The Nari Labs and HuggingFace Inc. team. All rights reserved
 Copyright 2022 University of Wisconsin-Madison and The HuggingFace Inc. team. All rights reserved
 Copyright 2024 Microsoft
 Copyright 2022 Tsimur Hadeliya. All rights reserved
@@ -5054,8 +5090,8 @@ Copyright 2023 The Meta AI
 Copyright 2021 The HuggingFace Team All rights reserved
 Copyright 2021 Tel AViv University, AllenAI and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The Google Flax Team
-Copyright 2023 Mistral AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The I-BERT Authors Sehoon Kim, Amir Gholami, Zhewei Yao, Michael Mahoney, Kurt Keutzer
+Copyright 2023 Mistral AI and The HuggingFace Inc. team. All rights reserved
 Copyright 2021 The HuggingFace Inc. team. All rights reserved
 Copyright 2025 The LLAMA4 and HuggingFace Inc. team. All rights reserved
 Copyright 2018 Salesforce and The HuggingFace Inc. team
@@ -5065,15 +5101,17 @@ Copyright 2021 The Facebook Inc. and The HuggingFace Inc. team. All rights reser
 Copyright 2024 The GLM & ZhipuAI team and HuggingFace Inc. team. All rights reserved
 Copyright 2022 cookiecutter.authors and The HuggingFace Inc. team. All rights reserved
 Copyright 2018, Hao Tan, Mohit Bansal
+Copyright 2025 Jingze Shi
 Copyright 2025 Microsoft
 Copyright 2023 The Salesforce Authors and The HuggingFace Team. All rights reserved
 Copyright 2024 The ggml.ai team and The HuggingFace Inc. team
 Copyright 2022 Meta Platforms
+Copyright 2025 The HuggingFace Team Inc.
 Copyright 2024 The Fairseq Authors and The HuggingFace Inc. team. All rights reserved
 Copyright 2020 Mesh TensorFlow
 Copyright 2023 Mesh TensorFlow
-Copyright 2022 Hugging Face inc.
 Copyright 2021 The Fairseq Authors
+Copyright 2022 Hugging Face inc.
 Copyright 2023 Microsoft Research and The HuggingFace Inc. team. All rights reserved
 Copyright 2018 Google T5
 Copyright 2022 NVIDIA The HuggingFace Inc. team. All rights reserved
