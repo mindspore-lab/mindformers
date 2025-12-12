@@ -41,6 +41,12 @@ MOE_CONFIG_WITHOUT_SHARED_EXPERTS = {
     "num_experts_per_tok": 2, "n_group": 2, "topk_group": 2
 }
 
+MOE_CONFIG_WITH_TWO_SHARED_EXPERTS = {
+    "batch_size": 4, "seq_len": 4, "hidden_size": 32, "moe_intermediate_size": 8, "num_experts": 8,
+    "moe_shared_expert_intermediate_size": 16, "n_shared_experts": 2, "routed_scaling_factor": 2.5,
+    "num_experts_per_tok": 2, "n_group": 2, "topk_group": 2
+}
+
 FOUR_CARD_TEST_PARAM = "model_args, data_keys, expect_error, tensor_parallel, expert_parallel"
 FOUR_CARD_DP1TP4EP1_TEST_CASES = [
     (
@@ -62,7 +68,17 @@ FOUR_CARD_DP1TP4EP1_TEST_CASES = [
         MOE_CONFIG_WITHOUT_SHARED_EXPERTS,
         {"output": "tp1_no_shared"},
         False,
-        4, 1)
+        4, 1),
+    (
+        # 并行策略: DP=1 TP=4 EP=1
+        # eg: input (4 * 4, H) -> [moe] -> output (4 * 4,H)
+        # seq_len: 4, batch_size: 4, hidden_size: 32, num_experts: 8,
+        # moe_intermediate_size: 8, moe_shared_expert_intermediate_size: 16
+        # expected result: 功能跑通, 精度对齐。
+        MOE_CONFIG_WITH_TWO_SHARED_EXPERTS,
+        {"output": "tp1_2_shared"},
+        False,
+        4, 1),
 ]
 
 

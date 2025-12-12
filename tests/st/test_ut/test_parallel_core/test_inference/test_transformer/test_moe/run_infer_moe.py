@@ -23,6 +23,9 @@ from mindspore import Parameter, Tensor
 import mindspore.common.dtype as mstype
 from mindspore.communication import init, get_rank, get_group_size
 
+from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.data_gen_utils import (
+    get_init_params,
+)
 from mindformers.parallel_core.transformer_config import TransformerConfig
 from mindformers.parallel_core.utils.spec_utils import build_module
 from mindformers.parallel_core.inference import parallel_state as ps
@@ -34,9 +37,6 @@ from mindformers.parallel_core.inference.utils import (
 )
 from mindformers.parallel_core.inference.tensor_parallel.mappings import gather_from_model_parallel_region
 
-from tests.st.test_ut.test_parallel_core.test_inference.test_transformer.test_moe.data_gen_utils import (
-    get_init_params,
-)
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
@@ -60,7 +60,7 @@ class MoERunner:
         self.topk_group = self.args.topk_group
 
         init_params = get_init_params(self.seq_len, self.batch_size, self.hidden_size,
-                                      self.num_experts, self.moe_intermediate_size)
+                                      self.num_experts, self.moe_intermediate_size, self.n_shared_experts)
 
         self.input = ms.Tensor(init_params.pop("input"), dtype=mstype.bfloat16)
         self.param_dict = init_params
