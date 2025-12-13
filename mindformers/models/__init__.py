@@ -82,6 +82,11 @@ from .telechat2 import (
     Telechat2PreTrainedModel,
     TeleChat2ForCausalLM,
 )
+from .telechat3 import (
+    TeleChat3Config,
+    TeleChat3PreTrainedModel,
+    TeleChat3ForCausalLM,
+)
 from .tokenization_utils import (
     PreTrainedTokenizer,
     PreTrainedTokenizerBase
