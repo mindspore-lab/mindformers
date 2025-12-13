@@ -50,7 +50,7 @@ train_dataset: &train_dataset
       seq_length: 4096  # Sequence length of the dataset
       eod_mask_loss: False  # Whether to calculate loss at the end-of-document (EOD)
       reset_position_ids: False  # Whether to reset position_ids at EOD
-      create_attention_mask: True  # Whether to include attention_mask in the dataset
+      create_attention_mask: False  # Whether to include attention_mask in the dataset
       reset_attention_mask: False  # Whether to reset attention_mask at EOD, creating a stepped attention_mask
       create_compressed_eod_mask: False  # Whether to include a compressed attention_mask
       eod_pad_length: 128  # Length of the compressed attention_mask
@@ -59,8 +59,8 @@ train_dataset: &train_dataset
       data_path:  # Sampling proportion and path for the Megatron dataset
         - '1'
         - "/path/to/wiki103-megatron_text_document"
-  input_columns: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
-  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
+  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -103,8 +103,7 @@ parallel:
       [*dp, 1],
       [*dp, 1],
       [*dp, 1],
-      [*dp, 1],
-      [*dp, 1, 1, 1]
+      [*dp, 1]
     ]  # Must match the length of train_dataset.input_columns
   search_mode: "sharding_propagation"  # Fully-automatic parallel strategy search mode
   strategy_ckpt_config:

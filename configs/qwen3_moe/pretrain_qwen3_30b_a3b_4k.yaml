@@ -54,7 +54,7 @@ train_dataset: &train_dataset
       seq_length: 4096                   # 数据集返回数据的序列长度
       eod_mask_loss: False               # 是否在eod处计算loss
       reset_position_ids: False          # 是否在eod处重置position_ids
-      create_attention_mask: True        # 是否返回attention_mask
+      create_attention_mask: False       # 是否返回attention_mask
       reset_attention_mask: False        # 是否在eod处重置attention_mask，返回阶梯状attention_mask
       create_compressed_eod_mask: False  # 是否返回压缩后的attention_mask
       eod_pad_length: 128                # 设置压缩后attention_mask的长度
@@ -65,8 +65,8 @@ train_dataset: &train_dataset
         - '1'
         - "/path/to/wiki103-megatron_text_document"
 
-  input_columns: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
-  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
+  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids"]
 
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -116,8 +116,7 @@ parallel:
     [*dp, 1],
     [*dp, 1],
     [*dp, 1],
-    [*dp, 1],
-    [*dp, 1, 1, 1]
+    [*dp, 1]
   ]
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False

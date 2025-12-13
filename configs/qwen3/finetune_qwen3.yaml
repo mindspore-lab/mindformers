@@ -38,8 +38,8 @@ lr_schedule:
 
 # Dataset configuration
 train_dataset: &train_dataset
-  input_columns: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
-  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
+  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids"]
 
   data_loader:
     type: HFDataLoader
@@ -50,7 +50,7 @@ train_dataset: &train_dataset
     split: "train"
 
     # MindFormers dataset arguments
-    create_attention_mask: True
+    create_attention_mask: False
     create_compressed_eod_mask: False
     compressed_eod_mask_length: 128
     use_broadcast_data: True
@@ -112,8 +112,7 @@ parallel:
       [*dp, 1],
       [*dp, 1],
       [*dp, 1],
-      [*dp, 1],
-      [*dp, 1, 1, 1]
+      [*dp, 1]
     ]  # Must match the length of train_dataset.input_columns
   search_mode: "sharding_propagation"  # Fully-automatic parallel strategy search mode
   strategy_ckpt_config:
