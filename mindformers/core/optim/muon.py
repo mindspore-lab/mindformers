@@ -256,8 +256,7 @@ class Muon(Optimizer):
         ns_steps (int): Number of Newton-Schulz steps. Default: ``5``.
         adamw_betas (tuple): Beta parameters for AdamW. Default: ``(0.95, 0.95)``.
         adamw_eps (float): Epsilon for AdamW. Default: ``1e-8``.
-        micro_batch_num (int): Number of micro batches. Default: ``1``.
-        qk_clip_threshold (float): QK clip threshold. Default: ``4``.
+        qk_clip_threshold (float): QK clip threshold. Default: ``100``.
         model: The model model. Default: ``None``.
     """
 
@@ -272,7 +271,6 @@ class Muon(Optimizer):
         ns_steps=5,
         adamw_betas=(0.95, 0.95),
         adamw_eps=1e-8,
-        micro_batch_num=1,
         qk_clip_threshold=100,
         model=None,
         **kwargs,
@@ -296,7 +294,7 @@ class Muon(Optimizer):
         self.ones = Tensor([1.0], mstype.float32)
         self.rank_id = get_rank()
         self.rank_ids = tuple(self.rank_id for _ in self._parameters)
-        self.logit_threshold = Tensor([qk_clip_threshold * micro_batch_num], dtype=mstype.float32)
+        self.logit_threshold = Tensor([qk_clip_threshold], dtype=mstype.float32)
 
         # Initialize Muon momentum
         self._initialize_muon_moments(model)

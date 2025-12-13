@@ -15,12 +15,11 @@
 """mindformers GPT model"""
 __all__ = ['GPTModel']
 
-import hashlib
 from typing import Literal, Optional, Union
 import numpy as np
 
 import mindspore as ms
-from mindspore.communication import create_group, get_group_size, get_rank
+from mindspore.communication import get_group_size, get_rank
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops import auto_generate as aclnn_ops
@@ -34,6 +33,12 @@ from mindformers.parallel_core.training_graph.loss_func import CrossEntropyLoss
 from mindformers.parallel_core.training_graph.transformer.multi_token_prediction import MultiTokenPredictionBlock, \
     func_infer_dtype, func_infer_shape, func_infer_shape_labels_and_masks
 from mindformers.parallel_core.training_graph.device_matrix import layout
+from mindformers.parallel_core.training_graph.communication import (
+    compute_repeat_num_and_model_parallel_size,
+    get_cp_group_name,
+    get_dp_group_name,
+    get_op_group_name
+)
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec
 from mindformers.parallel_core.training_graph.transformer.mask_generate import CausalMaskGenerate
 from mindformers.parallel_core.transformer_config import TransformerConfig
@@ -57,61 +62,6 @@ from mindformers.tools.logger import logger
 from mindformers.models.utils import get_current_rank_stage, get_model_parameters
 from mindformers.version_control import get_lazy_inline as lazy_inline
 from mindformers.core.optim.muon_utils import make_muon_fns
-from mindformers.checkpoint.sharded_tensor import ShardedTensor
-
-
-def compute_repeat_num_and_model_parallel_size(sharded_info: ShardedTensor, world_size: int, pp: int, op: int):
-    """Compute real op size."""
-    axis_fragmentations = sharded_info.axis_fragmentations
-    flag = False
-    weight_sharded_size = 1
-    for axis in axis_fragmentations:
-        if axis == 1:
-            continue
-        if flag:
-            raise ValueError("Only one axis can be fragmented in Muon optimizer.")
-        flag = True
-        weight_sharded_size *= axis
-    repeat_num = world_size // pp // weight_sharded_size
-    real_op_size = min(op, repeat_num)
-    if sharded_info.local_shape[0] % real_op_size != 0:
-        real_op_size = 1
-    return real_op_size, weight_sharded_size
-
-
-def create_communication_group(rank_list):
-    """
-    Create a communication group with a hashed name.
-
-    Args:
-        rank_list: List of ranks in the communication group
-
-    Returns:
-        str: The created group name
-    """
-    rank_list_str = "-".join([str(i) for i in rank_list])
-    hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
-    group_name = str(hashed)
-    create_group(group_name, rank_list)
-    return group_name
-
-
-OP_GROUP_NAME = {}
-
-
-def get_op_group_name(rank_id: int, real_op_size: int, model_parallel_size: int):
-    """Get op group name."""
-    if (rank_id, real_op_size, model_parallel_size) in OP_GROUP_NAME:
-        return OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)]
-    dp_range = model_parallel_size
-    op_range = model_parallel_size * real_op_size
-    rank_start = rank_id % dp_range + rank_id // op_range * op_range
-    rank_end = rank_start + op_range
-    rank_list = list(range(rank_start, rank_end, dp_range))
-    op_group_name = create_communication_group(rank_list)
-    OP_GROUP_NAME[(rank_id, real_op_size, model_parallel_size)] = (op_group_name, rank_list)
-    return op_group_name, rank_list
-
 
 class PreprocessLabelsAndMasks(nn.Cell):
     """Preprocess input_ids and generate labels and masks.
@@ -315,6 +265,17 @@ class GPTModel(nn.Cell):
         if _get_parallel_mode() != ParallelMode.STAND_ALONE:
             initialize_model_parallel(tensor_model_parallel_size=self.tp, data_parallel_size=self.dp,
                                       pipeline_model_parallel_size=self.pp, context_parallel_size=self.cp)
+
+        if self.config.track_max_attention_logit:
+            self.rank_id = get_rank()
+            self.allreduce_max_in_dp = (
+                None if self.dp == 1
+                else P.AllReduce(op=P.ReduceOp.MAX, group=get_dp_group_name(self.rank_id, self.dp, self.tp, self.cp)[0])
+            )
+            self.allreduce_max_in_cp = (
+                None if self.cp == 1
+                else P.AllReduce(op=P.ReduceOp.MAX, group=get_cp_group_name(self.rank_id, self.dp, self.tp, self.cp)[0])
+            )
 
         self.preprocess_labels_and_masks = PreprocessLabelsAndMasks(config)
 
@@ -731,6 +692,32 @@ class GPTModel(nn.Cell):
             max_logits[f"{param_name}.max_logits_val"] = param
         return max_logits
 
+    def allreduce_max_attention_logit(self):
+        """
+        Perform AllReduce-Max operation across DP and CP dimensions for max attention logits.
+
+        This method aggregates the maximum attention logit values from all data parallel
+        and context parallel ranks to ensure consistent max logit values across the model.
+        """
+        num_layers = self.config.num_layers
+        mtp_num_layers = 0 if self.config.mtp_num_layers is None else self.config.mtp_num_layers
+
+        def _allreduce_max_param(max_logits):
+            param = max_logits.value()
+            if self.allreduce_max_in_dp is not None:
+                param = self.allreduce_max_in_dp(param)
+            if self.allreduce_max_in_cp is not None:
+                param = self.allreduce_max_in_cp(param)
+            self.assign(max_logits, param)
+
+        for i in range(num_layers):
+            max_logits = self.decoder.layers[i].self_attention.core_attention.max_logits_val
+            _allreduce_max_param(max_logits)
+
+        for i in range(mtp_num_layers):
+            max_logits = self.mtp.layers[i].transformer_layer.self_attention.core_attention.max_logits_val
+            _allreduce_max_param(max_logits)
+
     def reset_max_attention_logit(self):
         """Reset max attention logit to zeros for all layers."""
         for _, core_attn in self._iter_core_attentions():
@@ -783,6 +770,9 @@ class GPTModel(nn.Cell):
                 layout("dp_cp", "tp"),
             )
         )
+        if self.config.track_max_attention_logit:
+            self.allreduce_max_in_dp.shard((layout("tp"),))
+            self.allreduce_max_in_cp.shard((layout("tp"),))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
@@ -1047,6 +1037,7 @@ class GPTModel(nn.Cell):
         Returns:
             List of (param_idx, scaled_weights) tuples to be updated.
         """
+        self.allreduce_max_attention_logit()
         if not self.config.multi_latent_attention:
             return []
         ones = ms.Tensor([1.0], dtype.float32)
@@ -1057,9 +1048,6 @@ class GPTModel(nn.Cell):
             scale_broadcast = ops.tile(ops.expand_dims(scales, 1), (1, head_dim)).reshape(-1)
             scale_broadcast = ops.expand_dims(scale_broadcast, 1)
             return scale_broadcast
-
-        # Build param name to index mapping
-        param_idx_in_opt = {name: idx for idx, name in enumerate(param_names)}
 
         updates = []
         for idx, param_name in enumerate(param_names):
@@ -1076,16 +1064,24 @@ class GPTModel(nn.Cell):
             # Compute per-head scale factor
             logit_threshold_f32 = ops.cast(logit_threshold, dtype=dtype.float32)
             if layer_idx >= 0:
-                max_logits_name = (f"decoder.layers.{layer_idx}.self_attention."
-                                   "core_attention.max_logits_val")
+                logits_row = (
+                    self.decoder.layers[layer_idx]
+                    .self_attention
+                    .core_attention
+                    .max_logits_val
+                    .value()
+                )
             else:
-                max_logits_name = (f"mtp.layers.{-(layer_idx+1)}.transformer_layer."
-                                   "self_attention.core_attention.max_logits_val")
+                logits_row = (
+                    self.mtp.layers[-(layer_idx + 1)]
+                    .transformer_layer
+                    .self_attention
+                    .core_attention
+                    .max_logits_val
+                    .value()
+                )
 
-            if max_logits_name not in param_idx_in_opt:
-                continue
-
-            logits_row = params[param_idx_in_opt[max_logits_name]].reshape(-1)
+            logits_row = logits_row.reshape(-1)
             mask = ops.greater_equal(logits_row, logit_threshold_f32)
             safe_den = ops.where(mask, logits_row, ones)
             scales = ops.where(mask, logit_threshold_f32 / safe_den, ones)

@@ -173,17 +173,23 @@ class FlashAttention(Cell):
         self.reshape = aclnn_ops.Reshape()
         self.fa_out_transpose = aclnn_ops.Transpose()
 
-        self.monitor_max_attention_logit = self.config.monitor_max_attention_logit
+        self.track_max_attention_logit = self.config.track_max_attention_logit
 
-        if self.monitor_max_attention_logit:
+        if self.track_max_attention_logit:
+            # Parameter to store the maximum attention logit value per head.
+            # Note: This is a local max within each device's partition. Cross-device
+            # synchronization (AllReduce-Max across DP/CP dimensions) is performed
+            # later in GPTModel.allreduce_max_attention_logit() to obtain the global max.
             self.max_logits_val = Parameter(
                 Tensor(np.zeros((self.head_num)), dtype=mstype.float32),
                 parallel_optimizer=False, requires_grad=False
             )
             self.reduce_max = aclnn_ops.ReduceMax()
             self.reduce_max.add_prim_attr("self_define_shard", True)
-            self.assign_add = ops.AssignAdd()
-            self.assign_add.add_prim_attr("self_define_shard", True)
+            self.assign = ops.Assign()
+            self.assign.add_prim_attr("self_define_shard", True)
+            self.maximum = ops.Maximum()
+            self.maximum.add_prim_attr("self_define_shard", True)
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.sharding_propagation(config)
@@ -300,9 +306,10 @@ class FlashAttention(Cell):
                                                    prefix,
                                                    actual_seq_qlen,
                                                    actual_seq_kvlen)
-            if self.monitor_max_attention_logit:
+            if self.track_max_attention_logit:
                 max_logits = self.reduce_max(softmax_val, (0, 2))
-                output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
+                # Update local maximum; global sync happens in GPTModel.allreduce_max_attention_logit()
+                self.assign(self.max_logits_val, self.maximum(self.max_logits_val, max_logits))
             return output
 
         q_seq_len, bsz = query.shape[:2]
@@ -335,9 +342,10 @@ class FlashAttention(Cell):
                                                padding_mask,
                                                attention_mask,
                                                prefix)
-        if self.monitor_max_attention_logit:
+        if self.track_max_attention_logit:
             max_logits = self.reduce_max(softmax_val, (0, 2, 3))
-            output = F.depend(output, self.assign_add(self.max_logits_val, max_logits))
+            # Update local maximum; global sync happens in GPTModel.allreduce_max_attention_logit()
+            self.assign(self.max_logits_val, self.maximum(self.max_logits_val, max_logits))
 
         if self.input_layout == "BNSD":
             output = self._merge_heads(output)
@@ -379,19 +387,23 @@ class FlashAttention(Cell):
         if self.use_alibi_mask:
             self.alibi_rescale_mul.shard(((dp, tp, cp, 1), (1,)))
 
-        if self.monitor_max_attention_logit:
-            self.assign_add.shard(
+        if self.track_max_attention_logit:
+            self.assign.shard(
                 in_strategy=(layout("tp"), layout("tp")),
                 out_strategy=(layout("tp"),)
             )
-            if self.input_layout == "BNSD":
+            self.maximum.shard(
+                in_strategy=(layout("tp"), layout("tp")),
+                out_strategy=(layout("tp"),)
+            )
+            if self.input_layout == "TND":
                 self.reduce_max.shard(
-                    in_strategy=(layout("None", "tp", "None", "None"),),
+                    in_strategy=(layout("dp_cp", "tp", "None"),),
                     out_strategy=(layout("tp"),)
                 )
-            elif self.input_layout == "TND":
+            else:
                 self.reduce_max.shard(
-                    in_strategy=(layout("None", "tp", "None"),),
+                    in_strategy=(layout("dp", "tp", "cp", "None"),),
                     out_strategy=(layout("tp"),)
                 )
         return self
