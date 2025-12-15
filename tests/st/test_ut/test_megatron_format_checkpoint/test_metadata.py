@@ -20,7 +20,7 @@ import pytest
 
 import mindspore as ms
 
-from mindformers.checkpoint.sharded_tensor import get_sharded_tensor_list_from_strategy_metadata
+from mindformers.checkpoint.sharded_tensor import get_sharded_tensor_from_strategy_metadata
 from mindformers.checkpoint.metadata import save_metadata, load_metadata
 from mindformers.checkpoint.utils import (
     get_checkpoint_iter_dir,
@@ -54,25 +54,21 @@ NOT_EXISTS = False
 def save_metadata_without_npu(global_strategy_info, model_keys, user_prefix, metadata_file_path, save_optimizer):
     """Saving metadata.json without NPU ranks, using mock data."""
     npu_nums = 2
-    sharded_tensor_metas = list()
-    param_file_mappings = list()
+    sharded_tensor_metas = {}
+    param_file_mappings = []
 
     for cur_npu_rank in range(0, npu_nums):
-        org_cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
-        cur_rank_strategy_layout = [
-            dict([item])
-            for item in org_cur_rank_strategy_layout.items()
-        ]
+        cur_rank_strategy_layout = global_strategy_info[cur_npu_rank]
 
         # Get Sharded tensors from strategy metadata of current rank.
-        cur_rank_sharded_tensors = get_sharded_tensor_list_from_strategy_metadata(
+        cur_rank_sharded_tensors = get_sharded_tensor_from_strategy_metadata(
             param_infos=cur_rank_strategy_layout,
             cur_npu_rank=cur_npu_rank,
             filter_func=(lambda x: x in list(model_keys)) if not save_optimizer else None
         )
 
         # Get mappings of parameter file of current rank.
-        for sharded_tensor in cur_rank_sharded_tensors:
+        for _, sharded_tensor in cur_rank_sharded_tensors.items():
             if save_optimizer and sharded_tensor.key not in list(model_keys):
                 ckpt_name = get_checkpoint_name(None, user_prefix, cur_npu_rank, npu_nums, FileType.OPTIMIZER)
             else:
@@ -85,7 +81,7 @@ def save_metadata_without_npu(global_strategy_info, model_keys, user_prefix, met
                 )
             )
 
-        sharded_tensor_metas.append(cur_rank_sharded_tensors)
+        sharded_tensor_metas[cur_npu_rank] = cur_rank_sharded_tensors
 
     save_metadata(sharded_tensor_metas, param_file_mappings, metadata_file_path)
 
