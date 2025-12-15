@@ -24,10 +24,7 @@ from mindformers.checkpoint.sharded_tensor import (
     ShardedTensor,
     build_sharded_tensor,
     is_main_replica,
-    get_sharded_tensor_list_from_cell,
-    convert_sharded_tensor_list_to_dict,
-    get_value_type_from_layout,
-    get_param_name_from_layout,
+    get_sharded_tensor_from_cell,
     get_strategy_info_from_sharded_tensor,
     _rank_id_with_slice_id,
     _alias_name_with_rank_id,
@@ -158,11 +155,11 @@ class SimpleNet(nn.Cell):
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
-def test_get_sharded_tensor_list_from_cell():
+def test_get_sharded_tensor_from_cell():
     """
-    Feature: get_sharded_tensor_list_from_cell function
+    Feature: get_sharded_tensor_from_cell function
     Description: Extract sharded tensors from a neural network cell
-    Expectation: Returns list of ShardedTensor objects for cell parameters
+    Expectation: Returns dict of ShardedTensor objects for cell parameters
     """
     net = SimpleNet()
 
@@ -170,39 +167,15 @@ def test_get_sharded_tensor_list_from_cell():
     net.dense.weight.set_data(initializer(Normal(), net.dense.weight.shape, net.dense.weight.dtype))
     net.dense.bias.set_data(initializer('zeros', net.dense.bias.shape, net.dense.bias.dtype))
 
-    sharded_tensors = get_sharded_tensor_list_from_cell(net)
+    sharded_tensors = get_sharded_tensor_from_cell(net)
 
     assert len(sharded_tensors) >= 2  # Weight and bias
 
-    weight_tensor = next(t for t in sharded_tensors if 'weight' in t.key)
-    bias_tensor = next(t for t in sharded_tensors if 'bias' in t.key)
+    weight_tensor = next(t for t in sharded_tensors.values() if 'weight' in t.key)
+    bias_tensor = next(t for t in sharded_tensors.values() if 'bias' in t.key)
 
     assert weight_tensor.local_shape == net.dense.weight.shape
     assert bias_tensor.local_shape == net.dense.bias.shape
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_convert_sharded_tensor_list_to_dict():
-    """
-    Feature: convert_sharded_tensor_list_to_dict function
-    Description: Convert list of ShardedTensor objects to dictionary
-    Expectation: Returns dictionary mapping tensor keys to ShardedTensor objects
-    """
-    tensors = [
-        ShardedTensor(key=f"param_{i}", org_key="", dtype=ms.float32,
-                      local_shape=(10,), global_shape=(100,),
-                      global_offset=(i * 10,), axis_fragmentations=(10,))
-        for i in range(3)
-    ]
-
-    tensor_dict = convert_sharded_tensor_list_to_dict(tensors)
-
-    assert len(tensor_dict) == 3
-    for i in range(3):
-        assert f"param_{i}" in tensor_dict
-        assert tensor_dict[f"param_{i}"].key == f"param_{i}"
 
 
 @pytest.mark.level0
@@ -286,11 +259,11 @@ def test_is_main_replica_single_nonzero_element_tuple():
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.env_onecard
-def test_get_sharded_tensor_list_from_cell_with_optimizer():
+def test_get_sharded_tensor_from_cell_with_optimizer():
     """
-    Feature: get_sharded_tensor_list_from_cell function with optimizer
+    Feature: get_sharded_tensor_from_cell function with optimizer
     Description: Extract sharded tensors from a neural network cell and optimizer
-    Expectation: Returns list of ShardedTensor objects for both cell and optimizer parameters
+    Expectation: Returns dict of ShardedTensor objects for both cell and optimizer parameters
     """
     net = SimpleNet()
 
@@ -301,47 +274,10 @@ def test_get_sharded_tensor_list_from_cell_with_optimizer():
     # Create optimizer
     optim = nn.Momentum(net.trainable_params(), learning_rate=0.01, momentum=0.9)
 
-    sharded_tensors = get_sharded_tensor_list_from_cell(net, optim)
+    sharded_tensors = get_sharded_tensor_from_cell(net, optim)
 
     # Should have weight, bias from net and optimizer states (momentum, etc.)
     assert len(sharded_tensors) >= 2
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_convert_empty_sharded_tensor_list_to_dict():
-    """
-    Feature: convert_sharded_tensor_list_to_dict function
-    Description: Convert empty list of ShardedTensor objects to dictionary
-    Expectation: Returns empty dictionary
-    """
-    tensor_dict = convert_sharded_tensor_list_to_dict([])
-    assert len(tensor_dict) == 0
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_convert_sharded_tensor_list_to_dict_duplicate_keys():
-    """
-    Feature: convert_sharded_tensor_list_to_dict function
-    Description: Convert list of ShardedTensor objects with duplicate keys to dictionary
-    Expectation: Later tensor overwrites earlier one with same key
-    """
-    tensors = [
-        ShardedTensor(key="param", org_key="", dtype=ms.float32,
-                      local_shape=(10,), global_shape=(100,),
-                      global_offset=(0,), axis_fragmentations=(10,)),
-        ShardedTensor(key="param", org_key="", dtype=ms.float32,
-                      local_shape=(5,), global_shape=(50,),
-                      global_offset=(10,), axis_fragmentations=(5,))
-    ]
-
-    tensor_dict = convert_sharded_tensor_list_to_dict(tensors)
-
-    assert len(tensor_dict) == 1
-    assert tensor_dict["param"].local_shape == (5,)
 
 
 @pytest.mark.level0
@@ -458,47 +394,3 @@ def test_rank_id_with_slice_id():
     assert isinstance(global_offset, tuple)
     assert len(rank_slice_table) == 4  # 4 ranks
     assert len(global_offset) == 4
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_get_param_name_from_layout():
-    """
-    Feature: get_param_name_from_layout function
-    Description: Extract parameter names from layout information
-    Expectation: Returns list of parameter names
-    """
-    param_infos = [
-        {
-            "weight": (None, None, None)
-        },
-        {
-            "bias": (None, None, None)
-        }
-    ]
-
-    names = get_param_name_from_layout(param_infos)
-    assert names == ["weight", "bias"]
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_get_value_type_from_layout():
-    """
-    Feature: get_value_type_from_layout function
-    Description: Extract parameter types from layout information
-    Expectation: Returns list of parameter types
-    """
-    param_infos = [
-        {
-            "weight": (None, ms.float32, None)
-        },
-        {
-            "bias": (None, ms.float16, None)
-        }
-    ]
-
-    types = get_value_type_from_layout(param_infos)
-    assert types == [ms.float32, ms.float16]
