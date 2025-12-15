@@ -15,8 +15,12 @@
 """test gpt dataset"""
 
 import os
+import subprocess
 import tempfile
+import time
 import shutil
+import glob
+
 import pytest
 import numpy as np
 
@@ -31,7 +35,87 @@ from mindformers.dataset.blended_datasets.gpt_dataset import (
     _build_document_index,
     _build_shuffle_index
 )
-from mindformers.dataset.blended_datasets.utils import Split, compile_helpers
+from mindformers.dataset.blended_datasets.utils import Split
+from mindformers.dataset.blended_datasets import utils as blended_utils_module
+from mindformers.tools.logger import logger
+
+try:
+    from filelock import FileLock
+
+    HAS_FILELOCK = True
+except ImportError:
+    FileLock = None
+    HAS_FILELOCK = False
+
+
+def _check_helpers_exists(helpers_dir):
+    """Check if helpers.so exists and is valid."""
+    so_pattern = os.path.join(helpers_dir, "helpers*.so")
+    existing_so_files = glob.glob(so_pattern)
+    return existing_so_files and any(os.path.getsize(f) > 1000 for f in existing_so_files)
+
+
+def _compile_helpers_safe(helpers_dir, worker_id):
+    """Compile helpers if not already compiled."""
+    if _check_helpers_exists(helpers_dir):
+        return
+
+    logger.info(f"[{worker_id}] Starting compilation...")
+    result = subprocess.run(["make", "-C", helpers_dir], capture_output=True, text=True, check=False)
+
+    if result.returncode != 0 and not _check_helpers_exists(helpers_dir):
+        raise RuntimeError(f"Failed to compile helpers: {result.stderr}")
+
+    logger.info(f"[{worker_id}] Compilation completed")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_helpers_compiled(request, tmp_path_factory):
+    """Ensure helpers are compiled once with process-safe locking for pytest-xdist."""
+    # Get worker_id if running with pytest-xdist, otherwise use 'master'
+    worker_id = getattr(request.config, 'workerinput', {}).get('workerid', 'master')
+
+    helpers_dir = os.path.abspath(os.path.dirname(blended_utils_module.__file__))
+
+    # Quick check: if already compiled, all workers skip immediately
+    if _check_helpers_exists(helpers_dir):
+        logger.info(f"[{worker_id}] helpers.so already exists, using directly")
+        yield
+        return
+
+    # Single process mode - compile directly
+    if worker_id == "master":
+        _compile_helpers_safe(helpers_dir, worker_id)
+        yield
+        return
+
+    # Parallel mode - use file lock
+    lock_file = tmp_path_factory.getbasetemp().parent / "helpers_compile.lock"
+
+    if HAS_FILELOCK:
+        with FileLock(str(lock_file), timeout=300):
+            if not _check_helpers_exists(helpers_dir):
+                _compile_helpers_safe(helpers_dir, worker_id)
+    else:
+        # Fallback: simple atomic lock without filelock library
+        for _ in range(600):  # 5 min timeout (600 * 0.5s)
+            try:
+                fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                try:
+                    if not _check_helpers_exists(helpers_dir):
+                        _compile_helpers_safe(helpers_dir, worker_id)
+                finally:
+                    os.close(fd)
+                    os.unlink(str(lock_file))
+                break
+            except FileExistsError:
+                time.sleep(0.5)
+                if _check_helpers_exists(helpers_dir):
+                    break
+        else:
+            raise TimeoutError("Timeout waiting for helpers compilation")
+
+    yield
 
 
 class DummyTokenizer:
@@ -108,12 +192,7 @@ def create_test_dataset(config_kwargs=None, dataset_kwargs=None):
 class TestGPTDatasetInitialization:
     """Test GPT dataset initialization"""
 
-    @classmethod
-    def setup_class(cls):
-        """Setup class"""
-        compile_helpers()
-
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_gpt_dataset_real_initialization(self):
@@ -155,12 +234,7 @@ class TestGPTDatasetInitialization:
 class TestMockGPTDatasetFunctionality:
     """Test Mock GPT dataset functionality"""
 
-    @classmethod
-    def setup_class(cls):
-        """Setup class"""
-        compile_helpers()
-
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_mock_gpt_dataset_configurations(self):
@@ -197,7 +271,7 @@ class TestMockGPTDatasetFunctionality:
         assert len(padding_item) >= 4
         assert np.all(padding_item[2] == 0)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_mock_gpt_dataset_advanced_features(self):
@@ -221,7 +295,7 @@ class TestMockGPTDatasetFunctionality:
 class TestGPTDatasetComponents:
     """Test GPT dataset components"""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_mock_gpt_low_level_dataset(self):
@@ -239,7 +313,7 @@ class TestGPTDatasetComponents:
         sliced_item = mock_dataset.get(0, offset=0, length=10)
         assert len(sliced_item) == 10
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_utility_functions(self):
@@ -289,7 +363,7 @@ class TestGPTDatasetComponents:
         shuffle_idx = _build_shuffle_index(5, 5, numpy_random_state)
         assert len(shuffle_idx) == 5
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_config_validation(self):
@@ -306,7 +380,7 @@ class TestGPTDatasetComponents:
                 tokenizer=DummyTokenizer()
             )
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_cacheability_logic(self):
