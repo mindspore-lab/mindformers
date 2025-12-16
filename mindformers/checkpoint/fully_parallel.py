@@ -18,11 +18,11 @@ from collections import defaultdict
 from typing import Callable
 
 from mindspore import save_checkpoint
-from mindspore.communication import get_rank
 from mindspore.nn import Cell
 
 from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_real_rank
 from mindformers.checkpoint.metadata import save_metadata, load_metadata
 from mindformers.checkpoint.utils import (
     _reverse_sharded_tensor_shard_id,
@@ -33,7 +33,6 @@ from mindformers.checkpoint.utils import (
     _get_shard_size,
     sharded_tensor_shard_id
 )
-from mindformers.tools.utils import get_real_rank
 
 
 class BalancedSaveStrategy():
@@ -70,7 +69,7 @@ class BalancedSaveStrategy():
         self.total_files_num = None
         self.cur_rank_file_id = None
         self.cached_distribution = None
-        self.rank_id = get_rank()
+        self.rank_id = get_real_rank()
         self.checkpoint_path = checkpoint_path
         self.network = network
         self.ckpt_format = "safetensors"
@@ -88,8 +87,8 @@ class BalancedSaveStrategy():
             The total number of checkpoint files.
         """
         if self.total_files_num is None:
-            shared_distribution, id_to_tensor = self.apply_saving_parallelization()
-            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
+            shared_distribution = self.apply_saving_parallelization()
+            rank_params_mappings = self._get_rank_params_mappings(shared_distribution)
             self.total_files_num = self._get_total_files_num(rank_params_mappings)
 
         return self.total_files_num
@@ -105,8 +104,8 @@ class BalancedSaveStrategy():
             The identifier for the current rank's checkpoint file.
         """
         if self.cur_rank_file_id is None:
-            shared_distribution, id_to_tensor = self.apply_saving_parallelization()
-            rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
+            shared_distribution = self.apply_saving_parallelization()
+            rank_params_mappings = self._get_rank_params_mappings(shared_distribution)
             self.cur_rank_file_id = self._get_cur_rank_file_id(rank_params_mappings)
 
         return self.cur_rank_file_id
@@ -120,8 +119,8 @@ class BalancedSaveStrategy():
             and saves the selected parameters in the specified format.
         It also saves metadata about the checkpoint files if the current rank is 0.
         """
-        shared_distribution, id_to_tensor = self.apply_saving_parallelization()
-        rank_params_mappings = self._get_rank_params_mappings(shared_distribution, id_to_tensor)
+        shared_distribution = self.apply_saving_parallelization()
+        rank_params_mappings = self._get_rank_params_mappings(shared_distribution)
 
         if self.total_files_num is None:
             self.total_files_num = self._get_total_files_num(rank_params_mappings)
@@ -160,13 +159,18 @@ class BalancedSaveStrategy():
         Otherwise, it will retrieve the current distribution and cache it if caching is enabled.
 
         Returns:
-            A tuple containing the shared distribution dictionary and the shard-to-name mapping dictionary.
+            shared_distribution (Dict[int, Dict[str, Tuple]]): A nested dictionary where:
+            - Outer keys: Target rank IDs (int) in the parallel group.
+            - Outer values: Dictionaries mapping unique shard IDs (str) to tuples containing:
+            1. Corresponding `ShardedTensor` object with complete shard metadata (shape, dtype, global offset, etc.).
+            2. Rank group (tuple of ints): Ranks that have redundant copies of the shard (supports fault tolerance or
+                parallel access).
         """
         if self.do_cache_distribution and self.cached_distribution is not None:
             shared_distribution = self.cached_distribution
         else:
-            shard_id_to_ranks, shard_id_to_tensor = apply_balance_shard_strategy(self.network, self.filter_func)[:2]
-            shared_distribution = (shard_id_to_ranks, shard_id_to_tensor)
+            rank_id_to_sharded_tensors = apply_balance_shard_strategy(self.network, self.filter_func)
+            shared_distribution = rank_id_to_sharded_tensors
 
         if self.do_cache_distribution:
             self.cached_distribution = shared_distribution
@@ -221,8 +225,12 @@ class BalancedSaveStrategy():
             and saves this mapping along with the shard metadata to the specified checkpoint path.
 
         Args:
-            shared_distribution (dict): A dictionary where keys are parameter IDs and values are rank IDs indicating
-                which rank is responsible for a particular parameter.
+            shared_distribution (Dict[int, Dict[str, Tuple]]): A nested dictionary where:
+            - Outer keys: Target rank IDs (int) in the parallel group.
+            - Outer values: Dictionaries mapping unique shard IDs (str) to tuples containing:
+            1. Corresponding `ShardedTensor` object with complete shard metadata (shape, dtype, global offset, etc.).
+            2. Rank group (tuple of ints): Ranks that have redundant copies of the shard (supports fault tolerance or
+                parallel access).
             iteration (int): The current iteration number.
         """
         if self.rank_id == 0:
@@ -240,13 +248,13 @@ class BalancedSaveStrategy():
                             (save_file_name + ".safetensors", rank_id, _reverse_sharded_tensor_shard_id(param_id)))
                     cur_rank_id += 1
 
-            shard_to_metadata = get_all_sharded_tensor(self.network, self.filter_func)
+            sharded_tensor_metas = get_all_sharded_tensor(self.network, self.filter_func)
             origin_metadata_file = get_metadata_filename(self.checkpoint_path, iteration)
 
             if os.path.exists(origin_metadata_file):
                 origin_shard_metadata, origin_param_file_mapping = load_metadata(
                     get_metadata_filename(self.checkpoint_path, iteration))
-                shard_to_metadata.extend(list(origin_shard_metadata.values()))
+                sharded_tensor_metas.update({"origin": origin_shard_metadata})
                 for param_id, storage in origin_param_file_mapping.items():
                     for storage_item in storage:
                         param_file_mapping.append((
@@ -256,31 +264,37 @@ class BalancedSaveStrategy():
                         ))
 
             metadata_file_path = get_metadata_filename(self.checkpoint_path, iteration)
-            save_metadata(shard_to_metadata, param_file_mapping, metadata_file_path)
+            save_metadata(sharded_tensor_metas, param_file_mapping, metadata_file_path)
             if self.rank_id == 0:
                 logger.info(
                     f"The 'metadata.json' of non-redundancy weight saved successfully at '{metadata_file_path}'."
                 )
 
-    def _get_rank_params_mappings(self, shared_distribution, id_to_tensor):
+    def _get_rank_params_mappings(self, shared_distribution):
         """
-        Create a mapping from rank IDs to lists of parameter names based on the shared distribution and
-        shard-to-name mapping.
+        Create a mapping from rank IDs to lists of parameter names based on the shared distribution.
 
         Args:
-            shared_distribution (dict): A dictionary where keys are parameter IDs and values are rank IDs indicating
-                which rank is responsible for a particular parameter.
-            id_to_tensor (dict): A dictionary that maps parameter IDs to their corresponding ShardTensor.
+            shared_distribution (Dict[int, Dict[str, Tuple]]): A nested dictionary where:
+            - Outer keys: Target rank IDs (int) in the parallel group.
+            - Outer values: Dictionaries mapping unique shard IDs (str) to tuples containing:
+            1. Corresponding `ShardedTensor` object with complete shard metadata (shape, dtype, global offset, etc.).
+            2. Rank group (tuple of ints): Ranks that have redundant copies of the shard (supports fault tolerance or
+                parallel access).
 
         Returns:
-            A dictionary where keys are rank IDs and values are lists of parameter names assigned to that rank.
+            Dict[int, Optional[List[str]]]: A sorted dictionary where:
+            - Outer keys: Rank IDs (int) sorted in ascending numerical order.
+            - Outer values: List of param name (str) assigned to the rank.
         """
         rank_params_mappings = {}
-        for param_id, rank_id in shared_distribution.items():
-            if rank_id not in rank_params_mappings:
-                rank_params_mappings[rank_id] = [id_to_tensor[param_id].key]
-            else:
-                rank_params_mappings[rank_id].append(id_to_tensor[param_id].key)
+        for rank_id, sharded_tensors in shared_distribution.items():
+            rank_params_mappings[rank_id] = []
+            for _, shard_id_info in sharded_tensors.items():
+                sharded_tensor, _ = shard_id_info
+                param_name = sharded_tensor.key
+                rank_params_mappings[rank_id].append(param_name)
+
         sorted_rank_params_mappings = {
             k: rank_params_mappings.get(k, None)
             for k in sorted(rank_params_mappings)
@@ -292,18 +306,20 @@ class BalancedSaveStrategy():
         Create a mapping from rank IDs to lists of parameter IDs based on the shared distribution.
 
         Args:
-            shared_distribution (dict): A dictionary where keys are parameter IDs and values are rank IDs indicating
-                which rank is responsible for a particular parameter.
+            shared_distribution (Dict[int, Dict[str, Tuple]]): A nested dictionary where:
+            - Outer keys: Target rank IDs (int) in the parallel group.
+            - Outer values: Dictionaries mapping unique shard IDs (str) to tuples containing:
+            1. Corresponding `ShardedTensor` object with complete shard metadata (shape, dtype, global offset, etc.).
+            2. Rank group (tuple of ints): Ranks that have redundant copies of the shard (supports fault tolerance or
+                parallel access).
 
         Returns:
-            A dictionary where keys are rank IDs and values are lists of parameter IDs assigned to that rank.
+            Dict[int, Optional[List[str]]]: A sorted dictionary where:
+            - Outer keys: Rank IDs (int) sorted in ascending numerical order.
+            - Outer values: List of parameter IDs (str) assigned to the rank.
         """
-        rank_params_mappings = {}
-        for param_id, rank_id in shared_distribution.items():
-            if rank_id not in rank_params_mappings:
-                rank_params_mappings[rank_id] = [param_id]
-            else:
-                rank_params_mappings[rank_id].append(param_id)
+        rank_params_mappings = {rank_id: list(sharded_tensors.keys()) \
+                                for rank_id, sharded_tensors in shared_distribution.items()}
 
         sorted_rank_params_mappings = {
             k: rank_params_mappings.get(k, None)
@@ -326,7 +342,11 @@ def distribute_shards(shard_coverage, shard_sizes, total_ranks):
         total_ranks (int): The total number of ranks.
 
     Returns:
-        A dictionary mapping shard IDs to the rank that will save the shard.
+        Dict[str, Tuple[int, Tuple[int, ...]]]: A dictionary where each key is a unique shard ID,
+        and the corresponding value is a 2-element tuple:
+        1. Selected target rank (int): The rank assigned to store the shard (chosen to minimize current load).
+        2. Rank group (Tuple[int, ...]): Ranks that originally contain the shard (from `shard_coverage`),
+            representing redundant copies for fault tolerance or parallel access.
     """
     coverage_map = {
         k: tuple(sorted(v))
@@ -344,7 +364,7 @@ def distribute_shards(shard_coverage, shard_sizes, total_ranks):
 
     for shard_id, available_ranks in sorted_shards:
         selected_rank = min(available_ranks, key=lambda rank: rank_loads[rank])
-        shard_assignment[shard_id] = selected_rank
+        shard_assignment[shard_id] = (selected_rank, available_ranks)
         rank_loads[selected_rank] += shard_sizes[shard_id]
 
     return shard_assignment
@@ -352,33 +372,39 @@ def distribute_shards(shard_coverage, shard_sizes, total_ranks):
 
 def apply_balance_shard_strategy(network: Cell, filter_func: Callable[[str], bool] = None):
     """
-    Distributes and balances sharded tensor metadata across all ranks in a parallel group.
+    Distributes and balances sharded tensor storage across ranks in a parallel group,
+    generating rank-specific shard assignments.
 
-    This function aggregates sharded tensor metadata from the input network (filtered by the provided 
-    `filter_func`), calculates shard sizes, maps shards to their associated ranks, and distributes 
-    shards to ranks in a load-balanced manner. It also identifies redundant shard copies across ranks 
-    and returns key metadata for shard management.
+    Collects sharded tensor metadata from the input MindSpore Network Cell (filtered by an optional function),
+    computes unique shard identifiers and their sizes, and distributes shards to ranks using a load-balanced strategy.
+    The result maps each target rank to its assigned shards along with the group of ranks that share redundant copies
+    of those shards.
 
-    Core workflow:
-    1. Collect all sharded tensor metadata from the network, filtered by `filter_func`.
-    2. Generate unique shard IDs for each tensor shard and track which ranks own each shard.
-    3. Calculate the size (in bytes) of each unique shard based on its local shape and data type.
-    4. Distribute shards to ranks using a load-balanced strategy via the `distribute_shards` function.
-    5. Compile metadata for the current rank, including assigned shards and redundant shard copies.
+    Core Workflow:
+    1. Extract all sharded tensor metadata from the network using `get_all_sharded_tensor`, applying the `filter_func`
+       to select target tensors (e.g., exclude non-trainable parameters).
+    2. Generate unique shard IDs for each tensor shard (via `sharded_tensor_shard_id`) by combining the tensor key
+       and global offset, then track which ranks originally own each shard.
+    3. Calculate the byte size of each unique shard using its local shape and data type (via `_get_shard_size`),
+       avoiding redundant size computations for identical shards.
+    4. Distribute shards to ranks for storage using the `distribute_shards` function, which implements a load-balanced
+       algorithm to evenly distribute the storage load across the parallel group.
+    5. Compile a rank-to-shard mapping: for each rank, store its assigned shards and the corresponding rank group
+       (ranks with redundant copies of the same shard).
 
     Args:
-        network (Cell): MindSpore Network Cell containing parameters and their sharding information.
-        filter_func: A filtering function to select specific tensors from the network (e.g., exclude
-            non-trainable parameters). Applied during sharded tensor collection via `get_all_sharded_tensor`.
+        network (Cell): A MindSpore Network Cell containing parameters and their associated sharding metadata.
+        filter_func (Optional[Callable[[str], bool]]): An optional filtering function that takes a tensor key (str)
+            and returns a boolean. Only tensors for which the function returns `True` are included in the shard
+            distribution. Defaults to `None` (all sharded tensors in the network are included).
 
     Returns:
-        tuple: A 4-element tuple containing:
-            1. shard_to_saving_rank (dict): Mapping of unique shard IDs to the rank responsible for storing the shard.
-            2. shard_id_to_tensor (dict): Mapping of unique shard IDs to their corresponding sharded tensor metadata.
-            3. dst_sharded_tensor_metas (dict): Mapping of original tensor keys to sharded tensor metadata 
-               assigned to the current local rank.
-            4. param_redundancy (dict): Mapping of rank groups (tuples of ranks) to lists of tensor keys. 
-               Represents shards that exist redundantly across multiple ranks in the group.
+        Dict[int, Dict[str, Tuple]]: A nested dictionary where:
+        - Outer keys: Target rank IDs (int) in the parallel group.
+        - Outer values: Dictionaries mapping unique shard IDs (str) to tuples containing:
+        1. Corresponding `ShardedTensor` object with complete shard metadata (local shape, dtype, global offset, etc.).
+        2. Rank group (tuple of ints): Ranks that have redundant copies of the shard (supports fault tolerance or
+            parallel access).
     """
     total_shard_metadata = get_all_sharded_tensor(network, filter_func)
     shard_id_to_ranks = defaultdict(list)
@@ -386,14 +412,14 @@ def apply_balance_shard_strategy(network: Cell, filter_func: Callable[[str], boo
     shards_in_this_parallelization_group = set()
     shard_id_to_tensor = {}
 
-    for rank, sharded_tensor_metas in enumerate(total_shard_metadata):
-        for tensor_meta in sharded_tensor_metas:
-            shard_id = sharded_tensor_shard_id(tensor_meta.key, tensor_meta.global_offset)
+    for rank, sharded_tensor_metas in total_shard_metadata.items():
+        for sharded_tensor in sharded_tensor_metas.values():
+            shard_id = sharded_tensor_shard_id(sharded_tensor.key, sharded_tensor.global_offset)
             shard_id_to_ranks[shard_id].append(rank)
 
             if shard_id not in shard_to_size:
-                shard_to_size[shard_id] = _get_shard_size(tensor_meta.local_shape, tensor_meta.dtype)
-                shard_id_to_tensor[shard_id] = tensor_meta
+                shard_to_size[shard_id] = _get_shard_size(sharded_tensor.local_shape, sharded_tensor.dtype)
+                shard_id_to_tensor[shard_id] = sharded_tensor
             shards_in_this_parallelization_group.add(shard_id)
 
     shard_id_to_ranks = {
@@ -406,17 +432,13 @@ def apply_balance_shard_strategy(network: Cell, filter_func: Callable[[str], boo
         shard_id_to_ranks, shard_to_size, len(total_shard_metadata)
     )
 
-    dst_sharded_tensor_metas = {}  # {shard_name: ShardTensor}
-    local_rank = get_real_rank()
-    for shard_id, rank_id in shard_to_saving_rank.items():
-        if rank_id == local_rank:
-            dst_sharded_tensor_metas[_reverse_sharded_tensor_shard_id(shard_id)[0]] = shard_id_to_tensor[shard_id]
+    rank_id_to_sharded_tensors = {}
+    for shard_id, rank_info in shard_to_saving_rank.items():
+        selected_rank_id, rank_group = rank_info
+        sharded_tensor = shard_id_to_tensor[shard_id]
+        if selected_rank_id in rank_id_to_sharded_tensors:
+            rank_id_to_sharded_tensors[selected_rank_id][shard_id] = (sharded_tensor, rank_group)
+        else:
+            rank_id_to_sharded_tensors[selected_rank_id] = {shard_id: (sharded_tensor, rank_group)}
 
-    param_redundancy = {}
-    for shard_id, rank_group in shard_id_to_ranks.items():
-        if len(rank_group) == 1:
-            continue
-        if local_rank in rank_group:
-            param_redundancy.setdefault(tuple(rank_group), []).append(_reverse_sharded_tensor_shard_id(shard_id)[0])
-
-    return shard_to_saving_rank, shard_id_to_tensor, dst_sharded_tensor_metas, param_redundancy
+    return rank_id_to_sharded_tensors

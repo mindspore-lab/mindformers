@@ -657,11 +657,11 @@
           128
         ],
         "decoder.layers.1.mlp.shared_experts.linear_fc1.weight": [
-          512,
+          1024,
           128
         ],
         "decoder.layers.1.mlp.shared_experts.linear_fc1.w_scale": [
-          512
+          1024
         ],
         "decoder.layers.1.mlp.shared_experts.linear_fc2.weight": [
           128,
