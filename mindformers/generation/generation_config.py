@@ -151,6 +151,9 @@ class GenerationConfig:
 
         # number of beams
         self.num_beams = kwargs.pop("num_beams", 1)
+        if self.num_beams > 1:
+            self.num_beams = 1
+            logger.warning("Beam search is no longer supported, will set num_beams to 1.")
         # do sample or not
         self.do_sample = kwargs.pop("do_sample", False)
         # incremental infer
