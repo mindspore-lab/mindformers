@@ -18,6 +18,18 @@ from typing import Dict, List, Union, Any, Optional
 
 from mindformers.tools.logger import logger
 from .validate_types_and_ranges import validate_config_types_and_ranges
+from .config_validators import (
+    validate_pipeline_parallel_config,
+    validate_optimizer_parallel_config,
+    validate_gradient_aggregation_group,
+    validate_sink_size,
+    validate_jit_config_training,
+    validate_jit_config_inference,
+    validate_ascend_config_training,
+    validate_ascend_config_inference,
+    create_default_lr_schedule_validator,
+    create_grouped_lr_schedules_validator,
+)
 
 
 LR_SUPPORT_LIST = \
@@ -210,9 +222,9 @@ class Config:
                         param_name=param_name
                     )
                     results[param_name] = {"status": "valid", "value": param_value}
-                except (TypeError, ValueError) as e:
-                    results[param_name] = {"status": "invalid", "error": str(e)}
-                    errors.append(f"{param_name}: {str(e)}")
+                except (TypeError, ValueError) as err:
+                    results[param_name] = {"status": "invalid", "error": str(err)}
+                    errors.append(f"{param_name}: {str(err)}")
 
         if errors:
             raise ValueError("Configuration validation failed:\n" + "\n".join(errors))
@@ -575,27 +587,19 @@ class TrainingParallelConfig(Config):
         },
         "pipeline_parallel_config": {
             "type": dict,
-            "range": lambda x: all([
-                isinstance(x.get("pipeline_interleave"), bool),
-                x.get("pipeline_scheduler") in ["1f1b", "gpipe", "zero_bubble_v"],
-                isinstance(x.get("virtual_pipeline_model_parallel_size"), int),
-                x.get("virtual_pipeline_model_parallel_size") >= 1,
-                isinstance(x.get("pipeline_stage_offset"), (int, list, str))]),
+            "range": validate_pipeline_parallel_config,
             "description": ("Pipeline parallel specific configurations including "
                           "scheduler and interleave settings")
         },
         "optimizer_parallel_config": {
             "type": dict,
-            "range": lambda x: (
-                isinstance(x.get("enable_parallel_optimizer"), bool)
-                and x.get("optimizer_level") in ["level1", ]
-                and isinstance(x.get("optimizer_weight_shard_size"), int) and not x.get("gradient_accumulation_shard")),
+            "range": validate_optimizer_parallel_config,
             "description": ("Optimizer parallel configurations for memory-efficient "
                           "optimizer state management")
         },
         "gradient_aggregation_group": {
             "type": int,
-            "range": lambda x: x >= 1,
+            "range": validate_gradient_aggregation_group,
             "description": ("Group size for gradient synchronization "
                           "in data parallel training")
         },
@@ -907,7 +911,7 @@ class TrainingConfig(Config):
         },
         "sink_size": {
             "type": int,
-            "range": lambda x: x == 1,
+            "range": validate_sink_size,
             "description": "Number of iterations to sink data for performance optimization"
         },
     }
@@ -1044,16 +1048,13 @@ class ContextConfig(Config):
         },
         "jit_config": {
             "type": dict,
-            "range": lambda x: x.get("jit_level") in ["O0", "O1"],
+            "range": validate_jit_config_training,
             "description": ("Just-In-Time compilation configuration, "
                           "controls compilation optimization level")
         },
         "ascend_config": {
             "type": dict,
-            "range": lambda x: (
-                x.get("precision_mode") in ["must_keep_origin_dtype"]
-                and (x.get("parallel_speed_up_json_path") is None
-                     or isinstance(x.get("parallel_speed_up_json_path"), str))),
+            "range": validate_ascend_config_training,
             "description": ("Ascend-specific configuration including precision control "
                           "and parallel optimization settings")
         },
@@ -1130,13 +1131,13 @@ class InferContextConfig(Config):
         },
         "jit_config": {
             "type": dict,
-            "range": lambda x: x.get("jit_level") in ["O0"],
+            "range": validate_jit_config_inference,
             "description": ("Just-In-Time compilation configuration for inference, "
                           "controls compilation optimization level")
         },
         "ascend_config": {
             "type": dict,
-            "range": lambda x: x.get("precision_mode") in ["must_keep_origin_dtype"],
+            "range": validate_ascend_config_inference,
             "description": ("Ascend-specific inference configuration "
                           "including precision control settings")
         },
@@ -1391,18 +1392,12 @@ class GroupedLrScheduleConfig(SpecConfig):
     _validation_rules = {
         "default": {
             "type": dict,
-            "range": lambda x: all([x.get("type") in LR_SUPPORT_LIST,
-                                    (x.get("warmup_ratio") is not None
-                                     or x.get("warmup_steps") is not None)]),
+            "range": create_default_lr_schedule_validator(LR_SUPPORT_LIST),
             "description": "Default learning rate schedule"
         },
         "grouped": {
             "type": list,
-            "range": lambda x: all([all(isinstance(grouped_lr, dict) for grouped_lr in x),
-                                   all(grouped_lr.get("type") in LR_SUPPORT_LIST for grouped_lr in x),
-                                    all(isinstance(grouped_lr.get("params"), list)for grouped_lr in x),
-                                    all((grouped_lr.get("warmup_ratio") is not None or
-                                          grouped_lr.get("warmup_steps") is not None) for grouped_lr in x)]),
+            "range": create_grouped_lr_schedules_validator(LR_SUPPORT_LIST),
             "description": "List of learning rate schedules for different groups"
         }
     }
