@@ -191,6 +191,7 @@ DEFAULT_WHITE_KEY.update({
     'monitor_config', 'dataset_config', 'multiple_of', 'ffn_dim_multiplier', 'qkv_concat', 'use_past',
     'scaling_factor', 'input_sliced_sig', 'return_extra_loss', 'moe_config'
 })
+DEFAULT_WHITE_KEY.discard('pad_token_id')  # pad_token_id used in training for generating attention mask
 
 ERROR_LOG = {}
 
