@@ -200,18 +200,14 @@ class TestHelperFunctions(unittest.TestCase):
         mock_weight = MagicMock()
         mock_weight.name = "test_weight"
 
-        # Mock eigenvalue calculation
-        mock_get_max_eigenvalue.return_value = np.array([2.0])
+        # Mock eigenvalue calculation - return Tensor instead of numpy array
+        mock_get_max_eigenvalue.return_value = Tensor([2.0])
 
-        # Mock Frobenius norm calculation
-        mock_f_norm = MagicMock()
-        mock_f_norm.asnumpy.return_value = np.array(4.0)
-        mock_norm.return_value = mock_f_norm
+        # Mock Frobenius norm calculation - return Tensor
+        mock_norm.return_value = Tensor([4.0])
 
-        # Mock square calculation
-        mock_square_result = MagicMock()
-        mock_square_result.asnumpy.return_value = np.array(16.0)
-        mock_square.return_value = mock_square_result
+        # Mock square calculation - return Tensor
+        mock_square.return_value = Tensor([16.0])
 
         # Execute test
         # pylint: disable=W0212
@@ -253,14 +249,22 @@ class TestHelperFunctions(unittest.TestCase):
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     @patch('mindformers.core.callback.callback._get_max_eigenvalue')
-    def test_zero_eigenvalue(self, mock_get_max_eigenvalue):
+    @patch('mindformers.core.callback.callback.ms.ops.norm')
+    @patch('mindformers.core.callback.callback.ms.ops.square')
+    def test_zero_eigenvalue(self, mock_square, mock_norm, mock_get_max_eigenvalue):
         """Test zero eigenvalue case"""
         # Mock parameter
         mock_weight = MagicMock()
         mock_weight.name = "test_weight"
 
-        # Mock zero eigenvalue
-        mock_get_max_eigenvalue.return_value = np.array([0.0])
+        # Mock zero eigenvalue - return Tensor instead of numpy array
+        mock_get_max_eigenvalue.return_value = Tensor([0.0])
+
+        # Mock Frobenius norm calculation - return Tensor
+        mock_norm.return_value = Tensor([4.0])
+
+        # Mock square calculation - return Tensor
+        mock_square.return_value = Tensor([16.0])
 
         # Execute test
         # pylint: disable=W0212

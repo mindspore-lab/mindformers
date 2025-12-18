@@ -20,6 +20,7 @@ import pytest
 
 from mindformers.core.callback.callback import TrainingStateMonitor
 
+
 # pylint: disable=protected-access
 # pylint: disable=unused-argument   # for mock logic
 
@@ -735,14 +736,32 @@ class TestTrainingStateMonitorPrintStableRank:
     @patch('mindformers.core.callback.callback.get_tensorboard_writer', return_value=Mock())
     @patch('mindformers.core.callback.callback._get_stable_rank')
     @patch('mindformers.core.callback.callback.context.get_auto_parallel_context', return_value=1)
-    def test_print_stable_rank_3d_moe_all_mode(self, mock_context, mock_get_stable_rank,
+    @patch('mindformers.core.callback.callback.logger')
+    def test_print_stable_rank_3d_moe_all_mode(self, mock_logger, mock_context, mock_get_stable_rank,
                                                mock_tensorboard, mock_group_size):
         """Test _print_stable_rank with 3D tensor in MoE 'all' mode"""
 
-        # Return arrays for multiple experts
+        # Create a simple wrapper to avoid numpy array comparison issue in tuple
+        class _ArrayLike:
+            """self-define array to compare values"""
+            def __init__(self, arr):
+                self._arr = np.array(arr)
+
+            def __eq__(self, other):
+                return False if np.isscalar(other) else np.array_equal(self._arr, other)
+
+            def __iter__(self):
+                return iter(self._arr)
+
+            def __getitem__(self, i):
+                return self._arr[i]
+
+            def __array__(self):
+                return self._arr
+
         mock_get_stable_rank.return_value = (
-            np.array([2.5, 2.6, 2.7]),
-            np.array([3.0, 3.1, 3.2])
+            _ArrayLike([2.5, 2.6, 2.7]),
+            _ArrayLike([3.0, 3.1, 3.2])
         )
 
         config = {
@@ -758,6 +777,9 @@ class TestTrainingStateMonitorPrintStableRank:
             dataset_size=100,
             config=config
         )
+
+        # Mock the _output method to avoid actual output operations
+        monitor._output = Mock()
 
         # Create a 3D mock parameter (for MoE)
         mock_param = Mock()
@@ -1053,6 +1075,7 @@ class TestTrainingStateMonitorDumpMethods:
 
         # Should remove file1.txt but not .nfs123
         mock_remove.assert_called_once()
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

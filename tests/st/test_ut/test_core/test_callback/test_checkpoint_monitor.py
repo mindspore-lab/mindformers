@@ -1260,10 +1260,11 @@ class TestCheckpointMonitorMegatronFormat:
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @patch('mindformers.core.callback.callback.get_real_rank', return_value=0)
+    @patch('mindformers.core.callback.callback.get_real_group_size', return_value=8)
     @patch('mindformers.core.callback.callback.get_all_sharded_tensor')
     @patch('mindformers.core.callback.callback.save_checkpoint')
     def test_save_megatron_ckpt_file_format_filter_func(
-            self, mock_save_ckpt, mock_get_sharded, mock_rank):
+            self, mock_save_ckpt, mock_get_sharded, mock_group_size, mock_rank):
         """Test _save_megatron_ckpt_file_format uses filter_func when save_optimizer=False"""
 
         monitor = CheckpointMonitor(

@@ -32,6 +32,7 @@ from mindformers.core.callback.callback import (
     get_embedding_info
 )
 
+
 # pylint: disable=unused-argument   # for mock logic
 
 
@@ -257,8 +258,11 @@ class TestGetStableRankExtended:
     @pytest.mark.platform_x86_cpu
     @patch('mindformers.core.callback.callback.ms.ops.square')
     @patch('mindformers.core.callback.callback.ms.ops.norm')
+    @patch('mindformers.core.callback.callback.ms.ops.zeros_like')
+    @patch('mindformers.core.callback.callback.ms.ops.select')
     @patch('mindformers.core.callback.callback._get_max_eigenvalue')
-    def test_get_stable_rank_zero_eigenvalue(self, mock_eigenvalue, mock_norm, mock_square):
+    def test_get_stable_rank_zero_eigenvalue(self, mock_eigenvalue, mock_select,
+                                             mock_zeros_like, mock_norm, mock_square):
         """Test _get_stable_rank when eigenvalue is zero"""
 
         # Create a more complete mock weight object
@@ -267,7 +271,22 @@ class TestGetStableRankExtended:
         weight.ndim = 2  # 添加 ndim 属性，避免 -ndim 操作
         weight.shape = [3, 3]  # 添加 shape 属性
 
-        mock_eigenvalue.return_value = np.array(0.0)
+        # Mock eigenvalue as Tensor
+        mock_eig = Mock()
+        mock_eig.asnumpy.return_value = 0.0
+        mock_eigenvalue.return_value = mock_eig
+
+        # Mock zeros_like and select
+        mock_zeros_result = Mock()
+        mock_zeros_result.asnumpy.return_value = 0.0
+        mock_zeros_like.return_value = mock_zeros_result
+
+        # Mock square to support division operation (even though result won't be used when eig=0)
+        mock_square_result = Mock()
+        mock_square_result.__truediv__ = Mock(return_value=mock_zeros_result)
+        mock_square.return_value = mock_square_result
+
+        mock_select.return_value = mock_zeros_result
 
         stable_rank, eig = _get_stable_rank(weight, num_iter=5)
         assert stable_rank == 0.0
@@ -277,8 +296,11 @@ class TestGetStableRankExtended:
     @pytest.mark.platform_x86_cpu
     @patch('mindformers.core.callback.callback.ms.ops.square')
     @patch('mindformers.core.callback.callback.ms.ops.norm')
+    @patch('mindformers.core.callback.callback.ms.ops.zeros_like')
+    @patch('mindformers.core.callback.callback.ms.ops.select')
     @patch('mindformers.core.callback.callback._get_max_eigenvalue')
-    def test_get_stable_rank_normal(self, mock_eigenvalue, mock_norm, mock_square):
+    def test_get_stable_rank_normal(self, mock_eigenvalue, mock_select,
+                                    mock_zeros_like, mock_norm, mock_square):
         """Test _get_stable_rank with normal values"""
 
         # Create a more complete mock weight object
@@ -287,17 +309,28 @@ class TestGetStableRankExtended:
         weight.ndim = 2  # 添加 ndim 属性，避免 -ndim 操作
         weight.shape = [3, 3]  # 添加 shape 属性
 
-        mock_eigenvalue.return_value = np.array(2.0)
+        # Mock eigenvalue as Tensor
+        mock_eig = Mock()
+        mock_eig.asnumpy.return_value = 2.0
+        mock_eigenvalue.return_value = mock_eig
 
         # Mock norm to return a Mock that can be squared
         mock_norm_tensor = Mock()
         mock_norm_tensor.ndim = 0  # 标量
         mock_norm.return_value = mock_norm_tensor
 
+        # Mock select to return the result (stable_rank = 8.0)
+        mock_select_result = Mock()
+        mock_select_result.asnumpy.return_value = 8.0
+
         # Mock square to return a Mock that has asnumpy method returning 16.0
+        # and supports division operation
         mock_square_result = Mock()
         mock_square_result.asnumpy.return_value = 16.0
+        mock_square_result.__truediv__ = Mock(return_value=mock_select_result)
         mock_square.return_value = mock_square_result
+
+        mock_select.return_value = mock_select_result
 
         stable_rank, eig = _get_stable_rank(weight, num_iter=5)
         # stable_rank = f_norm^2 / eig = 16.0 / 2.0 = 8.0
@@ -335,9 +368,11 @@ class TestGetMaxEigenvalueComprehensive:
     @patch('mindformers.core.callback.callback.ms.ops.matmul')
     @patch('mindformers.core.callback.callback.ms.ops.unsqueeze')
     @patch('mindformers.core.callback.callback.ms.ops.randn')
+    @patch('mindformers.core.callback.callback.ms.ops.ones_like')
+    @patch('mindformers.core.callback.callback.ms.ops.select')
     @patch('mindformers.core.callback.callback.logger')
-    def test_get_max_eigenvalue_2d_tensor(self, mock_logger, mock_randn,
-                                          mock_unsqueeze, mock_matmul):
+    def test_get_max_eigenvalue_2d_tensor(self, mock_logger, mock_select, mock_ones_like,
+                                          mock_randn, mock_unsqueeze, mock_matmul):
         """Test _get_max_eigenvalue with 2D tensor"""
 
         # Create mock input tensor
@@ -366,6 +401,11 @@ class TestGetMaxEigenvalueComprehensive:
         mock_v_norm = Mock()
         mock_v_norm.asnumpy.return_value = 1.0
 
+        # Mock ones_like and select for v_norm_safe calculation
+        mock_ones_like.return_value = mock_v_norm
+        mock_v_norm_safe = Mock()
+        mock_select.return_value = mock_v_norm_safe
+
         # Mock (v_norm != 0).all() - need to return a tensor-like object with .all() method
         mock_comparison_result = Mock()
         mock_comparison_result.all.return_value = True
@@ -393,7 +433,8 @@ class TestGetMaxEigenvalueComprehensive:
         ]
 
         result = _get_max_eigenvalue(input_tensor, num_iter=2)
-        assert result == 2.5
+        assert result == mock_eigenvalue
+        assert result.asnumpy() == 2.5
 
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
@@ -417,6 +458,7 @@ class TestGetMaxEigenvalueComprehensive:
         result = _get_max_eigenvalue(input_tensor, num_iter=2)
         assert result == 0.0
         mock_logger.warning.assert_called()
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
