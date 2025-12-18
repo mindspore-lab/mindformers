@@ -442,7 +442,7 @@ Daemon start success!
 服务启动成功后，可使用curl命令发送请求验证，样例如下：
 
 ```bash
-curl -w "\ntime_total=%{time_total}\n" -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"inputs": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n请介绍一下自己<|im_end|>\n<|im_start|>assistant\n","stream": false}' http://127.0.0.1:1035/generate
+curl -w "\ntime_total=%{time_total}\n" -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"inputs": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n请介绍一下自己<|im_end|>\n<|im_start|>assistant\n","stream": false}' http://127.0.0.1:1025/generate
 ```
 
 返回推理结果验证成功：
