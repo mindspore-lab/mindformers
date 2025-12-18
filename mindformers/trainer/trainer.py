@@ -272,7 +272,7 @@ class Trainer:
 
         self.config = self._config_init(args, task_config)
         if self.config.get('optimizer') and self.config.optimizer.type == "Muon":
-            self.config.model.model_config.monitor_max_attention_logit = True
+            self.config.model.model_config.track_max_attention_logit = True
         self._reassign_monitor_config()
         # build parallel config
         build_parallel_config(self.config)
@@ -347,7 +347,7 @@ class Trainer:
                 dump_device_local_norm=bool(monitor_config.get('device_local_norm_format'))
             )
             if monitor_config.max_attention_logit_format:
-                self.config.model.model_config.monitor_max_attention_logit = True
+                self.config.model.model_config.track_max_attention_logit = True
             if monitor_config.local_loss_format:
                 set_context(monitor_local_loss=True)
             if monitor_config.device_local_loss_format:

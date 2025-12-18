@@ -262,7 +262,7 @@ class MFModelConfig:
     mask_func_type: str = "attn_mask_fill"
     """Mask function type to use for the attention layer."""
 
-    monitor_max_attention_logit: bool = False
+    track_max_attention_logit: bool = False
     """Whether to monitor the maximum attention logit value during training."""
 
     ####################################################

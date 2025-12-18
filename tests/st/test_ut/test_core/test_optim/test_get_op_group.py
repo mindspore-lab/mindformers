@@ -14,18 +14,15 @@
 # ============================================================================
 """Test get op groups info for GPT model."""
 
-from unittest.mock import patch
-
 import mindspore as ms
 import pytest
 
 from mindformers import build_context
 from mindformers.checkpoint.sharded_tensor import build_sharded_tensor
-from mindformers.parallel_core.training_graph.base_models.gpt import gpt_model
 from mindformers.parallel_core.training_graph.base_models.gpt.gpt_layer_specs import get_gpt_decoder_block_spec, \
     get_gpt_mtp_block_spec
-from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel, \
-    compute_repeat_num_and_model_parallel_size, get_op_group_name
+from mindformers.parallel_core.training_graph.base_models.gpt.gpt_model import GPTModel
+from mindformers.parallel_core.training_graph.communication import compute_repeat_num_and_model_parallel_size
 from mindformers.parallel_core.transformer_config import TransformerConfig
 
 
@@ -145,34 +142,3 @@ def test_compute_repeat_num_and_model_parallel_size_multiple_axis_error():
     sharded_info = build_sharded_info((8, 8), (2, 2))
     with pytest.raises(ValueError):
         compute_repeat_num_and_model_parallel_size(sharded_info, world_size=16, pp=1, op=2)
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-@patch("mindformers.parallel_core.training_graph.base_models.gpt.gpt_model.create_communication_group")
-def test_get_op_group_name_with_mock(mock_create_group):
-    """
-    Feature: get_op_group_name()
-    Description: Test the get op group name with mock.
-    Expectation: The get op group name with mock should be correct.
-    """
-    mock_create_group.return_value = "mock_group"
-    gpt_model.OP_GROUP_NAME.clear()
-
-    # case 0: model_parallel_size > 1
-    result = get_op_group_name(rank_id=3, real_op_size=2, model_parallel_size=2)
-    assert result == ("mock_group", [1, 3])
-    mock_create_group.assert_called_once_with([1, 3])
-
-    second_result = get_op_group_name(rank_id=3, real_op_size=2, model_parallel_size=2)
-    assert second_result == result
-    mock_create_group.assert_called_once()
-
-    # case 1: model_parallel_size = 1
-    result = get_op_group_name(rank_id=3, real_op_size=2, model_parallel_size=1)
-    assert result == ("mock_group", [2, 3])
-
-    # case 2: model_parallel_size = 4
-    result = get_op_group_name(rank_id=3, real_op_size=2, model_parallel_size=4)
-    assert result == ("mock_group", [3, 7])

@@ -1280,8 +1280,7 @@ class TrainingStateMonitor(Callback):
         step = cb_params.cur_step_num
         vals = []
         for param_name, param in params.items():
-            v = param.asnumpy().squeeze()
-            v = v / max(1, self.micro_batch_num)
+            v = param.asnumpy()
 
             tag = f"max_attention_logit/{param_name}"
             if 'log' in self.max_attention_logit_format:
