@@ -771,8 +771,10 @@ class GPTModel(nn.Cell):
             )
         )
         if self.config.track_max_attention_logit:
-            self.allreduce_max_in_dp.shard((layout("tp"),))
-            self.allreduce_max_in_cp.shard((layout("tp"),))
+            if self.allreduce_max_in_dp is not None:
+                self.allreduce_max_in_dp.shard((layout("tp"),))
+            if self.allreduce_max_in_cp is not None:
+                self.allreduce_max_in_cp.shard((layout("tp"),))
 
     def sharding_propagation(self, config: TransformerConfig):
         pass
