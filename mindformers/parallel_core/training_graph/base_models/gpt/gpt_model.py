@@ -979,7 +979,7 @@ class GPTModel(nn.Cell):
 
         # check if op is valid for expert
         for param, real_op_size in zip(params, op_list):
-            if "mlp.experts.weight1" not in param.name:
+            if "mlp.experts.weight" not in param.name:
                 continue
             # Validate MoE expert counts divisibility constraint:
             # num_moe_experts must be divisible by (optimizer_weight_shard_size * expert_model_parallel_size)
@@ -996,8 +996,6 @@ class GPTModel(nn.Cell):
                     raise ValueError(
                         error_msg
                     )
-            # All expert weights share the same real_op_size, so we only need to check once
-            break
 
         return tuple(op_list), tuple(op_groups)
 
