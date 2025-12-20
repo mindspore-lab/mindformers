@@ -76,7 +76,7 @@ mindformers.generation.GenerationMixin
               - **eos_token_id** (int) - 句子结束的词元索引。如果设置为None，则遵循模型配置中的设置。
               - **pad_token_id** (int) - 填充的词元索引。如果设置为None，则遵循模型配置中的设置。
               - **repetition_penalty** (float) - 生成单词频率的惩罚因子。如果将其设置为1，则不启用 `repeat_penalty` 。如果将其设置为 ``None`` ，则遵循模型配置中的设置。默认值： ``None`` 。
-              - **num_beams** (int) - 用于束搜寻的束的数量。1表示不使用束搜寻。如果大于1，则 `do_sample` 将被设置为 ``False`` 。
+              - **num_beams** (int) - 用于束搜寻的束的数量。1表示不使用束搜寻。当前仅支持设置为1。此参数将在未来删除。
 
         返回：
             生成的一个词元索引列表。

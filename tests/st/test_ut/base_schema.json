@@ -1304,9 +1304,6 @@
     "mindformers.generation.GenerationMixin._incremental_infer_mcore": {
         "signature": "(self, model_inputs: dict, prefill, gather_decode=True)"
     },
-    "mindformers.generation.GenerationMixin._beam_search": {
-        "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
-    },
     "mindformers.generation.GenerationMixin.generate": {
         "signature": "(self, input_ids: Union[List[List[int]], List[int], NoneType], generation_config: Optional[mindformers.generation.generation_config.GenerationConfig] = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: Optional[mindformers.generation.streamers.BaseStreamer] = None, seed: Optional[int] = None, **kwargs)"
     },
@@ -1594,9 +1591,6 @@
     },
     "mindformers.generation.text_generator.GenerationMixin._incremental_infer_mcore": {
         "signature": "(self, model_inputs: dict, prefill, gather_decode=True)"
-    },
-    "mindformers.generation.text_generator.GenerationMixin._beam_search": {
-        "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
     },
     "mindformers.generation.text_generator.GenerationMixin.generate": {
         "signature": "(self, input_ids: Union[List[List[int]], List[int], NoneType], generation_config: Optional[mindformers.generation.generation_config.GenerationConfig] = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: Optional[mindformers.generation.streamers.BaseStreamer] = None, seed: Optional[int] = None, **kwargs)"
