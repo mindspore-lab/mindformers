@@ -57,6 +57,7 @@ from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.communication.comm_func import all_gather_into_tensor, barrier
 from mindspore.profiler import ProfilerLevel, schedule
 from mindspore.utils import stress_detect
+from mindspore.mint.distributed import all_to_all_single
 
 from mindformers.wrapper.wrapper import get_real_models
 from mindformers.checkpoint.sharded_tensor import get_all_sharded_tensor
@@ -84,6 +85,7 @@ from mindformers.parallel_core.training_graph.loss_func import (
     check_device_local_loss
 )
 from mindformers.checkpoint.checkpoint import AsyncSaveManager, CommonInfo, save_checkpoint
+from mindformers.parallel_core.transformer_config import TransformerConfig
 
 # pylint: disable=import-outside-toplevel
 __all__ = ['MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
@@ -92,6 +94,89 @@ _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
 
 VOLTAGE_ERROR_CODE = 574007
+
+
+
+class ExpertParallelManager:
+    """
+    Expert Parallel Manager for managing expert parallel communication.
+
+    This class handles expert-to-rank mapping and communication pattern calculation
+    for expert parallel training in mixture of experts (MoE) models.
+    """
+
+    @args_type_check(rank_to_expert=Optional[Dict[int, List[int]]])
+    def __init__(self,
+                 ep_group: List[int],
+                 current_rank: int,
+                 expert_nums: int,
+                 rank_to_expert: Optional[Dict[int, List[int]]] = None
+                 ):
+        """
+        Initialize Expert Parallel Manager
+
+        Args:
+            ep_group (List[int]): List of global ranks in the expert parallel group
+            current_rank (int): Global rank of the current process
+            expert_nums (int): Total number of global experts
+            rank_to_expert (Dict[int, List[int]], optional): Initial mapping from rank to expert list. Default: ``None``
+        """
+        self.ep_group = ep_group
+        self.current_rank = current_rank
+        self.expert_nums = expert_nums
+        self.rank_to_expert = rank_to_expert or {}
+        self.ep = len(ep_group)
+        self.local_expert_num = expert_nums // self.ep
+        self.current_ep_rank = ep_group.index(current_rank)
+        if self.current_rank not in self.ep_group:
+            raise ValueError(f"Current rank {self.current_rank} not in ep group: {self.ep_group}")
+
+    def update_communication_info(self, q_mapping: Dict[int, List[int]]):
+        """
+        Update communication information and calculate send/receive data volume
+
+        Args:
+            q_mapping (Dict[int, List[int]]): New mapping dictionary from rank to expert list
+        """
+        recv_count_map = []
+        for ep_rank, _ in enumerate(self.ep_group):
+            recv_expert_list = q_mapping.get(ep_rank, [])
+            recv_count_list = [0] * self.ep
+
+            for recv_expert_id in recv_expert_list:
+                target_ep_rank = recv_expert_id // self.local_expert_num
+                recv_count_list[target_ep_rank] += 1
+
+            recv_count_map.append(recv_count_list)
+
+        recv_size_list = recv_count_map[self.current_ep_rank]
+
+        send_count_map = np.array(recv_count_map).T
+        send_size_list = send_count_map[self.current_ep_rank].tolist()
+
+        if not self.rank_to_expert:
+            self.rank_to_expert = q_mapping
+        else:
+            new_rank_to_expert = {}
+            for rank, expert_list in q_mapping.items():
+                new_expert_list = []
+                for expert_id in expert_list:
+                    ep_rank = expert_id // self.local_expert_num
+                    expert_idx_in_ep = expert_id % self.local_expert_num
+
+                    original_expert_id = self.rank_to_expert[ep_rank][expert_idx_in_ep]
+                    new_expert_list.append(original_expert_id)
+
+                new_rank_to_expert[rank] = new_expert_list
+            self.rank_to_expert = new_rank_to_expert
+
+        return send_size_list, recv_size_list
+
+    def restore_communication_info(self):
+        """
+        Restore communication information and calculate send/receive data volume
+        """
+        self.rank_to_expert = {}
 
 
 class AllReduceNet(Cell):
@@ -3383,22 +3468,37 @@ class SDCMonitor(Callback):
 class ExpertMigrateCallback(Callback):
     """
     Callback for expert migration in mixture of experts (MoE) training.
+    This callback handles expert load history statistics and load balancing during training.
 
-    This callback handles expert load history statistics and printing during training.
+    Args:
+        config (TransformerConfig, optional): Training configuration for transformer models. Default: ``None``
+        print_expert_load (bool, optional): Whether to print expert load statistics. Default: ``False``
+        manager (ExpertParallelManager, optional): Expert parallel manager instance. Default: ``None``
+        enable_expert_relocation (bool, optional): Whether to enable expert relocation. Default: ``False``
+        expert_relocation_initial_iteration (int, optional): Initial iteration to start relocation. Default: 20
+        expert_relocation_freq (int, optional): Frequency of expert relocation. Default: 50
+        save_checkpoint_steps (int, optional): Checkpoint saving steps. Default: ``None``
     """
 
-    def __init__(self, print_expert_load=False, config=None):
+    @args_type_check(config=TransformerConfig)
+    def __init__(self, config=None, print_expert_load=False,
+                 manager=None, enable_expert_relocation=False,
+                 expert_relocation_initial_iteration=20, expert_relocation_freq=50,
+                 save_checkpoint_steps=None):
 
-        self.print_expert_load = print_expert_load
         self.config = config
+        self.print_expert_load = print_expert_load
+        self.manager = manager
+        self.enable_expert_relocation = enable_expert_relocation
+        self.expert_relocation_initial_iteration = expert_relocation_initial_iteration
+        self.expert_relocation_freq = expert_relocation_freq
+        self.save_checkpoint_steps = save_checkpoint_steps
 
         self.rank_id = get_rank()
-
         self.pp = self.config.pipeline_model_parallel_size
         self.dp = self.config.data_parallel_size
         self.tp = self.config.tensor_model_parallel_size
         self.ep = self.config.expert_model_parallel_size
-
         self.pp_stage_id = self.rank_id // (self.dp * self.tp)
         self.dp_group_id = (self.rank_id // self.tp) % self.dp
         self.tp_group_id = self.rank_id % self.tp
@@ -3406,6 +3506,7 @@ class ExpertMigrateCallback(Callback):
 
         self.num_layers = self.config.num_layers
         self.mtp_num_layers = self.config.mtp_num_layers
+        self.relative_expert_mapping = [None] * (self.num_layers + self.mtp_num_layers)
 
     def _get_moe_layers_in_current_stage(self):
         """Get all MoE layers in current pipeline stage."""
@@ -3443,8 +3544,83 @@ class ExpertMigrateCallback(Callback):
                 layer.mlp.experts.num_tokens_per_expert.set_data(
                     ms.mint.zeros(self.config.num_moe_experts, dtype=ms.int32))
 
-    def _print_expert_load(self):
-        """Print expert load statistics for monitoring load balancing."""
+    def _expert_weight_and_optimizer_state_relocation(self, is_triggered_restore=False):
+        """
+        Relocate expert weights and optimizer states based on load balancing.
+        
+        Args:
+            is_triggered_restore (bool): Whether expert relocation restore is triggered in this step.
+        """
+        # Collect optimizer parameters
+        optimizer_param_dict = {}
+        for param_name, param in self.optimizer.parameters_and_names():
+            if param_name.startswith("adam_m.") or param_name.startswith("adam_v."):
+                if "mlp.experts.weight" in param_name:
+                    optimizer_param_dict[param_name] = param
+
+        original_mode = ms.get_context("mode")
+
+        for layer_index, layer in self._get_moe_layers_in_current_stage():
+            # Initialize relocation
+            num_local_experts = layer.mlp.num_local_experts
+            ep_group = layer.mlp.experts.token_dispatcher.ep_group
+            q_mapping, local_expert_sorted_indices = layer.mlp.initialize_expert_relocation_dispatcher(
+                is_triggered_restore)
+            self.relative_expert_mapping[layer_index] = np.array(list(q_mapping.values())).flatten()
+
+            context.set_context(mode=context.PYNATIVE_MODE)
+
+            # Update communication info
+            send_size_list, recv_size_list = self.manager.update_communication_info(q_mapping)
+
+            # Collect expert parameters and optimizer states
+            expert_param_list = []
+            for _, param in layer.mlp.parameters_and_names():
+                if not param.sliced or param.has_init:
+                    continue
+                if "mlp.experts.weight" in param.name and "accu_grad" not in param.name:
+                    expert_param_list.append(param)
+                    m_name = f"adam_m.{param.name}"
+                    v_name = f"adam_v.{param.name}"
+                    if m_name in optimizer_param_dict and v_name in optimizer_param_dict:
+                        expert_param_list.extend([optimizer_param_dict[m_name], optimizer_param_dict[v_name]])
+                    else:
+                        logger.warning(f"Missing optimizer params: {m_name}, {v_name}")
+
+            # Prepare restore indices (if needed)
+            local_expert_restore_indices = None
+            if is_triggered_restore:
+                expert_mapping = layer.mlp.expert_mapping.copy()
+                # pylint: disable=R1721
+                expert_mapping_restored = Tensor([idx for idx in range(expert_mapping.shape[0])], ms.int32)
+                layer.mlp.expert_mapping.set_data(expert_mapping_restored)
+                local_expert_restore_indices = expert_mapping.reshape(self.ep, -1)[self.ep_local_rank]
+                local_expert_restore_indices = (local_expert_restore_indices -
+                                                self.ep_local_rank * local_expert_restore_indices.shape[0])
+                self.manager.restore_communication_info()
+
+            # Relocate all parameters
+            for param in expert_param_list:
+                param_collected = Tensor(param.copy()).reshape(num_local_experts, -1)
+
+                param_sorted = ms.mint.index_select(param_collected, 0, Tensor(local_expert_sorted_indices))
+                recv_tensor = ms.mint.zeros_like(param_collected)
+                all_to_all_single(recv_tensor, param_sorted, recv_size_list, send_size_list, group=ep_group)
+
+                if local_expert_restore_indices is not None:
+                    recv_tensor = ms.mint.index_select(recv_tensor, 0, local_expert_restore_indices)
+
+                recv_tensor = recv_tensor.reshape(param.shape)
+                param.set_data(recv_tensor, param.sliced)
+
+            context.set_context(mode=original_mode)
+
+    def _print_expert_load(self, is_triggered_expert_relocation=False):
+        """Print expert load statistics for monitoring load balancing.
+        
+        Args:
+            is_triggered_expert_relocation (bool): Whether expert relocation is triggered in this step.
+        """
         for layer_index, layer in self._get_moe_layers_in_current_stage():
             num_local_experts = layer.mlp.num_local_experts
             expert_load_history = layer.mlp.expert_load_history.asnumpy()
@@ -3459,14 +3635,44 @@ class ExpertMigrateCallback(Callback):
                          f"pp {self.pp_stage_id} "
                          f"tp {self.tp_group_id} ep {self.ep_group_id}")
 
-            logger.info(f"[expert load] iter {self.cur_step}: {rank_info}, "
+            if not (self.enable_expert_relocation and is_triggered_expert_relocation):
+                logger.info(f"[expert load] iter {self.cur_step}: {rank_info}, "
+                            f"layer {layer_index}, load: min {min_load:.2f}, "
+                            f"max {max_load:.2f}, std {std_load:.2f}, "
+                            f"details {expert_load}")
+                continue
+
+            # Handle expert relocation case
+            expert_load_history_sorted = expert_load_history
+            if self.relative_expert_mapping[layer_index] is not None:
+                expert_load_history_sorted = expert_load_history_sorted[self.relative_expert_mapping[layer_index]]
+                self.relative_expert_mapping[layer_index] = None
+
+            expert_load_per_device_after = expert_load_history_sorted.reshape(-1, num_local_experts).sum(-1)
+            min_load_after = expert_load_per_device_after.min()
+            max_load_after = expert_load_per_device_after.max()
+            std_load_after = expert_load_per_device_after.std()
+            expert_load_after = expert_load_per_device_after.astype(int).tolist()
+
+            logger.info(f"[expert load before] iter {self.cur_step}: {rank_info}, "
                         f"layer {layer_index}, load: min {min_load:.2f}, "
                         f"max {max_load:.2f}, std {std_load:.2f}, "
                         f"details {expert_load}")
+            logger.info(f"[expert load after (est.)] iter {self.cur_step}: {rank_info}, "
+                        f"layer {layer_index}, load: min {min_load_after:.2f}, "
+                        f"max {max_load_after:.2f}, std {std_load_after:.2f}, "
+                        f"details {expert_load_after}")
+
+    def _reset_expert_load(self):
+        """Reset expert load history counters."""
+        for _, layer in self._get_moe_layers_in_current_stage():
+            layer.mlp.expert_load_history.set_data(
+                ms.mint.zeros(self.config.num_moe_experts, dtype=ms.float32))
+            layer.mlp.expert_load_history_cnt.set_data(Tensor(0, dtype=ms.int32))
 
     def on_train_step_end(self, run_context):
         """
-        Print training info at the end of step.
+        Print training info at the end of each step.
 
         Args:
             run_context (RunContext): Context of the process running.
@@ -3489,7 +3695,25 @@ class ExpertMigrateCallback(Callback):
             optimizer = getattr(cb_params.network, "optimizer", None)
         self.optimizer = optimizer
 
+        is_triggered_expert_relocation = self.enable_expert_relocation  and \
+            self.cur_step >= self.expert_relocation_initial_iteration and \
+            (self.cur_step - self.expert_relocation_initial_iteration) % (self.expert_relocation_freq) == 0
+        is_triggered_restore = False
+
+        if self.cur_step == self.save_checkpoint_steps and self.enable_expert_relocation:
+            is_triggered_expert_relocation = False
+            if self.cur_step > self.expert_relocation_initial_iteration:
+                is_triggered_expert_relocation = True
+                is_triggered_restore = True
+
         self._update_expert_load_history()
 
-        if self.print_expert_load:
-            self._print_expert_load()
+        if is_triggered_expert_relocation:
+            self._expert_weight_and_optimizer_state_relocation(is_triggered_restore)
+
+        if self.print_expert_load and not is_triggered_restore:
+            self._print_expert_load(is_triggered_expert_relocation)
+
+        # reset expert load history
+        if is_triggered_expert_relocation:
+            self._reset_expert_load()

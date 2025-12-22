@@ -61,6 +61,7 @@ from mindformers.core.callback.callback import (
     TrainingStateMonitor,
     CheckpointMonitor,
     ExpertMigrateCallback,
+    ExpertParallelManager,
     ColdHotExpertMonitor,
     TopkBiasBalanceCallback
 )
@@ -1515,10 +1516,55 @@ class BaseTrainer:
             )
             callbacks.append(eval_callback)
 
-        if transformer_config and transformer_config.print_expert_load:
+        if transformer_config and (transformer_config.enable_expert_relocation or
+                                    transformer_config.print_expert_load):
+            rank_id = get_rank()
+            ep = transformer_config.expert_model_parallel_size
+            expert_nums = transformer_config.num_moe_experts
+            ep_group = [i + rank_id // ep * ep for i in range(ep)]
+            manager = ExpertParallelManager(ep_group, rank_id, expert_nums)
+            save_checkpoint_steps = -1
+
+            if config.optimizer.type != "AdamW":
+                raise ValueError(
+                    "Expert load balancing (print_expert_load=True or enable_expert_relocation=True) "
+                    "currently only supports 'AdamW' optimizer. Please disable expert load balancing "
+                    f"or set optimizer.type='AdamW' (optimizer.type='{config.optimizer.type}' for now)."
+                )
+
+            if config.parallel.enable_parallel_optimizer:
+                raise ValueError(
+                    "Expert load balancing (print_expert_load=True or enable_expert_relocation=True) "
+                    "is currently not supported with Optimizer Parallelism. Please disable expert load balancing "
+                    "or set enable_parallel_optimizer=False"
+                )
+
+            if transformer_config.moe_router_num_groups > 1:
+                raise ValueError(
+                    "Expert load balancing (print_expert_load=True or enable_expert_relocation=True) "
+                    "is currently not supported with n_group > 1. Please disable expert load balancing "
+                    f"or disable n_group (n_group={transformer_config.moe_router_num_groups} for now)."
+                )
+
+            for callback in config.callbacks:
+                if callback['type'] == 'CheckpointMonitor':
+                    save_checkpoint_steps = callback['save_checkpoint_steps']
+                    raise ValueError(
+                        "Expert load balancing (print_expert_load=True or enable_expert_relocation=True) "
+                        "is currently not supported with CheckpointMonitor. "
+                        "Please disable expert load balancing or remove CheckpointMonitor from callbacks."
+                    )
+
             expert_relocation = ExpertMigrateCallback(
+                config=transformer_config,
                 print_expert_load=transformer_config.print_expert_load,
-                config=transformer_config)
+                manager=manager,
+                enable_expert_relocation=transformer_config.enable_expert_relocation,
+                expert_relocation_initial_iteration=transformer_config.expert_relocation_initial_iteration,
+                expert_relocation_freq=transformer_config.expert_relocation_freq,
+                save_checkpoint_steps=save_checkpoint_steps
+                )
+
             ckpt_callback_idx = -1
             for i, callback in enumerate(callbacks):
                 if isinstance(callback, CheckpointMonitor):

@@ -346,6 +346,25 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
     When enabled, detailed expert load statistics will be printed during training.
     Contributed by Xirang Intelligent Computing Team of State Cloud.
     """
+    enable_expert_relocation: bool = False
+    """
+    Enable dynamic expert relocation for load balancing in MoE models.
+    When enabled, experts will be dynamically redistributed across devices
+    based on their load history to improve training efficiency and load balance.
+    Contributed by Xirang Intelligent Computing Team of State Cloud.
+    """
+    expert_relocation_initial_iteration: int = 20
+    """
+    The initial iteration to start expert relocation.
+    Expert relocation will begin after this many training iterations.
+    Contributed by Xirang Intelligent Computing Team of State Cloud.
+    """
+    expert_relocation_freq: int = 50
+    """
+    Frequency of expert relocation in training iterations.
+    Expert relocation will be performed every N iterations after the initial iteration.
+    Contributed by Xirang Intelligent Computing Team of State Cloud.
+    """
 
     ##################
     # Context Parallel

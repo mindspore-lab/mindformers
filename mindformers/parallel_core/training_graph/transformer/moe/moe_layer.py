@@ -13,23 +13,24 @@
 # limitations under the License.
 # ============================================================================
 """Transformer MoE Layer."""
+import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Union
 import numpy as np
-
 import mindspore as ms
 from mindspore import nn, ops, Tensor, Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops.operations import Morph
+from mindspore.communication.management import get_rank, get_group_size, create_group
 from mindspore.ops.auto_generate import AddExt, Reshape, Shape, Transpose
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.parallel_core.training_graph.device_matrix import layout, layout_moe
 from mindformers.parallel_core.training_graph.transformer.moe.router import TopKRouter
-from mindformers.parallel_core.training_graph.transformer.moe.utils import get_dp_mod_ep_group_name
 from mindformers.parallel_core.utils.spec_utils import ModuleSpec, build_module
 from mindformers.parallel_core.transformer_config import TransformerConfig
+from mindformers.parallel_core.training_graph.transformer.moe.expert_mapping import ExpertDynamicRelocation
 
 
 @dataclass
@@ -64,11 +65,14 @@ class BaseMoELayer(nn.Cell, ABC):
         self.use_shared_expert = self.config.moe_shared_expert_intermediate_size is not None
         self.shared_expert_overlap = self.config.moe_shared_expert_overlap
 
-        if self.config.print_expert_load:
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
             self.expert_load_history = Parameter(
                 Tensor(np.zeros(self.config.num_moe_experts), ms.float32), requires_grad=False)
             self.expert_load_history_cnt = Parameter(
                 Tensor(0, dtype=ms.int32), requires_grad=False)
+            self.expert_mapping = Parameter(Tensor(list(range(
+                self.config.num_moe_experts)), ms.int32), requires_grad=False)
+            self.expert_relocation_optimizer = ExpertDynamicRelocation()
 
     @abstractmethod
     def construct(self, x, extra_loss=0., seq_chunk=None):
@@ -108,11 +112,11 @@ class MoELayer(BaseMoELayer):
         self.tp = config.tensor_model_parallel_size
         self.cp = config.context_parallel_size
 
-        if self.config.print_expert_load:
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
             self.ep = config.expert_model_parallel_size
             self.expert_num = config.num_moe_experts
             self.num_local_experts = self.expert_num // self.ep
-            self.dp_modulo_ep_group = get_dp_mod_ep_group_name(self.dp, self.ep)
+            self.dp_modulo_ep_group = self._dp_modulo_ep_group()
 
         # ops
         self.add = AddExt()
@@ -135,7 +139,7 @@ class MoELayer(BaseMoELayer):
         self.transpose = Transpose()
         self.transpose2 = Transpose()
 
-        #check_rules
+        # check_rules
         if self.tp > 1 and not self.use_seq_parallel:
             raise ValueError(
                 "During training, performance may degrade if MoE and tensor parallelism"
@@ -160,6 +164,27 @@ class MoELayer(BaseMoELayer):
             self.sharding_propagation(config)
         elif _get_parallel_mode() in (ParallelMode.SEMI_AUTO_PARALLEL,):
             self.shard(config)
+
+    def _dp_modulo_ep_group(self):
+        """Create MoE data parallel group across DP."""
+        rank_id = get_rank()
+        world_size = get_group_size()
+        dp_group_id = rank_id // self.dp
+
+        start_rank = dp_group_id * self.dp
+        end_rank = min(start_rank + self.dp, world_size)
+
+        rank_list = []
+        ep_group_id_in_dp = (rank_id % self.dp) % self.ep
+        for r in range(start_rank, end_rank):
+            if r % self.ep == ep_group_id_in_dp:
+                rank_list.append(r)
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        hashed = hashlib.sha256(rank_list_str.encode()).hexdigest()[:48]
+        dp_group_name = str(hashed)
+        create_group(dp_group_name, rank_list)
+        return dp_group_name
 
     def permute_reshape_infer_shape(self, *args):
         origin_shape = args[0]
@@ -192,6 +217,10 @@ class MoELayer(BaseMoELayer):
 
         # 1. router
         expert_index, router_coeff, router_aux_loss = self.router(x_reshaped)
+
+        if self.config.enable_expert_relocation:
+            expert_index = ms.mint.index_select(self.expert_mapping, 0,
+                                                expert_index.reshape(-1)).reshape(expert_index.shape)
 
         # 2. permute + experts + unpermute
         experts_output = self.experts(x_reshaped, router_coeff, expert_index)
@@ -252,3 +281,62 @@ class MoELayer(BaseMoELayer):
         else:
             num_tokens_per_expert_overall = num_tokens_per_expert.clone()
         return num_tokens_per_expert_overall
+
+    def initialize_expert_relocation_dispatcher(self, is_triggered_restore=False):
+        """
+        Initialize expert relocation dispatcher for load balancing.
+
+        Args:
+            is_triggered_restore: Whether to restore original expert mapping.
+
+        Returns:
+            tuple: (device_expert_mapping, new_local_expert_sorted_indices)
+        """
+        expert_mapping = self.expert_mapping.asnumpy()
+
+        ep_devices = list(range(self.ep))
+        expert_load = dict(
+            zip(range(self.config.num_moe_experts), self.expert_load_history.asnumpy()))
+
+        if is_triggered_restore:
+            experts_per_device = self.config.num_moe_experts // self.ep
+            expert_device_mapping = {}
+            for current_pos in range(self.config.num_moe_experts):
+                orig_expert_id = list(expert_mapping).index(current_pos)
+                device_id = orig_expert_id // experts_per_device
+                expert_device_mapping[current_pos] = [device_id]
+            device_expert_mapping = {device_id: []
+                                     for device_id in range(self.ep)}
+            for pos, dev_id_list in expert_device_mapping.items():
+                dev_id = dev_id_list[0]
+                device_expert_mapping[dev_id].append(pos)
+            for dev_id in device_expert_mapping:
+                device_expert_mapping[dev_id].sort()
+        else:
+            expert_device_mapping, device_expert_mapping = self.expert_relocation_optimizer.expert_relocation_greedy(
+                expert_load, ep_devices)
+
+        # turn expert_device_mapping into expert_index mapping
+        device_expert_idx = [set() for i in range(self.ep)]
+        # pylint: disable=R1721
+        device_full_expert_idx = {i for i in range(self.num_local_experts)}
+
+        new_expert_mapping = expert_mapping.copy()
+        for i in range(self.config.num_moe_experts):
+            remaining_indices = device_full_expert_idx - device_expert_idx[expert_device_mapping[i][0]]
+            local_idx = remaining_indices.pop()
+            new_expert_mapping[i] = expert_device_mapping[i][0] * self.num_local_experts + local_idx
+            device_expert_idx[expert_device_mapping[i][0]].add(local_idx)
+
+        # permuting the experts according to expert_device_mapping
+        local_expert_indices_offset = get_rank() % self.ep * self.num_local_experts
+
+        local_expert_device_mapping = np.array(list(expert_device_mapping.values()))[
+            local_expert_indices_offset:(local_expert_indices_offset+self.num_local_experts)].flatten()
+        new_local_expert_sorted_indices = np.argsort(
+            local_expert_device_mapping)
+
+        new_expert_mapping = new_expert_mapping[expert_mapping]
+        self.expert_mapping.set_data(Tensor(new_expert_mapping))
+
+        return device_expert_mapping, new_local_expert_sorted_indices

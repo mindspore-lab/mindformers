@@ -109,12 +109,13 @@ class FFNGroupedGEMM(nn.Cell):
             )
 
         self.num_tokens_per_expert = None
-        if self.config.print_expert_load:
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
             if self.moe_token_dispatcher_type != "alltoall":
                 raise ValueError(
-                    f"Expert load statistics (print_expert_load=True) currently only supports "
-                    f"'alltoall' moe_token_dispatcher_type, but got {self.moe_token_dispatcher_type!r}. "
-                    f"Please set moe_token_dispatcher_type to 'alltoall' or disable expert load statistics."
+                    f"Expert load balancing (print_expert_load=True / enable_expert_relocation=True) "
+                    f"currently only supports 'alltoall' moe_token_dispatcher_type, "
+                    f"but got {self.moe_token_dispatcher_type!r}. "
+                    f"Please set moe_token_dispatcher_type to 'alltoall' or disable expert load balancing."
                 )
             self.num_tokens_per_expert = Parameter(
                 Tensor(np.zeros((self.num_local_experts)), dtype=ms.int32), requires_grad=False)
