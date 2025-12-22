@@ -1,0 +1,91 @@
+seed: 0
+output_dir: './output'
+load_checkpoint: ''
+src_strategy_path_or_dir: ''
+auto_trans_ckpt: False
+run_mode: 'predict'
+
+# trainer config
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'telechat_35b'
+
+use_parallel: True
+# parallel context config
+parallel:
+  parallel_mode: "STAND_ALONE" # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  full_batch: False
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2
+  vocab_emb_dp: False
+
+# mindspore context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  max_device_memory: "58GB"
+  device_id: 0
+  save_graphs: False
+  save_graphs_path: "./graph"
+  mempool_block_size: "58GB"
+  affinity_cpu_list: "None"
+
+# model config
+model:
+  model_config:
+    type: TelechatConfig
+    batch_size: 1 # add for increase predict
+    net_name: "telechat3_36b"
+    seq_length: 8192
+    hidden_size: 6144
+    num_layers: 64
+    layers_group: 1
+    num_heads: 48
+    n_kv_heads: 8
+    embedding_size: 512
+    vocab_size: 131072
+    eod_reset: False
+    out_proj_has_bias: False
+    rms_norm_eps: 1.0e-5
+    bos_token_id: 1
+    eos_token_id: 2
+    pad_token_id: 3
+    ignore_token_id: -100
+    intermediate_size: 24576
+    res_dtype: "bfloat16"
+    compute_dtype: "bfloat16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float32"
+    rotary_dtype: "float32"
+    param_init_type: "bfloat16"
+    use_past: True
+    pretrain_seqlen: 8192 # seqlen of the pretrain checkpoint
+    extend_method: "None" # support "None", "PI", "NTK"
+    use_flash_attention: True # FA can accelerate training or finetune
+    block_size: 16
+    num_blocks: 512
+    is_dynamic: True
+    qkv_concat: False
+    use_past_shard: False
+    repetition_penalty: 1.03
+    max_decode_length: 512
+    top_k: 3
+    top_p: 1
+    do_sample: False
+    auto_map:
+      AutoModel: telechat.ParallelTelechatForCausalLM
+      AutoConfig: telechat_config.TelechatConfig
+      AutoTokenizer: [telechat_tokenizer.TelechatTokenizer, null]
+  arch:
+    type: ParallelTelechatForCausalLM
+
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: ""
+    unk_token: '<unk>'
+    bos_token: '<_start>'
+    eos_token: '<_end>'
+    pad_token: '<_pad>'
+    type: TelechatTokenizer

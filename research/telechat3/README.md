@@ -1,0 +1,302 @@
+# 星辰语义大模型 TeleChat3
+
+## 模型描述
+
+- 星辰语义大模型**TeleChat3**是由中国电信人工智能研究院研发训练的大语言模型，包含36B, 105B两种规模，该系列模型**完全基于国产算力**训练。
+- 本次开源**TeleChat3-36B**模型采用10万亿Tokens中英文高质量语料进行训练，同步开源对话模型**TeleChat3-36B**的多格式、多平台权重文件。
+- **TeleChat3**在训练数据、训练方法等方面进行了改进，在通用问答和知识类、代码类、数学类榜单上相比**TeleChat2**均有大幅提升。
+    - **TeleChat3**完全基于国产算力和国产深度学习框架进行训练，算力和算法框架更自主可控。优化MP、PP、SP实现方式提升模型性能，优化算子来提升训练速度。
+    - 我们使用大量小模型实验来验证scaling law规律，在不同模型结构、不同数据配比和数据清洗方式中寻找最优设计。
+    - 采用RingAttention及其他序列切分方式，实现长文训练性能提升；通过ntk-aware+attention-scaling的方式保证训练长度切换时的平稳过渡，以此来保证模型在不同长度数据下的训练效果。
+- 在微调数据方面，我们进行了指令复杂性提升与多样性扩充，通过数据合成和人工标注生成高质量数据，并使用拒绝采样生成多样的推理路径；通过研究一套基于base模型反向选择偏好对齐数据方案，基于适配数据最大限度提升模型效果。
+    - 通用能力较TeleChat1系列模型提升超过29%，在逻辑推理、总结摘要、长文写作和数学计算上均有大幅提升。
+
+基于GPU，Torch版本的TeleChat3链接：
+
+[TeleChat3](https://github.com/Tele-AI/TeleChat3)
+
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+TeleChat3-36b:
+
+| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
+|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
+| [TeleChat3_36b](./run_telechat_36b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
+| [TeleChat3_36b](./run_telechat_36b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
+
+## 模型文件
+
+`TeleChat3` 基于 `mindformers` 实现，主要涉及的文件有：
+
+1. 模型具体实现：`mindformers/research/telechat3`
+
+   ```bash
+   telechat
+       ├── convert_weight.py                     # torch->ms权重转换脚本
+       ├── convert_reversed.py                   # ms->torch权重转换脚本
+       ├── telechat.py                           # 模型实现
+       ├── telechat_config.py                    # 模型配置项
+       ├── telechat_layer.py                     # telechat网络层定义
+       ├── telechat_interleave.py                # telechat细粒度多副本
+       ├── telechat_tokenizer.py                 # telechat tokenizer
+       └── telechat_transformer.py               # transformer层实现
+   ```
+
+2. 模型配置：`mindformers/research/telechat3`
+
+   ```bash
+   telechat
+       ├── finetune_telechat_36b.yaml            # 36b全量微调启动配置
+       └── predict_telechat_36b.yaml             # 36b推理启动配置
+   ```
+
+3. 任务启动脚本：`mindformers/research/telechat3`
+
+   ```text
+   telechat
+       ├── run_telechat_predict.py              # 推理脚本
+       └── run_telechat.py                      # telechat高阶接口使用脚本
+   ```
+
+## 环境及数据准备
+
+### 安装环境
+
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README_CN.md#二MindFormers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
+
+> 注：Atlas 800T A2芯片支持telechat_36B单机多卡推理，至少使用2卡，全参微调至少需要4机32卡。
+
+### 数据及权重准备
+
+#### 数据集下载
+
+TeleChat3全系列模型中36b，105b所使用的微调数据集是由中电信人工智能科技有限公司所提供。
+
+step 1. 构建数据集
+
+可构建**单轮对话数据集**或**多轮对话数据集**，数据集为jsonl文件，每条数据内容需包含`input`和`output`字段，参考格式如下：
+
+- 单轮对话数据集
+
+  ```text
+  {"input": "<_user>描述一下中国古代文学的典型特点。", "output": "中国古代文学的典型特点包括：\n1. 以散文和诗歌为主要形式：中国古代文学中，散文和诗歌是最为常见和流行的文学形式。\n2. 强调意境：中国古代文学强调意境，而不仅仅关注情节的描述。作家致力于创造一种美感，通过文字表达出美好、深刻和含蓄的意境。\n3. 重视艺术性和审美价值：中国古代文学非常注重艺术性和审美价值，作家用精妙的文字表现出诗意和美感，增强作品的艺术性。\n4. 探究人性和社会问题：中国古代文学经常探究人性和社会问题，通过作品展示出人类在道德和伦理方面的深刻思考，及对社会现象和问题的探讨。\n5. 借物言志：中国古代文学中常借物言志，比如通过自然景观、动植物、传说和神话等形象，表达出人类的情感和内心世界。\n6. 注重传统文化的保护：中国古代文学注重传统文化的保护，作家在其作品中运用了许多古代文学的传统元素，生动展现出中国文化的独特魅力。"}
+  ```
+
+- 多轮对话数据集
+
+  ```text
+  {"input": "<_user>你能告诉我什么是人工智能吗？<_bot>人工智能是指利用计算机技术和算法，让计算机模拟人类的思维和行为，实现智能化的程序设计。它主要包括机器学习、自然语言处理、计算机视觉等技术和应用。人工智能可以应用于语音识别、图像识别、自动驾驶、智能客服等领域，可以有效地提高工作效率，优化资源配置，带来更好的人机交互体验。<_user>未来的人工智能将会发展成怎样呢？", "output": "未来的人工智能发展方向众多，以下是一些可能的方向：\n\n1. 个性化AI：人们对于个性化服务的需求越来越高，未来的人工智能将更加注重个性化，为用户提供量身定制的体验。\n\n2. 更加智能化的自动化：未来的人工智能将致力于让机器更加智能地自动化完成各种任务，从而提升效率、降低生产成本。\n\n3. 完全智能化的知识处理：未来的人工智能将能够更深入地处理和理解知识，掌握更多的上下文信息，从而能够更智能地应用到真实的场景中。\n\n4. 更强大的计算能力：未来的人工智能将伴随着计算技术的不断发展而不断提高其处理和计算能力，为更加复杂的任务处理提供支持。\n\n5. 更好的人机交互：未来的人工智能将更好地与人类交互，可预见的未来将有更多的机器人出现在人们的生活中，应用到教育、医疗、娱乐等领域。\n\n总之，未来的人工智能将在不断的发展中迎来更多更广泛的应用场景和解决更多的实际问题，使人们的生活更加便捷、高效和智能化。"}
+  ```
+
+step 2. 处理数据成mindrecord格式
+
+```bash
+# 使用mindformers/research/telechat2/telechat_preprocess.py进行数据预处理和Mindrecord数据生成
+python telechat_preprocess.py \
+--input_dataset_file /{path}/ \
+--vocab_file_path /{path}/tokenizer.model \
+--max_length 8192 \
+--output_path /{path}/
+```
+
+```text
+# 参数说明
+input_dataset_file: 预训练的数据集
+vocab_file_path: 词模型文件路径(如使用上述链接下载，指定到对应路径下即可)
+max_length: 数据集长度
+output_path: 生成数据集的路径
+```
+
+  > 注：`bos`, `eos`, `pad`等特殊`ids`要和`yaml`配置文件中`model_config`部分保持一致，默认`bos_token_id=1`, `eos_token_id=2`, `pad_token_id=3`。
+如果有所修改，配置文件中对应设置也需要修改，通常预训练数据不包含`pad_token`，因此建议设置`pad_token_id=-1`。
+
+#### 模型权重下载与转换
+
+MindFormers提供已经转换完成的预训练权重、词表文件用于预训练、微调和推理，开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
+
+1.torch模型权重及词模型下载链接：
+
+- [TeleChat3-36b](https://modelscope.cn/models/TeleAI/TeleChat3-36B-Thinking/files)
+
+下载完成后，运行如下转换脚本，将全量微调的权重转换为完整的ckpt权重。
+
+```shell
+python mindformers/research/telechat3/convert_weight_torch_to_ms.py \
+--torch_path TORCH_CKPT_DIR \
+--mindspore_path {path} \
+```
+
+```text
+# 参数说明
+torch_path: torch版本权重保存目录路径
+mindspore_path: 权重保存文件名，可以指定自定义保存路径
+```
+
+2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
+
+- [TeleChat3-36b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_36b/Telechat_36b.zip)
+
+### [分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/index.html#%E5%88%86%E5%B8%83%E5%BC%8F%E6%9D%83%E9%87%8D%E5%88%87%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6)
+
+分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
+
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[分布式权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/master/index.html)
+
+- step 1. 获取模型切分策略文件：
+
+在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
+
+- step 2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
+
+```shell
+python transform_ckpt.py \
+--src_ckpt_strategy {path}/output/strategy/ \
+--src_ckpt_dir {path}/output/checkpoint/ \
+--dst_ckpt_dir {path}/target_checkpoint/ \
+--prefix telechat_36b
+```
+
+```text
+# 参数说明
+src_ckpt_strategy: 步骤1中的切分策略文件路径
+src_ckpt_dir: 原切分权重文件夹
+dst_ckpt_dir: 目标路径
+prefix: ckpt文件前缀名
+```
+
+> 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
+
+## 微调
+
+MindFormers提供`TeleChat3-36b`的微调示例，过程中使用中电信人工智能科技有限公司提供的数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+
+### 全参微调
+
+#### 多机训练
+
+- step 1. 修改模型对应的配置文件。
+
+  在模型对应的配置文件`research/telechat3/finetune_telechat_36b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+
+  1. 增加脚本入参`--load_checkpoint /{path}/telechat_36b.ckpt`加载预训练权重
+  2. 设置启动脚本中的`--train_dataset_dir /{path}/dataset.mindrecord`加载微调数据集
+  3. 设置启动脚本中的`--run_mode finetune`
+
+  配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../../docs/feature_cards/Auto_Parallel.md)。
+
+- step 2. 根据服务器节点数等信息，修改相应的配置。
+
+  ```yaml
+  # 以telechat-36b模型8机64卡训练为例，默认配置机4096卡，如果节点数有变，需要修改相应的配置。
+  # 配置文件路径：finetune_telechat_36b.yaml
+  parallel_config:
+    data_parallel: 1
+    model_parallel: 8
+    pipeline_stage: 8
+    micro_batch_num: 8
+    vocab_emb_dp: True
+    gradient_aggregation_group: 4
+  ```
+
+- step3. 设置环境变量，变量配置如下：
+
+  ```bash
+  export ENABLE_CELL_REUSE=1  #编译加速
+  export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3  # 去除TensorMove
+  export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
+  export GE_NOT_CUT=1   # 内存优化
+  ```
+
+- step 4. 执行运行脚本。
+
+  在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式。
+
+  ```shell
+  cd mindformers/
+
+  # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+  bash scripts/msrun_launcher.sh "python run_mindformer.py \
+   --config research/telechat3/finetune_telechat_36b.yaml \
+   --train_dataset /{path}/dataset.mindrecord \
+   --use_parallel True \
+   --register_path ./research/telechat3" \
+    16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+  # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+  bash scripts/msrun_launcher.sh "python run_mindformer.py \
+   --config research/telechat3/finetune_telechat_36b.yaml \
+   --train_dataset /{path}/dataset.mindrecord \
+   --use_parallel True \
+   --register_path ./research/telechat3" \
+    16 8 192.168.1.1 8118 1 output/msrun_log False 300
+  ```
+
+  ```text
+  # 参数说明
+  config: 配置文件路径
+  train_dataset: 训练数据集文件夹路径
+  use_parallel：开启并行训练
+  register_path: 外部模型注册路径
+  ```
+
+## 推理
+
+推理时所需的模型词表可在[模型权重下载与转换](#模型权重下载与转换)章节中下载得到，对应文件为`tokenizer.model`。
+
+### 快速推理
+
+运行`run_mindformer.py`启动快速推理。
+
+#### 参数配置
+
+在`predict_telechat_xxx.yaml`中填写`vocab_file`字段
+
+```yaml
+processor:
+  tokenizer:
+    vocab_file: 'path/to/tokenizer.model'
+```
+
+#### 启动推理
+
+- 36b模型2卡推理
+
+  默认使用完整权重，开启权重自动转换`auto_trans_ckpt=True`。
+
+  ```bash
+  cd mindformers/
+  bash scripts/msrun_launcher.sh "python run_mindformer.py \
+  --config ./research/telechat3/telechat3-36b/predict_telechat_36b.yaml \
+  --load_checkpoint path/to/ckpt_path \
+  --predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+  --auto_trans_ckpt True \
+  --use_parallel True \
+  --register_path ./research/telechat3" 2
+  ```
+
+- 参数说明
+
+  ```text
+  config: 模型的配置文件
+  load_checkpoint: 权重路径
+  predict_data: 输入的问题
+  auto_tans_ckpt: 权重自动转换开关
+  use_parallel: 并行模式开关
+  register_path: 外部模型注册路径
+  ```
+
+#### 推理结果
+
+36b 模型推理结果如下：
+
+```text
+生抽与老抽的区别？
+
+生抽和老抽是两种不同的酱油，它们在风味、色泽和用途上都有所区别。
+
+1.颜色：生抽的颜色比较淡，而老抽的颜色较深。生抽的颜色呈红褐色或棕红色，而老抽的颜色则呈棕黑色。
+
+2.味道：生抽具有鲜美的咸味和微甜的味浅，而老抽浓郁，颜色较深。根据个人口味和烹饪需求选择不同的酱油类型可以获得更好的口感和菜肴效果。
+```
