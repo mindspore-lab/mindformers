@@ -229,7 +229,7 @@ def _get_stable_rank(weight, num_iter):
     except Exception as e:
         logger.warning(f"{weight.name} calculate max eigenvalue failed: {e}")
         return 0.0, 0.0
-    if not isinstance(eig, np.ndarray) and np.isclose(eig, 0.0, atol=0.0, rtol=0.0):
+    if isinstance(eig, float) and np.isclose(eig, 0.0, atol=0.0, rtol=0.0):
         return 0.0, 0.0
     f_norm_square = ms.ops.square(ms.ops.norm(weight, ord='fro', dim=(-2, -1)))
     stable_rank = ms.ops.select(
