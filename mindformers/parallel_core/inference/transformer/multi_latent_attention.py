@@ -292,7 +292,6 @@ class MLASelfAttention(MultiLatentAttention):
                 config=self.config,
                 bias=False,
                 skip_bias_add=False,
-                gather_output=False,
                 transpose_b=True,
                 compute_dtype=self.config.compute_dtype,
                 is_expert=False,
