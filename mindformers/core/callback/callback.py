@@ -228,6 +228,8 @@ def _get_stable_rank(weight, num_iter):
     except Exception as e:
         logger.warning(f"{weight.name} calculate max eigenvalue failed: {e}")
         return 0.0, 0.0
+    if not isinstance(eig, np.ndarray) and np.isclose(eig, 0.0, atol=0.0, rtol=0.0):
+        return 0.0, 0.0
     f_norm_square = ms.ops.square(ms.ops.norm(weight, ord='fro', dim=(-2, -1)))
     stable_rank = ms.ops.select(
         eig != 0,
@@ -1158,13 +1160,14 @@ class TrainingStateMonitor(Callback):
                            f"actual dim: {param.ndim}")
         elif param.ndim == 2:
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
+            if not isinstance(stable_rank, np.ndarray) and np.isclose(stable_rank, 0.0, atol=0.0, rtol=0.0):
+                logger.info(f"{name}'s stable rank is 0.0 or some exception happened, check warning above.")
             self._output(f'weight_stable_rank/{name}', stable_rank, cur_step_num, self.sr_format)
             self._output(f'weight_eigenvalue/{name}', eigenvalue, cur_step_num, self.sr_format)
-            if (stable_rank, eigenvalue) == (0.0, 0.0):
-                logger.info(f"{name}'s stable rank might be 0 or some exception happened, check warning above.")
         else:
             stable_rank, eigenvalue = _get_stable_rank(param, self.power_iteration_num)
-            if (stable_rank, eigenvalue) == (0.0, 0.0):
+            if not isinstance(stable_rank, np.ndarray) and np.isclose(stable_rank, 0.0, atol=0.0, rtol=0.0):
+                logger.info(f"{name}'s stable rank some exception happened, check warning above.")
                 return
             if self.moe_show_mode in ('all', 'full'):
                 for index, sr in enumerate(stable_rank):
