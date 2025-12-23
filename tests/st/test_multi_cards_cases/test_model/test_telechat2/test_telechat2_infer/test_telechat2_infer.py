@@ -23,8 +23,8 @@ from tests.st.test_multi_cards_cases.utils import TaskType
 from mindformers.tools.logger import logger
 
 
-_LEVEL_0_TASK_TIME = 80
-_LEVEL_1_TASK_TIME = 0
+_LEVEL_0_TASK_TIME = 0
+_LEVEL_1_TASK_TIME = 80
 _TASK_TYPE = TaskType.TWO_CARDS_TASK
 
 
