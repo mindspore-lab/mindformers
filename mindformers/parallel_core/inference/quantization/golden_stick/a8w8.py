@@ -32,6 +32,7 @@ class A8W8LinearMethod(LinearMethodBase):
         self.bias_add = ops.Add()
         self.is_modelslim = self.quant_config.is_modelslim
         self.is_ms_custom_ops = False
+        # pylint: disable=C0415
         try:
             import ms_custom_ops
             self.is_ms_custom_ops = True
@@ -108,6 +109,7 @@ class A8W8LinearMethod(LinearMethodBase):
         This can be used for example, to transpose weights for computation.
         """
         if self.is_ms_custom_ops:
+            layer.weight.init_data()
             layer.weight = self.ms_custom_ops.trans_data(layer.weight, transdata_type=1)
         if not self.is_modelslim:
             return

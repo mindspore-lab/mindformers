@@ -28,7 +28,7 @@ import numpy as np
 
 from mindspore import mint, Tensor, dtype, Parameter, ops
 from mindspore.ops import operations as P
-from mindspore.common.initializer import Zero
+from mindspore.common.initializer import Zero, Normal
 from mindspore.ops.operations._infer_ops import QuantV2
 import mindspore as ms
 
@@ -358,11 +358,21 @@ class MLASelfAttention(MultiLatentAttention):
             eps=self.config.layernorm_epsilon
         )
 
+        self.q_absorb = Tensor(shape=(self.num_attention_heads_per_partition,
+                                      self.config.qk_head_dim, self.config.kv_lora_rank),
+                               dtype=self.config.compute_dtype,
+                               init=Normal(sigma=1.0))
+        self.out_absorb = Tensor(shape=(self.num_attention_heads_per_partition,
+                                        self.config.v_head_dim, self.config.kv_lora_rank),
+                                dtype=self.config.compute_dtype,
+                                init=Normal(sigma=1.0))
+
     def process_weights_after_loading(self) -> None:
         """
         Process the weight after loading.
         This can be used for example, to transpose weights for computation.
         """
+        self.linear_kv_up_proj.weight.init_data()
         q_absorb, out_absorb = ops.function.array_func.split_ext(self.linear_kv_up_proj.weight,
                                           [self.num_attention_heads_per_partition * self.config.qk_head_dim,
                                            self.num_attention_heads_per_partition * self.config.v_head_dim], -2)
