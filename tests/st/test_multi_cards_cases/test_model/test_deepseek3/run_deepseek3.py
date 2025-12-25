@@ -282,16 +282,45 @@ def parallel_train_pp2_mp2_ep2_zbv():
     }
     ds3_train(config, dataset, construct_args_key, checker_config)
 
-def moe_eplb():
-    """test mcore deepseekv3 train in moe_eplb=True."""
+def moe_eplb_print_expert_load():
+    """test mcore deepseekv3 train in print_expert_load=True."""
     ms.set_seed(0)
     config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
-    config.print_separate_loss = False
+    config.print_separate_loss = True
     config.train_precision_sync = True
     config.pretrained_model_dir = CUR_DIR
     config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.model.model_config.print_expert_load = True
+    build_context(config)
+
+    construct_args_key = ['input_ids', 'labels']
+    model_config = config.model.model_config
+    dataset = get_dataset(model_config.seq_length, model_config.vocab_size, 4, 20)
+
+    loss_std = [13.485840, 13.485862, 13.486006, 13.486031, 13.485930,
+                13.485970, 13.485985, 13.485969, 13.486046, 13.485975,
+                13.485966, 13.486019, 13.485966, 13.485914, 13.485946,
+                13.486049, 13.485964, 13.485968, 13.485966, 13.486050,]
+    checker_config = {
+        'loss_list_std': loss_std,
+        'experiment_mode': False,
+        'micro_batch_num': 2,
+        'micro_batch_interleave_num': 1
+    }
+    ds3_train(config, dataset, construct_args_key, checker_config)
+
+def moe_eplb_expert_relocation():
+    """test mcore deepseekv3 train in print_expert_load=True and enable_expert_relocation=True"""
+    ms.set_seed(0)
+    config = MindFormerConfig(f'{CUR_DIR}/deepseekv3_train.yaml')
+    config.print_separate_loss = True
+    config.train_precision_sync = True
+    config.pretrained_model_dir = CUR_DIR
+    config.parallel.full_batch = True
+    config.parallel.dataset_strategy = 'full_batch'
+    config.model.model_config.print_expert_load = True
+    config.model.model_config.enable_expert_relocation = True
     build_context(config)
 
     construct_args_key = ['input_ids', 'labels']
@@ -319,8 +348,9 @@ TEST_MAP = {
     'parallel_train_pp2_mp2_ep2_zbv': parallel_train_pp2_mp2_ep2_zbv,
     'parallel_train_alltoall_deredundency': parallel_train_alltoall_deredundency,
     'parallel_train_alltoall_zero_redundancy': parallel_train_alltoall_zero_redundancy,
-    'moe_token_permute': moe_token_permute,
-    'moe_eplb': moe_eplb,
+    "moe_token_permute": moe_token_permute,
+    "moe_eplb_print_expert_load": moe_eplb_print_expert_load,
+    "moe_eplb_expert_relocation": moe_eplb_expert_relocation
 }
 
 if __name__ == '__main__':

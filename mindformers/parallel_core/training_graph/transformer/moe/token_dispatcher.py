@@ -85,7 +85,7 @@ class MoETokenDispatcher:
         self.ep_group = get_ep_group_name(get_rank(), self.ep)
 
         self.d2h = ops.MoveTo().add_prim_attr("recompute", False)
-        if self.config.print_expert_load:
+        if self.config.print_expert_load or self.config.enable_expert_relocation:
             self.assign_add = ops.AssignAdd()
 
     @property
@@ -484,7 +484,7 @@ class MoEAlltoAllTokenDispatcher(MoETokenDispatcher):
         It also initializes the necessary data structures for AlltoAll communication, such as input
         and output splits, and the mapping between global tokens and local experts.
         """
-        if not self.config.print_expert_load:
+        if not self.config.print_expert_load and not self.config.enable_expert_relocation:
             num_global_tokens_per_expert = AlltoAll(
                 split_count=self.ep,
                 split_dim=-1,

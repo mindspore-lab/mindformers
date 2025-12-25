@@ -375,6 +375,9 @@ COMMON_CONFIG_MAPPING = {
     "moe_router_force_expert_balance": "moe_router_force_expert_balance",
     "moe_router_fusion": "moe_router_fusion",
     "print_expert_load": "print_expert_load",
+    "enable_expert_relocation": "enable_expert_relocation",
+    "expert_relocation_initial_iteration": "expert_relocation_initial_iteration",
+    "expert_relocation_freq": "expert_relocation_freq",
 
     # Context Parallel
     # not changes

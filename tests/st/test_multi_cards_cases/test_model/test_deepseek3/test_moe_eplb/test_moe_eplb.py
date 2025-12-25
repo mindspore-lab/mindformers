@@ -53,12 +53,25 @@ class TestDeepseekV3:
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
     @pytest.mark.level1
-    def test_eight_card_configurations(self):
+    def test_eight_card_configurations_print(self):
         """Test eight cards for DeepseekV3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         cmd_list = [
             (f"msrun --worker_num=8 --local_worker_num=8 --master_port={port_id} --log_dir=./msrun_log_deepseekv3 "
-             f"--join=True {self.run_script_path} --mode=moe_eplb",
+             f"--join=True {self.run_script_path} --mode=moe_eplb_print_expert_load",
+             "./msrun_log_deepseekv3/worker_7.log"),
+        ]
+        with Pool(len(cmd_list)) as pool:
+            results = list(pool.imap(run_command, cmd_list))
+        check_results(cmd_list, results)
+
+    @pytest.mark.level1
+    def test_eight_card_configurations_relocation(self):
+        """Test eight cards for DeepseekV3."""
+        port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
+        cmd_list = [
+            (f"msrun --worker_num=8 --local_worker_num=8 --master_port={port_id} --log_dir=./msrun_log_deepseekv3 "
+             f"--join=True {self.run_script_path} --mode=moe_eplb_expert_relocation",
              "./msrun_log_deepseekv3/worker_7.log"),
         ]
         with Pool(len(cmd_list)) as pool:
