@@ -43,3 +43,8 @@ mindformers/mindformers/models/llama/llama_config.py:__init__
 mindformers/research/deepseek3/deepseek3_config.py:__init__
 mindformers/research/telechat2/telechat_config.py:__init__
 mindformers/mindformers/tools/hub/hub.py:cached_file
+mindformers/research/telechat3/telechat_config.py:__init__
+mindformers/research/telechat3/telechat_transformer.py:__init__
+mindformers/research/telechat3/telechat_interleave.py:__init__
+mindformers/research/telechat3/telechat_interleave.py:__init__
+mindformers/research/telechat3/telechat.py:__init__
