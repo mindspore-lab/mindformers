@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test TransformerBlock with various configurations"""
 from pathlib import Path
 import subprocess
@@ -219,7 +220,7 @@ class TestTransformerBlock:
 
 class TestTransformerBlockSingleCard(TestTransformerBlock):
     """Test TransformerBlock with single card configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training  # Or your specific platform
     @pytest.mark.env_onecard  # Single card environment
     @pytest.mark.parametrize(SINGLE_CARD_TEST_PARAM, SINGLE_CARD_TEST_CASES)

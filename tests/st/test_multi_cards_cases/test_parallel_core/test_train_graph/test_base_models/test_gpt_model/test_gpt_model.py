@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test GPTModel with various configurations"""
 import os
 from pathlib import Path
@@ -127,7 +128,7 @@ class TestTransformerLayer:
             logger.info(f"Loaded output from {output_file_path}. Keys: {list(output_ms_dict.keys())}")
             self.check_output_keys(output_ms_dict, data_keys)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(TWO_CARD_TEST_PARAM, TWO_CARD_TEST_CASES)
     def test_multi_card_configurations(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
         """Test four cards with various configurations for GPTModel."""

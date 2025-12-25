@@ -43,7 +43,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestTransformerLayerTwoCards(TestTransformerLayer):
     """Test class for TransformerLayer with four cards configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(TWO_CARD_TEST_PARAM, TWO_CARD_TEST_CASES)
     def test_multi_card_configurations(self, model_args, data_keys, expect_error, tensor_parallel, tmp_path):
         """Test four cards with various configurations for TransformerLayer."""

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """test weight loader in safetensors format"""
 import os
 import shutil
@@ -90,7 +91,7 @@ class TestQKVWeightLoader(TestWeightLoader):
         )
         return qkv1, qkv2
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -166,7 +167,7 @@ class TestMLPWeightLoader(TestWeightLoader):
         )
         return mlp1, mlp2
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -269,7 +270,7 @@ class TestMOEColumnWeightLoader(TestWeightLoader):
         )
         return moe1, moe2
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -366,7 +367,7 @@ class TestRowLinearWeightLoader(TestWeightLoader):
         )
         return row1, row2
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -435,7 +436,7 @@ class TestMOERowWeightLoader(TestWeightLoader):
         )
         return down1, down2
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(

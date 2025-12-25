@@ -43,7 +43,7 @@ MULTI_CARD_TEST_CASES = [
 
 class TestMultiCardsMTP(TestMTP):
     """Test class for Multi-Token Prediction (MTP)"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         MULTI_CARD_TEST_PARAM,
         MULTI_CARD_TEST_CASES

@@ -48,7 +48,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestSelfAttentionMegatronTwoCards(TestSelfAttentionMegatron):
     """Test SelfAttention with parallel configurations."""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES

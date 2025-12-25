@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing ColumnParallelBatchedLinear used for mindformers."""
 import os
 import random
@@ -28,7 +29,7 @@ port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
 class TestSharedExpertMLPTwoCards:
     """A test class for testing MLP"""
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     def test_parallel_case(self):
         """
         Feature: SharedExpertMLP

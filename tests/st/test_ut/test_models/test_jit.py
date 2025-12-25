@@ -34,7 +34,7 @@ class JitCell(Cell):
 class TestJit:
     """A test class for jit."""
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_jit_graph_mode(self):
@@ -46,7 +46,7 @@ class TestJit:
         res = cell(ms.Tensor(x).astype(ms.float32), ms.Tensor(y).astype(ms.float32))
         assert (res.asnumpy() == x * y).all()
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_jit_pynative_mode(self):

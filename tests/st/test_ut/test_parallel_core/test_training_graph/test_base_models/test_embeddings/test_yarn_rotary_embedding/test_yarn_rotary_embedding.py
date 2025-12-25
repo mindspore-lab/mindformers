@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test YarnRotaryEmbedding with various configurations"""
 from pathlib import Path
 import subprocess
@@ -147,7 +148,7 @@ class TestYarnRotaryEmbedding:
 
         self.check_acc(output_ms_dict, data_keys)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(

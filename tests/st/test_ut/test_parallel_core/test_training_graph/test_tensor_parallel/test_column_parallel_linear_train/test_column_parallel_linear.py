@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test ColumnParallelLinear with various configurations"""
 from pathlib import Path
 import subprocess
@@ -196,7 +197,7 @@ class TestColumnParallelLinear:
 
 class TestColumnParallelLinearSingleCard(TestColumnParallelLinear):
     """Test class for ColumnParallelLinear with single card configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(

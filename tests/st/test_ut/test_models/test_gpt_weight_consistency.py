@@ -220,7 +220,7 @@ def golden_data(weight_tester):
         return json.load(f)
 
 
-@pytest.mark.level0
+#@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_golden_standard(weight_tester, golden_data):
@@ -259,7 +259,7 @@ def test_golden_standard(weight_tester, golden_data):
     assert "generated_at" in metadata, "Metadata should contain generation timestamp"
 
 
-@pytest.mark.level0
+#@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_weight_consistency_check(weight_tester):

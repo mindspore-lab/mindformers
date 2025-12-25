@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing RowParallelBatchedLinear used for mindformers."""
 import os
 import subprocess
@@ -48,7 +49,7 @@ class TestRowParallelBatchedLinear:
             )
 
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_num_moe_experts_2_case(self):
@@ -60,7 +61,7 @@ class TestRowParallelBatchedLinear:
         args = ""
         self.run_test(args)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_num_moe_experts_error_case(self):

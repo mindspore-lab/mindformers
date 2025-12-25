@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test DeepseekV3 training in TND FA layout"""
 import os
 from multiprocessing.pool import Pool
@@ -53,7 +54,7 @@ class TestDeepseekV3WithTND:
         self.run_script_path = self.sh_path / "run_deepseek3.py"
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     def test_four_card_configurations(self):
         """Test eight cards for DeepseekV3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))

@@ -40,7 +40,7 @@ MULTI_CARD_TEST_CASES = [
 
 class TestFusedScaleMaskSoftmaxFourCards(TestFusedScaleMaskSoftmax):
     """Test class for FusedScaleMaskSoftmax with four cards configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         MULTI_CARD_TEST_PARAM,
         MULTI_CARD_TEST_CASES

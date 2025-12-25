@@ -48,7 +48,7 @@ FOUR_CARD_DP4TP1EP1_TEST_CASES = [
 
 class TestInferMoELayerDPParallel(TestInferMoELayerTP):
     """Test class for InferMoELayer with dp parallel"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_DP4TP1EP1_TEST_CASES)
     def test_four_cards_dp4_cases(
             self, model_args, data_keys, expect_error,

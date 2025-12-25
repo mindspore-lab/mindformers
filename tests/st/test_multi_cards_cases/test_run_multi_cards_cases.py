@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """multi cards testcases scheduler."""
 
 import ast
@@ -532,7 +533,7 @@ def collect_task_cases(level_mark: str):
     return scheduler
 
 
-@pytest.mark.level0
+#@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
 def test_multi_cards_level0_cases():

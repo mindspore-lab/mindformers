@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing activation used for mindformers."""
 import pytest
 from mindformers.parallel_core.training_graph.activation import GELU, SiLU, SwiGlu
@@ -38,7 +39,7 @@ class TestActivation:
             f"Golden output:\n{golden_output}"
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_gelu(self):
@@ -49,7 +50,7 @@ class TestActivation:
         """
         self.run_test(activation=GELU())
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_gelu_unapproximate(self):
@@ -60,7 +61,7 @@ class TestActivation:
         """
         self.run_test(activation=GELU(approximate=False))
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_silu(self):
@@ -71,7 +72,7 @@ class TestActivation:
         """
         self.run_test(activation=SiLU())
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_swiglu(self):

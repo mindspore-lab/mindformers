@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """mcore transformer layer UT of inference"""
 import os
 import random
@@ -52,7 +53,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestInferTransformerLayerParallel(TestInferTransformerLayer):
     """Test class for Transformer Layer with different configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES

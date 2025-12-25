@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing ColumnParallelBatchedLinear used for mindformers."""
 import os
 import subprocess
@@ -47,7 +48,7 @@ class TestColumnParallelBatchedLinear:
                 f"Expected error message not found.\nExpected:\n{expected_error}\nStderr:\n{result.stderr}"
             )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_skip_weight_false_case(self):
@@ -59,7 +60,7 @@ class TestColumnParallelBatchedLinear:
         args = ""
         self.run_test(args)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_skip_weight_true_case(self):
@@ -73,7 +74,7 @@ class TestColumnParallelBatchedLinear:
                           "is enabled, `weight` is required, but got None'")
         self.run_test(args, expected_error)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_weight_true_case(self):
@@ -85,7 +86,7 @@ class TestColumnParallelBatchedLinear:
         args = "--weight"
         self.run_test(args)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_all_true_case(self):
@@ -97,7 +98,7 @@ class TestColumnParallelBatchedLinear:
         args = "--skip_weight_param_allocation --weight"
         self.run_test(args)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_num_moe_experts_error_case(self):

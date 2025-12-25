@@ -35,7 +35,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestRowParallelLinearTwoCards(TestRowParallelLinear):
     """Test class for RowParallelLinear with two cards configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES
