@@ -1,0 +1,276 @@
+seed: 0
+output_dir: './output' # path to save checkpoint and strategy
+load_checkpoint: ''
+load_ckpt_format: 'safetensors'  # format of checkpoint files to load
+src_strategy_path_or_dir: ''
+auto_trans_ckpt: False  # If True, auto transform `load_checkpoint` to load in distributed model
+only_save_strategy: False
+resume_training:  False #True
+transform_process_num: 256
+use_parallel: True
+run_mode: 'train'
+remove_redundancy: True
+train_precision_sync: True
+
+monitor_config:
+  monitor_on: True
+  dump_path: './dump'
+  invert: False
+  step_interval: 1
+  device_local_loss_format: [ 'log' ]
+  device_local_norm_format: [ 'log' ]
+  optimizer_state_format: null
+  weight_state_format: null
+  throughput_baseline: null
+  print_struct: False
+
+# trainer config
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'telechat3'
+
+# runner config
+runner_config:
+  epochs: 1
+  batch_size: &bs 1
+  sink_mode: True
+  sink_size: 1
+
+# optimizer
+optimizer:
+  type: AdamW
+  betas: [0.9, 0.95]
+  eps: 1.e-8
+  weight_decay: 0.1
+
+grouped_lr_schedule:
+  default:
+    type: ConstantWarmUpLR
+    learning_rate: 2.e-4
+    warmup_steps: 2000
+    total_steps: 2400000
+  grouped:
+    - type: ConstantWarmUpLR
+      params: ['embedding.*', 'output_layer.weight']
+      learning_rate: 2.e-4
+      warmup_steps: 2000
+      total_steps: 2400000
+
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: BlendedMegatronDatasetDataLoader
+    datasets_type: "GPTDataset"
+    sizes:
+      - 16   # 训练集数据样本数
+      - 0    # 测试集数据样本数，当前不支持配置
+      - 0    # 评测集数据样本数，当前不支持配置
+    config:  # GPTDataset配置项
+      seed: 1234                         # 数据采样随机种子
+      split: "1, 0, 0"                   # 训练、测试、评测集使用比例，当前不支持配置
+      seq_length: 4096                   # 数据集返回数据的序列长度
+      eod_mask_loss: False               # 是否在eod处计算loss
+      reset_position_ids: False          # 是否在eod处重置position_ids
+      create_attention_mask: True        # 是否返回attention_mask
+      reset_attention_mask: False        # 是否在eod处重置attention_mask，返回阶梯状attention_mask
+      create_compressed_eod_mask: False  # 是否返回压缩后的attention_mask
+      eod_pad_length: 128                # 设置压缩后attention_mask的长度
+      eod: 1                             # 数据集中eod的token id
+      pad: -1                            # 数据集中pad的token id
+
+      data_path:  # Megatron数据集采样比例以及路径
+        - '1'
+        - "/dataset_path"
+
+  input_columns: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
+  construct_args_key: ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
+
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  numa_enable: False
+  prefetch_size: 1
+train_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *train_dataset
+
+# mindspore context init config
+context:
+  mode: 0 # 0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  max_call_depth: 10000
+  max_device_memory: "55.5GB"
+  memory_optimize_level: "O0"
+  mempool_block_size: "55.5GB"
+  save_graphs: True
+  save_graphs_path: "./graphs"
+  jit_config:
+    jit_level: "O1"
+  ascend_config:
+    parallel_speed_up_json_path: "./parallel_speed_up_4M.json"  # 修改此项为数据集并行通信配置路径
+  affinity_cpu_list:  False
+
+# parallel config for device num = 8
+parallel_config:
+  data_parallel: &dp 4
+  model_parallel: 8
+  pipeline_stage: 8
+  expert_parallel: 1
+  micro_batch_num: &micro_batch_num 8
+  vocab_emb_dp: False
+  use_seq_parallel: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+
+# parallel context config
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: True
+  full_batch: False
+  dataset_strategy: [[*dp, 1], [*dp, 1], [*dp, 1], [*dp, 1], [*dp, 1, 1, 1]]
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  pipeline_config:
+    pipeline_interleave: True
+    pipeline_scheduler: seqsmartvpp #seqpipe
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
+
+# recompute config
+recompute_config:
+  recompute: True
+  select_recompute: False
+  parallel_optimizer_comm_recompute: True
+  mp_comm_recompute: True
+
+# model config
+use_legacy: False
+model:
+  model_config:
+    model_type: "telechat3"
+    input_sliced_sig: True
+    architectures: ["TeleChat3ForCausalLM"]
+    batch_size: *bs  # add for increase predict
+    offset: 0
+    pp_interleave_num: 1
+
+    vocab_size: 131072
+    seq_length: 4096
+    hidden_size: 2560
+    intermediate_size: 7680
+    num_hidden_layers: &num_layers 45
+    max_position_embeddings: 4096
+    hidden_act: 'fusedswiglu'
+    num_attention_heads: 32
+    rms_norm_eps: 1.e-5
+    add_bias_linear: False
+    use_flash_attention: True
+    use_attn_mask_compression: True
+
+    multi_latent_attention: True
+    mla_qkv_concat: False
+    kv_lora_rank: 512
+    q_lora_rank: 1536
+    qk_rope_head_dim: 64
+    v_head_dim: 128
+    qk_nope_head_dim: 128
+    qk_layernorm: True
+
+    attention_dropout: 0.0
+    hidden_dropout: 0.0
+
+    params_dtype: "float32"
+    compute_dtype: "bfloat16"
+    layernorm_compute_dtype: "float32"
+    softmax_compute_dtype: "float32"
+    rotary_dtype: "float32"
+    router_dense_type: "float32" # "float32"
+    initializer_range: 0.01
+
+    num_nextn_predict_layers: &mtp_depth 1
+    mtp_loss_factor: 0.2
+
+    position_embedding_type: "rope"
+    rotary_scaling_factor: 1
+    beta_fast: 32
+    beta_slow: 1
+    mscale: 1
+    mscale_all_dim: 1
+    rope_theta: 10000.0
+    apply_rope_fusion: False
+    bias_swiglu_fusion: False
+
+    # moe config
+    gated_linear_unit: True
+    moe_intermediate_size: 1536
+    routed_scaling_factor: 2.8
+    first_k_dense_replace: 1
+    n_routed_experts: &expert_num 192
+    num_experts_per_tok: 4
+    n_shared_experts: 1
+    moe_shared_expert_intermediate_size: 1536
+    norm_topk_prob: True
+    scoring_func: 'sigmoid'
+    moe_grouped_gemm: True
+    use_fused_ops_topkrouter: True
+    topk_group: 0
+    n_group: 0
+    moe_z_loss_coeff: 0.0
+    use_pad_tokens: True
+    moe_token_dispatcher_type: "alltoall"
+    moe_router_force_expert_balance: False
+    npu_nums_per_device: 8
+
+    moe_router_load_balancing_type: 'seq_aux_loss'
+    moe_aux_loss_coeff: 0.001
+
+    moe_token_drop_policy: False
+    moe_router_enable_expert_bias: &moe_router_enable_expert_bias True
+    moe_router_bias_update_rate: &moe_router_bias_update_rate 0.001
+
+    fp32_residual_connection: True
+    #param_init_std_rules: [{"target": "decoder.layers.0.*", "init_method_std": 0.0048}]
+
+# callbacks
+callbacks:
+  - type: MFLossMonitor
+    per_print_times: 1
+  # balance topk bias with callback
+  - type: TopkBiasBalanceCallback
+    balance_via_topk_bias: *moe_router_enable_expert_bias
+    topk_bias_update_rate: *moe_router_bias_update_rate
+    expert_num: *expert_num
+    micro_batch_num: *micro_batch_num
+  - type: CheckpointMonitor
+    prefix: "telechat3"
+    save_checkpoint_steps: 1000
+    keep_checkpoint_max: 10
+    integrated_save: False
+    remove_redundancy: True
+    async_save: False
+    checkpoint_format: "safetensors"  # format of checkpoint files to save
+
+
+# wrapper cell config
+runner_wrapper:
+  type: MFTrainOneStepCell
+  scale_sense: 1.0
+  max_grad_norm: 1.0
+  use_clip_grad: True
+
+profile: False
+profile_start_step: 1000
+profile_stop_step: 1000
+init_start_profile: True
+profile_communication: False
+profile_memory: False
+layer_scale: False
+layer_decay: 0.65
+lr_scale_factor: 256
+profiler_level: 1

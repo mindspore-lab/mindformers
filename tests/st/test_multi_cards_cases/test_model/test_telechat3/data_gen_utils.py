@@ -1,0 +1,63 @@
+# Copyright 2025 TeleAI Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Data generation utilities for telechat3 test"""
+from functools import partial
+import numpy as np
+
+import mindspore as ms
+from mindspore.dataset import GeneratorDataset
+
+def generate_weight(network):
+    """generate network weight."""
+    param_dict = {}
+    np.random.seed(0)
+    for _, param in network.parameters_and_names():
+        if not param.has_init:
+            continue
+        if param.dtype not in [ms.int64, ms.int32]:
+            param_dict[param.name] = ms.Parameter(ms.Tensor(np.random.normal(0, 0.02, param.shape), ms.bfloat16))
+        else:
+            param_dict[param.name] = ms.Parameter(ms.Tensor(np.zeros(param.shape), param.dtype))
+    return param_dict
+
+
+def generate_data(seq_len, vocab_size, batch_size=4, step_num=20, use_actual_seq_len=False):
+    """generate data for testing model."""
+    np.random.seed(0)
+    input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
+    actual_seq_len = list(range(0, seq_len, seq_len // 16))
+    actual_seq_len = np.array([*actual_seq_len[1:], seq_len], np.int32)
+
+    for input_data in input_ids:
+        label = np.roll(input_data, shift=-1, axis=0)
+        label[-1] = 0
+        data = [input_data, label]
+        if use_actual_seq_len:
+            data.append(actual_seq_len)
+        yield data
+
+
+def get_dataset(seq_length, vocab_size, batch_size, step_num):
+    """build dataset for model training."""
+
+    prepare_data = partial(generate_data,
+                           seq_len=seq_length,
+                           vocab_size=vocab_size,
+                           batch_size=batch_size,
+                           step_num=step_num)
+
+    dataset = GeneratorDataset(prepare_data, column_names=['input_ids', 'labels'])
+    dataset = dataset.batch(batch_size=batch_size)
+    return dataset
