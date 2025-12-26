@@ -12,9 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""loss modules"""
-from .loss import (
-    CrossEntropyLoss,
-)
+"""IdentityOp"""
+from mindspore import nn
 
-__all__ = ['CrossEntropyLoss']
+
+class IdentityOp(nn.Cell):
+    """
+    This is a placeholder for IdentityOp(x) -> x
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def construct(self, x, *args, **kwargs):
+        return x
