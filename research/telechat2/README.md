@@ -216,7 +216,7 @@ MindFormers提供`TeleChat2-115B`的微调示例，过程中使用中电信人�
   2. 设置启动脚本中的`--train_dataset_dir /{path}/dataset.mindrecord`加载微调数据集
   3. 设置启动脚本中的`--run_mode finetune`
 
-  配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。
+  配置文件中各参数含义详见[Config配置说明文档](https://www.mindspore.cn/mindformers/docs/zh-CN/master/feature/configuration.html)。
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
