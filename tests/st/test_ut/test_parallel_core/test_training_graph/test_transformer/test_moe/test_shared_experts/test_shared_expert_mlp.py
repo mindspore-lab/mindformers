@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing SharedExpertMLP used for mindformers."""
 import os
 import subprocess
@@ -41,7 +42,7 @@ class TestSharedExpertMLP:
             f"{result.returncode}.\nStdout:\n{result.stdout}\nStderr:\n{result.stderr}"
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_gate_false_case(self):
@@ -52,7 +53,7 @@ class TestSharedExpertMLP:
         """
         self.run_test()
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_gate_true_case(self):

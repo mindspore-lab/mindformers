@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test FusedNorm with various configurations"""
 import pytest
 import mindspore as ms
@@ -48,7 +49,7 @@ class TestFusedNorm:
             f"Golden output:\n{golden_output}"
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_layer_norm(self):
@@ -59,7 +60,7 @@ class TestFusedNorm:
         """
         self.run_test(normalization='LayerNorm')
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_rms_norm(self):

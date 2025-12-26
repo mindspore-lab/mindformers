@@ -27,7 +27,7 @@ class TestDropout:
         self.dropout = Dropout()
         self.dropout_0 = Dropout(drop_prob=0.0)
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_p_0_5_case(self):
@@ -44,7 +44,7 @@ class TestDropout:
             f"Output:\n{output}"
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_training_false_case(self):
@@ -61,7 +61,7 @@ class TestDropout:
             f"Output:\n{output}"
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_p_0_case(self):

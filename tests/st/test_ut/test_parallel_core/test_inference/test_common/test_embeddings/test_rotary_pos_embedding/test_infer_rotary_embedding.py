@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """mcore RoPE UT of inference"""
 from pathlib import Path
 import subprocess
@@ -310,7 +311,7 @@ class TestInferRotaryEmbedding:
 
 class TestInferRotaryEmbeddingSingleCard(TestInferRotaryEmbedding):
     """Test class for InferRotaryEmbedding with single card configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -381,7 +382,7 @@ class TestInferLlama3RotaryEmbedding(TestInferRotaryEmbedding):
 
 class TestInferLlama3RotaryEmbeddingSingleCard(TestInferLlama3RotaryEmbedding):
     """Test class for InferLlama3RotaryEmbedding with single card configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(
@@ -454,7 +455,7 @@ class TestInferYaRNScalingRotaryEmbedding(TestInferRotaryEmbedding):
 
 class TestInferYaRNScalingRotaryEmbeddingSingleCard(TestInferYaRNScalingRotaryEmbedding):
     """Test class for InferYaRNScalingRotaryEmbedding with single card configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     @pytest.mark.parametrize(

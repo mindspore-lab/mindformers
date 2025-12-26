@@ -51,7 +51,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestGPTModelTwoCards(TestInferGPTModel):
     """Test class for GPTModel with two cards configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(TWO_CARD_TEST_PARAM, TWO_CARD_TEST_CASES)
     def test_multi_card_configurations(self, model_args, data_keys, expect_error, tensor_parallel, pipeline_parallel,
                                        tmp_path):

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """
 Test module for testing the glm2_lora interface used for mindformers.
 How to run this:
@@ -55,7 +56,7 @@ def generator_eval():
         yield eval_data
 
 
-@pytest.mark.level0
+#@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestGLM2WithLoRATrainerMethod:

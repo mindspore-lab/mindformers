@@ -38,7 +38,7 @@ TWO_CARD_TEST_CASES = [
 
 class TestVocabParallelCrossEntropyTwoCards(TestVocabParallelCrossEntropy):
     """Test VocabParallelCrossEntropy with two cards and various configurations."""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES

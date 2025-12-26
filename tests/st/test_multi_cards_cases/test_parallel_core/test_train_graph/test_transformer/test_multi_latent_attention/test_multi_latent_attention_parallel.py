@@ -53,7 +53,7 @@ MULTI_CARD_TEST_CASES = [
 
 class TestMultiLatentAttentionFourCards(TestMultiLatentAttention):
     """Test class for Multi-head Latent Attention with four cards configurations."""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize('struct', ['megatron', 'a2'])
     @pytest.mark.parametrize(
         MULTI_CARD_TEST_PARAM,

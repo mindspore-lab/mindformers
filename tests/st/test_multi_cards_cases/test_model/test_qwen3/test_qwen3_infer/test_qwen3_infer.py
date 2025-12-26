@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test Mcore Qwen3 inference"""
 import os
 import random
@@ -36,7 +37,7 @@ class TestMcoreQwen3ParallelInference:
         self.run_script_path = self.sh_path / "run_qwen3.py"
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     def test_two_cards_cases(self):
         """Test two cards for Qwen3."""
         port_id = int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))

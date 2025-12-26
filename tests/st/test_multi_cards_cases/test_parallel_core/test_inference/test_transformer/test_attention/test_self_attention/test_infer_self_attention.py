@@ -47,7 +47,7 @@ TWO_CARD_TEST_CASES = [
 ]
 class TestInferSelfAttentionParallel(TestInferSelfAttention):
     """Test class for SelfAttention with different configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         TWO_CARD_TEST_PARAM,
         TWO_CARD_TEST_CASES

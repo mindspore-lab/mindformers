@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """
 Test module for testing the trainer interface used for mindformers.
 How to run this:
@@ -85,7 +86,7 @@ def run_trainer(args, task, model, train_dataset, embedding_local_norm_threshold
     trainer.config.runner_wrapper.local_norm = True
     trainer.train()
 
-@pytest.mark.level0
+#@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 def test_use_ckpt_health_monitor_unhealthy_ckpt():

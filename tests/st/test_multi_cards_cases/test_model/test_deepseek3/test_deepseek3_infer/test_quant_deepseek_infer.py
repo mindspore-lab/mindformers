@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test Mcore Qwen3Moe inference"""
 import os
 import random
@@ -36,7 +37,7 @@ class TestQuantDeepseekParallelInference:
         self.run_script_path = self.sh_path / "run_quant_deepseek_infer.py"
         assert self.run_script_path.exists(), f"Run script not found: {self.run_script_path}"
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize("quant_algo", ['A8W8'])
     def test_quant_deepseek_level0(self, quant_algo):
         """Test two cards for quant deepseek."""

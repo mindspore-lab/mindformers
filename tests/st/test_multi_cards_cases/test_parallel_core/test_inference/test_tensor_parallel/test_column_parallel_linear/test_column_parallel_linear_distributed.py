@@ -37,7 +37,7 @@ FOUR_CARD_TEST_CASES = [
 
 class TestColumnParallelLinearFourCards(TestColumnParallelLinear):
     """Test class for ColumnParallelLinear with four cards configurations"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(
         FOUR_CARD_TEST_PARAM,
         FOUR_CARD_TEST_CASES

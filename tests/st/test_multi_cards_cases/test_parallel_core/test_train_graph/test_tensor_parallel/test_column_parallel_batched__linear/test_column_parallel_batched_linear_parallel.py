@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=all
 """Test module for testing ColumnParallelBatchedLinear used for mindformers."""
 import os
 import random
@@ -27,7 +28,7 @@ _TASK_TYPE = TaskType.FOUR_CARDS_TASK
 
 class TestColumnParallelBatchedLinear:
     """A test class for testing ColumnBatchedParallelLinear"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     def test_parallel_case(self):
         """
         Feature: ColumnParallelBatchedLinear

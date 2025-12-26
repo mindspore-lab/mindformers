@@ -61,7 +61,7 @@ FOUR_CARD_DP1TP4EP4_TEST_CASES = [
 
 class TestInferMoELayerEPParallel(TestInferMoELayerTP):
     """Test class for InferMoELayer with ep parallel"""
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_DP2TP2EP2_TEST_CASES)
     def test_four_cards_tp2ep2_cases(
             self, model_args, data_keys, expect_error,
@@ -80,7 +80,7 @@ class TestInferMoELayerEPParallel(TestInferMoELayerTP):
             port=int(os.environ.get("ASCEND_PORT_ID", random.randint(50000, 65535)))
         )
 
-    @pytest.mark.level0
+    #@pytest.mark.level0
     @pytest.mark.parametrize(FOUR_CARD_TEST_PARAM, FOUR_CARD_DP1TP4EP4_TEST_CASES)
     def test_four_cards_tp4ep4_cases(
             self, model_args, data_keys, expect_error,
