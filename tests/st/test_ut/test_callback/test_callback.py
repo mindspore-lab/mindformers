@@ -16,13 +16,13 @@
 import os
 import sys
 from unittest.mock import Mock
-
 import pytest
+
+from mindformers.pynative.callback import TrainerCallback, CallbackHandler
+
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
-
-from mindformers.core.callback_pynative import TrainerCallback, CallbackHandler  # pylint: disable=wrong-import-position
 
 
 class TestTrainerCallback:

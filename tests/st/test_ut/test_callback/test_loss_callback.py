@@ -17,13 +17,13 @@ import os
 import sys
 import time
 from unittest.mock import Mock, patch
-
 import pytest
+
+from mindformers.pynative.callback import LossCallback
+
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
-
-from mindformers.core.callback_pynative import LossCallback  # pylint: disable=wrong-import-position
 
 
 class TestLossCallback:
