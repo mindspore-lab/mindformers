@@ -6,6 +6,11 @@ import sys
 import traceback
 from unittest.mock import Mock
 
+# Now import callbacks
+from mindformers.pynative.callback import CheckpointCallback
+from mindformers.pynative.callback import LossCallback
+
+
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
 sys.path.insert(0, project_root)
@@ -47,10 +52,6 @@ spec = importlib.util.spec_from_file_location("train_state", train_state_path)
 train_state_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(train_state_module)
 TrainerState = train_state_module.TrainerState
-
-# Now import callbacks
-from mindformers.core.callback_pynative.checkpoint_callback import CheckpointCallback
-from mindformers.core.callback_pynative.loss_callback import LossCallback
 
 
 def test_trainstate_with_checkpoint_callback():

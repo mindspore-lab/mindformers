@@ -18,13 +18,13 @@ import shutil
 import sys
 import tempfile
 from unittest.mock import Mock, patch
-
 import pytest
+
+from mindformers.pynative.callback import CheckpointCallback
+
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
-
-from mindformers.core.callback_pynative import CheckpointCallback  # pylint: disable=wrong-import-position
 
 
 class TestCheckpointCallback:
