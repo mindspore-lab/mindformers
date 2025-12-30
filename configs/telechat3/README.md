@@ -35,7 +35,7 @@ TeleChat3 当前支持的版本配套如下。
 
 |         模型名称         | 下载链接                                             | 说明 |
 |:--------------------:|:-------------------------------------------------|:---|
-|  Telechat/TeleChat3-105B-A4.7B  | [ModelScope](https://modelscope.cn/models/TeleAI/TeleChat3-36B-Thinking/files)
+|  TeleChat/TeleChat3-105B-A4.7B  | [ModelScope](https://modelscope.cn/models/TeleAI/TeleChat3-105B-A4.7B-Thinking/files)
 
 #### 数据集下载
 
