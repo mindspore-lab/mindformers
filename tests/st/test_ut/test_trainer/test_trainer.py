@@ -20,6 +20,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+# Import real MindFormerConfig
+from mindformers.tools.register import MindFormerConfig
+
+# Now import Trainer
+from mindformers.pynative.trainer import Trainer
+
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -132,12 +138,6 @@ mock_trainer_state_class = Mock()
 sys.modules['trainer'] = Mock()
 sys.modules['trainer.train_state'] = train_state_mock
 train_state_mock.TrainerState = mock_trainer_state_class
-
-# Import real MindFormerConfig
-from mindformers.tools.register import MindFormerConfig  # pylint: disable=wrong-import-position
-
-# Now import Trainer
-from mindformers.trainer_pynative.trainer import Trainer  # pylint: disable=wrong-import-position
 
 
 class TestTrainerTrain:

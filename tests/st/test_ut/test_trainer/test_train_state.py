@@ -18,10 +18,11 @@ import sys
 
 import pytest
 
+from mindformers.pynative.trainer.train_state import TrainerState
+
+
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
-
-from mindformers.trainer_pynative.train_state import TrainerState  # pylint: disable=wrong-import-position
 
 
 class TestTrainerState:
