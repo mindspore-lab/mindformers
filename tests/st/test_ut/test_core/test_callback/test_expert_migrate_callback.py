@@ -19,6 +19,8 @@ import numpy as np
 import pytest
 
 from mindformers.core.callback.callback import ExpertMigrateCallback
+from mindformers.parallel_core.transformer_config import TransformerConfig
+
 
 # pylint: disable=unused-argument   # for mock logic
 
@@ -31,7 +33,7 @@ class TestExpertMigrateCallback:
     @patch('mindformers.core.callback.callback.get_rank', return_value=0)
     def test_init(self, mock_rank):
         """Test ExpertMigrateCallback initialization and on_train_step_end."""
-        config = Mock()
+        config = TransformerConfig(kv_channels=1, num_layers=1)
         config.pipeline_model_parallel_size = 1
         config.data_parallel_size = 1
         config.tensor_model_parallel_size = 1
@@ -78,7 +80,7 @@ class TestExpertMigrateCallbackExtended:
     def test_expert_migrate_with_mtp_layers(self, mock_rank):
         """Test ExpertMigrateCallback with MTP layers"""
 
-        config = Mock()
+        config = TransformerConfig(kv_channels=1, num_layers=1)
         config.pipeline_model_parallel_size = 1
         config.data_parallel_size = 1
         config.tensor_model_parallel_size = 1
