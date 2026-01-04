@@ -3607,7 +3607,7 @@ class ExpertMigrateCallback(Callback):
 
             # Relocate all parameters
             for param in expert_param_list:
-                param_collected = Tensor(param.copy()).reshape(num_local_experts, -1)
+                param_collected = Tensor(param).reshape(num_local_experts, -1)
 
                 param_sorted = ms.mint.index_select(param_collected, 0, Tensor(local_expert_sorted_indices))
                 recv_tensor = ms.mint.zeros_like(param_collected)

@@ -292,6 +292,7 @@ def moe_eplb_print_expert_load():
     config.parallel.full_batch = False
     config.parallel.dataset_strategy = 'full_batch'
     config.model.model_config.print_expert_load = True
+    config.parallel.enable_parallel_optimizer = False
     build_context(config)
 
     construct_args_key = ['input_ids', 'labels']
@@ -321,6 +322,7 @@ def moe_eplb_expert_relocation():
     config.parallel.dataset_strategy = 'full_batch'
     config.model.model_config.print_expert_load = True
     config.model.model_config.enable_expert_relocation = True
+    config.parallel.enable_parallel_optimizer = False
     build_context(config)
 
     construct_args_key = ['input_ids', 'labels']
