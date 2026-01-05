@@ -459,8 +459,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             self.num_query_groups = self.num_attention_heads
 
         if self.context_parallel_size > 1 and not self.use_flash_attention:
-            raise ValueError(f"context_parallel is only available for flash attention for now, "
-                             f"please set use_flash_attention=True.")
+            raise ValueError("context_parallel is only available for flash attention for now, "
+                             "please set use_flash_attention=True.")
 
         if self.use_flash_attention:
             if self.use_eod_attn_mask_compression and not self.use_ring_attention:
@@ -507,7 +507,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
 
         if self.moe_shared_expert_intermediate_size is not None:
             if self.shared_expert_num == 0:
-                logger.warning(f"The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
+                logger.warning("The hidden-size of shared experts ('moe_shared_expert_intermediate_size') is set, "
                                "but get shared_expert_num = 0. The shared_expert_num will be ignored.")
             elif self.moe_shared_expert_intermediate_size != self.moe_ffn_hidden_size * self.shared_expert_num:
                 logger.warning(
@@ -650,7 +650,7 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
                 raise TypeError("'moe_layer_freq' should be <int> or <list[int]>, "
                                 f"but got {type(self.moe_layer_freq)}")
 
-        self.is_dryrun = (os.environ.get('MS_SIMULATION_LEVEL', '0') != '0')
+        self.is_dryrun = os.environ.get('MS_SIMULATION_LEVEL', '0') != '0'
 
         if isinstance(self.rope_scaling, dict):
             self.position_embedding_type = (self.rope_scaling.pop("type", None) or
@@ -666,6 +666,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             raise ValueError(
                 "When using bias_swiglu_fusion, hidden_act must be swiglu."
             )
+        elif self.bias_swiglu_fusion and self.hidden_act == 'swiglu':
+            self.hidden_act = 'fusedswiglu'
 
         if (self.moe_router_load_balancing_type is not None
                 and not isinstance(self.moe_router_load_balancing_type, str)):
