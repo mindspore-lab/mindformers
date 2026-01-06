@@ -19,9 +19,9 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore.communication import init
+from data_gen_utils import get_init_params
 from mindformers.parallel_core.training_graph.base_models.common.embeddings.yarn_rotary_pos_embedding import (
     YarnRotaryEmbedding)
-from data_gen_utils import get_init_params
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
 class YarnRotaryEmbeddingRunner:
@@ -36,6 +36,7 @@ class YarnRotaryEmbeddingRunner:
         self.original_max_position_embeddings = self.args.original_max_position_embeddings
         self.beta_fast = self.args.beta_fast
         self.beta_slow = self.args.beta_slow
+        self.mscale = self.args.mscale
         self.mscale_all_dim = self.args.mscale_all_dim
 
         init_params = get_init_params()
@@ -67,6 +68,7 @@ class YarnRotaryEmbeddingRunner:
             original_max_position_embeddings=self.original_max_position_embeddings,
             beta_fast=self.beta_fast,
             beta_slow=self.beta_slow,
+            mscale=self.mscale,
             mscale_all_dim=self.mscale_all_dim,
         )
         return net
@@ -98,6 +100,7 @@ def main():
     parser.add_argument("--original_max_position_embeddings", type=int, default=4096)
     parser.add_argument("--beta_fast", type=float, default=32.0)
     parser.add_argument("--beta_slow", type=float, default=1.0)
+    parser.add_argument("--mscale", type=float, default=1.0)
     parser.add_argument("--mscale_all_dim", type=float, default=0.0)
     parser.add_argument("--output_path", type=str, default="output_ms.npz")
     parser.add_argument("--tensor_parallel", type=int, default=1)
