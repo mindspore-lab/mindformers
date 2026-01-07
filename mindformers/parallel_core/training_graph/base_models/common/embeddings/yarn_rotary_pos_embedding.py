@@ -68,6 +68,15 @@ class YarnRotaryEmbedding(RotaryEmbedding):
                  mscale_all_dim: float = 0.0,
                  use_eod_reset: bool = False
                  ):
+        super().__init__(
+            kv_channels=kv_channels,
+            rotary_percent=rotary_percent,
+            rotary_interleaved=rotary_interleaved,
+            seq_len_interpolation_factor=seq_len_interpolation_factor,
+            rotary_base=rotary_base,
+            use_cpu_initialization=use_cpu_initialization,
+            use_eod_reset=use_eod_reset
+        )
         internal_freq_base = np.arange(0, kv_channels, 2)[: (kv_channels // 2)].astype(np.float32)
         internal_freq = 1.0 / (scaling_factor * rotary_base ** (internal_freq_base / kv_channels))
 
@@ -81,16 +90,6 @@ class YarnRotaryEmbedding(RotaryEmbedding):
 
         self.mscale = float(_yarn_get_mscale(scaling_factor, mscale) / _yarn_get_mscale(scaling_factor, mscale_all_dim))
         self.freqs = Tensor(freqs, dtype=ms.float32)
-
-        super().__init__(
-            kv_channels,
-            rotary_percent,
-            rotary_interleaved,
-            seq_len_interpolation_factor,
-            rotary_base,
-            use_cpu_initialization,
-            use_eod_reset
-        )
 
     def construct(self, max_seq_len: int, offset: int = 0, position_ids=None):
         """Generate rotary position embedding.
