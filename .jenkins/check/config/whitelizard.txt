@@ -44,3 +44,4 @@ mindformers/mindformers/models/llama/llama_config.py:__init__
 mindformers/research/deepseek3/deepseek3_config.py:__init__
 mindformers/research/telechat2/telechat_config.py:__init__
 mindformers/mindformers/tools/hub/hub.py:cached_file
+mindformers/mindformers/pynative/base_models/gpt/gpt_model.py:__init__
