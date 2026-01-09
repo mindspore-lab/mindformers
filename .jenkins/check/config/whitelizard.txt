@@ -48,3 +48,4 @@ mindformers/research/telechat3/telechat_transformer.py:__init__
 mindformers/research/telechat3/telechat_interleave.py:__init__
 mindformers/research/telechat3/telechat_interleave.py:__init__
 mindformers/research/telechat3/telechat.py:__init__
+mindformers/mindformers/pynative/base_models/gpt/gpt_model.py:__init__
