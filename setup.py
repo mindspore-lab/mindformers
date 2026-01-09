@@ -54,7 +54,7 @@ def get_description():
     os_info = get_platform()
     cpu_info = platform.machine().strip()
 
-    return 'mindformers platform: %s, cpu: %s' % (os_info, cpu_info)
+    return f'mindformers platform: {os_info}, cpu: {cpu_info}'
 
 
 def get_install_requires():
@@ -64,7 +64,7 @@ def get_install_requires():
     Returns:
         list, list of dependent packages.
     """
-    with open('requirements.txt') as file:
+    with open('requirements.txt', encoding='utf-8') as file:
         return file.read().strip().splitlines()
 
 
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     setup(
         name='mindformers',
-        version='1.7.0',
+        version='1.8.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
         url='https://www.mindspore.cn',

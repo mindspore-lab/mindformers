@@ -22,3 +22,4 @@ deprecated>=1.2.0
 pybind11 # for megatron dataset
 transformers==4.57.1
 datasets>=4.0.0
+mindspore~=2.7.2
