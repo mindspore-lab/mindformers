@@ -80,6 +80,7 @@ class Attention(nn.Cell):
         self.init_method = config.init_method
         self.output_layer_init_method = config.output_layer_init_method
         self.compute_dtype = self.config.compute_dtype
+        self.layernorm_compute_dtype = self.config.layernorm_compute_dtype
         self.hidden_size = self.config.hidden_size
         self.use_flash_attention = self.config.use_flash_attention
         self.parallel_config = self.config
@@ -301,7 +302,7 @@ class SelfAttention(Attention):
             self.q_layernorm = build_module(
                 submodules.q_layernorm,
                 dim=self.head_dim,
-                compute_dtype=self.compute_dtype,
+                compute_dtype=self.layernorm_compute_dtype,
                 params_dtype=self.config.params_dtype,
                 eps=self.config.layernorm_epsilon
             )
@@ -311,7 +312,7 @@ class SelfAttention(Attention):
         if submodules.k_layernorm is not None:
             self.k_layernorm = build_module(
                 submodules.k_layernorm,
-                compute_dtype=self.compute_dtype,
+                compute_dtype=self.layernorm_compute_dtype,
                 params_dtype=self.config.params_dtype,
                 dim=self.head_dim,
                 eps=self.config.layernorm_epsilon
