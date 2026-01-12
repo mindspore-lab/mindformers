@@ -60,8 +60,32 @@ def _check_mode(config, mode, **kwargs):
             _check_keyword_gen_dataset(config, mode, **kwargs)
 
         _rule_bs_divisible_by_dp(config, **kwargs)
+    elif mode == 'predict_with_train_model':
+        _check_predict_with_train_model(config) # check predict with train model
     else:
         raise ValueError(f"mode should be in ['train', 'predict', 'eval'], but get {mode}")
+
+
+def _check_predict_with_train_model(config):
+    """check predict with train model"""
+    dp, _, _, pp = get_parallel_strategy(config)
+    if dp > 1:
+        err_msg = f"data_parallel only support `1` when run_mode=`predict_with_train_model`, but get {dp}. " \
+                  f"Please set parallel_config.data_parallel = 1."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+    full_batch = ms.get_auto_parallel_context("full_batch")
+    if parallel_mode in ['semi_auto_parallel', 'auto_parallel'] and not full_batch:
+        err_msg = f"full_batch only support `True` when run_mode=`predict_with_train_model`, but get {full_batch}. " \
+                  f"Please set parallel.full_batch = True."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    if pp > 1:
+        logger.warning("pipeline_result_broadcast will be set to `True` when run_mode=`predict_with_train_model`")
+        ms.set_auto_parallel_context(pipeline_result_broadcast=True)
 
 
 def _restore_net_type(config):
@@ -148,8 +172,8 @@ def _check_moe_parallel_valid(config, mp):
     use_seq_parallel = False if config.parallel_config.use_seq_parallel is None \
         else config.parallel_config.use_seq_parallel
     if mp > 1 and not use_seq_parallel and is_moe_network:
-        raise ValueError(f"During training, performance may degrade if MoE and tensor parallelism "
-                         f"are enabled without also enabling sequence parallelism.")
+        raise ValueError("During training, performance may degrade if MoE and tensor parallelism "
+                         "are enabled without also enabling sequence parallelism.")
 
 
 def _check_parallel(config):
@@ -199,8 +223,8 @@ def _check_parallel(config):
     pipeline_scheduler = getattr(config.parallel.pipeline_config, 'pipeline_scheduler', None)
     if pipeline_scheduler != 'seqvpp':
         return
-    raise ValueError(f"It is not supported that pipeline_scheduler is seqvpp when seq_split_num is 1, "
-                     f"please set pipeline_scheduler to seqpipe.")
+    raise ValueError("It is not supported that pipeline_scheduler is seqvpp when seq_split_num is 1, "
+                     "please set pipeline_scheduler to seqpipe.")
 
 
 def _check_keyword_gen_dataset(config, mode, **kwargs):
@@ -306,8 +330,8 @@ def _check_config_campacity(config):
     use_seq_parallel = config.parallel_config.use_seq_parallel
     use_context_parallel = config.parallel_config.context_parallel and config.parallel_config.context_parallel > 1
     if fine_grain_interleave and fine_grain_interleave > 1 and not use_seq_parallel and not use_context_parallel:
-        raise ValueError(f"When use fine_grain_interleave without context_parallel, "
-                         f"use_seq_parallel must be set to 'True'.")
+        raise ValueError("When use fine_grain_interleave without context_parallel, "
+                         "use_seq_parallel must be set to 'True'.")
 
 
 def _rule_swap_no_pp(swap, key):
