@@ -285,6 +285,7 @@ class BaseTrainer:
             self.config.parallel_config.expert_parallel = 1
             self.config.parallel_config.pipeline_stage = 1
             self.config.parallel_config.micro_batch_num = 1
+            self.config.parallel_config.use_seq_parallel = False
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
         self.config.runner_config.global_batch_size = self.global_batch_size
@@ -1689,14 +1690,14 @@ class BaseTrainer:
             config = self.set_config(config, is_full_config)
 
             # check rules
-            check_rules(config, mode='predict', network=network, task=self.task)
+            check_rules(config, mode=config.run_mode, network=network, task=self.task)
 
             if ms.context.get_auto_parallel_context('parallel_mode') in \
                     ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
                 if task not in ["translation", "text_generation", "multi_modal_to_text_generation"]:
                     raise ValueError("Currently distributed predict only support translation and text_generation. "
                                      "Process exit!")
-                if config.parallel_config.pipeline_stage > 1:
+                if config.parallel_config.pipeline_stage > 1 and config.run_mode != "predict_with_train_model":
                     raise ValueError("Currently distributed predict dose not support pipeline parallel. "
                                      "Process exit!")
 
