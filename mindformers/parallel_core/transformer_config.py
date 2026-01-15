@@ -700,6 +700,8 @@ class TransformerConfig(ModelParallelConfig, MFModelConfig):
             raise ValueError(
                 "When using bias_swiglu_fusion, hidden_act must be swiglu."
             )
+        elif self.bias_swiglu_fusion and self.hidden_act == 'swiglu':
+            self.hidden_act = 'fusedswiglu'
 
         if (self.moe_router_load_balancing_type is not None
                 and not isinstance(self.moe_router_load_balancing_type, str)):
