@@ -29,6 +29,31 @@ from mindformers.core.callback.callback import CheckpointMonitor
 # pylint: disable=unused-argument   # for mock logic
 
 
+def create_test_directories(tmpdir, base_dir='test_ckpt', sub_dirs=None):
+    """Helper function to create test directory structure for checkpoint tests.
+
+    Args:
+        tmpdir: Temporary directory fixture
+        base_dir: Base directory name (default: 'test_ckpt')
+        sub_dirs: List of subdirectories to create (default:
+        ['checkpoint', 'checkpoint_network', 'checkpoint_trainable'])
+    """
+    if sub_dirs is None:
+        sub_dirs = ['checkpoint', 'checkpoint_network', 'checkpoint_trainable']
+
+    # 创建基础目录
+    tmpdir.mkdir(base_dir)
+
+    # 为每个子目录创建 rank_0 结构
+    for sub_dir in sub_dirs:
+        full_path = os.path.join(base_dir, sub_dir)
+        rank0_path = os.path.join(full_path, 'rank_0')
+
+        # 创建多级目录
+        tmpdir.mkdir(full_path)
+        tmpdir.mkdir(rank0_path)
+
+
 class TestCheckpointMonitor(unittest.TestCase):
     """Test cases for CheckpointMonitor class"""
 
@@ -932,12 +957,18 @@ class TestCheckpointMonitorSaveCheckpointNetwork:
     @patch('mindformers.core.callback.callback.ms.get_auto_parallel_context',
            return_value='stand_alone')
     def test_save_checkpoint_network_trainable_params(self, mock_parallel_ctx, mock_get_ctx,
-                                                      mock_makedirs, mock_time, mock_rank):
+                                                      mock_makedirs, mock_time, mock_rank, tmpdir):
         """Test save_checkpoint_network with save_trainable_params=True"""
+
+        # Use unique directory to avoid race condition in parallel tests
+        test_dir = str(tmpdir / 'test_ckpt')
+        # Pre-create all required directories to avoid mock recursion issues
+        create_test_directories(tmpdir)
+        mock_makedirs.return_value = None  # Mock just does nothing
 
         monitor = CheckpointMonitor(
             prefix='TEST',
-            directory='./test_ckpt',
+            directory=test_dir,
             save_trainable_params=True
         )
 
@@ -991,12 +1022,18 @@ class TestCheckpointMonitorSaveCheckpointNetwork:
     @patch('mindformers.core.callback.callback.get_real_rank', return_value=0)
     @patch('mindformers.core.callback.callback.time.time', return_value=1000.0)
     @patch('mindformers.core.callback.callback.os.makedirs')
-    def test_save_checkpoint_network_network_params(self, mock_makedirs, mock_time, mock_rank):
+    def test_save_checkpoint_network_network_params(self, mock_makedirs, mock_time, mock_rank, tmpdir):
         """Test save_checkpoint_network with save_network_params=True"""
+
+        # Use unique directory to avoid race condition in parallel tests
+        test_dir = str(tmpdir / 'test_ckpt')
+        # Pre-create all required directories to avoid mock recursion issues
+        create_test_directories(tmpdir)
+        mock_makedirs.return_value = None  # Mock just does nothing
 
         monitor = CheckpointMonitor(
             prefix='TEST',
-            directory='./test_ckpt',
+            directory=test_dir,
             save_network_params=True
         )
 
@@ -1045,12 +1082,18 @@ class TestCheckpointMonitorSaveCheckpointNetwork:
     def test_save_checkpoint_network_trainable_params_merged(
             self, mock_merged_data, mock_parallel_ctx,
             mock_get_ctx, mock_makedirs,
-            mock_time, mock_rank):
+            mock_time, mock_rank, tmpdir):
         """Test save_checkpoint_network merges param data in auto parallel"""
+
+        # Use unique directory to avoid race condition in parallel tests
+        test_dir = str(tmpdir / 'test_ckpt')
+        # Pre-create all required directories to avoid mock recursion issues
+        create_test_directories(tmpdir)
+        mock_makedirs.return_value = None  # Mock just does nothing
 
         monitor = CheckpointMonitor(
             prefix='TEST',
-            directory='./test_ckpt',
+            directory=test_dir,
             save_trainable_params=True
         )
 

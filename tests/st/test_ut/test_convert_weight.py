@@ -17,6 +17,7 @@
 import os
 import sys
 import shutil
+import uuid
 from unittest.mock import patch
 import torch
 import pytest
@@ -51,7 +52,9 @@ class TestConvertWeight:
     @classmethod
     def setup_class(cls):
         """ Setup test directory """
-        cls.test_dir = os.path.join(PROJECT_ROOT, "tests", "output", "test_convert_weight")
+        # Use unique directory to avoid race condition in parallel tests
+        unique_id = uuid.uuid4().hex[:8]
+        cls.test_dir = os.path.join(PROJECT_ROOT, "tests", "output", f"test_convert_weight_{unique_id}")
         if os.path.exists(cls.test_dir):
             shutil.rmtree(cls.test_dir)
         os.makedirs(cls.test_dir)
